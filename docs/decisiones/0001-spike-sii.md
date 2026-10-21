@@ -21,7 +21,8 @@ identificadores y valores tributarios reales.
 | COMPRA | RECLAMADO | 3 | null |
 | VENTA | REGISTRO | 3 | null |
 
-- Las cinco respuestas llegaron sin mensaje, errores, rechazo ni captcha.
+- Las cinco respuestas llegaron sin mensaje, errores ni rechazo. No se observaron
+  indicios de captcha en estas respuestas vacías.
   La evidencia solo muestra consultas vacías sin rechazo explícito; no confirma
   el significado del código 3 ni la clasificación de documentos por estado.
 - Campos observados en el sobre de respuesta de resumen: `data`, `totDocRes`,
@@ -33,7 +34,7 @@ identificadores y valores tributarios reales.
 ## S2 — F29 presentado (PDF compacto)
 
 - `formCompacto` devuelve PDF sin navegador: sí, con cabecera válida `%PDF-`.
-- Septiembre no tenía declaración. El script seleccionó un F29 presentado de
+- La consulta de septiembre devolvió `data: []`, sin errores. El script seleccionó un F29 presentado de
   un mes anterior y descargó su PDF compacto; no se registran el período concreto
   ni el folio.
 - La descarga está comprobada; la extracción del contenido y sus códigos aún
@@ -60,7 +61,7 @@ identificadores y valores tributarios reales.
 - `ESTADO_WIRE` (Tarea 12): conservar los literales `REGISTRO`, `PENDIENTE`,
   `NO_INCLUIR` y `RECLAMADO`. Queda pendiente validarlos con registros no vacíos
   para confirmar su clasificación y observar las filas de resumen y detalle.
-  La ausencia de captcha en el resumen no resuelve el requisito del detalle.
+  Estas respuestas vacías no permiten validar los requisitos del detalle.
 - Etiqueta que indica F29 vigente (Tarea 5, `declaracionVigente`): `/vigente/i`,
   a partir de la etiqueta `Vigente` observada.
 - Lector de PDF F29 (Tarea 13): seguir con `unpdf`. La viabilidad de descargar
