@@ -6,3 +6,4 @@ coverage/
 *.db-*
 .impuestocl/
 diagnostico/
+.spike/
