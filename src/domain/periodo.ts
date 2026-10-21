@@ -43,6 +43,7 @@ export function rangoPeriodos(desde: Periodo, hasta: Periodo, maximo = 120): Per
   for (let p = desde; compararPeriodos(p, hasta) <= 0; p = periodoSiguiente(p)) {
     out.push(p);
     if (out.length > maximo) throw new ErrorImpuestocl('PERIODO_INVALIDO', `El rango supera ${maximo} meses`);
+    if (compararPeriodos(p, hasta) === 0) break;
   }
   return out;
 }

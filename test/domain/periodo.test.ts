@@ -43,6 +43,13 @@ describe('periodo', () => {
     expect(() => rangoPeriodos(parsePeriodo('2000-01'), parsePeriodo('2026-01'))).toThrow(ErrorImpuestocl);
   });
 
+  it('incluye el último período permitido sin avanzar fuera del dominio', () => {
+    expect(rangoPeriodos(parsePeriodo('2100-11'), parsePeriodo('2100-12')).map((p) => p.texto)).toEqual([
+      '2100-11',
+      '2100-12',
+    ]);
+  });
+
   it('obtiene el período de una fecha', () => {
     expect(periodoDeFecha('2026-10-21').texto).toBe('2026-10');
   });
