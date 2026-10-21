@@ -1,0 +1,8 @@
+node_modules/
+dist/
+coverage/
+.env
+*.db
+*.db-*
+.impuestocl/
+diagnostico/
