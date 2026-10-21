@@ -1,8 +1,43 @@
 import { createHash } from 'node:crypto';
-import type { Perfil, RespuestaCruda, TipoContribuyente } from '../../domain/tipos.js';
+import {
+  claveDocumento,
+  type DocumentoRcv,
+  type EstadoRcv,
+  type F29Declaracion,
+  type F29Valores,
+  type Hallazgo,
+  type Lado,
+  type Naturaleza,
+  type Perfil,
+  type RcvResumen,
+  type RcvResumenFila,
+  type RespuestaCruda,
+  type Severidad,
+  type SnapshotRcv,
+  type TipoContribuyente,
+} from '../../domain/tipos.js';
+import type { FiltroDocumentos, FiltroHallazgos, Frescura, HallazgoGuardado, Store } from '../../ports/index.js';
 import type { Db } from './db.js';
 
 export const sha256 = (texto: string): string => createHash('sha256').update(texto).digest('hex');
+
+/** Huella estable de un documento: solo campos con significado tributario, en orden fijo. */
+export const huellaDocumento = (d: DocumentoRcv): string =>
+  sha256(
+    [
+      d.estado,
+      d.tipoDoc,
+      d.rutContraparte,
+      d.folio,
+      d.fechaEmision ?? '',
+      d.montoExento,
+      d.montoNeto,
+      d.montoIva,
+      d.montoIvaNoRecuperable,
+      d.montoIvaUsoComun,
+      d.montoTotal,
+    ].join('|'),
+  );
 
 interface FilaContribuyente {
   rut: string;
@@ -10,6 +45,59 @@ interface FilaContribuyente {
   tipo: TipoContribuyente;
   razon_social: string | null;
   representa_json: string;
+}
+interface FilaResumen {
+  lado: Lado;
+  estado_rcv: EstadoRcv;
+  tipo_doc: number;
+  descripcion: string | null;
+  cantidad: number;
+  exento: number;
+  neto: number;
+  iva: number;
+  total: number;
+}
+interface FilaDocumento {
+  rut: string;
+  periodo: string;
+  lado: Lado;
+  estado_rcv: EstadoRcv;
+  tipo_doc: number;
+  rut_contraparte: string;
+  folio: number;
+  razon_social: string | null;
+  fecha_emision: string | null;
+  fecha_recepcion: string | null;
+  fecha_acuse: string | null;
+  monto_exento: number;
+  monto_neto: number;
+  monto_iva: number;
+  monto_iva_no_recuperable: number;
+  monto_iva_uso_comun: number;
+  monto_total: number;
+  tipo_compra: string | null;
+  evento_receptor: string | null;
+}
+interface FilaDeclaracion {
+  rut: string;
+  periodo: string;
+  folio: number;
+  estado: string;
+  fecha_presentacion: string | null;
+  codigo_interno: number | null;
+  total_a_pagar: number | null;
+}
+interface FilaHallazgo {
+  rut: string;
+  periodo: string;
+  regla: string;
+  severidad: Severidad;
+  naturaleza: Naturaleza;
+  titulo: string;
+  detalle: string;
+  datos_json: string;
+  version_reglas: string;
+  calculado_en: string;
 }
 
 const aPerfil = (f: FilaContribuyente): Perfil => ({
@@ -20,9 +108,42 @@ const aPerfil = (f: FilaContribuyente): Perfil => ({
   representa: JSON.parse(f.representa_json) as string[],
 });
 
-export class SqliteStore {
+const aDocumento = (f: FilaDocumento): DocumentoRcv => ({
+  rut: f.rut,
+  periodo: f.periodo,
+  lado: f.lado,
+  estado: f.estado_rcv,
+  tipoDoc: f.tipo_doc,
+  rutContraparte: f.rut_contraparte,
+  folio: f.folio,
+  razonSocial: f.razon_social,
+  fechaEmision: f.fecha_emision,
+  fechaRecepcion: f.fecha_recepcion,
+  fechaAcuse: f.fecha_acuse,
+  montoExento: f.monto_exento,
+  montoNeto: f.monto_neto,
+  montoIva: f.monto_iva,
+  montoIvaNoRecuperable: f.monto_iva_no_recuperable,
+  montoIvaUsoComun: f.monto_iva_uso_comun,
+  montoTotal: f.monto_total,
+  tipoCompra: f.tipo_compra,
+  eventoReceptor: f.evento_receptor,
+});
+
+const aDeclaracion = (f: FilaDeclaracion): F29Declaracion => ({
+  rut: f.rut,
+  periodo: f.periodo,
+  folio: f.folio,
+  estado: f.estado,
+  fechaPresentacion: f.fecha_presentacion,
+  codigoInterno: f.codigo_interno,
+  totalAPagar: f.total_a_pagar,
+});
+
+export class SqliteStore implements Store {
   constructor(private readonly db: Db) {}
 
+  // --- contribuyentes ------------------------------------------------------------------
   guardarContribuyente(perfil: Perfil): void {
     this.db
       .prepare(
@@ -46,6 +167,7 @@ export class SqliteStore {
     return (this.db.prepare('SELECT rut, alias, tipo, razon_social, representa_json FROM contribuyente ORDER BY alias').all() as FilaContribuyente[]).map(aPerfil);
   }
 
+  // --- sincronizaciones y evidencia -----------------------------------------------------
   iniciarSincronizacion(rut: string, superficie: string, periodo: string, inicio: string): number {
     const r = this.db.prepare('INSERT INTO sincronizacion (rut, superficie, periodo, iniciado_en) VALUES (?, ?, ?, ?)').run(rut, superficie, periodo, inicio);
     return Number(r.lastInsertRowid);
@@ -61,5 +183,204 @@ export class SqliteStore {
     this.db
       .prepare('INSERT INTO respuesta_cruda (sincronizacion_id, superficie, parametros_json, cuerpo, sha256, obtenido_en) VALUES (?, ?, ?, ?, ?, ?)')
       .run(sincronizacionId, respuesta.superficie, JSON.stringify(respuesta.parametros), respuesta.cuerpo, sha256(respuesta.cuerpo), respuesta.obtenidoEn);
+  }
+
+  // --- RCV --------------------------------------------------------------------------------
+  reemplazarRcv(
+    sincronizacionId: number,
+    rut: string,
+    periodo: string,
+    lado: Lado,
+    resumenes: readonly RcvResumen[],
+    documentos: readonly DocumentoRcv[],
+    obtenidoEn: string,
+  ): void {
+    const insResumen = this.db.prepare(
+      `INSERT OR REPLACE INTO rcv_resumen (rut, periodo, lado, estado_rcv, tipo_doc, descripcion, cantidad, exento, neto, iva, total, sincronizacion_id, obtenido_en)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    const insDocumento = this.db.prepare(
+      `INSERT OR REPLACE INTO rcv_documento (rut, periodo, lado, estado_rcv, tipo_doc, rut_contraparte, folio, razon_social, fecha_emision, fecha_recepcion, fecha_acuse,
+         monto_exento, monto_neto, monto_iva, monto_iva_no_recuperable, monto_iva_uso_comun, monto_total, tipo_compra, evento_receptor, sincronizacion_id, obtenido_en)
+       VALUES (@rut, @periodo, @lado, @estado, @tipoDoc, @rutContraparte, @folio, @razonSocial, @fechaEmision, @fechaRecepcion, @fechaAcuse,
+         @montoExento, @montoNeto, @montoIva, @montoIvaNoRecuperable, @montoIvaUsoComun, @montoTotal, @tipoCompra, @eventoReceptor, @sincronizacionId, @obtenidoEn)`,
+    );
+    const insSnapshot = this.db.prepare(
+      'INSERT OR REPLACE INTO rcv_documento_snapshot (sincronizacion_id, rut, periodo, clave_doc, estado_rcv, sha256_fila) VALUES (?, ?, ?, ?, ?, ?)',
+    );
+    this.db.transaction(() => {
+      this.db.prepare('DELETE FROM rcv_resumen WHERE rut = ? AND periodo = ? AND lado = ?').run(rut, periodo, lado);
+      this.db.prepare('DELETE FROM rcv_documento WHERE rut = ? AND periodo = ? AND lado = ?').run(rut, periodo, lado);
+      for (const r of resumenes) {
+        for (const f of r.filas) {
+          insResumen.run(rut, periodo, lado, r.estado, f.tipoDoc, f.descripcion, f.cantidad, f.exento, f.neto, f.iva, f.total, sincronizacionId, obtenidoEn);
+        }
+      }
+      for (const d of documentos) {
+        insDocumento.run({ ...d, rut, periodo, lado, sincronizacionId, obtenidoEn });
+        insSnapshot.run(sincronizacionId, rut, periodo, claveDocumento(d), d.estado, huellaDocumento(d));
+      }
+    })();
+  }
+
+  resumenesRcv(rut: string, periodo: string): RcvResumen[] {
+    const filas = this.db
+      .prepare('SELECT lado, estado_rcv, tipo_doc, descripcion, cantidad, exento, neto, iva, total FROM rcv_resumen WHERE rut = ? AND periodo = ? ORDER BY lado, estado_rcv, tipo_doc')
+      .all(rut, periodo) as FilaResumen[];
+    const grupos = new Map<string, { lado: Lado; estado: EstadoRcv; filas: RcvResumenFila[] }>();
+    for (const f of filas) {
+      const clave = `${f.lado}|${f.estado_rcv}`;
+      let grupo = grupos.get(clave);
+      if (!grupo) {
+        grupo = { lado: f.lado, estado: f.estado_rcv, filas: [] };
+        grupos.set(clave, grupo);
+      }
+      grupo.filas.push({ tipoDoc: f.tipo_doc, descripcion: f.descripcion, cantidad: f.cantidad, exento: f.exento, neto: f.neto, iva: f.iva, total: f.total });
+    }
+    return [...grupos.values()].map((g) => ({ rut, periodo, lado: g.lado, estado: g.estado, filas: g.filas }));
+  }
+
+  documentosRcv(rut: string, periodo: string, filtro: FiltroDocumentos = {}): DocumentoRcv[] {
+    const condiciones = ['rut = @rut', 'periodo = @periodo'];
+    const parametros: Record<string, unknown> = { rut, periodo };
+    if (filtro.lado) {
+      condiciones.push('lado = @lado');
+      parametros['lado'] = filtro.lado;
+    }
+    if (filtro.estado) {
+      condiciones.push('estado_rcv = @estado');
+      parametros['estado'] = filtro.estado;
+    }
+    if (filtro.tipoDoc !== undefined) {
+      condiciones.push('tipo_doc = @tipoDoc');
+      parametros['tipoDoc'] = filtro.tipoDoc;
+    }
+    if (filtro.rutContraparte) {
+      condiciones.push('rut_contraparte = @rutContraparte');
+      parametros['rutContraparte'] = filtro.rutContraparte;
+    }
+    const filas = this.db
+      .prepare(`SELECT * FROM rcv_documento WHERE ${condiciones.join(' AND ')} ORDER BY lado, tipo_doc, folio`)
+      .all(parametros) as FilaDocumento[];
+    return filas.map(aDocumento);
+  }
+
+  snapshotsRcv(rut: string, periodo: string): SnapshotRcv[] {
+    const sincronizaciones = this.db
+      .prepare(
+        `SELECT id, superficie, iniciado_en FROM sincronizacion
+         WHERE rut = ? AND periodo = ? AND superficie IN ('rcv.VENTA', 'rcv.COMPRA') AND estado = 'ok'
+         ORDER BY iniciado_en, id`,
+      )
+      .all(rut, periodo) as { id: number; superficie: string; iniciado_en: string }[];
+    const filas = this.db.prepare('SELECT clave_doc, estado_rcv, sha256_fila FROM rcv_documento_snapshot WHERE sincronizacion_id = ? ORDER BY clave_doc');
+    return sincronizaciones.map((s) => ({
+      sincronizacionId: s.id,
+      lado: s.superficie === 'rcv.VENTA' ? 'VENTA' : 'COMPRA',
+      obtenidoEn: s.iniciado_en,
+      filas: (filas.all(s.id) as { clave_doc: string; estado_rcv: EstadoRcv; sha256_fila: string }[]).map((f) => ({
+        clave: f.clave_doc,
+        estado: f.estado_rcv,
+        sha: f.sha256_fila,
+      })),
+    }));
+  }
+
+  // --- F29 ----------------------------------------------------------------------------------
+  guardarF29(
+    sincronizacionId: number,
+    rut: string,
+    periodo: string,
+    declaraciones: readonly F29Declaracion[],
+    valores: readonly F29Valores[],
+    obtenidoEn: string,
+  ): void {
+    const insDeclaracion = this.db.prepare(
+      `INSERT OR REPLACE INTO f29_declaracion (rut, periodo, folio, estado, fecha_presentacion, codigo_interno, total_a_pagar, sincronizacion_id, obtenido_en)
+       VALUES (@rut, @periodo, @folio, @estado, @fechaPresentacion, @codigoInterno, @totalAPagar, @sincronizacionId, @obtenidoEn)`,
+    );
+    const insValor = this.db.prepare('INSERT OR REPLACE INTO f29_valor (rut, periodo, folio, codigo, valor) VALUES (?, ?, ?, ?, ?)');
+    this.db.transaction(() => {
+      this.db.prepare('DELETE FROM f29_declaracion WHERE rut = ? AND periodo = ?').run(rut, periodo);
+      this.db.prepare('DELETE FROM f29_valor WHERE rut = ? AND periodo = ?').run(rut, periodo);
+      for (const d of declaraciones) insDeclaracion.run({ ...d, rut, periodo, sincronizacionId, obtenidoEn });
+      for (const v of valores) for (const [codigo, valor] of Object.entries(v.valores)) insValor.run(rut, periodo, v.folio, codigo, valor);
+    })();
+  }
+
+  declaracionesF29(rut: string, periodo: string): F29Declaracion[] {
+    return (this.db.prepare('SELECT * FROM f29_declaracion WHERE rut = ? AND periodo = ? ORDER BY folio').all(rut, periodo) as FilaDeclaracion[]).map(aDeclaracion);
+  }
+
+  valoresF29(rut: string, periodo: string, folio: number): F29Valores | null {
+    const filas = this.db.prepare('SELECT codigo, valor FROM f29_valor WHERE rut = ? AND periodo = ? AND folio = ?').all(rut, periodo, folio) as { codigo: string; valor: number }[];
+    if (filas.length === 0) return null;
+    return { rut, periodo, folio, valores: Object.fromEntries(filas.map((f) => [f.codigo, f.valor])) };
+  }
+
+  // --- frescura ---------------------------------------------------------------------------
+  frescura(rut: string, periodo: string): Frescura {
+    const consulta = this.db.prepare(`SELECT MAX(terminado_en) AS t FROM sincronizacion WHERE rut = ? AND periodo = ? AND estado = 'ok' AND superficie LIKE ?`);
+    return {
+      rcv: (consulta.get(rut, periodo, 'rcv.%') as { t: string | null }).t,
+      f29: (consulta.get(rut, periodo, 'f29') as { t: string | null }).t,
+    };
+  }
+
+  periodosConDatos(rut: string): string[] {
+    return (this.db.prepare(`SELECT DISTINCT periodo FROM sincronizacion WHERE rut = ? AND estado = 'ok' ORDER BY periodo`).all(rut) as { periodo: string }[]).map((f) => f.periodo);
+  }
+
+  // --- hallazgos ----------------------------------------------------------------------------
+  reemplazarHallazgos(rut: string, periodo: string, hallazgos: readonly Hallazgo[], versionReglas: string, calculadoEn: string): void {
+    const ins = this.db.prepare(
+      `INSERT INTO hallazgo (rut, periodo, regla, severidad, naturaleza, titulo, detalle, datos_json, version_reglas, calculado_en)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    this.db.transaction(() => {
+      this.db.prepare('DELETE FROM hallazgo WHERE rut = ? AND periodo = ?').run(rut, periodo);
+      for (const h of hallazgos) {
+        ins.run(rut, periodo, h.regla, h.severidad, h.naturaleza, h.titulo, h.detalle, JSON.stringify({ montos: h.montos, evidencia: h.evidencia }), versionReglas, calculadoEn);
+      }
+    })();
+  }
+
+  hallazgos(rut: string, filtro: FiltroHallazgos = {}): HallazgoGuardado[] {
+    const condiciones = ['rut = @rut'];
+    const parametros: Record<string, unknown> = { rut };
+    if (filtro.desde) {
+      condiciones.push('periodo >= @desde');
+      parametros['desde'] = filtro.desde;
+    }
+    if (filtro.hasta) {
+      condiciones.push('periodo <= @hasta');
+      parametros['hasta'] = filtro.hasta;
+    }
+    if (filtro.severidad) {
+      condiciones.push('severidad = @severidad');
+      parametros['severidad'] = filtro.severidad;
+    }
+    const filas = this.db
+      .prepare(
+        `SELECT * FROM hallazgo WHERE ${condiciones.join(' AND ')}
+         ORDER BY periodo DESC, CASE severidad WHEN 'critico' THEN 0 WHEN 'advertencia' THEN 1 ELSE 2 END, id`,
+      )
+      .all(parametros) as FilaHallazgo[];
+    return filas.map((f) => {
+      const datos = JSON.parse(f.datos_json) as { montos: Hallazgo['montos']; evidencia: string[] };
+      return {
+        regla: f.regla,
+        severidad: f.severidad,
+        naturaleza: f.naturaleza,
+        rut: f.rut,
+        periodo: f.periodo,
+        titulo: f.titulo,
+        detalle: f.detalle,
+        montos: datos.montos,
+        evidencia: datos.evidencia,
+        versionReglas: f.version_reglas,
+        calculadoEn: f.calculado_en,
+      };
+    });
   }
 }
