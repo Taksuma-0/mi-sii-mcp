@@ -1,0 +1,54 @@
+{
+  "name": "impuestocl",
+  "version": "0.1.0",
+  "description": "Herramienta tributaria chilena (CLI + MCP): IVA mensual conciliado con datos del SII",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "impuestocl": "dist/interfaces/cli/bin.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "docs/guias"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": [
+    "sii",
+    "chile",
+    "impuestos",
+    "iva",
+    "f29",
+    "rcv",
+    "mcp"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "dev": "tsx src/interfaces/cli/bin.ts",
+    "verificar:vivo": "tsx scripts/verificar-vivo.ts",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.3.1",
+    "@napi-rs/keyring": "^2.1.2",
+    "better-sqlite3": "^13.0.3",
+    "commander": "^15.0.0",
+    "tough-cookie": "^6.0.2",
+    "unpdf": "^1.9.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "^2.3.1",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.6.5",
+    "pdf-lib": "^1.17.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}
