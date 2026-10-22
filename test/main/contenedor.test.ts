@@ -1,9 +1,10 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cargarConfig } from '../../src/main/config.js';
 import { crearContenedor } from '../../src/main/contenedor.js';
+import * as sqlite from '../../src/store/sqlite/db.js';
 import { SecretosEnMemoria } from '../helpers/secretos.js';
 
 describe('configuración y contenedor', () => {
@@ -46,6 +47,22 @@ describe('configuración y contenedor', () => {
       expect(readFileSync(join(home, 'diagnostico', 'prueba.json'), 'utf8')).toBe('{"ok":true}');
     } finally {
       c.cerrar();
+    }
+  });
+
+  it('crearContenedor cierra la base y conserva el error si no puede crear el directorio de sesiones', () => {
+    const config = cargarConfig({ IMPUESTOCL_HOME: home });
+    writeFileSync(config.dirSesiones, 'archivo que impide crear el directorio');
+    const db = sqlite.abrirDb(config.rutaDb);
+    const abrirDb = vi.spyOn(sqlite, 'abrirDb').mockReturnValue(db);
+    try {
+      expect(() => crearContenedor({ config, secretos: new SecretosEnMemoria() })).toThrowError(
+        expect.objectContaining({ code: 'EEXIST', path: config.dirSesiones }),
+      );
+      expect(db.open).toBe(false);
+    } finally {
+      abrirDb.mockRestore();
+      if (db.open) db.close();
     }
   });
 });

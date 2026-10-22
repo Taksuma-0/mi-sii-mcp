@@ -21,18 +21,23 @@ export function crearContenedor(o: { config?: Config; secretos?: SecretStore; op
   const config = o.config ?? cargarConfig();
   mkdirSync(config.home, { recursive: true });
   const db = abrirDb(config.rutaDb);
-  const sesiones = new GestorSesiones(config.dirSesiones, o.secretos ?? new LlaveroSistema(), { intervaloMinMs: config.intervaloMinMs, ...o.opcionesHttp });
-  const deps: DepsApp = {
-    store: new SqliteStore(db),
-    sesiones,
-    reloj: { ahora: () => new Date() },
-    toleranciaPesos: config.toleranciaPesos,
-    abrirSii: async (rut, sumidero) => new LectorPortalSii(await sesiones.sesionActiva(rut), sumidero),
-    diagnostico: (nombre, contenido) => {
-      mkdirSync(config.dirDiagnostico, { recursive: true });
-      writeFileSync(join(config.dirDiagnostico, nombre), contenido, { mode: 0o600 });
-    },
-    alTerminarSync: (rut) => sesiones.persistir(rut),
-  };
-  return { config, deps, sesiones, cerrar: () => db.close() };
+  try {
+    const sesiones = new GestorSesiones(config.dirSesiones, o.secretos ?? new LlaveroSistema(), { intervaloMinMs: config.intervaloMinMs, ...o.opcionesHttp });
+    const deps: DepsApp = {
+      store: new SqliteStore(db),
+      sesiones,
+      reloj: { ahora: () => new Date() },
+      toleranciaPesos: config.toleranciaPesos,
+      abrirSii: async (rut, sumidero) => new LectorPortalSii(await sesiones.sesionActiva(rut), sumidero),
+      diagnostico: (nombre, contenido) => {
+        mkdirSync(config.dirDiagnostico, { recursive: true });
+        writeFileSync(join(config.dirDiagnostico, nombre), contenido, { mode: 0o600 });
+      },
+      alTerminarSync: (rut) => sesiones.persistir(rut),
+    };
+    return { config, deps, sesiones, cerrar: () => db.close() };
+  } catch (error) {
+    db.close();
+    throw error;
+  }
 }
