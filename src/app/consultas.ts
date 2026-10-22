@@ -1,0 +1,200 @@
+import { vencimientoF29, vencimientoReclamo } from '../calendar/plazos.js';
+import { ErrorImpuestocl } from '../domain/errores.js';
+import { declaracionVigente } from '../domain/f29.js';
+import { diasEntre, fechaEnSantiago } from '../domain/fechas.js';
+import { formatearClp, nombreTipoDocumento } from '../domain/formato.js';
+import { compararPeriodos, parsePeriodo, periodoAnterior, periodoDeFecha, rangoPeriodos, restarPeriodos, type Periodo } from '../domain/periodo.js';
+import { parseRut } from '../domain/rut.js';
+import {
+  claveDocumento,
+  type DocumentoRcv,
+  type EstadoRcv,
+  type F29Valores,
+  type Hallazgo,
+  type Lado,
+  type Perfil,
+  type Plazo,
+  type RcvResumenFila,
+} from '../domain/tipos.js';
+import type { FiltroDocumentos, FiltroHallazgos, Frescura, HallazgoGuardado } from '../ports/index.js';
+import { conciliarPeriodo, type Comparaciones } from '../reconciliation/conciliar.js';
+import { CODIGO_F29 } from '../reconciliation/mapeo-f29.js';
+import type { EntradaConciliacion } from '../reconciliation/reglas.js';
+import type { DepsApp } from './deps.js';
+
+export interface ResumenIva {
+  readonly rut: string;
+  readonly periodo: string;
+  readonly ventas: { readonly porTipo: readonly RcvResumenFila[]; readonly debito: number };
+  readonly compras: { readonly porTipo: readonly RcvResumenFila[]; readonly credito: number; readonly pendientes: number; readonly reclamados: number };
+  readonly f29: {
+    readonly folio: number;
+    readonly estado: string;
+    readonly fechaPresentacion: string | null;
+    readonly totalAPagar: number | null;
+    readonly valores: Readonly<Record<string, number>>;
+  } | null;
+  readonly venceF29: string;
+  readonly comparaciones: Comparaciones;
+  readonly hallazgos: readonly Hallazgo[];
+  readonly frescura: Frescura;
+}
+
+export interface FilaHistorialF29 {
+  readonly periodo: string;
+  readonly presentado: boolean;
+  readonly folio: number | null;
+  readonly estado: string | null;
+  readonly fechaPresentacion: string | null;
+  readonly totalAPagar: number | null;
+  readonly debitos: number | null;
+  readonly creditos: number | null;
+  /** Último momento en que se consultó el F29 de ese mes, o null si nunca. */
+  readonly sincronizado: string | null;
+}
+
+export interface PaginaDocumentos {
+  readonly total: number;
+  readonly pagina: number;
+  readonly tamano: number;
+  readonly documentos: readonly DocumentoRcv[];
+}
+
+export function perfilExistente(deps: DepsApp, rutTexto: string): Perfil {
+  const rut = parseRut(rutTexto).canonico;
+  const perfil = deps.store.contribuyente(rut);
+  if (!perfil) throw new ErrorImpuestocl('PERFIL_NO_EXISTE', `No existe el perfil ${rut}.`);
+  return perfil;
+}
+
+const hoy = (deps: DepsApp): string => fechaEnSantiago(deps.reloj.ahora());
+
+function valoresVigentes(deps: DepsApp, rut: string, periodo: string): F29Valores | null {
+  const vigente = declaracionVigente(deps.store.declaracionesF29(rut, periodo));
+  return vigente ? deps.store.valoresF29(rut, periodo, vigente.folio) : null;
+}
+
+function conciliarYGuardar(deps: DepsApp, perfil: Perfil, periodo: Periodo) {
+  const declaraciones = deps.store.declaracionesF29(perfil.rut, periodo.texto);
+  const vigente = declaracionVigente(declaraciones);
+  const entrada: EntradaConciliacion = {
+    rut: perfil.rut,
+    tipo: perfil.tipo,
+    periodo,
+    hoy: hoy(deps),
+    resumenes: deps.store.resumenesRcv(perfil.rut, periodo.texto),
+    documentos: deps.store.documentosRcv(perfil.rut, periodo.texto),
+    declaraciones,
+    valores: vigente ? deps.store.valoresF29(perfil.rut, periodo.texto, vigente.folio) : null,
+    valoresAnterior: valoresVigentes(deps, perfil.rut, periodoAnterior(periodo).texto),
+    snapshots: deps.store.snapshotsRcv(perfil.rut, periodo.texto),
+    toleranciaPesos: deps.toleranciaPesos,
+  };
+  const resultado = conciliarPeriodo(entrada);
+  deps.store.reemplazarHallazgos(perfil.rut, periodo.texto, resultado.hallazgos, resultado.versionReglas, deps.reloj.ahora().toISOString());
+  return { entrada, resultado, vigente };
+}
+
+export function resumenIva(deps: DepsApp, rutTexto: string, periodoTexto: string): ResumenIva {
+  const perfil = perfilExistente(deps, rutTexto);
+  const periodo = parsePeriodo(periodoTexto);
+  const { entrada, resultado, vigente } = conciliarYGuardar(deps, perfil, periodo);
+  const filas = (lado: Lado, estado: EstadoRcv): RcvResumenFila[] =>
+    entrada.resumenes.filter((r) => r.lado === lado && r.estado === estado).flatMap((r) => [...r.filas]);
+  const cantidad = (estado: EstadoRcv): number => filas('COMPRA', estado).reduce((s, f) => s + f.cantidad, 0);
+  return {
+    rut: perfil.rut,
+    periodo: periodo.texto,
+    ventas: { porTipo: filas('VENTA', 'REGISTRO'), debito: resultado.comparaciones.debitoRcv },
+    compras: { porTipo: filas('COMPRA', 'REGISTRO'), credito: resultado.comparaciones.creditoRcv, pendientes: cantidad('PENDIENTE'), reclamados: cantidad('RECLAMADO') },
+    f29: vigente
+      ? { folio: vigente.folio, estado: vigente.estado, fechaPresentacion: vigente.fechaPresentacion, totalAPagar: vigente.totalAPagar, valores: entrada.valores?.valores ?? {} }
+      : null,
+    venceF29: vencimientoF29(periodo),
+    comparaciones: resultado.comparaciones,
+    hallazgos: resultado.hallazgos,
+    frescura: deps.store.frescura(perfil.rut, periodo.texto),
+  };
+}
+
+export function hallazgos(deps: DepsApp, rutTexto: string, filtro: FiltroHallazgos = {}): HallazgoGuardado[] {
+  const perfil = perfilExistente(deps, rutTexto);
+  for (const p of deps.store.periodosConDatos(perfil.rut)) {
+    if ((filtro.desde && p < filtro.desde) || (filtro.hasta && p > filtro.hasta)) continue;
+    conciliarYGuardar(deps, perfil, parsePeriodo(p));
+  }
+  return deps.store.hallazgos(perfil.rut, filtro);
+}
+
+export function plazos(deps: DepsApp, rutTexto: string, dias = 30): Plazo[] {
+  const perfil = perfilExistente(deps, rutTexto);
+  const fechaHoy = hoy(deps);
+  const actual = periodoDeFecha(fechaHoy);
+  const limite = restarPeriodos(actual, 12);
+  const out: Plazo[] = [];
+
+  const candidatos = new Set<string>([periodoAnterior(actual).texto, ...deps.store.periodosConDatos(perfil.rut)]);
+  for (const texto of [...candidatos].sort()) {
+    const periodo = parsePeriodo(texto);
+    if (compararPeriodos(periodo, actual) >= 0 || compararPeriodos(periodo, limite) < 0) continue;
+    if (declaracionVigente(deps.store.declaracionesF29(perfil.rut, texto))) continue;
+    const sincronizado = deps.store.frescura(perfil.rut, texto).f29 !== null;
+    const conMovimiento = deps.store.resumenesRcv(perfil.rut, texto).some((r) => r.estado === 'REGISTRO' && r.filas.some((f) => f.cantidad > 0));
+    if (perfil.tipo !== 'empresa' && !conMovimiento) continue;
+    const vence = vencimientoF29(periodo);
+    const restantes = diasEntre(fechaHoy, vence);
+    if (restantes > dias) continue;
+    const descripcion = !sincronizado
+      ? `F29 de ${texto}: sin sincronizar; ejecuta sync para confirmar si está presentado`
+      : restantes < 0
+        ? `F29 de ${texto} no presentado (vencido)`
+        : `Presentar el F29 de ${texto}`;
+    out.push({ rut: perfil.rut, tipo: 'F29', vence, diasRestantes: restantes, descripcion, referencia: texto });
+  }
+
+  for (const texto of [periodoAnterior(actual).texto, actual.texto]) {
+    for (const d of deps.store.documentosRcv(perfil.rut, texto, { lado: 'COMPRA', estado: 'PENDIENTE' })) {
+      if (!d.fechaRecepcion) continue;
+      const vence = vencimientoReclamo(d.fechaRecepcion);
+      const restantes = diasEntre(fechaHoy, vence);
+      if (restantes < 0 || restantes > dias) continue;
+      out.push({
+        rut: perfil.rut,
+        tipo: 'RECLAMO_FACTURA',
+        vence,
+        diasRestantes: restantes,
+        descripcion: `Aceptar o reclamar ${nombreTipoDocumento(d.tipoDoc)} folio ${d.folio} de ${d.razonSocial ?? d.rutContraparte} (${formatearClp(d.montoTotal)})`,
+        referencia: claveDocumento(d),
+      });
+    }
+  }
+  return out.sort((a, b) => a.vence.localeCompare(b.vence) || a.tipo.localeCompare(b.tipo));
+}
+
+export function f29Historial(deps: DepsApp, rutTexto: string, desde: string, hasta: string): FilaHistorialF29[] {
+  const perfil = perfilExistente(deps, rutTexto);
+  return rangoPeriodos(parsePeriodo(desde), parsePeriodo(hasta)).map((periodo) => {
+    const vigente = declaracionVigente(deps.store.declaracionesF29(perfil.rut, periodo.texto));
+    const valores = vigente ? deps.store.valoresF29(perfil.rut, periodo.texto, vigente.folio) : null;
+    return {
+      periodo: periodo.texto,
+      presentado: vigente !== null,
+      folio: vigente?.folio ?? null,
+      estado: vigente?.estado ?? null,
+      fechaPresentacion: vigente?.fechaPresentacion ?? null,
+      totalAPagar: vigente?.totalAPagar ?? null,
+      debitos: valores?.valores[CODIGO_F29.TOTAL_DEBITOS] ?? null,
+      creditos: valores?.valores[CODIGO_F29.TOTAL_CREDITOS] ?? null,
+      sincronizado: deps.store.frescura(perfil.rut, periodo.texto).f29,
+    };
+  });
+}
+
+export function documentos(deps: DepsApp, rutTexto: string, periodoTexto: string, filtro: FiltroDocumentos = {}, pagina = 1, tamano = 50): PaginaDocumentos {
+  const perfil = perfilExistente(deps, rutTexto);
+  const periodo = parsePeriodo(periodoTexto);
+  const todos = deps.store.documentosRcv(perfil.rut, periodo.texto, filtro);
+  const p = Math.max(1, Math.trunc(pagina));
+  const t = Math.min(200, Math.max(1, Math.trunc(tamano)));
+  return { total: todos.length, pagina: p, tamano: t, documentos: todos.slice((p - 1) * t, p * t) };
+}
