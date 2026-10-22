@@ -1,0 +1,7 @@
+{
+  "data": [
+    { "rsmnTipoDocInteger": 33, "dcvNombreTipoDoc": "Factura Electrónica", "rsmnTotDoc": 2, "rsmnMntExe": 0, "rsmnMntNeto": 200000, "rsmnMntIVA": 38000, "rsmnMntTotal": 238000 },
+    { "rsmnTipoDocInteger": 61, "dcvNombreTipoDoc": "Nota de Crédito Electrónica", "rsmnTotDoc": 1, "rsmnMntExe": 0, "rsmnMntNeto": 10000, "rsmnMntIVA": 1900, "rsmnMntTotal": 11900 }
+  ],
+  "respEstado": { "codRespuesta": 0, "msgeRespuesta": null, "codError": null }
+}

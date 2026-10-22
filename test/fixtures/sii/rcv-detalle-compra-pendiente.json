@@ -1,0 +1,17 @@
+{
+  "data": [
+    {
+      "detTipoDoc": 33, "detRutDoc": 33333333, "detDvDoc": "3", "detRznSoc": "PROVEEDOR DEMO LTDA", "detNroDoc": 1501,
+      "detFchDoc": "28/09/2026", "detFecRecepcion": "29/09/2026 11:05:00", "detFecAcuse": null,
+      "detMntExe": 0, "detMntNeto": 50000, "detMntIVA": 9500, "detMntIVANoRec": 0, "detIVAUsoComun": 0, "detMntTotal": 59500,
+      "detTipoTransaccion": 1, "detEventoReceptor": null
+    },
+    {
+      "detTipoDoc": 33, "detRutDoc": 44444444, "detDvDoc": "4", "detRznSoc": "OTRO PROVEEDOR SPA", "detNroDoc": 88,
+      "detFchDoc": "30/09/2026", "detFecRecepcion": "30/09/2026 09:00:00",
+      "detMntExe": 0, "detMntNeto": 10000, "detMntIVA": 0, "detIVANoRec": 1900, "detMntIVAUsoComun": 500, "detMntTotal": 11900,
+      "detTipoTransaccion": "4"
+    }
+  ],
+  "respEstado": { "codRespuesta": 0 }
+}
