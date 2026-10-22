@@ -26,6 +26,15 @@ function conEmpresa() {
 }
 
 describe('resumenIva', () => {
+  it('resume el primer período admitido sin remanente anterior', () => {
+    const { deps, store } = conEmpresa();
+    sembrarMes(store, '2000-01');
+    const r = resumenIva(deps, RUT_EMPRESA, '2000-01');
+    expect(r.periodo).toBe('2000-01');
+    expect(r.comparaciones.remanenteAnterior77).toBeNull();
+    expect(r.hallazgos.map((h) => h.regla)).toEqual(['IVA-04']);
+  });
+
   it('resume un mes cuadrado sin hallazgos', () => {
     const { deps, store } = conEmpresa();
     sembrarMes(store, '2026-08', AGO);
@@ -55,6 +64,14 @@ describe('resumenIva', () => {
 });
 
 describe('hallazgos', () => {
+  it('recalcula y guarda los hallazgos del primer período admitido', () => {
+    const { deps, store } = conEmpresa();
+    sembrarMes(store, '2000-01');
+    const resultado = hallazgos(deps, RUT_EMPRESA);
+    expect(resultado.map((h) => `${h.periodo}:${h.regla}`)).toEqual(['2000-01:IVA-04']);
+    expect(store.hallazgos(RUT_EMPRESA)).toEqual(resultado);
+  });
+
   it('recalcula todos los períodos con datos dentro del filtro', () => {
     const { deps, store } = conEmpresa();
     sembrarMes(store, '2026-08', { declaraciones: [] });

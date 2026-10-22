@@ -86,7 +86,7 @@ function conciliarYGuardar(deps: DepsApp, perfil: Perfil, periodo: Periodo) {
     documentos: deps.store.documentosRcv(perfil.rut, periodo.texto),
     declaraciones,
     valores: vigente ? deps.store.valoresF29(perfil.rut, periodo.texto, vigente.folio) : null,
-    valoresAnterior: valoresVigentes(deps, perfil.rut, periodoAnterior(periodo).texto),
+    valoresAnterior: periodo.texto === '2000-01' ? null : valoresVigentes(deps, perfil.rut, periodoAnterior(periodo).texto),
     snapshots: deps.store.snapshotsRcv(perfil.rut, periodo.texto),
     toleranciaPesos: deps.toleranciaPesos,
   };
