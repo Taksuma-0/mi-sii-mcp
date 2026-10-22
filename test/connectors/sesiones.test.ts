@@ -148,4 +148,71 @@ describe('GestorSesiones', () => {
     expect(await codigoDe(siguiente.sesionActiva(RUT))).toBe('RUT_BLOQUEADO_LOCAL');
     expect(siguientes).toHaveLength(0);
   });
+
+  it('comparte el intento concurrente por RUT y no envía otra clave después del rechazo', async () => {
+    const secretos = new SecretosEnMemoria();
+    secretos.mapa.set(RUT, 'mala');
+    const ok = rutasLoginOk();
+    let aceptarClave = false;
+    let g: GestorSesiones;
+    const bloqueoEnPosts: boolean[] = [];
+    const { fetchFalso, llamadas } = crearFetchFalso({
+      ...ok,
+      [RUTA_MI_SII]: (l) => (l.headers['Cookie']?.includes('TOKEN=') ? DATOS_OK : STUB),
+      [RUTA_POST]: () => {
+        bloqueoEnPosts.push(g.estado(RUT).bloqueado);
+        return aceptarClave ? ok[RUTA_POST]! : paginaErrorClave();
+      },
+    });
+    let liberarSegundoGet!: () => void;
+    const segundoGetRetenido = new Promise<void>((resolve) => { liberarSegundoGet = resolve; });
+    let paginasLogin = 0;
+    const fetchConEspera: typeof fetch = async (entrada, init) => {
+      if (String(entrada).includes('/InicioAutenticacion/IngresoRutClave.html')) {
+        paginasLogin++;
+        if (paginasLogin === 2) await segundoGetRetenido;
+      }
+      return fetchFalso(entrada, init);
+    };
+    g = new GestorSesiones(dirTemporal(), secretos, { fetch: fetchConEspera, temporizador: sinEsperas });
+    const primera = codigoDe(g.sesionActiva(RUT));
+    const segunda = codigoDe(g.sesionActiva('22.222.222-2'));
+    const primerCodigo = await primera;
+    liberarSegundoGet();
+    expect([primerCodigo, await segunda]).toEqual(['CLAVE_RECHAZADA', 'CLAVE_RECHAZADA']);
+    expect(llamadas.filter((l) => l.method === 'POST')).toHaveLength(1);
+    expect(bloqueoEnPosts).toEqual([false]);
+    expect(secretos.mapa.has(RUT)).toBe(false);
+    const solicitudesAntes = llamadas.length;
+    expect(await codigoDe(g.sesionActiva(RUT))).toBe('RUT_BLOQUEADO_LOCAL');
+    expect(llamadas).toHaveLength(solicitudesAntes);
+
+    aceptarClave = true;
+    await g.loginInteractivo(RUT, 'buena', false);
+    await g.sesionActiva(RUT);
+    expect(g.estado(RUT).bloqueado).toBe(false);
+    expect(llamadas.filter((l) => l.method === 'POST')).toHaveLength(2);
+  });
+
+  it('comparte la renovación concurrente exitosa y permite renovar otra vez si expira después', async () => {
+    const secretos = new SecretosEnMemoria();
+    secretos.mapa.set(RUT, 'secreta');
+    const ok = rutasLoginOk();
+    let expirada = false;
+    const { g, llamadas } = gestor(dirTemporal(), secretos, {
+      ...ok,
+      [RUTA_MI_SII]: (l) => (!expirada && l.headers['Cookie']?.includes('TOKEN=') ? DATOS_OK : STUB),
+      [RUTA_POST]: () => {
+        expirada = false;
+        return ok[RUTA_POST]!;
+      },
+    });
+    const [primera, segunda] = await Promise.all([g.sesionActiva(RUT), g.sesionActiva('22.222.222-2')]);
+    expect(llamadas.filter((l) => l.method === 'POST')).toHaveLength(1);
+    expect(segunda).toBe(primera);
+
+    expirada = true;
+    await g.sesionActiva(RUT);
+    expect(llamadas.filter((l) => l.method === 'POST')).toHaveLength(2);
+  });
 });

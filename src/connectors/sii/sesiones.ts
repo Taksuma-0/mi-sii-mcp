@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { join } from 'node:path';
 import { CookieJar } from 'tough-cookie';
 import { ErrorImpuestocl } from '../../domain/errores.js';
-import { parseRut } from '../../domain/rut.js';
+import { parseRut, type Rut } from '../../domain/rut.js';
 import type { ConsultaSesiones, EstadoSesion, ResultadoLogin, SecretStore } from '../../ports/index.js';
 import { ClienteHttp, type OpcionesHttp } from './http.js';
 import { cerrarSesion, iniciarSesion, leerIdentidad } from './login.js';
@@ -18,6 +18,7 @@ interface ArchivoSesion {
 /** Una sesión del SII por RUT, guardada como cookies (nunca la clave) en `<dir>/<rut>.json`. */
 export class GestorSesiones implements ConsultaSesiones {
   private readonly activas = new Map<string, ClienteHttp>();
+  private readonly pendientes = new Map<string, Promise<ClienteHttp>>();
 
   constructor(
     private readonly dir: string,
@@ -62,6 +63,31 @@ export class GestorSesiones implements ConsultaSesiones {
     if (existsSync(this.rutaBloqueo(rut.canonico))) {
       throw new ErrorImpuestocl('RUT_BLOQUEADO_LOCAL', `El RUT ${rut.canonico} está bloqueado localmente por una clave rechazada.`);
     }
+    const pendiente = this.pendientes.get(rut.canonico);
+    if (pendiente) return pendiente;
+    const nueva = this.obtenerSesion(rut).finally(() => {
+      this.pendientes.delete(rut.canonico);
+    });
+    this.pendientes.set(rut.canonico, nueva);
+    return nueva;
+  }
+
+  /** Guarda las cookies actualizadas de la sesión en memoria (al terminar una sincronización). */
+  persistir(rutTexto: string): void {
+    const rut = parseRut(rutTexto).canonico;
+    const http = this.activas.get(rut);
+    if (http) this.guardarArchivo(rut, http);
+  }
+
+  async logout(rutTexto: string, olvidarClave: boolean): Promise<void> {
+    const rut = parseRut(rutTexto).canonico;
+    await cerrarSesion(this.activas.get(rut) ?? this.clienteDesdeArchivo(rut));
+    this.activas.delete(rut);
+    rmSync(this.rutaSesion(rut), { force: true });
+    if (olvidarClave) await this.secretos.borrar(rut);
+  }
+
+  private async obtenerSesion(rut: Rut): Promise<ClienteHttp> {
     const guardada = this.activas.get(rut.canonico) ?? this.clienteDesdeArchivo(rut.canonico);
     try {
       await leerIdentidad(guardada);
@@ -80,21 +106,6 @@ export class GestorSesiones implements ConsultaSesiones {
     this.guardarArchivo(rut.canonico, http);
     this.activas.set(rut.canonico, http);
     return http;
-  }
-
-  /** Guarda las cookies actualizadas de la sesión en memoria (al terminar una sincronización). */
-  persistir(rutTexto: string): void {
-    const rut = parseRut(rutTexto).canonico;
-    const http = this.activas.get(rut);
-    if (http) this.guardarArchivo(rut, http);
-  }
-
-  async logout(rutTexto: string, olvidarClave: boolean): Promise<void> {
-    const rut = parseRut(rutTexto).canonico;
-    await cerrarSesion(this.activas.get(rut) ?? this.clienteDesdeArchivo(rut));
-    this.activas.delete(rut);
-    rmSync(this.rutaSesion(rut), { force: true });
-    if (olvidarClave) await this.secretos.borrar(rut);
   }
 
   private rutaSesion(rut: string): string {
