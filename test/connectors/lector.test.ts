@@ -1,0 +1,28 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { CookieJar } from 'tough-cookie';
+import { describe, expect, it } from 'vitest';
+import { ClienteHttp } from '../../src/connectors/sii/http.js';
+import { LectorPortalSii } from '../../src/connectors/sii/lector.js';
+import { parsePeriodo } from '../../src/domain/periodo.js';
+import type { RespuestaCruda } from '../../src/domain/tipos.js';
+import { crearFetchFalso, JSON_CT, sinEsperas } from '../helpers/http-falso.js';
+
+const fixture = (nombre: string) => readFileSync(join(import.meta.dirname, '..', 'fixtures', 'sii', nombre), 'utf8');
+
+describe('LectorPortalSii', () => {
+  it('delega en los conectores, normaliza el RUT y entrega las respuestas al sumidero', async () => {
+    const { fetchFalso } = crearFetchFalso({
+      'POST https://www4.sii.cl/consdcvinternetui/services/data/facadeService/getResumen': { headers: JSON_CT, body: fixture('rcv-resumen-compra-registro.json') },
+      'POST https://www4.sii.cl/propuestaf29ui/services/data/facadeAdapterService/getDeclaracionConEstados': { headers: JSON_CT, body: fixture('f29-estados.json') },
+    });
+    const crudas: RespuestaCruda[] = [];
+    const lector = new LectorPortalSii(new ClienteHttp(new CookieJar(), { fetch: fetchFalso, temporizador: sinEsperas }), (r) => void crudas.push(r));
+    const resumen = await lector.rcvResumen('22.222.222-2', parsePeriodo('2026-09'), 'COMPRA', 'REGISTRO');
+    const declaraciones = await lector.f29Declaraciones('22222222-2', parsePeriodo('2026-09'));
+    expect(resumen.rut).toBe('22222222-2');
+    expect(resumen.filas).toHaveLength(2);
+    expect(declaraciones[0]?.folio).toBe(555_001);
+    expect(crudas.map((c) => c.superficie)).toEqual(['rcv.resumen.COMPRA.REGISTRO', 'f29.estados']);
+  });
+});
