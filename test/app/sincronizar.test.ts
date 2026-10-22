@@ -79,4 +79,69 @@ describe('sincronizar', () => {
     const { deps } = depsDePrueba();
     expect(await codigoDe(sincronizar(deps, RUT_EMPRESA, SEPT, SEPT))).toBe('PERFIL_NO_EXISTE');
   });
+
+  it.each(['SESION_REQUERIDA', 'PORTAL_CAMBIO'] as const)(
+    'conserva los valores F29 guardados cuando la nueva descarga falla con %s',
+    async (codigo) => {
+      const { deps, store, sii, persistidos } = mesCompleto();
+      const anteriores = valores({ '537': 19_000, '538': 190_000 });
+      sii.valores.set('2026-09|555001', anteriores);
+      await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT, ['f29']);
+      expect(store.valoresF29(RUT_EMPRESA, '2026-09', 555_001)).toEqual(anteriores);
+      sii.fallas.set('f29valores|2026-09|555001', new ErrorImpuestocl(codigo, 'Falló la nueva descarga.'));
+
+      const r = await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT, ['f29']);
+
+      if (codigo === 'SESION_REQUERIDA') {
+        expect(r.abortado?.codigo).toBe(codigo);
+      } else {
+        expect(r.abortado).toBeNull();
+        expect(r.periodos[0]!.errores).toEqual([{ superficie: 'f29.valores', codigo, mensaje: 'Falló la nueva descarga.' }]);
+      }
+      expect(store.valoresF29(RUT_EMPRESA, '2026-09', 555_001)).toEqual(anteriores);
+      expect(persistidos).toEqual([RUT_EMPRESA, RUT_EMPRESA]);
+    },
+  );
+
+  it('al actualizar el vigente conserva valores de otros folios presentes y retira los ausentes', async () => {
+    const { deps, store, sii } = mesCompleto();
+    const anterior = declaracion({ folio: 555_000, estado: 'Rectificada', fechaPresentacion: '2026-10-14' });
+    const retirado = declaracion({ folio: 554_999, estado: 'Rectificada', fechaPresentacion: '2026-10-13' });
+    const valoresAnterior = valores({ '538': 100_000 }, { folio: anterior.folio });
+    const ahora = deps.reloj.ahora().toISOString();
+    const id = store.iniciarSincronizacion(RUT_EMPRESA, 'f29', SEPT.texto, ahora);
+    store.guardarF29(id, RUT_EMPRESA, SEPT.texto, [declaracion(), anterior, retirado], [
+      valores({ '538': 190_000, '111': 1 }),
+      valoresAnterior,
+      valores({ '538': 90_000 }, { folio: retirado.folio }),
+    ], ahora);
+    store.terminarSincronizacion(id, ahora, 'ok');
+    sii.declaraciones.set(SEPT.texto, [anterior, declaracion()]);
+
+    const r = await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT, ['f29']);
+
+    expect(r.abortado).toBeNull();
+    expect(r.periodos[0]!.f29Folio).toBe(555_001);
+    expect(store.valoresF29(RUT_EMPRESA, SEPT.texto, 555_001)).toEqual(valores({ '538': 199_500, '537': 19_000 }));
+    expect(store.valoresF29(RUT_EMPRESA, SEPT.texto, anterior.folio)).toEqual(valoresAnterior);
+    expect(store.valoresF29(RUT_EMPRESA, SEPT.texto, retirado.folio)).toBeNull();
+    expect(store.declaracionesF29(RUT_EMPRESA, SEPT.texto)).toEqual([anterior, declaracion()]);
+  });
+
+  it('si cambia el folio vigente y falla su PDF conserva el anterior sin asignarle sus valores al nuevo', async () => {
+    const { deps, store, sii } = mesCompleto();
+    await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT, ['f29']);
+    sii.declaraciones.set(SEPT.texto, [
+      declaracion({ estado: 'Rectificada' }),
+      declaracion({ folio: 555_002, fechaPresentacion: '2026-10-16', codigoInterno: 9002 }),
+    ]);
+
+    const r = await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT, ['f29']);
+
+    expect(r.abortado).toBeNull();
+    expect(r.periodos[0]!.f29Folio).toBe(555_002);
+    expect(r.periodos[0]!.errores[0]?.codigo).toBe('PORTAL_CAMBIO');
+    expect(store.valoresF29(RUT_EMPRESA, SEPT.texto, 555_001)).toEqual(valores({ '538': 199_500, '537': 19_000 }));
+    expect(store.valoresF29(RUT_EMPRESA, SEPT.texto, 555_002)).toBeNull();
+  });
 });

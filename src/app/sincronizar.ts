@@ -66,15 +66,20 @@ export async function sincronizar(
       if (superficies.includes('f29')) {
         const f29 = await registrar(deps, rut, 'f29', periodo.texto, buffer, res, async (id, ahora) => {
           const declaraciones = await sii.f29Declaraciones(rut, periodo);
-          deps.store.guardarF29(id, rut, periodo.texto, declaraciones, [], ahora);
-          return { declaraciones, vigente: declaracionVigente(declaraciones) };
+          const valoresPrevios = declaraciones.flatMap((d) => {
+            const valores = deps.store.valoresF29(rut, periodo.texto, d.folio);
+            return valores ? [valores] : [];
+          });
+          deps.store.guardarF29(id, rut, periodo.texto, declaraciones, valoresPrevios, ahora);
+          return { declaraciones, valoresPrevios, vigente: declaracionVigente(declaraciones) };
         });
         res.f29Folio = f29?.vigente?.folio ?? null;
         const vigente = f29?.vigente;
         if (f29 && vigente && vigente.codigoInterno !== null) {
           await registrar(deps, rut, 'f29.valores', periodo.texto, buffer, res, async (id, ahora) => {
             const v = await sii.f29Valores(rut, vigente);
-            deps.store.guardarF29(id, rut, periodo.texto, f29.declaraciones, [v], ahora);
+            const otrosValores = f29.valoresPrevios.filter((anterior) => anterior.folio !== vigente.folio);
+            deps.store.guardarF29(id, rut, periodo.texto, f29.declaraciones, [...otrosValores, v], ahora);
           });
         }
       }
