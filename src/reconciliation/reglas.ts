@@ -1,6 +1,6 @@
 import { vencimientoF29, vencimientoReclamo } from '../calendar/plazos.js';
 import { declaracionVigente } from '../domain/f29.js';
-import { diasEntre } from '../domain/fechas.js';
+import { diasEntre, fechaEnSantiago } from '../domain/fechas.js';
 import { formatearClp, nombreTipoDocumento } from '../domain/formato.js';
 import { compararPeriodos, periodoAnterior, periodoDeFecha, type Periodo } from '../domain/periodo.js';
 import { claveDocumento, type DocumentoRcv, type F29Declaracion, type F29Valores, type Hallazgo, type Lado, type RcvResumen, type SnapshotRcv, type TipoContribuyente } from '../domain/tipos.js';
@@ -193,7 +193,7 @@ export function reglaCambiosPostF29(e: EntradaConciliacion): Hallazgo[] {
   const out: Hallazgo[] = [];
   const lados: readonly Lado[] = ['VENTA', 'COMPRA'];
   for (const lado of lados) {
-    const posteriores = e.snapshots.filter((s) => s.lado === lado && s.obtenidoEn.slice(0, 10) >= presentado);
+    const posteriores = e.snapshots.filter((s) => s.lado === lado && fechaEnSantiago(new Date(s.obtenidoEn)) >= presentado);
     if (posteriores.length < 2) continue;
     const base = registrados(posteriores[0]!);
     const ultimo = registrados(posteriores[posteriores.length - 1]!);
@@ -207,7 +207,7 @@ export function reglaCambiosPostF29(e: EntradaConciliacion): Hallazgo[] {
         severidad: 'advertencia',
         naturaleza: 'DERIVADO',
         titulo: 'El RCV cambió después de presentar el F29',
-        detalle: `${lado === 'VENTA' ? 'Ventas' : 'Compras'}: ${nuevos.length} documento(s) nuevo(s), ${eliminados.length} eliminado(s) y ${modificados.length} modificado(s) desde el ${posteriores[0]!.obtenidoEn.slice(0, 10)}. Revisa si corresponde rectificar el F29 folio ${vigente.folio}.`,
+        detalle: `${lado === 'VENTA' ? 'Ventas' : 'Compras'}: ${nuevos.length} documento(s) nuevo(s), ${eliminados.length} eliminado(s) y ${modificados.length} modificado(s) desde el ${fechaEnSantiago(new Date(posteriores[0]!.obtenidoEn))}. Revisa si corresponde rectificar el F29 folio ${vigente.folio}.`,
         montos: null,
         evidencia: [...nuevos, ...eliminados, ...modificados].slice(0, 50),
       }),

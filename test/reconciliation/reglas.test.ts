@@ -77,6 +77,25 @@ describe('IVA-06 cambios después de presentar el F29', () => {
     expect(reglaCambiosPostF29(entrada({ snapshots: [snap(2, '2026-10-16T10:00:00.000Z', [['A', 'x']]), snap(3, '2026-10-20T10:00:00.000Z', [['A', 'x']])] }))).toEqual([]);
     expect(reglaCambiosPostF29(entrada({ snapshots: [snap(1, '2026-10-10T10:00:00.000Z', []), snap(2, '2026-10-16T10:00:00.000Z', [['A', 'x']])] }))).toEqual([]);
   });
+
+  it('excluye fotos del día anterior en Santiago aunque en UTC ya sea el día de presentación', () => {
+    const snapshots = [
+      snap(1, '2026-10-15T01:00:00.000Z', [['A', 'antes']]),
+      snap(2, '2026-10-15T16:00:00.000Z', [['A', 'despues']]),
+      snap(3, '2026-10-16T16:00:00.000Z', [['A', 'despues']]),
+    ];
+    expect(reglaCambiosPostF29(entrada({ snapshots }))).toEqual([]);
+  });
+
+  it('muestra la fecha civil en Santiago de la foto base al detectar cambios', () => {
+    const snapshots = [
+      snap(1, '2026-10-16T01:00:00.000Z', [['A', 'antes']]),
+      snap(2, '2026-10-17T16:00:00.000Z', [['A', 'despues']]),
+    ];
+    const [h] = reglaCambiosPostF29(entrada({ snapshots }));
+    expect(h!.detalle).toContain('1 modificado(s) desde el 2026-10-15.');
+    expect(h!.evidencia).toEqual(['A']);
+  });
 });
 
 describe('IVA-07 IVA no recuperable o de uso común', () => {
