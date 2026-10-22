@@ -63,6 +63,35 @@ describe('leerIdentidad y extractores', () => {
     expect(await codigoDe(leerIdentidad(cliente(fetchFalso)))).toBe('SESION_REQUERIDA');
   });
 
+  it('DatosCntrNow sin contribuyente es PORTAL_CAMBIO', async () => {
+    const { fetchFalso } = crearFetchFalso({
+      [RUTA_MI_SII]: { headers: HTML, body: '<script>var DatosCntrNow = {"codigoError":1};</script>' },
+    });
+    await expect(leerIdentidad(cliente(fetchFalso))).rejects.toMatchObject({ name: 'ErrorImpuestocl', codigo: 'PORTAL_CAMBIO' });
+  });
+
+  it.each([
+    { etiqueta: 'null', contribuyente: null },
+    { etiqueta: 'string', contribuyente: 'texto' },
+    { etiqueta: 'array', contribuyente: [] },
+  ])('contribuyente mal formado ($etiqueta) es PORTAL_CAMBIO', async ({ contribuyente }) => {
+    const { fetchFalso } = crearFetchFalso({
+      [RUTA_MI_SII]: { headers: HTML, body: `<script>var DatosCntrNow = ${JSON.stringify({ contribuyente })};</script>` },
+    });
+    await expect(leerIdentidad(cliente(fetchFalso))).rejects.toMatchObject({ name: 'ErrorImpuestocl', codigo: 'PORTAL_CAMBIO' });
+  });
+
+  it.each([
+    ['22222222', '1'],
+    ['22222222', ''],
+    ['', '2'],
+  ])('RUT/DV inválido del portal (%s, %s) es PORTAL_CAMBIO', async (rut, dv) => {
+    const { fetchFalso } = crearFetchFalso({
+      [RUTA_MI_SII]: { headers: HTML, body: paginaDatosCntr(rut, dv, 'EMPRESA DEMO SPA') },
+    });
+    await expect(leerIdentidad(cliente(fetchFalso))).rejects.toMatchObject({ name: 'ErrorImpuestocl', codigo: 'PORTAL_CAMBIO' });
+  });
+
   it('extrae DatosCntrNow aunque haya llaves dentro de strings', () => {
     const datos = extraerDatosCntrNow(paginaDatosCntr('22222222', '2', 'EMPRESA DEMO SPA'));
     expect((datos?.['contribuyente'] as Record<string, unknown>)['glosaActividad']).toBe('texto con } llave');

@@ -1,5 +1,5 @@
 import { ErrorImpuestocl } from '../../domain/errores.js';
-import { formatearRut, type Rut } from '../../domain/rut.js';
+import { formatearRut, parseRut, type Rut } from '../../domain/rut.js';
 import type { IdentidadSii } from '../../ports/index.js';
 import { exigirSesion, HOST_LOGIN, type ClienteHttp } from './http.js';
 
@@ -60,8 +60,22 @@ export function extraerDatosCntrNow(html: string): Record<string, unknown> | nul
 const textoNoVacio = (v: unknown): string | null => (typeof v === 'string' && v.trim() !== '' ? v.trim() : null);
 
 export function identidadDesde(datos: Record<string, unknown>): IdentidadSii {
-  const c = (datos['contribuyente'] ?? {}) as Record<string, unknown>;
-  const rut = `${Number(c['rut'] ?? 0)}-${String(c['dv'] ?? '').toUpperCase()}`;
+  const contribuyente = datos['contribuyente'];
+  if (typeof contribuyente !== 'object' || contribuyente === null || Array.isArray(contribuyente)) {
+    throw new ErrorImpuestocl('PORTAL_CAMBIO', 'El SII entregó datos del contribuyente con una estructura inválida.');
+  }
+  const c = contribuyente as Record<string, unknown>;
+  const cuerpo = c['rut'];
+  const dv = c['dv'];
+  if ((typeof cuerpo !== 'string' && typeof cuerpo !== 'number') || (typeof dv !== 'string' && typeof dv !== 'number') || String(dv).length !== 1) {
+    throw new ErrorImpuestocl('PORTAL_CAMBIO', 'El SII entregó un RUT o dígito verificador inválido.');
+  }
+  let rut: string;
+  try {
+    rut = parseRut(`${cuerpo}-${dv}`).canonico;
+  } catch (cause) {
+    throw new ErrorImpuestocl('PORTAL_CAMBIO', 'El SII entregó un RUT o dígito verificador inválido.', { cause });
+  }
   const razonSocial = textoNoVacio(c['razonSocial']);
   const nombre =
     razonSocial ??
