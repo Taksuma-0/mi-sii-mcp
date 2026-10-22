@@ -1,0 +1,17 @@
+{
+  "nombre": "Empresa sin movimiento y sin F29: igual debía declarar",
+  "entrada": {
+    "rut": "22222222-2",
+    "tipo": "empresa",
+    "periodo": "2026-08",
+    "hoy": "2026-10-21",
+    "resumenes": [],
+    "documentos": [],
+    "declaraciones": [],
+    "valores": null,
+    "valoresAnterior": null,
+    "snapshots": [],
+    "toleranciaPesos": 0
+  },
+  "esperado": [{ "regla": "IVA-04", "severidad": "critico", "diferencia": null }]
+}

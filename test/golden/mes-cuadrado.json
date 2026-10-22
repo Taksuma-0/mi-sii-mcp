@@ -1,0 +1,20 @@
+{
+  "nombre": "Mes cuadrado: RCV y F29 coinciden",
+  "entrada": {
+    "rut": "22222222-2",
+    "tipo": "empresa",
+    "periodo": "2026-09",
+    "hoy": "2026-10-21",
+    "resumenes": [
+      { "rut": "22222222-2", "periodo": "2026-09", "lado": "VENTA", "estado": "REGISTRO", "filas": [{ "tipoDoc": 33, "descripcion": null, "cantidad": 2, "exento": 0, "neto": 1000000, "iva": 190000, "total": 1190000 }] },
+      { "rut": "22222222-2", "periodo": "2026-09", "lado": "COMPRA", "estado": "REGISTRO", "filas": [{ "tipoDoc": 33, "descripcion": null, "cantidad": 1, "exento": 0, "neto": 100000, "iva": 19000, "total": 119000 }] }
+    ],
+    "documentos": [],
+    "declaraciones": [{ "rut": "22222222-2", "periodo": "2026-09", "folio": 555001, "estado": "Vigente", "fechaPresentacion": "2026-10-15", "codigoInterno": 9001, "totalAPagar": 166000 }],
+    "valores": { "rut": "22222222-2", "periodo": "2026-09", "folio": 555001, "valores": { "538": 190000, "537": 24000, "504": 5000, "77": 0, "91": 166000 } },
+    "valoresAnterior": { "rut": "22222222-2", "periodo": "2026-08", "folio": 554000, "valores": { "77": 5000 } },
+    "snapshots": [],
+    "toleranciaPesos": 0
+  },
+  "esperado": []
+}
