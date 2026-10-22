@@ -1,0 +1,6 @@
+{
+  "metaData": { "errors": null },
+  "data": [
+    { "estadoDeclaracionId": 1, "estado": "Vigente", "folio": 555001, "declFechaCreacion": "15/10/2026", "monto": 171000, "enNegocio": "N", "codigo": 9001 }
+  ]
+}
