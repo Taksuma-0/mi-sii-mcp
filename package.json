@@ -30,6 +30,7 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "dev": "tsx src/interfaces/cli/bin.ts",
+    "local": "tsx scripts/abrir-local.ts",
     "verificar:vivo": "tsx scripts/verificar-vivo.ts",
     "prepublishOnly": "npm run typecheck && npm test && npm run build"
   },
