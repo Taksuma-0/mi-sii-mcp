@@ -48,7 +48,7 @@ export function textoPerfiles(perfiles: readonly PerfilConSesion[]): string {
 
 export function textoSync(r: ResultadoSync): string {
   const lineas = r.periodos.map((p) => {
-    let linea = `${p.periodo}: ${p.documentos} documentos RCV · F29 ${p.f29Folio ? `folio ${p.f29Folio}` : 'sin presentar'}`;
+    let linea = `${p.periodo}: ${p.documentos} documentos RCV · F29 ${p.f29Folio ? `folio ${p.f29Folio}` : 'sin folio informado'}`;
     if (p.errores.length > 0) linea += ` · errores: ${p.errores.map((e) => `${e.superficie} ${e.codigo}`).join(', ')}`;
     if (p.avisos.length > 0) linea += `\n    avisos: ${p.avisos.join(' | ')}`;
     return linea;

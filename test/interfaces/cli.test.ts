@@ -1,9 +1,9 @@
-import { Readable } from 'node:stream';
+import { PassThrough, Readable } from 'node:stream';
 import { describe, expect, it } from 'vitest';
 import { ErrorImpuestocl } from '../../src/domain/errores.js';
-import { leerLineaStdin } from '../../src/interfaces/cli/clave.js';
+import { leerLineaStdin, pedirClaveOculta } from '../../src/interfaces/cli/clave.js';
 import { crearPrograma, type ContenedorCli, type IoCli, type SesionesCli } from '../../src/interfaces/cli/programa.js';
-import { declaracion, fila, perfilEmpresa, resumen, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
+import { declaracion, documento, fila, perfilEmpresa, resumen, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
 import { depsDePrueba } from '../helpers/deps.js';
 import { sembrarMes } from '../helpers/sembrar.js';
 
@@ -88,6 +88,28 @@ describe('CLI', () => {
     expect(e.salidaTexto.at(-1)).toContain('f29 PORTAL_CAMBIO');
   });
 
+  it('sync --solo rcv no afirma que un F29 guardado no se presentó', async () => {
+    const e = entorno();
+    e.store.guardarContribuyente(perfilEmpresa());
+    sembrarMes(e.store, '2026-09', { declaraciones: [declaracion()] });
+    expect(await e.correr('sync', RUT_EMPRESA, '--desde', '2026-09', '--solo', 'rcv')).toBe(0);
+    expect(e.salidaTexto.at(-1)).toContain('F29 sin folio informado');
+    expect(e.salidaTexto.at(-1)).not.toContain('sin presentar');
+  });
+
+  it.each(['abc', 'Infinity', '-Infinity'].flatMap((valor) => [
+    { opcion: '--pagina', valor, args: ['documentos', RUT_EMPRESA, '2026-09', '--pagina', valor, '--json'] },
+    { opcion: '--dias', valor, args: ['plazos', RUT_EMPRESA, '--dias', valor, '--json'] },
+  ]))('rechaza $opcion $valor antes de consultar', async ({ args }) => {
+    const e = entorno();
+    e.store.guardarContribuyente(perfilEmpresa());
+    sembrarMes(e.store, '2026-09', { documentos: [documento()] });
+    await expect(e.correr(...args)).rejects.toMatchObject({ code: 'commander.invalidArgument', exitCode: 1 });
+    expect(e.salidaTexto).toEqual([]);
+    expect(e.errores.join('\n')).toContain('número finito');
+    expect(e.contadores.cerrado).toBe(0);
+  });
+
   it('cierra el contenedor después de cada comando, salvo mcp', async () => {
     const e = entorno();
     await e.correr('perfil', 'listar');
@@ -106,5 +128,73 @@ describe('CLI', () => {
 describe('leerLineaStdin', () => {
   it('lee solo la primera línea', async () => {
     expect(await leerLineaStdin(Readable.from(['secreta\r\nresto']))).toBe('secreta');
+  });
+});
+
+function terminalSimulada() {
+  class Entrada extends PassThrough {
+    isTTY = true;
+    isRaw = false;
+    setRawMode(modo: boolean): this {
+      this.isRaw = modo;
+      return this;
+    }
+  }
+  const entrada = new Entrada();
+  const salida = new PassThrough();
+  let texto = '';
+  salida.on('data', (trozo: Buffer) => { texto += trozo.toString(); });
+  return {
+    entrada,
+    texto: () => texto,
+    pedir: () => pedirClaveOculta('Clave: ', entrada as unknown as NodeJS.ReadStream, salida as unknown as NodeJS.WriteStream),
+  };
+}
+
+describe('pedirClaveOculta', () => {
+  it.each([
+    ['completas', ['\u001b[D', '\u001b[3~', '\u001bOP']],
+    ['partidas', ['\u001b', '[', 'D', '\u001b[', '3', '~', '\u001bO', 'P']],
+  ])('ignora teclas especiales %s sin incorporarlas a la clave', async (_nombre, trozos) => {
+    const t = terminalSimulada();
+    const clave = t.pedir();
+    for (const trozo of ['ficticia', ...trozos, '\r']) t.entrada.emit('data', trozo);
+    await expect(clave).resolves.toBe('ficticia');
+    expect(t.texto()).toBe('Clave: ********\n');
+  });
+
+  it.each(['éxito', 'cancelación', 'end', 'close', 'error'])('restaura la terminal y retira listeners tras %s', async (evento) => {
+    const t = terminalSimulada();
+    const fallo = new Error('Entrada interrumpida.');
+    const clave = t.pedir();
+    const resultado = clave.then((valor) => ({ valor, error: undefined }), (error: unknown) => ({ valor: undefined, error }));
+    t.entrada.emit('data', 'ficticia');
+    let escapado: unknown;
+    try {
+      if (evento === 'éxito') t.entrada.emit('data', '\r');
+      else if (evento === 'cancelación') t.entrada.emit('data', '\u0003');
+      else t.entrada.emit(evento, fallo);
+    } catch (e) {
+      escapado = e;
+    }
+    expect(escapado).toBeUndefined();
+    const fin = await Promise.race([resultado, new Promise<null>((resolve) => setImmediate(() => resolve(null)))]);
+    expect(fin).not.toBeNull();
+    if (evento === 'éxito') expect(fin?.valor).toBe('ficticia');
+    else if (evento === 'error') expect(fin?.error).toBe(fallo);
+    else expect(fin?.error).toBeInstanceOf(Error);
+    expect(t.entrada.isRaw).toBe(false);
+    expect(t.entrada.isPaused()).toBe(true);
+    for (const nombre of ['data', 'end', 'close', 'error']) expect(t.entrada.listenerCount(nombre)).toBe(0);
+    expect(t.texto()).toBe('Clave: ********\n');
+  });
+
+  it('conserva el modo raw si ya estaba activo', async () => {
+    const t = terminalSimulada();
+    t.entrada.isRaw = true;
+    const clave = t.pedir();
+    t.entrada.emit('data', 'ficticia\r');
+    await expect(clave).resolves.toBe('ficticia');
+    expect(t.entrada.isRaw).toBe(true);
   });
 });

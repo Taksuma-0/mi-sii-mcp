@@ -1,4 +1,4 @@
-import { Command, Option } from 'commander';
+import { Command, InvalidArgumentError, Option } from 'commander';
 import { documentos, f29Historial, hallazgos, plazos, resumenIva } from '../../app/consultas.js';
 import type { DepsApp } from '../../app/deps.js';
 import { agregarPerfil, listarPerfiles, registrarIdentidad } from '../../app/perfiles.js';
@@ -29,6 +29,12 @@ export interface ContenedorCli {
   readonly sesiones: SesionesCli;
   readonly config: { readonly home: string; readonly rutaDb: string };
   cerrar(): void;
+}
+
+function numeroFinito(valor: string): number {
+  const numero = Number(valor);
+  if (!Number.isFinite(numero)) throw new InvalidArgumentError('Debe ser un número finito.');
+  return numero;
 }
 
 export function crearPrograma(
@@ -159,11 +165,11 @@ export function crearPrograma(
   programa
     .command('plazos')
     .argument('<rut>')
-    .option('--dias <n>', 'horizonte en días', '30')
+    .option('--dias <n>', 'horizonte en días', numeroFinito, 30)
     .option('--json', 'salida en JSON')
     .action(
-      ejecutar((c, rut: string, o: { dias: string; json?: boolean }) => {
-        const ps = plazos(c.deps, rut, Number(o.dias));
+      ejecutar((c, rut: string, o: { dias: number; json?: boolean }) => {
+        const ps = plazos(c.deps, rut, o.dias);
         mostrar(o.json, ps, textoPlazos(ps));
       }),
     );
@@ -188,11 +194,11 @@ export function crearPrograma(
     .argument('<periodo>', 'AAAA-MM')
     .addOption(new Option('--lado <lado>').choices(['COMPRA', 'VENTA']))
     .addOption(new Option('--estado <estado>').choices(['REGISTRO', 'PENDIENTE', 'NO_INCLUIR', 'RECLAMADO']))
-    .option('--pagina <n>', 'página', '1')
+    .option('--pagina <n>', 'página', numeroFinito, 1)
     .option('--json', 'salida en JSON')
     .action(
-      ejecutar((c, rut: string, periodo: string, o: { lado?: Lado; estado?: EstadoRcv; pagina: string; json?: boolean }) => {
-        const p = documentos(c.deps, rut, periodo, { lado: o.lado, estado: o.estado }, Number(o.pagina));
+      ejecutar((c, rut: string, periodo: string, o: { lado?: Lado; estado?: EstadoRcv; pagina: number; json?: boolean }) => {
+        const p = documentos(c.deps, rut, periodo, { lado: o.lado, estado: o.estado }, o.pagina);
         mostrar(o.json, p, textoDocumentos(p));
       }),
     );

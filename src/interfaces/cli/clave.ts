@@ -6,15 +6,31 @@ export function pedirClaveOculta(pregunta: string, entrada: NodeJS.ReadStream = 
       return;
     }
     salida.write(pregunta);
+    const rawAnterior = Boolean(entrada.isRaw);
     entrada.setRawMode(true);
     entrada.resume();
     entrada.setEncoding('utf8');
     let clave = '';
+    let escape: 'ninguno' | 'inicio' | 'secuencia' = 'ninguno';
+    let terminado = false;
     const terminar = () => {
+      if (terminado) return;
+      terminado = true;
       entrada.off('data', alRecibir);
-      entrada.setRawMode(false);
+      entrada.off('end', alCerrar);
+      entrada.off('close', alCerrar);
+      entrada.off('error', alFallar);
+      entrada.setRawMode(rawAnterior);
       entrada.pause();
       salida.write('\n');
+    };
+    const alCerrar = () => {
+      terminar();
+      reject(new Error('Entrada cerrada antes de ingresar la clave.'));
+    };
+    const alFallar = (error: Error) => {
+      terminar();
+      reject(error);
     };
     function alRecibir(trozo: string): void {
       for (const c of trozo) {
@@ -28,6 +44,19 @@ export function pedirClaveOculta(pregunta: string, entrada: NodeJS.ReadStream = 
           reject(new Error('Cancelado.'));
           return;
         }
+        if (c === '\u001b') {
+          escape = 'inicio';
+          continue;
+        }
+        if (escape === 'inicio') {
+          escape = c === '[' || c === 'O' ? 'secuencia' : 'ninguno';
+          continue;
+        }
+        // CSI y SS3 terminan con un byte final, aunque lleguen en varios eventos.
+        if (escape === 'secuencia') {
+          if (c >= '@' && c <= '~') escape = 'ninguno';
+          continue;
+        }
         if (c === '\u007f' || c === '\b') {
           if (clave.length > 0) {
             clave = clave.slice(0, -1);
@@ -35,11 +64,15 @@ export function pedirClaveOculta(pregunta: string, entrada: NodeJS.ReadStream = 
           }
           continue;
         }
+        if (c < ' ' || (c >= '\u0080' && c <= '\u009f')) continue;
         clave += c;
         salida.write('*');
       }
     }
     entrada.on('data', alRecibir);
+    entrada.once('end', alCerrar);
+    entrada.once('close', alCerrar);
+    entrada.once('error', alFallar);
   });
 }
 
