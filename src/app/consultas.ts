@@ -7,6 +7,7 @@ import { compararPeriodos, parsePeriodo, periodoAnterior, periodoDeFecha, rangoP
 import { parseRut } from '../domain/rut.js';
 import {
   claveDocumento,
+  type DisponibilidadFuentes,
   type DocumentoRcv,
   type EstadoRcv,
   type F29Valores,
@@ -25,8 +26,9 @@ import type { DepsApp } from './deps.js';
 export interface ResumenIva {
   readonly rut: string;
   readonly periodo: string;
-  readonly ventas: { readonly porTipo: readonly RcvResumenFila[]; readonly debito: number };
-  readonly compras: { readonly porTipo: readonly RcvResumenFila[]; readonly credito: number; readonly pendientes: number; readonly reclamados: number };
+  readonly disponibilidad: DisponibilidadFuentes;
+  readonly ventas: { readonly porTipo: readonly RcvResumenFila[]; readonly debito: number | null };
+  readonly compras: { readonly porTipo: readonly RcvResumenFila[]; readonly credito: number | null; readonly pendientes: number | null; readonly reclamados: number | null };
   readonly f29: {
     readonly folio: number;
     readonly estado: string;
@@ -77,7 +79,7 @@ function valoresVigentes(deps: DepsApp, rut: string, periodo: string): F29Valore
 function conciliarYGuardar(deps: DepsApp, perfil: Perfil, periodo: Periodo) {
   const declaraciones = deps.store.declaracionesF29(perfil.rut, periodo.texto);
   const vigente = declaracionVigente(declaraciones);
-  const entrada: EntradaConciliacion = {
+  const entrada = {
     rut: perfil.rut,
     tipo: perfil.tipo,
     periodo,
@@ -89,7 +91,8 @@ function conciliarYGuardar(deps: DepsApp, perfil: Perfil, periodo: Periodo) {
     valoresAnterior: periodo.texto === '2000-01' ? null : valoresVigentes(deps, perfil.rut, periodoAnterior(periodo).texto),
     snapshots: deps.store.snapshotsRcv(perfil.rut, periodo.texto),
     toleranciaPesos: deps.toleranciaPesos,
-  };
+    disponibilidad: deps.store.disponibilidadFuentes(perfil.rut, periodo.texto),
+  } satisfies EntradaConciliacion;
   const resultado = conciliarPeriodo(entrada);
   deps.store.reemplazarHallazgos(perfil.rut, periodo.texto, resultado.hallazgos, resultado.versionReglas, deps.reloj.ahora().toISOString());
   return { entrada, resultado, vigente };
@@ -99,12 +102,14 @@ export function resumenIva(deps: DepsApp, rutTexto: string, periodoTexto: string
   const perfil = perfilExistente(deps, rutTexto);
   const periodo = parsePeriodo(periodoTexto);
   const { entrada, resultado, vigente } = conciliarYGuardar(deps, perfil, periodo);
+  const disponibilidad = entrada.disponibilidad;
   const filas = (lado: Lado, estado: EstadoRcv): RcvResumenFila[] =>
     entrada.resumenes.filter((r) => r.lado === lado && r.estado === estado).flatMap((r) => [...r.filas]);
-  const cantidad = (estado: EstadoRcv): number => filas('COMPRA', estado).reduce((s, f) => s + f.cantidad, 0);
+  const cantidad = (estado: EstadoRcv): number | null => disponibilidad.comprasRcv ? filas('COMPRA', estado).reduce((s, f) => s + f.cantidad, 0) : null;
   return {
     rut: perfil.rut,
     periodo: periodo.texto,
+    disponibilidad,
     ventas: { porTipo: filas('VENTA', 'REGISTRO'), debito: resultado.comparaciones.debitoRcv },
     compras: { porTipo: filas('COMPRA', 'REGISTRO'), credito: resultado.comparaciones.creditoRcv, pendientes: cantidad('PENDIENTE'), reclamados: cantidad('RECLAMADO') },
     f29: vigente
@@ -118,12 +123,18 @@ export function resumenIva(deps: DepsApp, rutTexto: string, periodoTexto: string
 }
 
 export function hallazgos(deps: DepsApp, rutTexto: string, filtro: FiltroHallazgos = {}): HallazgoGuardado[] {
+  const desde = filtro.desde === undefined ? undefined : parsePeriodo(filtro.desde);
+  const hasta = filtro.hasta === undefined ? undefined : parsePeriodo(filtro.hasta);
+  if (desde && hasta && compararPeriodos(desde, hasta) > 0) {
+    throw new ErrorImpuestocl('PERIODO_INVALIDO', `El inicio ${desde.texto} es posterior al fin ${hasta.texto}`);
+  }
+  const normalizado: FiltroHallazgos = { ...filtro, desde: desde?.texto, hasta: hasta?.texto };
   const perfil = perfilExistente(deps, rutTexto);
   for (const p of deps.store.periodosConDatos(perfil.rut)) {
-    if ((filtro.desde && p < filtro.desde) || (filtro.hasta && p > filtro.hasta)) continue;
+    if ((normalizado.desde && p < normalizado.desde) || (normalizado.hasta && p > normalizado.hasta)) continue;
     conciliarYGuardar(deps, perfil, parsePeriodo(p));
   }
-  return deps.store.hallazgos(perfil.rut, filtro);
+  return deps.store.hallazgos(perfil.rut, normalizado);
 }
 
 export function plazos(deps: DepsApp, rutTexto: string, dias = 30): Plazo[] {

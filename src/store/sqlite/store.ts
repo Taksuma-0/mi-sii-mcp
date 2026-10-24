@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import {
   claveDocumento,
+  type DisponibilidadFuentes,
   type DocumentoRcv,
   type EstadoRcv,
   type F29Declaracion,
@@ -319,6 +320,15 @@ export class SqliteStore implements Store {
   }
 
   // --- frescura ---------------------------------------------------------------------------
+  disponibilidadFuentes(rut: string, periodo: string): DisponibilidadFuentes {
+    const superficies = this.db.prepare(
+      `SELECT DISTINCT superficie FROM sincronizacion WHERE rut = ? AND periodo = ? AND estado = 'ok'
+       AND superficie IN ('rcv.VENTA', 'rcv.COMPRA', 'f29')`,
+    ).all(rut, periodo) as { superficie: string }[];
+    const conocidas = new Set(superficies.map((s) => s.superficie));
+    return { ventasRcv: conocidas.has('rcv.VENTA'), comprasRcv: conocidas.has('rcv.COMPRA'), f29: conocidas.has('f29') };
+  }
+
   frescura(rut: string, periodo: string): Frescura {
     const consulta = this.db.prepare(`SELECT MAX(terminado_en) AS t FROM sincronizacion WHERE rut = ? AND periodo = ? AND estado = 'ok' AND superficie LIKE ?`);
     return {

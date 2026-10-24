@@ -107,6 +107,21 @@ describe('IVA-07 IVA no recuperable o de uso común', () => {
 });
 
 describe('conciliarPeriodo', () => {
+  it('no compara el lado desconocido y mantiene las reglas de fuentes independientes', () => {
+    const r = conciliarPeriodo(entrada({
+      disponibilidad: { ventasRcv: false, comprasRcv: true, f29: true },
+      resumenes: [],
+      documentos: [documento({ montoIvaNoRecuperable: 3_000 })],
+      valoresAnterior: null,
+    }));
+    expect(r.comparaciones).toMatchObject({ debitoRcv: null, creditoRcv: 0 });
+    expect(r.hallazgos.map((h) => h.regla)).toEqual(['IVA-02', 'IVA-07']);
+  });
+
+  it('no declara F29 ausente cuando esa fuente es desconocida', () => {
+    const r = conciliarPeriodo(entrada({ ...sinF29, disponibilidad: { ventasRcv: true, comprasRcv: true, f29: false } }));
+    expect(r.hallazgos).toEqual([]);
+  });
   it('un mes cuadrado no tiene hallazgos y expone las comparaciones', () => {
     const r = conciliarPeriodo(entrada());
     expect(r.hallazgos).toEqual([]);

@@ -1,5 +1,6 @@
 import type { Periodo } from '../domain/periodo.js';
 import type {
+  DisponibilidadFuentes,
   DocumentoRcv,
   EstadoRcv,
   F29Declaracion,
@@ -108,6 +109,7 @@ export interface Store {
   declaracionesF29(rut: string, periodo: string): F29Declaracion[];
   valoresF29(rut: string, periodo: string, folio: number): F29Valores | null;
   snapshotsRcv(rut: string, periodo: string): SnapshotRcv[];
+  disponibilidadFuentes(rut: string, periodo: string): DisponibilidadFuentes;
   frescura(rut: string, periodo: string): Frescura;
   periodosConDatos(rut: string): string[];
   reemplazarHallazgos(rut: string, periodo: string, hallazgos: readonly Hallazgo[], versionReglas: string, calculadoEn: string): void;

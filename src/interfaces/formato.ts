@@ -14,15 +14,17 @@ export function textoHallazgos(hallazgos: readonly Hallazgo[]): string {
 
 export function textoResumenIva(r: ResumenIva): string {
   const c = r.comparaciones;
+  const faltantes = [!r.disponibilidad.ventasRcv && 'ventas RCV', !r.disponibilidad.comprasRcv && 'compras RCV', !r.disponibilidad.f29 && 'F29'].filter(Boolean);
   return [
     `IVA ${r.periodo} — ${r.rut}`,
-    `Débito  (ventas RCV):  ${formatearClp(c.debitoRcv)} · F29: ${monto(c.debitoF29)}`,
-    `Crédito (compras RCV): ${formatearClp(c.creditoRcv)} · F29: ${monto(c.creditoF29)}`,
+    `Débito  (ventas RCV):  ${monto(c.debitoRcv)} · F29: ${monto(c.debitoF29)}`,
+    `Crédito (compras RCV): ${monto(c.creditoRcv)} · F29: ${monto(c.creditoF29)}`,
     `Remanente: mes anterior (77) ${monto(c.remanenteAnterior77)} → este mes (504) ${monto(c.remanenteActual504)}`,
     r.f29
       ? `F29: folio ${r.f29.folio} (${r.f29.estado}), presentado ${r.f29.fechaPresentacion ?? 'sin fecha'}, total a pagar ${monto(r.f29.totalAPagar)}`
-      : `F29: no presentado — vence ${r.venceF29}`,
-    `Compras pendientes de aceptar o reclamar: ${r.compras.pendientes} · reclamadas: ${r.compras.reclamados}`,
+      : `F29: ${r.disponibilidad.f29 ? 'no presentado' : 'sin sincronizar'} — vence ${r.venceF29}`,
+    `Compras pendientes de aceptar o reclamar: ${r.compras.pendientes ?? 'sin dato'} · reclamadas: ${r.compras.reclamados ?? 'sin dato'}`,
+    ...(faltantes.length > 0 ? [`Falta sincronizar: ${faltantes.join(', ')}`] : []),
     `Hallazgos (${r.hallazgos.length}):`,
     textoHallazgos(r.hallazgos).replace(/^/gm, '  '),
     `Datos: RCV al ${r.frescura.rcv ?? 'nunca'} · F29 al ${r.frescura.f29 ?? 'nunca'}`,

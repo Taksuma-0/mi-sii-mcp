@@ -3,6 +3,13 @@ export type EstadoRcv = 'REGISTRO' | 'PENDIENTE' | 'NO_INCLUIR' | 'RECLAMADO';
 export const ESTADOS_RCV: readonly EstadoRcv[] = ['REGISTRO', 'PENDIENTE', 'NO_INCLUIR', 'RECLAMADO'];
 export type TipoContribuyente = 'persona' | 'empresa';
 
+/** Una fuente es conocida si existe una consulta completa exitosa, aunque haya resultado vacía. */
+export interface DisponibilidadFuentes {
+  readonly ventasRcv: boolean;
+  readonly comprasRcv: boolean;
+  readonly f29: boolean;
+}
+
 export interface Perfil {
   readonly rut: string;
   readonly alias: string;

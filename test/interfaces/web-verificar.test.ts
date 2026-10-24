@@ -1,12 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ErrorImpuestocl } from '../../src/domain/errores.js';
+import * as syncApp from '../../src/app/sincronizar.js';
 import { verificar, SecretosNulos, type FabricaContenedorWeb } from '../../src/interfaces/web/verificar.js';
 import { depsDePrueba } from '../helpers/deps.js';
 import { declaracion, fila, perfilEmpresa, valores } from '../helpers/fabricas.js';
 
 const entrada = { rut: '22.222.222-2', clave: ' ficticia con espacios ', mes: '2026-09' };
 const cerrarDbs: (() => void)[] = [];
-afterEach(() => { for (const cerrar of cerrarDbs.splice(0)) cerrar(); });
+afterEach(() => { vi.restoreAllMocks(); for (const cerrar of cerrarDbs.splice(0)) cerrar(); });
 
 function entorno(fallaLogin?: Error) {
   const p = depsDePrueba();
@@ -21,6 +22,22 @@ function entorno(fallaLogin?: Error) {
 }
 
 describe('verificación local', () => {
+  it('considera parcial un resultado con avisos aunque no traiga errores ni aborto', async () => {
+    const e = entorno();
+    vi.spyOn(syncApp, 'sincronizar').mockResolvedValue({
+      rut: '22222222-2', abortado: null,
+      periodos: [{ periodo: '2026-09', errores: [], avisos: ['RCV COMPRA REGISTRO tipo 33: el detalle trajo 0 de 2 documentos.'], documentos: 0, f29Folio: null }],
+    });
+    expect((await verificar(entrada, e.fabrica)).estado).toBe('parcial');
+  });
+  it('marca parcial cuando un detalle trae cero de dos documentos', async () => {
+    const e = entorno();
+    e.sii.resumenes.set('2026-09|COMPRA|REGISTRO', [fila(33, 200_000, 38_000, 2)]);
+    const r = await verificar(entrada, e.fabrica);
+    expect(r.estado).toBe('parcial');
+    expect(r.sincronizacion).toContain('el detalle trajo 0 de 2 documentos');
+    expect(e.cerrar).toHaveBeenCalledOnce();
+  });
   it.each([
     { ...entrada, rut: 'invalido' },
     { ...entrada, mes: '2026-99' },

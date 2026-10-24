@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { documentos, f29Historial, hallazgos, plazos, resumenIva } from '../../src/app/consultas.js';
+import { sincronizar } from '../../src/app/sincronizar.js';
+import { parsePeriodo } from '../../src/domain/periodo.js';
+import { textoResumenIva } from '../../src/interfaces/formato.js';
 import { codigoDe } from '../helpers/errores.js';
 import { declaracion, documento, fila, perfilEmpresa, resumen, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
 import { depsDePrueba } from '../helpers/deps.js';
@@ -26,6 +29,47 @@ function conEmpresa() {
 }
 
 describe('resumenIva', () => {
+  it('sólo F29 no compara RCV desconocido con cero y comunica las fuentes faltantes', async () => {
+    const { deps, sii } = conEmpresa();
+    sii.declaraciones.set('2026-09', [declaracion()]);
+    sii.valores.set('2026-09|555001', valores({ '538': 19_000, '537': 19_000 }));
+    await sincronizar(deps, RUT_EMPRESA, parsePeriodo('2026-09'), parsePeriodo('2026-09'), ['f29']);
+    const r = resumenIva(deps, RUT_EMPRESA, '2026-09');
+    expect(r.hallazgos).toEqual([]);
+    expect(r.comparaciones).toMatchObject({ debitoRcv: null, creditoRcv: null });
+    expect(r.ventas.debito).toBeNull();
+    expect(r.compras.credito).toBeNull();
+    expect(r.disponibilidad).toEqual({ ventasRcv: false, comprasRcv: false, f29: true });
+    expect(textoResumenIva(r)).toContain('Falta sincronizar: ventas RCV, compras RCV');
+    expect(textoResumenIva(r)).toContain('sin dato');
+  });
+
+  it('sólo RCV no afirma F29 faltante hasta consultarlo, incluso vacío', async () => {
+    const { deps } = conEmpresa();
+    const sept = parsePeriodo('2026-09');
+    await sincronizar(deps, RUT_EMPRESA, sept, sept, ['rcv']);
+    const r = resumenIva(deps, RUT_EMPRESA, sept.texto);
+    expect(r.hallazgos).toEqual([]);
+    expect(r.comparaciones).toMatchObject({ debitoRcv: 0, creditoRcv: 0 });
+    expect(r.disponibilidad).toEqual({ ventasRcv: true, comprasRcv: true, f29: false });
+    expect(textoResumenIva(r)).toContain('Falta sincronizar: F29');
+    expect(textoResumenIva(r)).not.toContain('no presentado');
+    await sincronizar(deps, RUT_EMPRESA, sept, sept, ['f29']);
+    expect(resumenIva(deps, RUT_EMPRESA, sept.texto).hallazgos.map((h) => h.regla)).toEqual(['IVA-04']);
+    expect(textoResumenIva(resumenIva(deps, RUT_EMPRESA, sept.texto))).toContain('no presentado');
+  });
+
+  it('distingue ventas conocidas vacías de compras cuyo intento falló', async () => {
+    const { deps, sii } = conEmpresa();
+    sii.resumenes.set('2026-09|COMPRA|REGISTRO', [fila(33, 100_000, 19_000)]);
+    sii.declaraciones.set('2026-09', [declaracion()]);
+    sii.valores.set('2026-09|555001', valores({ '538': 19_000, '537': 19_000 }));
+    await sincronizar(deps, RUT_EMPRESA, parsePeriodo('2026-09'), parsePeriodo('2026-09'));
+    const r = resumenIva(deps, RUT_EMPRESA, '2026-09');
+    expect(r.disponibilidad).toEqual({ ventasRcv: true, comprasRcv: false, f29: true });
+    expect(r.comparaciones).toMatchObject({ debitoRcv: 0, creditoRcv: null });
+    expect(r.hallazgos.map((h) => h.regla)).toEqual(['IVA-01']);
+  });
   it('resume el primer período admitido sin remanente anterior', () => {
     const { deps, store } = conEmpresa();
     sembrarMes(store, '2000-01');
@@ -64,6 +108,22 @@ describe('resumenIva', () => {
 });
 
 describe('hallazgos', () => {
+  it('normaliza los dos extremos compactos para cálculo y lectura', () => {
+    const { deps, store } = conEmpresa();
+    sembrarMes(store, '2026-08');
+    sembrarMes(store, '2026-09');
+    expect(hallazgos(deps, RUT_EMPRESA, { desde: '202609', hasta: '202609' }).map((h) => h.periodo)).toEqual(['2026-09']);
+    expect(store.hallazgos(RUT_EMPRESA).map((h) => h.periodo)).toEqual(['2026-09']);
+  });
+
+  it.each([{ desde: '2026-13' }, { hasta: '2026-13' }, { desde: '202610', hasta: '2026-09' }, { desde: '' }])('rechaza filtro inválido antes de leer o recalcular: %j', async (filtro) => {
+    const { deps, store, db } = conEmpresa();
+    sembrarMes(store, '2026-09');
+    const antes = db.prepare('SELECT total_changes() AS n').get();
+    expect(await codigoDe(Promise.resolve().then(() => hallazgos(deps, RUT_EMPRESA, filtro)))).toBe('PERIODO_INVALIDO');
+    expect(db.prepare('SELECT total_changes() AS n').get()).toEqual(antes);
+    expect(store.hallazgos(RUT_EMPRESA)).toEqual([]);
+  });
   it('recalcula y guarda los hallazgos del primer período admitido', () => {
     const { deps, store } = conEmpresa();
     sembrarMes(store, '2000-01');

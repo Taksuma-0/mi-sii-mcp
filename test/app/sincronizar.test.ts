@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { sincronizar } from '../../src/app/sincronizar.js';
+import { resumenIva } from '../../src/app/consultas.js';
 import { ErrorImpuestocl } from '../../src/domain/errores.js';
 import { parsePeriodo } from '../../src/domain/periodo.js';
 import { codigoDe } from '../helpers/errores.js';
@@ -26,6 +27,48 @@ function mesCompleto() {
 }
 
 describe('sincronizar', () => {
+  it('conserva el último conjunto completo del lado incompleto y permite una eliminación posterior confirmada', async () => {
+    const { deps, store, sii, db } = mesCompleto();
+    await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT);
+    const compras = store.resumenesRcv(RUT_EMPRESA, SEPT.texto).filter((r) => r.lado === 'COMPRA');
+    const docs = store.documentosRcv(RUT_EMPRESA, SEPT.texto, { lado: 'COMPRA' });
+    const fotos = store.snapshotsRcv(RUT_EMPRESA, SEPT.texto).filter((s) => s.lado === 'COMPRA');
+    const despues = { ...deps, reloj: { ahora: () => new Date('2026-10-22T15:00:00.000Z') } };
+    sii.detalles.set('2026-09|COMPRA|REGISTRO|33', []);
+    sii.resumenes.set('2026-09|COMPRA|PENDIENTE', []);
+    sii.resumenes.set('2026-09|VENTA|REGISTRO', []);
+
+    const r = await sincronizar(despues, RUT_EMPRESA, SEPT, parsePeriodo('2026-10'));
+
+    expect(store.documentosRcv(RUT_EMPRESA, SEPT.texto, { lado: 'COMPRA' })).toEqual(docs);
+    expect(store.resumenesRcv(RUT_EMPRESA, SEPT.texto).filter((x) => x.lado === 'COMPRA')).toEqual(compras);
+    expect(store.snapshotsRcv(RUT_EMPRESA, SEPT.texto).filter((s) => s.lado === 'COMPRA')).toEqual(fotos);
+    expect(store.documentosRcv(RUT_EMPRESA, SEPT.texto, { lado: 'VENTA' })).toEqual([]);
+    expect(r.periodos[0]!.errores).toMatchObject([{ superficie: 'rcv.COMPRA', codigo: 'DATOS_INCOMPLETOS' }]);
+    expect(r.periodos[0]!.avisos).toEqual(['RCV COMPRA REGISTRO tipo 33: el detalle trajo 0 de 1 documentos.']);
+    expect(r.periodos[0]!.f29Folio).toBe(555_001);
+    expect(r.periodos[1]!.periodo).toBe('2026-10');
+    const intento = db.prepare("SELECT id, estado, error_codigo FROM sincronizacion WHERE superficie = 'rcv.COMPRA' AND periodo = '2026-09' ORDER BY id DESC LIMIT 1").get() as { id: number; estado: string; error_codigo: string };
+    expect(intento).toMatchObject({ estado: 'error', error_codigo: 'DATOS_INCOMPLETOS' });
+    expect(db.prepare('SELECT COUNT(*) AS n FROM respuesta_cruda WHERE sincronizacion_id = ?').get(intento.id)).toMatchObject({ n: 5 });
+    expect(resumenIva(despues, RUT_EMPRESA, SEPT.texto).hallazgos.filter((h) => h.regla === 'IVA-06').every((h) => !h.detalle.startsWith('Compras'))).toBe(true);
+
+    sii.resumenes.set('2026-09|COMPRA|REGISTRO', [fila(33, 0, 0, 0)]);
+    await sincronizar(despues, RUT_EMPRESA, SEPT, SEPT, ['rcv']);
+    expect(store.documentosRcv(RUT_EMPRESA, SEPT.texto, { lado: 'COMPRA' })).toEqual([]);
+    expect(resumenIva(despues, RUT_EMPRESA, SEPT.texto).hallazgos.find((h) => h.regla === 'IVA-06' && h.detalle.startsWith('Compras'))?.detalle).toContain('1 eliminado(s)');
+  });
+
+  it('no inventa documentos, snapshot ni frescura si el primer intento de ambos lados es incompleto', async () => {
+    const { deps, store, sii } = mesCompleto();
+    sii.detalles.clear();
+    const r = await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT, ['rcv']);
+    expect(store.resumenesRcv(RUT_EMPRESA, SEPT.texto)).toEqual([]);
+    expect(store.documentosRcv(RUT_EMPRESA, SEPT.texto)).toEqual([]);
+    expect(store.snapshotsRcv(RUT_EMPRESA, SEPT.texto)).toEqual([]);
+    expect(store.frescura(RUT_EMPRESA, SEPT.texto)).toEqual({ rcv: null, f29: null });
+    expect(r.periodos[0]!.errores.map((e) => e.codigo)).toEqual(['DATOS_INCOMPLETOS', 'DATOS_INCOMPLETOS']);
+  });
   it('guarda RCV y F29 del período y la evidencia cruda de cada llamada', async () => {
     const { deps, store, db, sii, persistidos } = mesCompleto();
     const r = await sincronizar(deps, '22.222.222-2', SEPT, SEPT);

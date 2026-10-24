@@ -73,7 +73,7 @@ export async function verificar(entrada: EntradaVerificacion, fabrica: FabricaCo
     const resumen = resumenIva(contenedor.deps, rut, mes.texto);
     const seguro = { ...sync, abortado: sync.abortado ? { ...sync.abortado, mensaje: errorPublico(new ErrorImpuestocl(sync.abortado.codigo as CodigoError, '')).mensaje } : null };
     return {
-      estado: sync.abortado || sync.periodos.some((p) => p.errores.length > 0) ? 'parcial' : 'completo',
+      estado: sync.abortado || sync.periodos.some((p) => p.errores.length > 0 || p.avisos.length > 0) ? 'parcial' : 'completo',
       sincronizacion: textoSync(seguro),
       resumen: textoResumenIva(resumen),
       plazos: textoPlazos(plazos(contenedor.deps, rut)),

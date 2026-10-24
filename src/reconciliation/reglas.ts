@@ -3,7 +3,7 @@ import { declaracionVigente } from '../domain/f29.js';
 import { diasEntre, fechaEnSantiago } from '../domain/fechas.js';
 import { formatearClp, nombreTipoDocumento } from '../domain/formato.js';
 import { compararPeriodos, periodoAnterior, periodoDeFecha, type Periodo } from '../domain/periodo.js';
-import { claveDocumento, type DocumentoRcv, type F29Declaracion, type F29Valores, type Hallazgo, type Lado, type RcvResumen, type SnapshotRcv, type TipoContribuyente } from '../domain/tipos.js';
+import { claveDocumento, type DisponibilidadFuentes, type DocumentoRcv, type F29Declaracion, type F29Valores, type Hallazgo, type Lado, type RcvResumen, type SnapshotRcv, type TipoContribuyente } from '../domain/tipos.js';
 import { CODIGO_F29, creditoDocumentosF29, creditoRcv, debitoF29, debitoRcv, valorF29 } from './mapeo-f29.js';
 
 export interface EntradaConciliacion {
@@ -21,6 +21,8 @@ export interface EntradaConciliacion {
   readonly valoresAnterior: F29Valores | null;
   readonly snapshots: readonly SnapshotRcv[];
   readonly toleranciaPesos: number;
+  /** Omitido conserva el contrato de los consumidores puros previos: todas las fuentes conocidas. */
+  readonly disponibilidad?: DisponibilidadFuentes;
 }
 
 type DatosHallazgo = Omit<Hallazgo, 'rut' | 'periodo'>;
@@ -35,7 +37,7 @@ function comparar(e: EntradaConciliacion, regla: string, titulo: string, esperad
 
 /** IVA-01: el débito de las ventas del RCV debe coincidir con el débito declarado en el F29. */
 export function reglaDebito(e: EntradaConciliacion): Hallazgo[] {
-  if (!e.valores) return [];
+  if (e.disponibilidad?.ventasRcv === false || !e.valores) return [];
   const declarado = debitoF29(e.valores);
   if (declarado === null) {
     return [
@@ -64,7 +66,7 @@ export function reglaDebito(e: EntradaConciliacion): Hallazgo[] {
 
 /** IVA-02: el crédito de las compras registradas debe coincidir con el crédito por documentos del F29. */
 export function reglaCredito(e: EntradaConciliacion): Hallazgo[] {
-  if (!e.valores) return [];
+  if (e.disponibilidad?.comprasRcv === false || !e.valores) return [];
   const declarado = creditoDocumentosF29(e.valores);
   if (declarado === null) {
     return [
@@ -112,6 +114,7 @@ export const DIAS_ALERTA_RECLAMO = 3;
 
 /** IVA-04: período cerrado sin F29 presentado. Las empresas declaran aunque no tengan movimiento. */
 export function reglaF29Faltante(e: EntradaConciliacion): Hallazgo[] {
+  if (e.disponibilidad?.f29 === false) return [];
   if (declaracionVigente(e.declaraciones)) return [];
   if (compararPeriodos(e.periodo, periodoDeFecha(e.hoy)) >= 0) return [];
   const hayMovimiento = e.resumenes.some((r) => r.estado === 'REGISTRO' && r.filas.some((f) => f.cantidad > 0));
