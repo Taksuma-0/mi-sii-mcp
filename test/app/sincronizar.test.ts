@@ -92,6 +92,30 @@ describe('sincronizar', () => {
     expect(r.periodos[0]!.avisos).toEqual(['RCV COMPRA REGISTRO tipo 33: el detalle trajo 0 de 1 documentos.']);
   });
 
+  it('conserva el aviso detectado aunque falle la consulta del siguiente estado', async () => {
+    const { deps, store, sii, db } = mesCompleto();
+    await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT);
+    const compras = store.resumenesRcv(RUT_EMPRESA, SEPT.texto).filter((r) => r.lado === 'COMPRA');
+    const docs = store.documentosRcv(RUT_EMPRESA, SEPT.texto, { lado: 'COMPRA' });
+    const fotos = store.snapshotsRcv(RUT_EMPRESA, SEPT.texto).filter((s) => s.lado === 'COMPRA');
+    sii.detalles.set('2026-09|COMPRA|REGISTRO|33', []);
+    sii.fallas.set('resumen|2026-09|COMPRA|PENDIENTE', new ErrorImpuestocl('SII_NO_DISPONIBLE', 'Consulta no disponible.'));
+
+    const r = await sincronizar(deps, RUT_EMPRESA, SEPT, parsePeriodo('2026-10'));
+
+    expect(r.periodos[0]!.avisos).toEqual(['RCV COMPRA REGISTRO tipo 33: el detalle trajo 0 de 1 documentos.']);
+    expect(r.periodos[0]!.errores).toEqual([{ superficie: 'rcv.COMPRA', codigo: 'SII_NO_DISPONIBLE', mensaje: 'Consulta no disponible.' }]);
+    expect(r.abortado).toBeNull();
+    expect(r.periodos[0]!.f29Folio).toBe(555_001);
+    expect(r.periodos[1]!.periodo).toBe('2026-10');
+    expect(store.resumenesRcv(RUT_EMPRESA, SEPT.texto).filter((x) => x.lado === 'COMPRA')).toEqual(compras);
+    expect(store.documentosRcv(RUT_EMPRESA, SEPT.texto, { lado: 'COMPRA' })).toEqual(docs);
+    expect(store.snapshotsRcv(RUT_EMPRESA, SEPT.texto).filter((s) => s.lado === 'COMPRA')).toEqual(fotos);
+    const intento = db.prepare("SELECT id, estado, error_codigo FROM sincronizacion WHERE superficie = 'rcv.COMPRA' AND periodo = '2026-09' ORDER BY id DESC LIMIT 1").get() as { id: number };
+    expect(intento).toMatchObject({ estado: 'error', error_codigo: 'SII_NO_DISPONIBLE' });
+    expect(db.prepare('SELECT COUNT(*) AS n FROM respuesta_cruda WHERE sincronizacion_id = ?').get(intento.id)).toMatchObject({ n: 3 });
+  });
+
   it('si fallan los valores del F29 guarda igual la declaración, registra el error y deja diagnóstico', async () => {
     const { deps, store, sii, diagnosticos } = mesCompleto();
     sii.valores.clear();

@@ -57,8 +57,7 @@ export async function sincronizar(
       if (superficies.includes('rcv')) {
         for (const lado of LADOS) {
           await registrar(deps, rut, `rcv.${lado}`, periodo.texto, buffer, res, async (id, ahora) => {
-            const { resumenes, documentos, avisos } = await traerRcv(sii, rut, periodo, lado);
-            res.avisos.push(...avisos);
+            const { resumenes, documentos, avisos } = await traerRcv(sii, rut, periodo, lado, (aviso) => res.avisos.push(aviso));
             if (avisos.length > 0) return DATOS_INCOMPLETOS;
             deps.store.reemplazarRcv(id, rut, periodo.texto, lado, resumenes, documentos, ahora);
             res.documentos += documentos.length;
@@ -97,7 +96,7 @@ export async function sincronizar(
   }
 }
 
-async function traerRcv(sii: SiiReader, rut: string, periodo: Periodo, lado: Lado) {
+async function traerRcv(sii: SiiReader, rut: string, periodo: Periodo, lado: Lado, alAviso: (aviso: string) => void) {
   const resumenes: RcvResumen[] = [];
   const documentos: DocumentoRcv[] = [];
   const avisos: string[] = [];
@@ -108,7 +107,11 @@ async function traerRcv(sii: SiiReader, rut: string, periodo: Periodo, lado: Lad
       if (fila.cantidad === 0) continue;
       if (lado === 'VENTA' && SOLO_RESUMEN_VENTA.has(fila.tipoDoc)) continue;
       const docs = await sii.rcvDetalle(rut, periodo, lado, fila.tipoDoc, estado);
-      if (docs.length < fila.cantidad) avisos.push(`RCV ${lado} ${estado} tipo ${fila.tipoDoc}: el detalle trajo ${docs.length} de ${fila.cantidad} documentos.`);
+      if (docs.length < fila.cantidad) {
+        const aviso = `RCV ${lado} ${estado} tipo ${fila.tipoDoc}: el detalle trajo ${docs.length} de ${fila.cantidad} documentos.`;
+        avisos.push(aviso);
+        alAviso(aviso);
+      }
       documentos.push(...docs);
     }
   }
