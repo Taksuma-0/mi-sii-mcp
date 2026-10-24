@@ -89,7 +89,7 @@ function conciliarYGuardar(deps: DepsApp, perfil: Perfil, periodo: Periodo) {
     declaraciones,
     valores: vigente ? deps.store.valoresF29(perfil.rut, periodo.texto, vigente.folio) : null,
     valoresAnterior: periodo.texto === '2000-01' ? null : valoresVigentes(deps, perfil.rut, periodoAnterior(periodo).texto),
-    snapshots: deps.store.snapshotsRcv(perfil.rut, periodo.texto),
+    snapshots: vigente?.fechaPresentacion ? deps.store.snapshotsRcv(perfil.rut, periodo.texto) : [],
     toleranciaPesos: deps.toleranciaPesos,
     disponibilidad: deps.store.disponibilidadFuentes(perfil.rut, periodo.texto),
   } satisfies EntradaConciliacion;
@@ -204,8 +204,8 @@ export function f29Historial(deps: DepsApp, rutTexto: string, desde: string, has
 export function documentos(deps: DepsApp, rutTexto: string, periodoTexto: string, filtro: FiltroDocumentos = {}, pagina = 1, tamano = 50): PaginaDocumentos {
   const perfil = perfilExistente(deps, rutTexto);
   const periodo = parsePeriodo(periodoTexto);
-  const todos = deps.store.documentosRcv(perfil.rut, periodo.texto, filtro);
-  const p = Math.max(1, Math.trunc(pagina));
-  const t = Math.min(200, Math.max(1, Math.trunc(tamano)));
-  return { total: todos.length, pagina: p, tamano: t, documentos: todos.slice((p - 1) * t, p * t) };
+  const p = Number.isFinite(pagina) ? Math.max(1, Math.trunc(pagina)) : 1;
+  const t = Number.isFinite(tamano) ? Math.min(200, Math.max(1, Math.trunc(tamano))) : 50;
+  const resultado = deps.store.documentosRcvPaginados(perfil.rut, periodo.texto, filtro, p, t);
+  return { ...resultado, pagina: p, tamano: t };
 }

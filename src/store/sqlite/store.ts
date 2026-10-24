@@ -17,7 +17,7 @@ import {
   type SnapshotRcv,
   type TipoContribuyente,
 } from '../../domain/tipos.js';
-import type { FiltroDocumentos, FiltroHallazgos, Frescura, HallazgoGuardado, Store } from '../../ports/index.js';
+import type { DocumentosPaginados, FiltroDocumentos, FiltroHallazgos, Frescura, HallazgoGuardado, Store } from '../../ports/index.js';
 import type { Db } from './db.js';
 
 export const sha256 = (texto: string): string => createHash('sha256').update(texto).digest('hex');
@@ -141,6 +141,30 @@ const aDeclaracion = (f: FilaDeclaracion): F29Declaracion => ({
   totalAPagar: f.total_a_pagar,
 });
 
+const ORDEN_DOCUMENTOS = 'lado, tipo_doc, folio, estado_rcv, rut_contraparte';
+
+function condicionesDocumentos(rut: string, periodo: string, filtro: FiltroDocumentos) {
+  const condiciones = ['rut = @rut', 'periodo = @periodo'];
+  const parametros: Record<string, unknown> = { rut, periodo };
+  if (filtro.lado) {
+    condiciones.push('lado = @lado');
+    parametros['lado'] = filtro.lado;
+  }
+  if (filtro.estado) {
+    condiciones.push('estado_rcv = @estado');
+    parametros['estado'] = filtro.estado;
+  }
+  if (filtro.tipoDoc !== undefined) {
+    condiciones.push('tipo_doc = @tipoDoc');
+    parametros['tipoDoc'] = filtro.tipoDoc;
+  }
+  if (filtro.rutContraparte) {
+    condiciones.push('rut_contraparte = @rutContraparte');
+    parametros['rutContraparte'] = filtro.rutContraparte;
+  }
+  return { condiciones: condiciones.join(' AND '), parametros };
+}
+
 export class SqliteStore implements Store {
   constructor(private readonly db: Db) {}
 
@@ -242,49 +266,46 @@ export class SqliteStore implements Store {
   }
 
   documentosRcv(rut: string, periodo: string, filtro: FiltroDocumentos = {}): DocumentoRcv[] {
-    const condiciones = ['rut = @rut', 'periodo = @periodo'];
-    const parametros: Record<string, unknown> = { rut, periodo };
-    if (filtro.lado) {
-      condiciones.push('lado = @lado');
-      parametros['lado'] = filtro.lado;
-    }
-    if (filtro.estado) {
-      condiciones.push('estado_rcv = @estado');
-      parametros['estado'] = filtro.estado;
-    }
-    if (filtro.tipoDoc !== undefined) {
-      condiciones.push('tipo_doc = @tipoDoc');
-      parametros['tipoDoc'] = filtro.tipoDoc;
-    }
-    if (filtro.rutContraparte) {
-      condiciones.push('rut_contraparte = @rutContraparte');
-      parametros['rutContraparte'] = filtro.rutContraparte;
-    }
+    const { condiciones, parametros } = condicionesDocumentos(rut, periodo, filtro);
     const filas = this.db
-      .prepare(`SELECT * FROM rcv_documento WHERE ${condiciones.join(' AND ')} ORDER BY lado, tipo_doc, folio`)
+      .prepare(`SELECT * FROM rcv_documento WHERE ${condiciones} ORDER BY ${ORDEN_DOCUMENTOS}`)
       .all(parametros) as FilaDocumento[];
     return filas.map(aDocumento);
   }
 
+  documentosRcvPaginados(rut: string, periodo: string, filtro: FiltroDocumentos, pagina: number, tamano: number): DocumentosPaginados {
+    const { condiciones, parametros } = condicionesDocumentos(rut, periodo, filtro);
+    const { total } = this.db.prepare(`SELECT COUNT(*) AS total FROM rcv_documento WHERE ${condiciones}`).get(parametros) as { total: number };
+    const p = Number.isFinite(pagina) ? Math.max(1, Math.trunc(pagina)) : 1;
+    const t = Number.isFinite(tamano) ? Math.min(200, Math.max(1, Math.trunc(tamano))) : 50;
+    const offset = (p - 1) * t;
+    // También evita enviar a SQLite offsets enormes que exceden su entero de 64 bits.
+    if (offset >= total) return { total, documentos: [] };
+    const filas = this.db.prepare(
+      `SELECT * FROM rcv_documento WHERE ${condiciones} ORDER BY ${ORDEN_DOCUMENTOS} LIMIT @limite OFFSET @offset`,
+    ).all({ ...parametros, limite: t, offset }) as FilaDocumento[];
+    return { total, documentos: filas.map(aDocumento) };
+  }
+
   snapshotsRcv(rut: string, periodo: string): SnapshotRcv[] {
-    const sincronizaciones = this.db
+    const filas = this.db
       .prepare(
-        `SELECT id, superficie, iniciado_en FROM sincronizacion
-         WHERE rut = ? AND periodo = ? AND superficie IN ('rcv.VENTA', 'rcv.COMPRA') AND estado = 'ok'
-         ORDER BY iniciado_en, id`,
+        `SELECT s.id, s.superficie, s.iniciado_en, f.clave_doc, f.estado_rcv, f.sha256_fila
+         FROM sincronizacion s LEFT JOIN rcv_documento_snapshot f ON f.sincronizacion_id = s.id
+         WHERE s.rut = ? AND s.periodo = ? AND s.superficie IN ('rcv.VENTA', 'rcv.COMPRA') AND s.estado = 'ok'
+         ORDER BY s.iniciado_en, s.id, f.clave_doc`,
       )
-      .all(rut, periodo) as { id: number; superficie: string; iniciado_en: string }[];
-    const filas = this.db.prepare('SELECT clave_doc, estado_rcv, sha256_fila FROM rcv_documento_snapshot WHERE sincronizacion_id = ? ORDER BY clave_doc');
-    return sincronizaciones.map((s) => ({
-      sincronizacionId: s.id,
-      lado: s.superficie === 'rcv.VENTA' ? 'VENTA' : 'COMPRA',
-      obtenidoEn: s.iniciado_en,
-      filas: (filas.all(s.id) as { clave_doc: string; estado_rcv: EstadoRcv; sha256_fila: string }[]).map((f) => ({
-        clave: f.clave_doc,
-        estado: f.estado_rcv,
-        sha: f.sha256_fila,
-      })),
-    }));
+      .all(rut, periodo) as { id: number; superficie: string; iniciado_en: string; clave_doc: string | null; estado_rcv: EstadoRcv; sha256_fila: string }[];
+    const fotos = new Map<number, { sincronizacionId: number; lado: Lado; obtenidoEn: string; filas: Array<SnapshotRcv['filas'][number]> }>();
+    for (const f of filas) {
+      let foto = fotos.get(f.id);
+      if (!foto) {
+        foto = { sincronizacionId: f.id, lado: f.superficie === 'rcv.VENTA' ? 'VENTA' : 'COMPRA', obtenidoEn: f.iniciado_en, filas: [] };
+        fotos.set(f.id, foto);
+      }
+      if (f.clave_doc !== null) foto.filas.push({ clave: f.clave_doc, estado: f.estado_rcv, sha: f.sha256_fila });
+    }
+    return [...fotos.values()];
   }
 
   // --- F29 ----------------------------------------------------------------------------------

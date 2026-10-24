@@ -3,6 +3,7 @@ import type { DocumentoRcv, Hallazgo, Lado, RcvResumen } from '../../src/domain/
 import { abrirDb, type Db } from '../../src/store/sqlite/db.js';
 import { huellaDocumento, SqliteStore } from '../../src/store/sqlite/store.js';
 import { declaracion, documento, fila, perfilEmpresa, resumen, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
+import { medirLecturas } from '../helpers/lecturas-sqlite.js';
 
 const T = '2026-10-21T10:00:00.000Z';
 let store: SqliteStore;
@@ -26,6 +27,68 @@ function syncRcv(lado: Lado, resumenes: RcvResumen[], documentos: DocumentoRcv[]
 }
 
 describe('SqliteStore: RCV', () => {
+  it.each([
+    [NaN, NaN, 50], [Infinity, Infinity, 50], [-Infinity, -Infinity, 50],
+    [-1, 0, 1], [1, 300, 200], [Number.MAX_VALUE, 200, 0],
+  ])('pagina directamente con entradas %s/%s sin parámetros inválidos para SQLite', (pagina, tamano, cantidad) => {
+    syncRcv('COMPRA', [], Array.from({ length: 250 }, (_, i) => documento({ folio: i + 1 })));
+    const resultado = store.documentosRcvPaginados(RUT_EMPRESA, '2026-09', {}, pagina, tamano);
+    expect(resultado.total).toBe(250);
+    expect(resultado.documentos).toHaveLength(cantidad);
+  });
+
+  it('pagina 250 documentos filtrados recuperando sólo la página y el total', () => {
+    const documentos = Array.from({ length: 250 }, (_, i) => documento({ folio: 250 - i, estado: 'PENDIENTE' }));
+    syncRcv('COMPRA', [], [...documentos, documento({ folio: 251 }), documento({ folio: 252, tipoDoc: 61, estado: 'PENDIENTE' }), documento({ folio: 253, rutContraparte: '44444444-4', estado: 'PENDIENTE' })]);
+    syncRcv('VENTA', [], [documento({ lado: 'VENTA', estado: 'PENDIENTE' })]);
+    const filtro = { lado: 'COMPRA', estado: 'PENDIENTE', tipoDoc: 33, rutContraparte: '33333333-3' } as const;
+    const medicion = medirLecturas(db);
+    const consultado = new SqliteStore(medicion.db);
+    const pagina = consultado.documentosRcvPaginados(RUT_EMPRESA, '2026-09', filtro, 3, 50);
+    expect(pagina).toEqual({ total: 250, documentos: [...documentos].reverse().slice(100, 150) });
+    expect(medicion.lecturas).toHaveLength(2);
+    expect(medicion.lecturas.reduce((n, lectura) => n + lectura.filas, 0)).toBe(51);
+    expect(store.documentosRcv(RUT_EMPRESA, '2026-09', filtro)).toEqual([...documentos].reverse());
+    expect(consultado.documentosRcvPaginados(RUT_EMPRESA, '2026-09', filtro, 6, 50)).toEqual({ total: 250, documentos: [] });
+    expect(consultado.documentosRcvPaginados(RUT_EMPRESA, '2026-08', filtro, 1, 50)).toEqual({ total: 0, documentos: [] });
+  });
+
+  it('pagina con orden estable entre estados y contrapartes de un mismo folio', () => {
+    const docs = [
+      documento({ folio: 1, estado: 'PENDIENTE' }),
+      documento({ folio: 1, estado: 'REGISTRO', rutContraparte: '44444444-4' }),
+      documento({ folio: 2, tipoDoc: 61 }),
+    ];
+    syncRcv('COMPRA', [], [...docs].reverse());
+    syncRcv('VENTA', [], [documento({ lado: 'VENTA', folio: 1 })]);
+    const esperados = [...docs, documento({ lado: 'VENTA', folio: 1 })];
+    const paginas = Array.from({ length: 4 }, (_, i) => store.documentosRcvPaginados(RUT_EMPRESA, '2026-09', {}, i + 1, 1).documentos).flat();
+    expect(paginas).toEqual(esperados);
+    expect(store.documentosRcv(RUT_EMPRESA, '2026-09')).toEqual(esperados);
+    expect(store.documentosRcvPaginados(RUT_EMPRESA, '2026-09', { rutContraparte: "' OR 1=1 --" }, 1, 50)).toEqual({ total: 0, documentos: [] });
+  });
+
+  it('recupera 30 fotos de 250 documentos con dos SELECT como máximo, conservando historia y fotos vacías', () => {
+    const docs = Array.from({ length: 250 }, (_, i) => documento({ folio: 250 - i }));
+    const esperados = Array.from({ length: 30 }, (_, i) => {
+      const lado: Lado = i % 2 === 0 ? 'COMPRA' : 'VENTA';
+      // En Santiago este instante aún pertenece al día anterior.
+      const inicio = i < 2 ? '2026-10-16T01:00:00.000Z' : T;
+      const filas = docs.map((d) => ({ ...d, lado, montoIva: d.montoIva + i }));
+      const id = syncRcv(lado, [], filas, inicio);
+      return { sincronizacionId: id, lado, obtenidoEn: inicio, filas: filas.map((d) => ({ clave: `${lado}:33:33333333-3:${d.folio}`, estado: d.estado, sha: huellaDocumento(d) })).sort((a, b) => a.clave.localeCompare(b.clave)) };
+    });
+    const vacia = syncRcv('COMPRA', [], [], T);
+    const fallida = store.iniciarSincronizacion(RUT_EMPRESA, 'rcv.COMPRA', '2026-09', T);
+    store.reemplazarRcv(fallida, RUT_EMPRESA, '2026-09', 'COMPRA', [], docs, T);
+    store.terminarSincronizacion(fallida, T, 'error');
+    const medicion = medirLecturas(db);
+    const fotos = new SqliteStore(medicion.db).snapshotsRcv(RUT_EMPRESA, '2026-09');
+    expect(fotos).toEqual([...esperados, { sincronizacionId: vacia, lado: 'COMPRA', obtenidoEn: T, filas: [] }]);
+    expect(medicion.lecturas.length).toBeLessThanOrEqual(2);
+    expect(medicion.lecturas.reduce((n, lectura) => n + lectura.filas, 0)).toBeLessThanOrEqual(7_531);
+  });
+
   it('reemplaza el RCV de un lado sin duplicar', () => {
     syncRcv('COMPRA', [resumen({ lado: 'COMPRA', filas: [fila(33, 100_000, 19_000, 1)] })], [documento({ folio: 1 })]);
     syncRcv('COMPRA', [resumen({ lado: 'COMPRA', filas: [fila(33, 200_000, 38_000, 2)] })], [documento({ folio: 1 }), documento({ folio: 2 })]);

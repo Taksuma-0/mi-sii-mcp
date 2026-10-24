@@ -7,6 +7,8 @@ import { codigoDe } from '../helpers/errores.js';
 import { declaracion, documento, fila, perfilEmpresa, resumen, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
 import { depsDePrueba } from '../helpers/deps.js';
 import { sembrarMes, T_SEMBRADO, type DatosMes } from '../helpers/sembrar.js';
+import { medirLecturas } from '../helpers/lecturas-sqlite.js';
+import { SqliteStore } from '../../src/store/sqlite/store.js';
 
 const SEPT: DatosMes = {
   resumenes: [
@@ -29,6 +31,16 @@ function conEmpresa() {
 }
 
 describe('resumenIva', () => {
+  it.each([{ declaraciones: [] }, { declaraciones: [declaracion({ fechaPresentacion: null })] }])('omite las fotos cuando IVA-06 no aplica: %j', ({ declaraciones }) => {
+    const { deps, store, db } = conEmpresa();
+    sembrarMes(store, '2026-09', { declaraciones, documentos: [documento()] });
+    const medicion = medirLecturas(db);
+    const r = resumenIva({ ...deps, store: new SqliteStore(medicion.db) }, RUT_EMPRESA, '2026-09');
+    expect(r.f29?.fechaPresentacion ?? null).toBeNull();
+    expect(r.hallazgos.map((h) => h.regla)).not.toContain('IVA-06');
+    expect(medicion.lecturas.filter((l) => l.sql.includes('rcv_documento_snapshot'))).toEqual([]);
+  });
+
   it('sólo F29 no compara RCV desconocido con cero y comunica las fuentes faltantes', async () => {
     const { deps, sii } = conEmpresa();
     sii.declaraciones.set('2026-09', [declaracion()]);
@@ -167,6 +179,35 @@ describe('plazos', () => {
 });
 
 describe('historial y documentos', () => {
+  it('recupera sólo 50 documentos de un mes con 250 y conserva total y filtro', () => {
+    const { deps, store, db } = conEmpresa();
+    const docs = Array.from({ length: 250 }, (_, i) => documento({ folio: 250 - i, estado: 'PENDIENTE' }));
+    sembrarMes(store, '2026-09', { documentos: [...docs, documento({ folio: 251 })] });
+    const medicion = medirLecturas(db);
+    const r = documentos({ ...deps, store: new SqliteStore(medicion.db) }, RUT_EMPRESA, '202609', { estado: 'PENDIENTE' }, 2, 50);
+    expect(r).toEqual({ pagina: 2, tamano: 50, total: 250, documentos: [...docs].reverse().slice(50, 100) });
+    // Perfil, total y página: la app no recupera los otros 200 documentos.
+    expect(medicion.lecturas.reduce((n, l) => n + l.filas, 0)).toBe(52);
+    expect(medicion.lecturas).toHaveLength(3);
+  });
+
+  it.each([
+    [NaN, NaN, 1, 50],
+    [Infinity, Infinity, 1, 50],
+    [-Infinity, -Infinity, 1, 50],
+    [-2, -3, 1, 1],
+    [2.9, 300.9, 2, 200],
+    [2.9, 2.9, 2, 2],
+    [Number.MAX_VALUE, 200, Number.MAX_VALUE, 200],
+  ])('normaliza página/tamaño %s/%s a %s/%s sin enviar no finitos a SQLite', (pagina, tamano, p, t) => {
+    const { deps, store } = conEmpresa();
+    sembrarMes(store, '2026-09', { documentos: [documento()] });
+    const r = documentos(deps, RUT_EMPRESA, '2026-09', {}, pagina, tamano);
+    expect(r).toMatchObject({ pagina: p, tamano: t, total: 1 });
+    expect(r.documentos).toEqual(p === 1 ? [documento()] : []);
+    expect(JSON.parse(JSON.stringify(r))).toEqual(r);
+  });
+
   it('arma el historial F29 por mes', () => {
     const { deps, store } = conEmpresa();
     sembrarMes(store, '2026-08', AGO);

@@ -64,6 +64,11 @@ export interface FiltroDocumentos {
   readonly rutContraparte?: string;
 }
 
+export interface DocumentosPaginados {
+  readonly total: number;
+  readonly documentos: readonly DocumentoRcv[];
+}
+
 export interface FiltroHallazgos {
   readonly desde?: string;
   readonly hasta?: string;
@@ -106,6 +111,7 @@ export interface Store {
   ): void;
   resumenesRcv(rut: string, periodo: string): RcvResumen[];
   documentosRcv(rut: string, periodo: string, filtro?: FiltroDocumentos): DocumentoRcv[];
+  documentosRcvPaginados(rut: string, periodo: string, filtro: FiltroDocumentos, pagina: number, tamano: number): DocumentosPaginados;
   declaracionesF29(rut: string, periodo: string): F29Declaracion[];
   valoresF29(rut: string, periodo: string, folio: number): F29Valores | null;
   snapshotsRcv(rut: string, periodo: string): SnapshotRcv[];
