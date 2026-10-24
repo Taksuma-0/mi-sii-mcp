@@ -51,14 +51,41 @@ describe('ClienteHttp', () => {
     expect(llamadas[1]!.headers['Cookie']).toContain('CSESSIONID=x');
   });
 
-  it('conserva POST y body ante un 307 con ubicación relativa', async () => {
+  it.each([307, 308])('conserva POST y body ante un %s con ubicación relativa', async (status) => {
     const { fetchFalso, llamadas } = crearFetchFalso({
-      'POST https://www4.sii.cl/a': { status: 307, headers: [['location', '/b']] },
+      'POST https://www4.sii.cl/a': { status, headers: [['location', '/b']] },
       'POST https://www4.sii.cl/b': OK,
     });
     const http = new ClienteHttp(new CookieJar(), { fetch: fetchFalso, temporizador: sinEsperas });
     await http.solicitar('https://www4.sii.cl/a', { method: 'POST', body: 'a=1' });
     expect(llamadas[1]!.body).toBe('a=1');
+  });
+
+  it.each([
+    { caso: 'continuar', location: '/final', codigo: null, saltos: 1 },
+    { caso: 'sala de espera', location: 'https://salaespera.sii.cl/', codigo: 'SII_EN_ESPERA', saltos: 1 },
+    { caso: 'exceso de saltos', location: '/inicio', codigo: 'PORTAL_CAMBIO', saltos: 10 },
+  ])('libera el cuerpo de cada redirección al salir por $caso', async ({ location, codigo, saltos }) => {
+    let cancelados = 0;
+    let final: Response | undefined;
+    const fetchFalso: typeof fetch = async (entrada) => {
+      if (String(entrada).endsWith('/final')) {
+        final = new Response('respuesta final');
+        return final;
+      }
+      return new Response(new ReadableStream({ cancel: () => { cancelados++; } }), {
+        status: 302,
+        headers: { location },
+      });
+    };
+    const http = new ClienteHttp(new CookieJar(), { fetch: fetchFalso, temporizador: sinEsperas });
+    const solicitud = http.solicitar('https://www4.sii.cl/inicio');
+    if (codigo) expect(await codigoDe(solicitud)).toBe(codigo);
+    else {
+      expect((await solicitud).texto).toBe('respuesta final');
+      expect(final?.bodyUsed).toBe(true);
+    }
+    expect(cancelados).toBe(saltos);
   });
 
   it('limita los saltos de redirección con PORTAL_CAMBIO', async () => {

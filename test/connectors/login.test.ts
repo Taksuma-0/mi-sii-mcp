@@ -51,6 +51,44 @@ describe('iniciarSesion', () => {
     expect(await codigoDe(iniciarSesion(cliente(fetchFalso), parseRut('22222222-2'), 'x'))).toBe('PORTAL_CAMBIO');
   });
 
+  it.each([307, 308])('no reenvía la clave tras un %s y libera el cuerpo rechazado', async (status) => {
+    const { fetchFalso, llamadas } = crearFetchFalso(rutasLoginOk());
+    let posts = 0;
+    let cancelados = 0;
+    const fetchConRedireccion: typeof fetch = async (entrada, init) => {
+      if (init?.method === 'POST' && ++posts === 1) {
+        return new Response(new ReadableStream({ cancel: () => { cancelados++; } }), {
+          status,
+          headers: { location: '/cgi_AUT2000/CAutInicio.cgi' },
+        });
+      }
+      return fetchFalso(entrada, init);
+    };
+    let error: unknown;
+    try {
+      await iniciarSesion(cliente(fetchConRedireccion), parseRut('22222222-2'), 'clave-sintetica-no-reenviar');
+    } catch (e) {
+      error = e;
+    }
+    expect(error).toMatchObject({ codigo: 'PORTAL_CAMBIO' });
+    expect(String(error)).not.toContain('clave-sintetica-no-reenviar');
+    expect(posts).toBe(1);
+    expect(llamadas.filter((l) => l.method === 'POST')).toHaveLength(0);
+    expect(cancelados).toBe(1);
+  });
+
+  it.each([302, 303])('permite continuar por GET tras un %s del login', async (status) => {
+    const ok = rutasLoginOk();
+    const { fetchFalso, llamadas } = crearFetchFalso({
+      ...ok,
+      [RUTA_POST]: { ...ok[RUTA_POST], status, headers: [...ok[RUTA_POST]!.headers!, ['location', '/continuar']] },
+      'GET https://zeusr.sii.cl/continuar': { headers: HTML },
+    });
+    expect((await iniciarSesion(cliente(fetchFalso), parseRut('22222222-2'), 'x')).rut).toBe('22222222-2');
+    expect(llamadas.filter((l) => l.method === 'POST')).toHaveLength(1);
+    expect(llamadas.find((l) => l.url.endsWith('/continuar'))?.body).toBeUndefined();
+  });
+
   it('si el SII devuelve otra identidad es PORTAL_CAMBIO', async () => {
     const { fetchFalso } = crearFetchFalso({ ...rutasLoginOk(), [RUTA_MI_SII]: { headers: HTML, body: paginaDatosCntr('11111111', '1', null) } });
     expect(await codigoDe(iniciarSesion(cliente(fetchFalso), parseRut('22222222-2'), 'x'))).toBe('PORTAL_CAMBIO');

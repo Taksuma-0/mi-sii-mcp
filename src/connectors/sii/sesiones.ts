@@ -19,6 +19,7 @@ interface ArchivoSesion {
 export class GestorSesiones implements ConsultaSesiones {
   private readonly activas = new Map<string, ClienteHttp>();
   private readonly pendientes = new Map<string, Promise<ClienteHttp>>();
+  private readonly operaciones = new Map<string, Promise<void>>();
 
   constructor(
     private readonly dir: string,
@@ -37,36 +38,41 @@ export class GestorSesiones implements ConsultaSesiones {
   /** Login pedido por la persona: levanta el bloqueo local y hace un único intento. */
   async loginInteractivo(rutTexto: string, clave: string, guardarClave: boolean): Promise<ResultadoLogin> {
     const rut = parseRut(rutTexto);
-    rmSync(this.rutaBloqueo(rut.canonico), { force: true });
-    const http = this.nuevoCliente();
-    const identidad = await iniciarSesion(http, rut, clave).catch(async (e: unknown) => {
-      await this.siRechazoBloquear(rut.canonico, e);
-      throw e;
-    });
-    this.guardarArchivo(rut.canonico, http);
-    this.activas.set(rut.canonico, http);
-    let claveGuardada = false;
-    if (guardarClave) {
-      try {
-        await this.secretos.guardar(rut.canonico, clave);
-        claveGuardada = true;
-      } catch {
-        claveGuardada = false;
+    this.pendientes.delete(rut.canonico);
+    return this.coordinar(rut.canonico, async () => {
+      rmSync(this.rutaBloqueo(rut.canonico), { force: true });
+      const http = this.nuevoCliente();
+      const identidad = await iniciarSesion(http, rut, clave).catch(async (e: unknown) => {
+        await this.siRechazoBloquear(rut.canonico, e);
+        throw e;
+      });
+      this.guardarArchivo(rut.canonico, http);
+      this.activas.set(rut.canonico, http);
+      let claveGuardada = false;
+      if (guardarClave) {
+        try {
+          await this.secretos.guardar(rut.canonico, clave);
+          claveGuardada = true;
+        } catch {
+          claveGuardada = false;
+        }
       }
-    }
-    return { identidad, claveGuardada };
+      return { identidad, claveGuardada };
+    });
   }
 
   /** Cliente con sesión válida. Solo entra sin intervención si hay clave guardada y el RUT no está bloqueado. */
   async sesionActiva(rutTexto: string): Promise<ClienteHttp> {
     const rut = parseRut(rutTexto);
-    if (existsSync(this.rutaBloqueo(rut.canonico))) {
-      throw new ErrorImpuestocl('RUT_BLOQUEADO_LOCAL', `El RUT ${rut.canonico} está bloqueado localmente por una clave rechazada.`);
-    }
     const pendiente = this.pendientes.get(rut.canonico);
     if (pendiente) return pendiente;
-    const nueva = this.obtenerSesion(rut).finally(() => {
-      this.pendientes.delete(rut.canonico);
+    const nueva = this.coordinar(rut.canonico, () => {
+      if (existsSync(this.rutaBloqueo(rut.canonico))) {
+        throw new ErrorImpuestocl('RUT_BLOQUEADO_LOCAL', `El RUT ${rut.canonico} está bloqueado localmente por una clave rechazada.`);
+      }
+      return this.obtenerSesion(rut);
+    }).finally(() => {
+      if (this.pendientes.get(rut.canonico) === nueva) this.pendientes.delete(rut.canonico);
     });
     this.pendientes.set(rut.canonico, nueva);
     return nueva;
@@ -81,16 +87,34 @@ export class GestorSesiones implements ConsultaSesiones {
 
   async logout(rutTexto: string, olvidarClave: boolean): Promise<void> {
     const rut = parseRut(rutTexto).canonico;
-    await cerrarSesion(this.activas.get(rut) ?? this.clienteDesdeArchivo(rut));
-    this.activas.delete(rut);
-    rmSync(this.rutaSesion(rut), { force: true });
-    if (olvidarClave) await this.secretos.borrar(rut);
+    // Una consulta posterior al logout debe esperar el cierre, sin compartir la anterior.
+    this.pendientes.delete(rut);
+    return this.coordinar(rut, async () => {
+      await cerrarSesion(this.activas.get(rut) ?? this.clienteDesdeArchivo(rut));
+      this.activas.delete(rut);
+      rmSync(this.rutaSesion(rut), { force: true });
+      if (olvidarClave) await this.secretos.borrar(rut);
+    });
+  }
+
+  /** Ordena los cambios de un RUT, incluido el llavero; un fallo no bloquea la siguiente operación. */
+  private coordinar<T>(rut: string, operacion: () => Promise<T>): Promise<T> {
+    const anterior = this.operaciones.get(rut) ?? Promise.resolve();
+    const actual = anterior.then(operacion);
+    const terminada = actual.then(() => {}, () => {}).finally(() => {
+      if (this.operaciones.get(rut) === terminada) this.operaciones.delete(rut);
+    });
+    this.operaciones.set(rut, terminada);
+    return actual;
   }
 
   private async obtenerSesion(rut: Rut): Promise<ClienteHttp> {
     const guardada = this.activas.get(rut.canonico) ?? this.clienteDesdeArchivo(rut.canonico);
     try {
-      await leerIdentidad(guardada);
+      const identidad = await leerIdentidad(guardada);
+      if (identidad.rut !== rut.canonico) {
+        throw new ErrorImpuestocl('PORTAL_CAMBIO', `El SII devolvió la identidad ${identidad.rut} en vez de ${rut.canonico}.`);
+      }
       this.activas.set(rut.canonico, guardada);
       return guardada;
     } catch (e) {

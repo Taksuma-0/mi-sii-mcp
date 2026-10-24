@@ -30,6 +30,8 @@ export interface SolicitudHttp {
   readonly body?: string;
   /** false para el login: nunca se reintenta. */
   readonly reintentar?: boolean;
+  /** false para el login: una redirección no puede volver a enviar su POST. */
+  readonly reenviarPostEnRedireccion?: boolean;
 }
 
 export interface RespuestaHttp {
@@ -122,6 +124,10 @@ export class ClienteHttp {
       }
       const location = res.headers.get('location');
       if (res.status >= 300 && res.status < 400 && location) {
+        await res.body?.cancel();
+        if (method === 'POST' && solicitud.reenviarPostEnRedireccion === false && ![301, 302, 303].includes(res.status)) {
+          throw new ErrorImpuestocl('PORTAL_CAMBIO', 'El SII pidió reenviar el formulario de inicio de sesión.');
+        }
         actual = new URL(location, actual).toString();
         if (new URL(actual).hostname === HOST_SALA_ESPERA) {
           throw new ErrorImpuestocl('SII_EN_ESPERA', 'El SII tiene sala de espera por alta demanda.');

@@ -107,6 +107,7 @@ export async function iniciarSesion(http: ClienteHttp, rut: Rut, clave: string):
   const r = await http.solicitar(URL_LOGIN_POST, {
     method: 'POST',
     reintentar: false,
+    reenviarPostEnRedireccion: false,
     headers: { 'Content-Type': 'application/x-www-form-urlencoded', Origin: `https://${HOST_LOGIN}`, Referer: URL_LOGIN_PAGINA },
     body: formulario.toString(),
   });

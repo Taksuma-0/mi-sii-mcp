@@ -6,7 +6,7 @@ import { GestorSesiones } from '../../src/connectors/sii/sesiones.js';
 import { codigoDe } from '../helpers/errores.js';
 import { crearFetchFalso, HTML, sinEsperas, type DefRespuesta, type RutaFalsa } from '../helpers/http-falso.js';
 import { SecretosEnMemoria } from '../helpers/secretos.js';
-import { PAGINA_STUB, paginaDatosCntr, paginaErrorClave, RUTA_MI_SII, RUTA_POST, rutasLoginOk } from '../helpers/sii-login.js';
+import { PAGINA_STUB, paginaDatosCntr, paginaErrorClave, RUTA_LOGOUT, RUTA_MI_SII, RUTA_POST, rutasLoginOk } from '../helpers/sii-login.js';
 
 const RUT = '22222222-2';
 const DATOS_OK: DefRespuesta = { headers: HTML, body: paginaDatosCntr('22222222', '2', 'EMPRESA DEMO SPA') };
@@ -16,6 +16,12 @@ const dirTemporal = () => join(mkdtempSync(join(tmpdir(), 'impuestocl-')), 'sesi
 function gestor(dir: string, secretos: SecretosEnMemoria, rutas: Record<string, RutaFalsa>) {
   const { fetchFalso, llamadas } = crearFetchFalso(rutas);
   return { g: new GestorSesiones(dir, secretos, { fetch: fetchFalso, temporizador: sinEsperas }), llamadas };
+}
+
+function pausa() {
+  let liberar!: () => void;
+  const promesa = new Promise<void>((resolve) => { liberar = resolve; });
+  return { promesa, liberar };
 }
 
 describe('GestorSesiones', () => {
@@ -42,6 +48,24 @@ describe('GestorSesiones', () => {
 
   it('sin sesión ni clave guardada exige login', async () => {
     const { g } = gestor(dirTemporal(), new SecretosEnMemoria(), { [RUTA_MI_SII]: STUB });
+    expect(await codigoDe(g.sesionActiva(RUT))).toBe('SESION_REQUERIDA');
+  });
+
+  it('rechaza otra identidad sin memorizarla ni intentar login con la clave guardada', async () => {
+    const secretos = new SecretosEnMemoria();
+    secretos.mapa.set(RUT, 'secreta');
+    let sesionExpirada = false;
+    const { g, llamadas } = gestor(dirTemporal(), secretos, {
+      ...rutasLoginOk(),
+      [RUTA_MI_SII]: () => sesionExpirada ? STUB : { headers: HTML, body: paginaDatosCntr('33333333', '3', null) },
+    });
+    expect(await codigoDe(g.sesionActiva('22.222.222-2'))).toBe('PORTAL_CAMBIO');
+    expect(llamadas.filter((l) => l.method === 'POST')).toHaveLength(0);
+    expect(g.estado(RUT).tieneSesion).toBe(false);
+    g.persistir(RUT);
+    expect(g.estado(RUT).tieneSesion).toBe(false);
+    sesionExpirada = true;
+    secretos.mapa.clear();
     expect(await codigoDe(g.sesionActiva(RUT))).toBe('SESION_REQUERIDA');
   });
 
@@ -89,6 +113,66 @@ describe('GestorSesiones', () => {
     await g.logout(RUT, true);
     expect(g.estado(RUT).tieneSesion).toBe(false);
     expect(secretos.mapa.has(RUT)).toBe(false);
+  });
+
+  it.each(['renovación', 'interactivo'])('logout impide resucitar una sesión con %s pendiente', async (tipo) => {
+    const secretos = new SecretosEnMemoria();
+    secretos.mapa.set(RUT, 'secreta');
+    const postIniciado = pausa();
+    const continuarPost = pausa();
+    const { fetchFalso, llamadas } = crearFetchFalso({
+      ...rutasLoginOk(),
+      [RUTA_MI_SII]: (l) => l.headers['Cookie']?.includes('TOKEN=') ? DATOS_OK : STUB,
+    });
+    const fetchRetenido: typeof fetch = async (entrada, init) => {
+      if (init?.method === 'POST') {
+        postIniciado.liberar();
+        await continuarPost.promesa;
+      }
+      return fetchFalso(entrada, init);
+    };
+    const g = new GestorSesiones(dirTemporal(), secretos, { fetch: fetchRetenido, temporizador: sinEsperas });
+    const operacion = tipo === 'renovación' ? g.sesionActiva(RUT) : g.loginInteractivo(RUT, 'secreta', true);
+    await postIniciado.promesa;
+    const logout = g.logout('22.222.222-2', true);
+    // Cede un turno para que logout avance mientras el POST sigue retenido.
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    continuarPost.liberar();
+    await Promise.all([operacion, logout]);
+    expect(g.estado(RUT).tieneSesion).toBe(false);
+    expect(secretos.mapa.has(RUT)).toBe(false);
+    g.persistir(RUT);
+    expect(g.estado(RUT).tieneSesion).toBe(false);
+    expect(await codigoDe(g.sesionActiva(RUT))).toBe('SESION_REQUERIDA');
+    expect(llamadas.filter((l) => l.method === 'POST')).toHaveLength(1);
+    await g.loginInteractivo(RUT, 'posterior', false);
+    expect(g.estado(RUT).tieneSesion).toBe(true);
+  });
+
+  it('logout espera el guardado de clave pendiente sin bloquear otros RUT', async () => {
+    const guardadoIniciado = pausa();
+    const continuarGuardado = pausa();
+    class SecretosRetenidos extends SecretosEnMemoria {
+      override async guardar(rut: string, clave: string): Promise<void> {
+        guardadoIniciado.liberar();
+        await continuarGuardado.promesa;
+        await super.guardar(rut, clave);
+      }
+    }
+    const secretos = new SecretosRetenidos();
+    const { g, llamadas } = gestor(dirTemporal(), secretos, rutasLoginOk());
+    const login = g.loginInteractivo(RUT, 'secreta', true);
+    await guardadoIniciado.promesa;
+    const logout = g.logout(RUT, true);
+    await g.logout('11111111-1', true);
+    expect(llamadas.some((l) => `${l.method} ${l.url}` === RUTA_LOGOUT)).toBe(true);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    continuarGuardado.liberar();
+    await Promise.all([login, logout]);
+    expect(secretos.mapa.has(RUT)).toBe(false);
+    expect(g.estado(RUT).tieneSesion).toBe(false);
+    g.persistir(RUT);
+    expect(g.estado(RUT).tieneSesion).toBe(false);
   });
 
   it('el bloqueo por una clave rechazada prevalece sobre una sesión memorizada', async () => {
