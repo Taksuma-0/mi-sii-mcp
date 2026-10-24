@@ -1,3 +1,5 @@
+import { StringDecoder } from 'node:string_decoder';
+
 /** Pide la clave sin mostrarla (muestra `*`). Requiere una terminal interactiva. */
 export function pedirClaveOculta(pregunta: string, entrada: NodeJS.ReadStream = process.stdin, salida: NodeJS.WriteStream = process.stderr): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -78,10 +80,13 @@ export function pedirClaveOculta(pregunta: string, entrada: NodeJS.ReadStream = 
 
 /** Primera línea de la entrada estándar (para `--clave-stdin`). */
 export async function leerLineaStdin(entrada: AsyncIterable<string | Buffer> = process.stdin): Promise<string> {
+  const decodificador = new StringDecoder('utf8');
   let texto = '';
   for await (const trozo of entrada) {
-    texto += trozo.toString();
+    // Los strings ya están decodificados; un string vacío no interrumpe bytes pendientes.
+    texto += typeof trozo === 'string' ? (trozo ? decodificador.end() + trozo : '') : decodificador.write(trozo);
     if (texto.includes('\n')) break;
   }
+  texto += decodificador.end();
   return texto.split(/\r?\n/)[0] ?? '';
 }

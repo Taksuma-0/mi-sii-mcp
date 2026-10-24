@@ -30,8 +30,25 @@ const capaDe = (archivo: string): string => relative(SRC, archivo).split(sep)[0]
 const importsDe = (texto: string): string[] => {
   const scanner = createScanner(true, LanguageVariant.Standard, texto);
   const tokens: { kind: SyntaxKind; value: string }[] = [];
+  // Cada template recuerda la profundidad en que su interpolación debe cerrarse.
+  const interpolaciones: number[] = [];
+  let profundidadLlaves = 0;
+  let posicionAnterior = 0;
   let kind = scanner.scan();
   while (kind !== SyntaxKind.EndOfFile) {
+    if (kind === SyntaxKind.CloseBraceToken && interpolaciones.at(-1) === profundidadLlaves) {
+      kind = scanner.reScanTemplateToken(false);
+      if (kind === SyntaxKind.TemplateTail) interpolaciones.pop();
+    } else if (kind === SyntaxKind.OpenBraceToken) {
+      profundidadLlaves++;
+    } else if (kind === SyntaxKind.CloseBraceToken) {
+      profundidadLlaves--;
+    } else if (kind === SyntaxKind.TemplateHead) {
+      interpolaciones.push(profundidadLlaves);
+    }
+    const posicion = scanner.getTokenEnd();
+    if (posicion <= posicionAnterior) throw new Error(`El scanner no avanzó en la posición ${posicion}.`);
+    posicionAnterior = posicion;
     tokens.push({ kind, value: scanner.getTokenValue() });
     kind = scanner.scan();
   }
@@ -67,6 +84,33 @@ const importsDe = (texto: string): string[] => {
 };
 
 describe('arquitectura', () => {
+  it('detecta imports después de un template interpolado', () => {
+    const muestra = 'const x = `hello ${name}`; import fs from "node:fs";';
+
+    expect(importsDe(muestra)).toEqual(['node:fs']);
+  });
+
+  it('recorre templates anidados con objetos e imports dentro de interpolaciones', () => {
+    const muestra = [
+      'const x = `inicio ${ { valor: `anidado ${ { nombre: import("./interno.js") } } fin` }.valor }',
+      '${import("./segundo.js")} texto import falso from "./texto.js"`;',
+      'import "./lateral.js";',
+      'export { x } from "./reexport.js";',
+    ].join('\n');
+
+    expect(importsDe(muestra)).toEqual(['./interno.js', './segundo.js', './lateral.js', './reexport.js']);
+  });
+
+  it('termina al recorrer HTML con interpolaciones sin ocultar imports posteriores', () => {
+    const pagina = readFileSync(join(SRC, 'interfaces', 'web', 'pagina.ts'), 'utf8');
+    const muestra = pagina
+      .replaceAll('@@TOKEN@@', '${token}')
+      .replaceAll('@@NONCE@@', '${nonce}')
+      .replaceAll('@@MES@@', '${mes}') + '\nimport fs from "node:fs";';
+
+    expect(importsDe(muestra)).toEqual(['node:fs']);
+  });
+
   it('detecta imports laterales y dinámicos sin contar comentarios ni strings', () => {
     const muestra = `
       import type { X } from './estatico.js';

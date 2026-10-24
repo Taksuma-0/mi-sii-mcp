@@ -126,6 +126,43 @@ describe('CLI', () => {
 });
 
 describe('leerLineaStdin', () => {
+  it('conserva UTF-8 cuando una letra llega en buffers separados', async () => {
+    const bytes = Buffer.from('claveña\n');
+
+    expect(await leerLineaStdin(Readable.from([bytes.subarray(0, 6), bytes.subarray(6)]))).toBe('claveña');
+  });
+
+  it('conserva caracteres de varios bytes aunque llegue un byte por trozo', async () => {
+    const trozos = Array.from(Buffer.from('ficticiañ€🔒\nresto'), (byte) => Buffer.from([byte]));
+
+    expect(await leerLineaStdin(Readable.from(trozos))).toBe('ficticiañ€🔒');
+  });
+
+  it('combina strings y buffers con UTF-8 y CRLF partidos', async () => {
+    const trozos = ['clave', Buffer.from([0xc3]), Buffer.alloc(0), '', Buffer.from([0xb1]), 'a\r', Buffer.from('\nresto')];
+
+    expect(await leerLineaStdin(Readable.from(trozos))).toBe('claveña');
+  });
+
+  it('conserva strings ya decodificados aunque separen un par sustituto', async () => {
+    expect(await leerLineaStdin(Readable.from(['ficticia\ud83d', '\udd12\n']))).toBe('ficticia🔒');
+  });
+
+  it.each([['', ''], ['ficticiaña', 'ficticiaña'], ['ficticia\r', 'ficticia\r']])(
+    'conserva la entrada %j al terminar sin salto de línea', async (entrada, esperada) => {
+      expect(await leerLineaStdin(Readable.from([Buffer.from(entrada)]))).toBe(esperada);
+    },
+  );
+
+  it('deja de consumir la entrada al completar la primera línea', async () => {
+    async function* entrada() {
+      yield Buffer.from('ficticia\nsegunda');
+      throw new Error('No debe leer otra línea.');
+    }
+
+    expect(await leerLineaStdin(entrada())).toBe('ficticia');
+  });
+
   it('lee solo la primera línea', async () => {
     expect(await leerLineaStdin(Readable.from(['secreta\r\nresto']))).toBe('secreta');
   });
