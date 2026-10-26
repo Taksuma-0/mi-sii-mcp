@@ -176,8 +176,9 @@ describe('sincronizar', () => {
       expect(db.prepare('SELECT superficie, estado FROM sincronizacion ORDER BY id').all()).toEqual([{ superficie: 'rcv.VENTA', estado: 'ok' }]);
     });
 
-    it('con la señal ya cancelada no consulta ningún período', async () => {
-      const { deps, sii } = mesCompleto();
+    it('con la señal ya cancelada no abre la sesión del SII ni consulta ningún período', async () => {
+      const { deps, store, sii } = depsDePrueba({ fallaAlAbrir: new Error('No debe abrir el SII') });
+      store.guardarContribuyente(perfilEmpresa());
       const r = await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT, undefined, AbortSignal.abort());
       expect(r).toEqual({ rut: RUT_EMPRESA, periodos: [], abortado: CANCELADA });
       expect(sii.llamadas).toEqual([]);

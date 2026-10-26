@@ -49,7 +49,10 @@ const revisarCancelacion = (signal: AbortSignal | undefined): void => {
   if (signal?.aborted) throw new Cancelada();
 };
 
-/** `signal` se revisa antes de cada período y de cada superficie; al cancelarse devuelve lo traído y `abortado`. */
+/**
+ * `signal` se revisa antes de abrir la sesión del SII, de cada período y de cada superficie; al cancelarse devuelve lo
+ * traído y `abortado`.
+ */
 export async function sincronizar(
   deps: DepsApp,
   rutTexto: string,
@@ -64,6 +67,7 @@ export async function sincronizar(
   const buffer: RespuestaCruda[] = [];
   const resultados: ResultadoPeriodo[] = [];
   try {
+    revisarCancelacion(signal);
     const sii = await deps.abrirSii(rut, (r) => {
       buffer.push(r);
     });
