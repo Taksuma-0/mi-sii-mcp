@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { fileURLToPath } from 'node:url';
 import { CommanderError } from 'commander';
 import { crearContenedor, type Contenedor } from '../../main/contenedor.js';
 import { VERSION } from '../../main/version.js';
@@ -9,6 +10,9 @@ import { crearPrograma } from './programa.js';
 
 let contenedor: Contenedor | null = null;
 
+/** `impuestocl` no está en el PATH del asistente: el comando de login apunta a este mismo archivo compilado. */
+const comandoLoginReal = (rut: string): string => `node "${fileURLToPath(import.meta.url)}" login ${rut} --guardar-clave`;
+
 const { programa, salida } = crearPrograma(
   {
     escribir: (texto) => void process.stdout.write(`${texto}\n`),
@@ -17,7 +21,7 @@ const { programa, salida } = crearPrograma(
     leerStdin: () => leerLineaStdin(),
   },
   () => (contenedor ??= crearContenedor()),
-  (c) => iniciarMcpStdio(() => crearServidorMcp(c.deps, VERSION)),
+  (c) => iniciarMcpStdio(() => crearServidorMcp(c.deps, VERSION, { comandoLogin: comandoLoginReal })),
 );
 
 try {
