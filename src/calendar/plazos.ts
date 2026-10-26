@@ -1,5 +1,5 @@
 import { diaSemana, sumarDias } from '../domain/fechas.js';
-import { periodoSiguiente, type Periodo } from '../domain/periodo.js';
+import type { Periodo } from '../domain/periodo.js';
 import { FERIADOS } from './feriados.js';
 
 export const DIA_VENCIMIENTO_F29 = 20;
@@ -22,8 +22,9 @@ export function siguienteDiaHabil(fecha: string): string {
  * Pendiente de validación manual en T23; ver docs/decisiones/0002-plazos.md.
  */
 export function vencimientoF29(periodo: Periodo): string {
-  const siguiente = periodoSiguiente(periodo);
-  return siguienteDiaHabil(`${siguiente.texto}-${String(DIA_VENCIMIENTO_F29).padStart(2, '0')}`);
+  const anio = periodo.anio + (periodo.mes === 12 ? 1 : 0);
+  const mes = (periodo.mes % 12) + 1;
+  return siguienteDiaHabil(`${anio}-${String(mes).padStart(2, '0')}-${String(DIA_VENCIMIENTO_F29).padStart(2, '0')}`);
 }
 
 /** Regla del plan (Ley 19.983, art. 3): 8 días corridos siguientes a la recepción en el SII para reclamar el documento. */

@@ -19,6 +19,7 @@ describe('plazos', () => {
     ['2026-08', '2026-09-21'],
     ['2026-05', '2026-06-22'],
     ['2026-12', '2027-01-20'],
+    ['2100-12', '2101-01-20'],
   ])('el F29 de %s vence el %s', (periodo, vence) => {
     expect(vencimientoF29(parsePeriodo(periodo))).toBe(vence);
   });

@@ -163,6 +163,16 @@ describe('espacio local por contexto', () => {
     expect(await e.espacio.analizar(contexto, { desde: '2000-01', hasta: '2000-01' })).toHaveLength(1);
   });
 
+  it('analiza diciembre de 2100 con vencimiento en 2101, sin red y cierra el contenedor', async () => {
+    const e = entorno(); const { contexto } = await e.espacio.conectar(entrada);
+    const filas = await e.espacio.analizar(contexto, { desde: '2100-12', hasta: '2100-12' });
+    expect(filas).toHaveLength(1);
+    expect(filas[0]).toMatchObject({ rut: '22222222-2', periodo: '2100-12', venceF29: '2101-01-20' });
+    expect(e.sii.llamadas).toEqual([]);
+    expect(e.loginInteractivo).toHaveBeenCalledOnce();
+    expect(e.cerrar).toHaveBeenCalledTimes(2);
+  });
+
   it('pagina documentos de 50 en 50 con filtros locales y RUT del contexto', async () => {
     const e = entorno(); const { contexto } = await e.espacio.conectar(entrada);
     sembrarMes(e.store, '2026-09', { documentos: [
