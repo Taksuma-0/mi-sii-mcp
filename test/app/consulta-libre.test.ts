@@ -5,7 +5,7 @@ import { SOLO_RESUMEN_VENTA } from '../../src/app/sincronizar.js';
 import { declaracionVigente } from '../../src/domain/f29.js';
 import { NOMBRES_TIPO_DOCUMENTO } from '../../src/domain/formato.js';
 import type { ConsultaLibre, ResultadoConsulta } from '../../src/ports/index.js';
-import { CODIGO_F29, CODIGOS_CREDITO_FUERA_RCV, TIPOS_DOC_NEGATIVOS } from '../../src/reconciliation/mapeo-f29.js';
+import { CODIGO_F29, CODIGOS_CREDITO_FUERA_RCV, LINEAS_DE_TOTALES, TIPOS_DOC_NEGATIVOS } from '../../src/reconciliation/mapeo-f29.js';
 import { depsDePrueba } from '../helpers/deps.js';
 import { codigoDe } from '../helpers/errores.js';
 import { declaracion, documento, fila, perfilEmpresa, resumen, RUT_EMPRESA } from '../helpers/fabricas.js';
@@ -99,8 +99,13 @@ describe('esquemaDatos', () => {
     }
     expect(texto).toMatch(/Cobertura: solo el RCV.*F29/);
     expect(texto).toContain(`'${CODIGO_F29.TOTAL_CREDITOS}' menos ${CODIGOS_CREDITO_FUERA_RCV.map((c) => `'${c}'`).join(' y ')}`);
-    // Igual que las reglas de IVA: en un F29 con valores leídos, el PDF compacto omite las líneas en cero.
+    // Igual que las reglas de IVA: en un F29 con valores leídos, el PDF compacto omite las líneas en cero y se guarda
+    // cada línea con valor de la tabla; un total que falta junto a sus líneas es una lectura fallida.
     expect(texto).toMatch(/F29.*código ausente vale 0/);
+    expect(texto).toContain('impuestocl guarda cada línea con valor de la tabla del formulario');
+    for (const [total, { suman, restan }] of Object.entries(LINEAS_DE_TOTALES)) {
+      expect(texto).toContain(`'${total}' ausente con ${suman.map((c) => `'${c}'`).join(' o ')} y sin ${restan.map((c) => `'${c}'`).join(' ni ')}`);
+    }
     // Las fechas con hora no calzan con un BETWEEN de días: la regla debe enseñar a recortar.
     expect(texto).toContain('substr(');
     expect(texto).toMatch(/\bhora\b/);
