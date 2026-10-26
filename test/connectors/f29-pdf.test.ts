@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { CODIGOS_F29 } from '../../src/connectors/sii/codigos-f29.js';
 import { codigosDesdeLineas, extraerCodigosF29, lineasDeItems, type TokenPdf } from '../../src/connectors/sii/f29-pdf.js';
 import { F29_COMPACTO_SINTETICO, F29_COMPACTO_SINTETICO_CODIGOS, F29_SINTETICO, PAGINA_F29_COMPACTO, pdfSintetico } from '../helpers/pdf.js';
 
@@ -169,12 +170,45 @@ describe('lector del PDF compacto del F29 con el formato real', () => {
       { str: '511', x: 38.6, y: 600 },
       { str: 'CRÉD. IVA POR DCTOS. ELECTRÓNICOS', x: 59.2, y: 600 },
       { str: '400.000', x: 300.9, y: 600 },
-      { str: '562', x: 338.6, y: 600 },
-      { str: 'MONTO SIN DER. A CRED. FISCAL', x: 359.1, y: 600 },
+      { str: '587', x: 338.6, y: 600 },
+      { str: 'LÍNEA FICTICIA FUERA DEL CATÁLOGO', x: 359.1, y: 600 },
       { str: '1.250.000', x: 595.8, y: 600 },
     ]);
-    expect(linea!.filter((token) => token.inicioCelda).map((token) => token.s)).toEqual(['511', '562']);
+    expect(linea!.filter((token) => token.inicioCelda).map((token) => token.s)).toEqual(['511', '587']);
     expect(codigosDesdeLineas([linea!])).toEqual({ '511': 400_000 });
+  });
+
+  const filaFueraDelCatalogo = [
+    { str: '587', x: 38.6, y: 600 },
+    { str: 'LÍNEA FICTICIA FUERA DEL CATÁLOGO', x: 59.2, y: 600 },
+    { str: '3.300', x: 307.6, y: 600 },
+    { str: '538', x: 338.6, y: 600 },
+    { str: 'TOTAL DÉBITOS', x: 359.1, y: 600 },
+    { str: '300.000', x: 600.7, y: 600 },
+  ];
+
+  it('bajo la cabecera de la tabla lee toda celda con valor, esté o no en el catálogo', () => {
+    expect(codigosDesdeLineas(lineasDeItems([...CABECERA_TABLA, ...filaFueraDelCatalogo]))).toEqual({ '587': 3_300, '538': 300_000 });
+  });
+
+  it('nunca lee los números de identificación que van sobre la cabecera de la tabla', () => {
+    const identificacion = [
+      { str: '09', x: 39.3, y: 643.0 },
+      { str: 'Teléfono', x: 117.4, y: 643.0 },
+      { str: '5550000', x: 200.0, y: 643.0 },
+      { str: '314', x: 38.6, y: 630.0 },
+      { str: 'Rut del Representante', x: 59.2, y: 630.0 },
+      { str: '4.321', x: 307.6, y: 630.0 },
+    ];
+    expect(codigosDesdeLineas(lineasDeItems([...identificacion, ...CABECERA_TABLA, ...filaFueraDelCatalogo]))).toEqual({ '587': 3_300, '538': 300_000 });
+  });
+
+  it('en una página sin cabecera de tabla solo lee los códigos del catálogo', () => {
+    expect(codigosDesdeLineas(lineasDeItems(filaFueraDelCatalogo))).toEqual({ '538': 300_000 });
+  });
+
+  it.each(['510', '513', '528', '532', '544', '562', '755', '779'])('el catálogo incluye el código %s, visto en F29 reales', (codigo) => {
+    expect(CODIGOS_F29.has(codigo)).toBe(true);
   });
 
   it('no marca inicios de celda en el pie (glosa-código-monto), aunque tras el monto venga una unidad', () => {

@@ -76,8 +76,8 @@ function filaF29(y: number, izquierda: CeldaF29 | null, derecha: CeldaF29 | null
 /**
  * Replica el PDF compacto real del F29 (posiciones, cabeceras y glosas del formulario) con contribuyente, folio y
  * montos FICTICIOS. Cubre los casos que el lector debe resolver: códigos con ceros a la izquierda (077, 048, 089, 062),
- * códigos fuera del catálogo que inician celda (562, 544, 779, 9906), la tasa con punto decimal (0.5) y las líneas
- * que no deben dar ningún código. Se dibuja en `PAGINA_F29_COMPACTO`; lectura esperada en `F29_COMPACTO_SINTETICO_CODIGOS`.
+ * códigos que inician celda aunque no estuvieran en el catálogo (562, 544, 779, 9906 y el ficticio 587), la tasa con
+ * punto decimal (0.5) y las líneas que no deben dar ningún código. Se dibuja en `PAGINA_F29_COMPACTO`; lectura esperada en `F29_COMPACTO_SINTETICO_CODIGOS`.
  */
 export const F29_COMPACTO_SINTETICO: readonly TextoPdf[] = [
   ...linea(775.2, [[475.9, 'FOLIO'], [538.7, '[07]'], [566.6, '1234567890']]),
@@ -104,6 +104,7 @@ export const F29_COMPACTO_SINTETICO: readonly TextoPdf[] = [
   ...filaF29(528.5, ['9906', 'FECHA DE PRESENTACIÓN DE DECL. ANTERIOR', '15/01/2027'], ['595', 'SUB TOTAL IMP. DETERMINADO ANVERSO', '30.250']),
   ...filaF29(519.9, null, ['062', 'PPM NETO DETERMINADO', '12.500']),
   ...filaF29(511.3, null, ['547', 'TOTAL DETERMINADO', '30.250']),
+  ...filaF29(502.7, null, ['587', 'LÍNEA FICTICIA FUERA DEL CATÁLOGO', '3.300']),
   ...linea(486.7, [
     [35.8, '931'], [71.0, 'Monto Interés'], [132.8, '932'], [169.8, 'Monto Multa'], [231.5, '60'], [265.7, 'Condonación'],
     [338.6, '922'], [390.8, 'Número Resolución'], [485.6, '915'], [537.3, 'Fecha Condonación'],
@@ -121,14 +122,16 @@ export const F29_COMPACTO_SINTETICO: readonly TextoPdf[] = [
   ...linea(202.7, [[281.3, 'Ver Formulario Completo']]),
 ];
 
-/** Lo que debe leer impuestocl de `F29_COMPACTO_SINTETICO`: solo códigos del catálogo, cada uno con el valor de su celda. */
+/** Lo que debe leer impuestocl de `F29_COMPACTO_SINTETICO`: cada celda con valor de la tabla, con el valor de esa celda. */
 export const F29_COMPACTO_SINTETICO_CODIGOS: Readonly<Record<string, number>> = {
   '503': 5,
   '502': 300_000,
   '511': 400_000,
+  '562': 1_250_000,
   '584': 7,
   '538': 300_000,
   '519': 9,
+  '544': 0,
   '77': 250_000,
   '520': 400_000,
   '48': 4_000,
@@ -136,10 +139,12 @@ export const F29_COMPACTO_SINTETICO_CODIGOS: Readonly<Record<string, number>> = 
   '151': 13_750,
   '89': 0,
   '563': 2_500_000,
+  '779': 0,
   '115': 0.5,
   '537': 550_000,
   '595': 30_250,
   '62': 12_500,
   '547': 30_250,
   '91': 30_250,
+  '587': 3_300,
 };

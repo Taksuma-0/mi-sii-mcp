@@ -24,6 +24,9 @@ const PASO_PALABRA_X = 0.001;
 
 const aNumero = (s: string): number => (ES_DECIMAL.test(s) ? Number(s.replace(',', '.')) : Number(s.replace(/\./g, '')));
 const esValor = (s: string): boolean => ES_MONTO.test(s) || ES_DECIMAL.test(s);
+/** La cabecera de la tabla del PDF compacto («Código Glosa Valor», una vez por columna). */
+const PALABRAS_CABECERA = ['código', 'glosa', 'valor'];
+const esCabeceraDeTabla = (tokens: readonly TokenPdf[]): boolean => PALABRAS_CABECERA.every((p) => tokens.some((t) => t.s.toLowerCase() === p));
 /** El PDF trae algunos códigos con ceros a la izquierda (`077`); el catálogo y la salida usan la forma sin ellos (`77`). */
 const codigoNormalizado = (s: string): string => (/^\d+$/.test(s) ? s.replace(/^0+(?=\d)/, '') : s);
 
@@ -57,10 +60,19 @@ export function lineasDeItems(items: readonly { str: string; x: number; y: numbe
   });
 }
 
-/** Reserva el monto de cada celda desde la derecha, antes de buscar su código hacia la izquierda. */
+/**
+ * Reserva el monto de cada celda desde la derecha, antes de buscar su código hacia la izquierda. Bajo la cabecera de la
+ * tabla («Código Glosa Valor») se lee toda celda con valor, esté o no su código en `conocidos`; sobre ella (la
+ * identificación del contribuyente) o en una página sin cabecera, solo los códigos de `conocidos`.
+ */
 export function codigosDesdeLineas(lineas: readonly (readonly TokenPdf[])[], conocidos: ReadonlySet<string> = CODIGOS_F29): Record<string, number> {
   const out: Record<string, number> = {};
+  let bajoCabecera = false;
   for (const tokens of lineas) {
+    if (esCabeceraDeTabla(tokens)) {
+      bajoCabecera = true;
+      continue;
+    }
     const primero = tokens[0];
     const tieneCodigoInicial = primero !== undefined && (primero.inicioCelda === true || conocidos.has(codigoNormalizado(primero.s)));
     const celdas: [string, number][] = [];
@@ -70,8 +82,8 @@ export function codigosDesdeLineas(lineas: readonly (readonly TokenPdf[])[], con
       if (token.enGlosa) continue;
       const codigo = codigoNormalizado(token.s);
       if (token.inicioCelda) {
-        // El valor reservado es de esta celda: se guarda si el código es del catálogo y se descarta si no.
-        if (valor !== null && conocidos.has(codigo)) celdas.push([codigo, aNumero(valor)]);
+        // El valor reservado es de esta celda: se guarda si la celda está en la tabla o su código es conocido; si no, se descarta.
+        if (valor !== null && (bajoCabecera || conocidos.has(codigo))) celdas.push([codigo, aNumero(valor)]);
         valor = null;
         continue;
       }
