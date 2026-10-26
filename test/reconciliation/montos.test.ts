@@ -67,7 +67,7 @@ describe('mapeo RCV ↔ F29', () => {
     expect(montoF29(valores({ '538': 1, '520': 19_000, '504': 5_000, '528': 24_000 }), '537')).toBe(0);
   });
 
-  it.each([
+  it.each<{ caso: string; v: Record<string, number>; total: string }>([
     { caso: '510 no cubre el 502', v: { '502': 300_000, '510': 1_000 }, total: '538' },
     { caso: '528 no cubre el 520', v: { '538': 1, '520': 19_000, '528': 1_000 }, total: '537' },
     { caso: '528 no cubre el 504', v: { '538': 1, '504': 5_000, '528': 1_000 }, total: '537' },
