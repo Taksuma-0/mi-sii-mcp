@@ -149,9 +149,10 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
       inputSchema: z.object({ rut: RUT, desde: PERIODO, hasta: PERIODO.optional(), superficies: z.array(z.enum(['rcv', 'f29'])).optional() }),
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
-    async ({ rut, desde, hasta, superficies }) =>
+    async ({ rut, desde, hasta, superficies }, ctx) =>
       seguro(async () => {
-        const r = await sincronizar(deps, rut, parsePeriodo(desde), parsePeriodo(hasta ?? desde), superficies ?? ['rcv', 'f29']);
+        // Si el cliente cancela (notifications/cancelled), se termina la superficie en curso y no se traen más meses.
+        const r = await sincronizar(deps, rut, parsePeriodo(desde), parsePeriodo(hasta ?? desde), superficies ?? ['rcv', 'f29'], ctx.mcpReq.signal);
         // Los errores de sesión no se lanzan: vienen en `abortado`; SIN_PERMISO no es fatal y queda en los errores de cada período.
         // El comando de login se agrega aquí, una sola vez.
         const codigos = [...(r.abortado ? [r.abortado.codigo] : []), ...r.periodos.flatMap((p) => p.errores.map((e) => e.codigo))];

@@ -142,6 +142,48 @@ describe('sincronizar', () => {
     expect(r.periodos).toEqual([]);
   });
 
+  describe('cancelación', () => {
+    const CANCELADA = { superficie: 'cancelacion', codigo: 'CANCELADO', mensaje: 'Sincronización cancelada; se conservan los meses ya traídos.' };
+
+    it('cancelada durante el primer período, lo termina, no trae los siguientes e informa lo conservado', async () => {
+      const { deps, store, sii, persistidos } = mesCompleto();
+      const cancelar = new AbortController();
+      sii.alLlamar = (llamada) => {
+        if (llamada === 'f29valores|2026-09|555001') cancelar.abort();
+      };
+
+      const r = await sincronizar(deps, RUT_EMPRESA, SEPT, parsePeriodo('2026-11'), undefined, cancelar.signal);
+
+      expect(r.abortado).toEqual(CANCELADA);
+      expect(r.periodos).toEqual([{ periodo: '2026-09', errores: [], avisos: [], documentos: 4, f29Folio: 555_001 }]);
+      expect(store.valoresF29(RUT_EMPRESA, '2026-09', 555_001)?.valores['538']).toBe(199_500);
+      expect(sii.llamadas.filter((l) => !l.includes('2026-09'))).toEqual([]);
+      expect(persistidos).toEqual([RUT_EMPRESA]);
+    });
+
+    it('revisa la señal antes de cada superficie y no deja escrituras a medias', async () => {
+      const { deps, store, sii, db } = mesCompleto();
+      const cancelar = new AbortController();
+      sii.alLlamar = (llamada) => {
+        if (llamada === 'resumen|2026-09|VENTA|REGISTRO') cancelar.abort();
+      };
+
+      const r = await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT, undefined, cancelar.signal);
+
+      expect(r.abortado).toEqual(CANCELADA);
+      expect(store.documentosRcv(RUT_EMPRESA, SEPT.texto, { lado: 'VENTA' })).toHaveLength(2);
+      expect(sii.llamadas).toEqual(['resumen|2026-09|VENTA|REGISTRO', 'detalle|2026-09|VENTA|REGISTRO|33']);
+      expect(db.prepare('SELECT superficie, estado FROM sincronizacion ORDER BY id').all()).toEqual([{ superficie: 'rcv.VENTA', estado: 'ok' }]);
+    });
+
+    it('con la señal ya cancelada no consulta ningún período', async () => {
+      const { deps, sii } = mesCompleto();
+      const r = await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT, undefined, AbortSignal.abort());
+      expect(r).toEqual({ rut: RUT_EMPRESA, periodos: [], abortado: CANCELADA });
+      expect(sii.llamadas).toEqual([]);
+    });
+  });
+
   it('exige que el perfil exista', async () => {
     const { deps } = depsDePrueba();
     expect(await codigoDe(sincronizar(deps, RUT_EMPRESA, SEPT, SEPT))).toBe('PERFIL_NO_EXISTE');

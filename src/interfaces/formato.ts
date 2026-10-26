@@ -1,6 +1,6 @@
 import type { FilaHistorialF29, PaginaDocumentos, ResumenIva } from '../app/consultas.js';
 import type { PerfilConSesion } from '../app/perfiles.js';
-import type { ResultadoSync } from '../app/sincronizar.js';
+import { SINCRONIZACION_CANCELADA, type ResultadoSync } from '../app/sincronizar.js';
 import { formatearClp, nombreTipoDocumento } from '../domain/formato.js';
 import type { Hallazgo, Plazo, Severidad } from '../domain/tipos.js';
 
@@ -55,7 +55,10 @@ export function textoSync(r: ResultadoSync): string {
     if (p.avisos.length > 0) linea += `\n    avisos: ${p.avisos.join(' | ')}`;
     return linea;
   });
-  if (r.abortado) lineas.push(`Sincronización detenida: [${r.abortado.codigo}] ${r.abortado.mensaje}`);
+  if (r.abortado) {
+    // La cancelación la pidió la persona: basta su mensaje, sin presentarla como una falla.
+    lineas.push(r.abortado.codigo === SINCRONIZACION_CANCELADA.codigo ? r.abortado.mensaje : `Sincronización detenida: [${r.abortado.codigo}] ${r.abortado.mensaje}`);
+  }
   return [`Sincronización ${r.rut}`, ...lineas].join('\n');
 }
 

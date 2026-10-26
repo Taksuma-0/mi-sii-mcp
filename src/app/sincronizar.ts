@@ -35,12 +35,28 @@ const ESTADOS_POR_LADO: Readonly<Record<Lado, readonly EstadoRcv[]>> = { VENTA: 
 export const SOLO_RESUMEN_VENTA: ReadonlySet<number> = new Set([35, 38, 39, 41, 48]);
 const DATOS_INCOMPLETOS = Symbol('DATOS_INCOMPLETOS');
 
+/** Motivo de término cuando quien pidió la sincronización la cancela (p. ej. Esc en el cliente MCP). */
+export const SINCRONIZACION_CANCELADA: ErrorSuperficie = {
+  superficie: 'cancelacion',
+  codigo: 'CANCELADO',
+  mensaje: 'Sincronización cancelada; se conservan los meses ya traídos.',
+};
+
+/** Se lanza entre superficies, nunca dentro de una: lo ya guardado queda completo. */
+class Cancelada extends Error {}
+
+const revisarCancelacion = (signal: AbortSignal | undefined): void => {
+  if (signal?.aborted) throw new Cancelada();
+};
+
+/** `signal` se revisa antes de cada período y de cada superficie; al cancelarse devuelve lo traído y `abortado`. */
 export async function sincronizar(
   deps: DepsApp,
   rutTexto: string,
   desde: Periodo,
   hasta: Periodo,
   superficies: readonly Superficie[] = ['rcv', 'f29'],
+  signal?: AbortSignal,
 ): Promise<ResultadoSync> {
   const rut = parseRut(rutTexto).canonico;
   if (!deps.store.contribuyente(rut)) throw new ErrorImpuestocl('PERFIL_NO_EXISTE', `No existe el perfil ${rut}.`);
@@ -52,10 +68,12 @@ export async function sincronizar(
       buffer.push(r);
     });
     for (const periodo of periodos) {
+      revisarCancelacion(signal);
       const res: ResultadoPeriodo = { periodo: periodo.texto, errores: [], avisos: [], documentos: 0, f29Folio: null };
       resultados.push(res);
       if (superficies.includes('rcv')) {
         for (const lado of LADOS) {
+          revisarCancelacion(signal);
           await registrar(deps, rut, `rcv.${lado}`, periodo.texto, buffer, res, async (id, ahora) => {
             const { resumenes, documentos, avisos } = await traerRcv(sii, rut, periodo, lado, (aviso) => res.avisos.push(aviso));
             if (avisos.length > 0) return DATOS_INCOMPLETOS;
@@ -65,6 +83,7 @@ export async function sincronizar(
         }
       }
       if (superficies.includes('f29')) {
+        revisarCancelacion(signal);
         const f29 = await registrar(deps, rut, 'f29', periodo.texto, buffer, res, async (id, ahora) => {
           const declaraciones = await sii.f29Declaraciones(rut, periodo);
           const valoresPrevios = declaraciones.flatMap((d) => {
@@ -77,6 +96,7 @@ export async function sincronizar(
         res.f29Folio = f29?.vigente?.folio ?? null;
         const vigente = f29?.vigente;
         if (f29 && vigente && vigente.codigoInterno !== null) {
+          revisarCancelacion(signal);
           await registrar(deps, rut, 'f29.valores', periodo.texto, buffer, res, async (id, ahora) => {
             const v = await sii.f29Valores(rut, vigente);
             const otrosValores = f29.valoresPrevios.filter((anterior) => anterior.folio !== vigente.folio);
@@ -87,6 +107,7 @@ export async function sincronizar(
     }
     return { rut, periodos: resultados, abortado: null };
   } catch (e) {
+    if (e instanceof Cancelada) return { rut, periodos: resultados, abortado: SINCRONIZACION_CANCELADA };
     if (esErrorImpuestocl(e) && ERRORES_FATALES.has(e.codigo)) {
       return { rut, periodos: resultados, abortado: { superficie: 'sesion', codigo: e.codigo, mensaje: e.message } };
     }

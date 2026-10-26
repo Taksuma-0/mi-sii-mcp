@@ -1,5 +1,5 @@
 import { Client, InMemoryTransport } from '@modelcontextprotocol/client';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { esquemaDatos } from '../../src/app/consulta-libre.js';
 import type { DepsApp } from '../../src/app/deps.js';
 import { ErrorImpuestocl, type CodigoError } from '../../src/domain/errores.js';
@@ -131,6 +131,29 @@ describe('servidor MCP', () => {
     const r = await cliente.callTool({ name: 'sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026-09' } });
     expect(textoDe(r)).toContain('Sincronización 22222222-2');
     expect(sii.llamadas).toContain('f29|2026-09');
+    await cliente.close();
+  });
+
+  it('sincronizar se detiene entre meses cuando el cliente cancela y conserva lo traído', async () => {
+    const { deps, store, sii, persistidos } = depsDePrueba();
+    store.guardarContribuyente(perfilEmpresa());
+    sii.declaraciones.set('2026-09', [declaracion()]);
+    sii.valores.set('2026-09|555001', valores({ '538': 190_000 }));
+    const cancelar = new AbortController();
+    sii.alLlamar = async (llamada) => {
+      if (llamada !== 'f29valores|2026-09|555001') return;
+      cancelar.abort();
+      // Deja que la cancelación (notifications/cancelled) llegue al servidor antes de responder.
+      await new Promise((r) => setTimeout(r, 0));
+    };
+    const cliente = await conectar(deps);
+
+    const llamada = cliente.callTool({ name: 'sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026-09', hasta: '2026-12' } }, { signal: cancelar.signal });
+
+    await expect(llamada).rejects.toThrow();
+    await vi.waitFor(() => expect(persistidos).toEqual([RUT_EMPRESA]));
+    expect(sii.llamadas.filter((l) => !l.includes('2026-09'))).toEqual([]);
+    expect(store.valoresF29(RUT_EMPRESA, '2026-09', 555_001)?.valores['538']).toBe(190_000);
     await cliente.close();
   });
 
