@@ -4,7 +4,7 @@ import { diasEntre, fechaEnSantiago } from '../domain/fechas.js';
 import { formatearClp, nombreTipoDocumento } from '../domain/formato.js';
 import { compararPeriodos, periodoAnterior, periodoDeFecha, type Periodo } from '../domain/periodo.js';
 import { claveDocumento, type DisponibilidadFuentes, type DocumentoRcv, type F29Declaracion, type F29Valores, type Hallazgo, type Lado, type RcvResumen, type SnapshotRcv, type TipoContribuyente } from '../domain/tipos.js';
-import { CODIGO_F29, creditoDocumentosF29, creditoRcv, debitoF29, debitoRcv, valorF29 } from './mapeo-f29.js';
+import { CODIGO_F29, creditoDocumentosF29, creditoRcv, debitoF29, debitoRcv, montoF29 } from './mapeo-f29.js';
 
 export interface EntradaConciliacion {
   readonly rut: string;
@@ -35,7 +35,7 @@ function comparar(e: EntradaConciliacion, regla: string, titulo: string, esperad
   return [hallazgo(e, { regla, severidad: 'critico', naturaleza: 'DERIVADO', titulo, detalle, montos: { esperado, declarado, diferencia }, evidencia })];
 }
 
-/** IVA-01: el débito de las ventas del RCV debe coincidir con el débito declarado en el F29. */
+/** IVA-01: el débito de las ventas del RCV debe coincidir con el débito declarado en el F29 (sin 538 leído, cero). */
 export function reglaDebito(e: EntradaConciliacion): Hallazgo[] {
   if (e.disponibilidad?.ventasRcv === false || !e.valores) return [];
   const declarado = debitoF29(e.valores);
@@ -64,7 +64,7 @@ export function reglaDebito(e: EntradaConciliacion): Hallazgo[] {
   );
 }
 
-/** IVA-02: el crédito de las compras registradas debe coincidir con el crédito por documentos del F29. */
+/** IVA-02: el crédito de las compras registradas debe coincidir con el crédito por documentos del F29 (sin 537 leído, cero). */
 export function reglaCredito(e: EntradaConciliacion): Hallazgo[] {
   if (e.disponibilidad?.comprasRcv === false || !e.valores) return [];
   const declarado = creditoDocumentosF29(e.valores);
@@ -96,8 +96,8 @@ export function reglaCredito(e: EntradaConciliacion): Hallazgo[] {
 /** IVA-03: el remanente que deja un mes (77) debe ser el que entra al siguiente (504). */
 export function reglaRemanente(e: EntradaConciliacion): Hallazgo[] {
   if (!e.valores || !e.valoresAnterior) return [];
-  const esperado = valorF29(e.valoresAnterior, CODIGO_F29.REMANENTE_PERIODO_SIGUIENTE) ?? 0;
-  const declarado = valorF29(e.valores, CODIGO_F29.REMANENTE_MES_ANTERIOR) ?? 0;
+  const esperado = montoF29(e.valoresAnterior, CODIGO_F29.REMANENTE_PERIODO_SIGUIENTE) ?? 0;
+  const declarado = montoF29(e.valores, CODIGO_F29.REMANENTE_MES_ANTERIOR) ?? 0;
   return comparar(
     e,
     'IVA-03',

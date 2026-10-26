@@ -19,7 +19,7 @@ import {
 } from '../domain/tipos.js';
 import type { FiltroDocumentos, FiltroHallazgos, Frescura, HallazgoGuardado } from '../ports/index.js';
 import { conciliarPeriodo, type Comparaciones } from '../reconciliation/conciliar.js';
-import { CODIGO_F29 } from '../reconciliation/mapeo-f29.js';
+import { CODIGO_F29, montoF29 } from '../reconciliation/mapeo-f29.js';
 import type { EntradaConciliacion } from '../reconciliation/reglas.js';
 import type { DepsApp } from './deps.js';
 
@@ -194,8 +194,8 @@ export function f29Historial(deps: DepsApp, rutTexto: string, desde: string, has
       estado: vigente?.estado ?? null,
       fechaPresentacion: vigente?.fechaPresentacion ?? null,
       totalAPagar: vigente?.totalAPagar ?? null,
-      debitos: valores?.valores[CODIGO_F29.TOTAL_DEBITOS] ?? null,
-      creditos: valores?.valores[CODIGO_F29.TOTAL_CREDITOS] ?? null,
+      debitos: montoF29(valores, CODIGO_F29.TOTAL_DEBITOS),
+      creditos: montoF29(valores, CODIGO_F29.TOTAL_CREDITOS),
       sincronizado: deps.store.frescura(perfil.rut, periodo.texto).f29,
     };
   });

@@ -1,6 +1,6 @@
 import type { F29Valores, Lado, RcvResumen } from '../domain/tipos.js';
 
-export const VERSION_REGLAS = 'iva-2026.10.1';
+export const VERSION_REGLAS = 'iva-2026.10.2';
 
 export const CODIGO_F29 = {
   TOTAL_DEBITOS: '538',
@@ -32,13 +32,16 @@ export const debitoRcv = (resumenes: readonly RcvResumen[]): number => ivaRegist
 /** IVA crédito según las compras registradas en el RCV (los pendientes aún no dan derecho a crédito). */
 export const creditoRcv = (resumenes: readonly RcvResumen[]): number => ivaRegistrado(resumenes, 'COMPRA');
 
-export const valorF29 = (v: F29Valores | null, codigo: string): number | null =>
-  v !== null && codigo in v.valores ? (v.valores[codigo] ?? null) : null;
+/** El F29 se leyó si trae al menos un código; null o vacío es un F29 sin descargar o ilegible. */
+export const f29Leido = (v: F29Valores | null): v is F29Valores => v !== null && Object.keys(v.valores).length > 0;
+
+/** Monto de un código del F29 leído: el PDF compacto omite las líneas en cero, así que una ausente vale 0. Null si no se leyó. */
+export const montoF29 = (v: F29Valores | null, codigo: string): number | null => (f29Leido(v) ? (v.valores[codigo] ?? 0) : null);
 
 function totalMenos(v: F29Valores | null, total: string, fuera: readonly string[]): number | null {
-  const base = valorF29(v, total);
+  const base = montoF29(v, total);
   if (base === null) return null;
-  return fuera.reduce((resto, codigo) => resto - (valorF29(v, codigo) ?? 0), base);
+  return fuera.reduce((resto, codigo) => resto - (montoF29(v, codigo) ?? 0), base);
 }
 
 /** Débito del F29 comparable con el RCV: 538 menos los débitos que no vienen del RCV. */

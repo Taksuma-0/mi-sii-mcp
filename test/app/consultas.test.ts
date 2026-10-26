@@ -210,15 +210,18 @@ describe('historial y documentos', () => {
 
   it('arma el historial F29 por mes', () => {
     const { deps, store } = conEmpresa();
+    sembrarMes(store, '2026-07', { declaraciones: [declaracion({ periodo: '2026-07', folio: 553_000 })] });
     sembrarMes(store, '2026-08', AGO);
     sembrarMes(store, '2026-09', SEPT);
-    const h = f29Historial(deps, RUT_EMPRESA, '2026-08', '2026-10');
-    expect(h.map((f) => [f.periodo, f.presentado, f.folio, f.debitos])).toEqual([
-      ['2026-08', true, 554_000, null],
-      ['2026-09', true, 555_001, 190_000],
-      ['2026-10', false, null, null],
+    const h = f29Historial(deps, RUT_EMPRESA, '2026-07', '2026-10');
+    // Agosto se leyó sin 538 ni 537 (el PDF compacto omite las líneas en cero); julio está presentado sin valores leídos.
+    expect(h.map((f) => [f.periodo, f.presentado, f.folio, f.debitos, f.creditos])).toEqual([
+      ['2026-07', true, 553_000, null, null],
+      ['2026-08', true, 554_000, 0, 0],
+      ['2026-09', true, 555_001, 190_000, 24_000],
+      ['2026-10', false, null, null, null],
     ]);
-    expect(h[2]!.sincronizado).toBeNull();
+    expect(h[3]!.sincronizado).toBeNull();
   });
 
   it('pagina los documentos', () => {

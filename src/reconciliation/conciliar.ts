@@ -1,5 +1,5 @@
 import type { Hallazgo } from '../domain/tipos.js';
-import { CODIGO_F29, creditoDocumentosF29, creditoRcv, debitoF29, debitoRcv, valorF29, VERSION_REGLAS } from './mapeo-f29.js';
+import { CODIGO_F29, creditoDocumentosF29, creditoRcv, debitoF29, debitoRcv, montoF29, VERSION_REGLAS } from './mapeo-f29.js';
 import {
   reglaCambiosPostF29,
   reglaCredito,
@@ -35,8 +35,8 @@ export function conciliarPeriodo(e: EntradaConciliacion): ResultadoConciliacion 
       debitoF29: debitoF29(e.valores),
       creditoRcv: e.disponibilidad?.comprasRcv === false ? null : creditoRcv(e.resumenes),
       creditoF29: creditoDocumentosF29(e.valores),
-      remanenteAnterior77: valorF29(e.valoresAnterior, CODIGO_F29.REMANENTE_PERIODO_SIGUIENTE),
-      remanenteActual504: valorF29(e.valores, CODIGO_F29.REMANENTE_MES_ANTERIOR),
+      remanenteAnterior77: montoF29(e.valoresAnterior, CODIGO_F29.REMANENTE_PERIODO_SIGUIENTE),
+      remanenteActual504: montoF29(e.valores, CODIGO_F29.REMANENTE_MES_ANTERIOR),
     },
     hallazgos: REGLAS.flatMap((regla) => regla(e)),
     versionReglas: VERSION_REGLAS,
