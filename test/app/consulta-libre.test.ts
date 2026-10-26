@@ -103,9 +103,11 @@ describe('esquemaDatos', () => {
     // cada línea con valor de la tabla; un total que falta junto a sus líneas es una lectura fallida.
     expect(texto).toMatch(/F29.*código ausente vale 0/);
     expect(texto).toContain('impuestocl guarda cada línea con valor de la tabla del formulario');
+    const citar = (codigos: readonly string[]): string => codigos.map((c) => `'${c}'`).join(' + ');
     for (const [total, { suman, restan }] of Object.entries(LINEAS_DE_TOTALES)) {
-      expect(texto).toContain(`'${total}' ausente con ${suman.map((c) => `'${c}'`).join(' o ')} y sin ${restan.map((c) => `'${c}'`).join(' ni ')}`);
+      expect(texto).toContain(`'${total}' ausente vale 0 solo si ${citar(restan)} ≥ ${citar(suman)}`);
     }
+    expect(texto).toContain("y no viene '511'");
     // Las fechas con hora no calzan con un BETWEEN de días: la regla debe enseñar a recortar.
     expect(texto).toContain('substr(');
     expect(texto).toMatch(/\bhora\b/);

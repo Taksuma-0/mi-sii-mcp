@@ -21,7 +21,7 @@ describe('mapeo RCV ↔ F29', () => {
       ...Object.values(CODIGO_F29),
       ...CODIGOS_DEBITO_FUERA_RCV,
       ...CODIGOS_CREDITO_FUERA_RCV,
-      ...Object.entries(LINEAS_DE_TOTALES).flatMap(([total, { suman, restan }]) => [total, ...suman, ...restan]),
+      ...Object.entries(LINEAS_DE_TOTALES).flatMap(([total, { suman, restan, informativas }]) => [total, ...suman, ...restan, ...informativas]),
     ];
     expect(usados.filter((codigo) => !CODIGOS_F29.has(codigo))).toEqual([]);
   });
@@ -64,6 +64,17 @@ describe('mapeo RCV ↔ F29', () => {
   it('las notas de crédito pueden dejar un total en cero: entonces su ausencia sí vale 0', () => {
     expect(debitoF29(valores({ '502': 190_000, '510': 190_000 }))).toBe(0);
     expect(montoF29(valores({ '538': 1, '520': 19_000, '528': 19_000 }), '537')).toBe(0);
+    expect(montoF29(valores({ '538': 1, '520': 19_000, '504': 5_000, '528': 24_000 }), '537')).toBe(0);
+  });
+
+  it.each([
+    { caso: '510 no cubre el 502', v: { '502': 300_000, '510': 1_000 }, total: '538' },
+    { caso: '528 no cubre el 520', v: { '538': 1, '520': 19_000, '528': 1_000 }, total: '537' },
+    { caso: '528 no cubre el 504', v: { '538': 1, '504': 5_000, '528': 1_000 }, total: '537' },
+    { caso: '528 no cubre 520 + 532', v: { '538': 1, '520': 19_000, '528': 19_000, '532': 500 }, total: '537' },
+    { caso: 'viene el 511 (crédito neto positivo)', v: { '538': 1, '511': 1_000, '520': 19_000, '528': 19_000 }, total: '537' },
+  ])('un total ausente queda sin dato si las notas de crédito no lo anulan: $caso', ({ v, total }) => {
+    expect(montoF29(valores(v), total)).toBeNull();
   });
 
   it('sin valores leídos (F29 no descargado o vacío) no hay dato', () => {

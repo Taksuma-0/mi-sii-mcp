@@ -38,13 +38,23 @@ export const creditoRcv = (resumenes: readonly RcvResumen[]): number => ivaRegis
  */
 export const f29Leido = (v: F29Valores | null): boolean => v !== null && Object.keys(v.valores).length > 0;
 
+export interface LineasDeTotal {
+  /** Líneas que suman en el total. */
+  readonly suman: readonly string[];
+  /** Notas de crédito que lo rebajan. */
+  readonly restan: readonly string[];
+  /** Líneas informativas que no se suman, pero con valor implican un total positivo (511: crédito neto por documentos). */
+  readonly informativas: readonly string[];
+}
+
 /**
- * Líneas que componen cada total: si el total falta pero el F29 trae alguna línea que lo hace positivo y ninguna que lo
- * rebaje, el PDF se leyó mal. Las notas de crédito (510 emitidas, 528 recibidas) sí pueden dejarlo en 0 y omitido.
+ * Líneas que componen cada total, verificadas en F29 reales: 538 = 502 − 510 y 537 = 520 − 528 + 532 + 504. Un total
+ * ausente vale 0 solo si las notas de crédito cubren lo que suma y no viene ninguna línea informativa; si no, el PDF se
+ * leyó mal y el total queda sin dato.
  */
-export const LINEAS_DE_TOTALES: Readonly<Record<string, { readonly suman: readonly string[]; readonly restan: readonly string[] }>> = {
-  [CODIGO_F29.TOTAL_DEBITOS]: { suman: ['502'], restan: ['510'] },
-  [CODIGO_F29.TOTAL_CREDITOS]: { suman: ['511', '520', CODIGO_F29.REMANENTE_MES_ANTERIOR], restan: ['528'] },
+export const LINEAS_DE_TOTALES: Readonly<Record<string, LineasDeTotal>> = {
+  [CODIGO_F29.TOTAL_DEBITOS]: { suman: ['502'], restan: ['510'], informativas: [] },
+  [CODIGO_F29.TOTAL_CREDITOS]: { suman: ['520', '532', CODIGO_F29.REMANENTE_MES_ANTERIOR], restan: ['528'], informativas: ['511'] },
 };
 
 /**
@@ -56,9 +66,10 @@ export function montoF29(v: F29Valores | null, codigo: string): number | null {
   const monto = v.valores[codigo];
   if (monto !== undefined) return monto;
   const lineas = LINEAS_DE_TOTALES[codigo];
-  const viene = (c: string): boolean => (v.valores[c] ?? 0) !== 0;
-  if (lineas && lineas.suman.some(viene) && !lineas.restan.some(viene)) return null;
-  return 0;
+  if (!lineas) return 0;
+  const suma = (codigos: readonly string[]): number => codigos.reduce((total, c) => total + (v.valores[c] ?? 0), 0);
+  const anulado = suma(lineas.restan) >= suma(lineas.suman) && lineas.informativas.every((c) => (v.valores[c] ?? 0) === 0);
+  return anulado ? 0 : null;
 }
 
 function totalMenos(v: F29Valores | null, total: string, fuera: readonly string[]): number | null {

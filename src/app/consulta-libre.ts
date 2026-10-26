@@ -185,8 +185,11 @@ function reglas(): readonly string[] {
   const tiposConNombre = Object.entries(NOMBRES_TIPO_DOCUMENTO).map(([tipo, nombre]) => `${tipo} ${nombre}`).join(', ');
   const fueraDelRcv = CODIGOS_CREDITO_FUERA_RCV.map((c) => `'${c}'`).join(' y ');
   const citar = (codigos: readonly string[], union: string): string => codigos.map((c) => `'${c}'`).join(union);
-  const totalesIlegibles = Object.entries(LINEAS_DE_TOTALES)
-    .map(([total, { suman, restan }]) => `'${total}' ausente con ${citar(suman, ' o ')} y sin ${citar(restan, ' ni ')}`)
+  const totalesAnulados = Object.entries(LINEAS_DE_TOTALES)
+    .map(([total, { suman, restan, informativas }]) => {
+      const sinInformativas = informativas.length > 0 ? ` y no viene ${citar(informativas, ' ni ')}` : '';
+      return `'${total}' ausente vale 0 solo si ${citar(restan, ' + ')} ≥ ${citar(suman, ' + ')}${sinInformativas}`;
+    })
     .join('; ');
   return [
     "Montos en pesos chilenos enteros, sin decimales. Período AAAA-MM, RUT sin puntos y con guion e instantes en ISO UTC. Fechas como texto: fecha_emision viene como AAAA-MM-DD, pero fecha_recepcion, fecha_acuse y a veces fecha_presentacion traen hora (AAAA-MM-DD HH:MM:SS). Una comparación directa como fecha_recepcion BETWEEN '2026-09-01' AND '2026-09-30' pierde los documentos del último día porque tienen hora; para filtrar o agrupar por día usa substr(fecha_recepcion, 1, 10) BETWEEN '2026-09-01' AND '2026-09-30' (o date(columna)).",
@@ -195,7 +198,7 @@ function reglas(): readonly string[] {
     `Al sumar montos usa signo: -1 en las notas de crédito (tipo_doc ${TIPOS_DOC_NEGATIVOS.join(', ')}), 1 en el resto; por ejemplo SUM(signo * iva). Los montos de una nota de crédito vienen en positivo.`,
     `Totales de IVA y de montos por período: rcv_resumen, que incluye las boletas y comprobantes de venta (tipo_doc ${[...SOLO_RESUMEN_VENTA].join(', ')}); el SII las entrega solo como resumen y no existen en rcv_documento. Detalle por documento o contraparte (proveedor, cliente, folio, fechas): rcv_documento.`,
     `Tipos de documento (tipo_doc): ${tiposConNombre}. Otros códigos pueden aparecer sin nombre; rcv_resumen.descripcion trae el nombre del SII.`,
-    `F29: f29_valor.codigo es texto (codigo = '538'). Códigos clave: ${codigosF29}. El crédito del F29 comparable con el RCV es '${CODIGO_F29.TOTAL_CREDITOS}' menos ${fueraDelRcv}. El PDF compacto del F29 omite las líneas vacías e impuestocl guarda cada línea con valor de la tabla del formulario, así que si el folio tiene filas en f29_valor un código ausente vale 0. Excepción: un total que falta junto a líneas que lo componen (${totalesIlegibles}) es una lectura fallida y queda sin dato. Si el folio no tiene ninguna fila, sus valores no se leyeron.`,
+    `F29: f29_valor.codigo es texto (codigo = '538'). Códigos clave: ${codigosF29}. El crédito del F29 comparable con el RCV es '${CODIGO_F29.TOTAL_CREDITOS}' menos ${fueraDelRcv}. El PDF compacto del F29 omite las líneas vacías e impuestocl guarda cada línea con valor de la tabla del formulario, así que si el folio tiene filas en f29_valor un código ausente vale 0. Excepción, los totales: ${totalesAnulados}; si no, falta por una lectura fallida y queda sin dato. Si el folio no tiene ninguna fila, sus valores no se leyeron.`,
     "Un período puede tener varias declaraciones F29 (folios; por ejemplo rectificatorias). La vigente: solo cuentan las presentadas (folio > 0; el folio 0 está solo guardado); si alguna tiene un estado con «vigente», se consideran solo esas y si no, todas las presentadas; gana la de fecha_presentacion más reciente (NULL es la más antigua) y, si empatan, el folio más alto. En SQL: `SELECT * FROM f29_declaracion WHERE rut = '<RUT>' AND periodo = '<AAAA-MM>' AND folio > 0 ORDER BY (estado LIKE '%vigente%') DESC, COALESCE(fecha_presentacion, '') DESC, folio DESC LIMIT 1`. Une sus valores por rut, periodo y folio.",
     'Que no haya filas no significa cero: un período no sincronizado no tiene filas. Revisa sincronizacion (el intento más reciente por rut, superficie y periodo): estado ok sin filas = el SII no tenía documentos o declaraciones; sin fila o con estado error = se desconoce, y los datos pueden estar incompletos o ser de un intento anterior.',
     'Cobertura: solo el RCV (compras y ventas) y el F29 traídos por impuestocl. No hay otros impuestos ni trámites del SII, y esto no es asesoría tributaria.',
