@@ -49,7 +49,33 @@ describe('HTTP local', () => {
     expect(e.html).toContain('type="password"');
     expect(e.html).toContain('aria-live="polite"');
     expect(e.html).not.toMatch(/innerHTML|localStorage|sessionStorage|indexedDB|serviceWorker|https:\/\//);
-    expect(Buffer.byteLength(e.html)).toBeLessThan(15 * 1024);
+    // Incluye cuatro flujos y tablas nativas, sin dependencias ni recursos externos.
+    expect(Buffer.byteLength(e.html)).toBeLessThanOrEqual(24 * 1024);
+  });
+
+  it('conecta sin mes y reserva las fechas y consultas para después de entrar', async () => {
+    const { html } = await entorno();
+    const acceso = /<form id="formulario"[^>]*>([\s\S]*?)<\/form>/.exec(html);
+    expect(acceso?.[0]).toContain('action="/conectar"');
+    expect(acceso?.[0]).toContain('method="post"');
+    expect(acceso?.[1]?.match(/name="[^"]+"/g)).toEqual(['name="rut"', 'name="clave"']);
+    expect(acceso?.[1]).not.toContain('type="month"');
+    expect(html).toMatch(/<section id="espacio"[^>]*hidden/);
+    for (const titulo of ['Vista general', 'Cargar historial', 'Cruzar RCV con F29', 'Explorar documentos']) expect(html).toContain(titulo);
+    for (const ruta of ['/sincronizar', '/analizar', '/documentos']) expect(html).toContain(`action="${ruta}"`);
+    for (const id of ['totales', 'filas-panorama', 'resultado-sync', 'resultado-analisis', 'resultado-documentos', 'documentos-anterior', 'documentos-siguiente', 'cambiar']) expect(html).toContain(`id="${id}"`);
+    expect(html).toContain('Total declarado en F29');
+    expect(html).toContain('Aún no has cargado datos');
+  });
+
+  it('mantiene el estado global visible fuera del acceso y no expone una acción automática de verificación', async () => {
+    const { html } = await entorno();
+    const acceso = /<section id="acceso"[\s\S]*?<\/section>/.exec(html)?.[0];
+    expect(acceso).toBeTruthy();
+    expect(acceso).not.toContain('id="estado"');
+    expect(html).not.toContain("enviar('/verificar'");
+    expect(html).not.toMatch(/<script[^>]*src=/);
+    expect(html).not.toMatch(/innerHTML|localStorage|sessionStorage|indexedDB|serviceWorker/i);
   });
 
   it('ejecuta un envío explícito y devuelve sólo el resultado', async () => {

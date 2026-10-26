@@ -35,7 +35,7 @@ async function seguro(fn: () => ResultadoHerramienta | Promise<ResultadoHerramie
   }
 }
 
-/** Ninguna herramienta recibe claves: el login se hace solo en la terminal con `impuestocl login <rut>`. */
+/** Ninguna herramienta recibe claves: el login se hace en la interfaz local «Abrir impuestocl.cmd» o en la terminal con `impuestocl login <rut>`. */
 export function crearServidorMcp(deps: DepsApp, version: string): McpServer {
   const servidor = new McpServer({ name: 'impuestocl', version });
 
@@ -78,7 +78,7 @@ export function crearServidorMcp(deps: DepsApp, version: string): McpServer {
     {
       title: 'Sincronizar con el SII',
       description:
-        'Trae desde el portal del SII el RCV (compras y ventas) y el F29 de un rango de meses y los guarda en la base local. Solo lee el SII: nunca presenta ni modifica nada allí. Si no hay sesión, pide a la persona ejecutar `impuestocl login <rut>` en su terminal.',
+        'Trae desde el portal del SII el RCV (compras y ventas) y el F29 de un rango de meses y los guarda en la base local. Solo lee el SII: nunca presenta ni modifica nada allí. Si no hay sesión, pide a la persona conectar desde «Abrir impuestocl.cmd» o ejecutar `impuestocl login <rut>` en su terminal.',
       inputSchema: z.object({ rut: RUT, desde: PERIODO, hasta: PERIODO.optional(), superficies: z.array(z.enum(['rcv', 'f29'])).optional() }),
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },

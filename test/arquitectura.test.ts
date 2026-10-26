@@ -108,7 +108,7 @@ describe('arquitectura', () => {
       .replaceAll('@@NONCE@@', '${nonce}')
       .replaceAll('@@MES@@', '${mes}') + '\nimport fs from "node:fs";';
 
-    expect(importsDe(muestra)).toEqual(['node:fs']);
+    expect(importsDe(muestra)).toEqual(['./script.js', 'node:fs']);
   });
 
   it('detecta imports laterales y dinámicos sin contar comentarios ni strings', () => {
