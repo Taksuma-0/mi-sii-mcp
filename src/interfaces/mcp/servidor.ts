@@ -65,7 +65,11 @@ export function crearServidorMcp(deps: DepsApp, version: string): McpServer {
     async ({ rut }) =>
       seguro(() => {
         const r = panorama(deps, rut);
-        return respuesta(`Panorama local: ${r.periodos.length} meses. Fuentes: RCV (compras y ventas) y F29.`, r);
+        const meses = r.periodos.length;
+        const ventas = r.periodos.filter((p) => p.disponibilidad.ventasRcv).length;
+        const compras = r.periodos.filter((p) => p.disponibilidad.comprasRcv).length;
+        const f29 = r.periodos.filter((p) => p.disponibilidad.f29).length;
+        return respuesta(`Panorama local: ${meses} meses. Fuentes: RCV (compras y ventas) y F29. Cobertura: ventas ${ventas}/${meses}, compras ${compras}/${meses} y F29 ${f29}/${meses} meses consultados.`, r);
       }),
   );
 

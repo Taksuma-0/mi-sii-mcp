@@ -4,7 +4,7 @@ import type { DepsApp } from '../../src/app/deps.js';
 import { crearServidorMcp, HERRAMIENTAS } from '../../src/interfaces/mcp/servidor.js';
 import { declaracion, fila, perfilEmpresa, resumen, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
 import { depsDePrueba } from '../helpers/deps.js';
-import { sembrarMes } from '../helpers/sembrar.js';
+import { sembrarMes, T_SEMBRADO } from '../helpers/sembrar.js';
 
 async function conectar(deps: DepsApp) {
   const servidor = crearServidorMcp(deps, '0.1.0-test');
@@ -48,12 +48,38 @@ describe('servidor MCP', () => {
 
     expect(esError(r)).toBe(false);
     const texto = textoDe(r);
-    expect(texto.split('\n\n')[0]).toBe('Panorama local: 2 meses. Fuentes: RCV (compras y ventas) y F29.');
+    expect(texto.split('\n\n')[0]).toBe('Panorama local: 2 meses. Fuentes: RCV (compras y ventas) y F29. Cobertura: ventas 2/2, compras 2/2 y F29 2/2 meses consultados.');
     const datos = JSON.parse(texto.slice(texto.indexOf('\n\n') + 2));
     expect(datos.perfil).toEqual(perfilEmpresa());
     expect(datos.periodos.map((p: { periodo: string }) => p.periodo)).toEqual(['2000-01', '2026-09']);
     expect(datos.totales.ventas).toEqual({ monto: 1_190_000, mesesConDatos: 2, mesesSinDatos: 0 });
     expect(sii.llamadas).toEqual([]);
+    await cliente.close();
+  });
+
+  it('sii_panorama cuenta la cobertura consultada de cada fuente aunque no haya importes', async () => {
+    const { deps, store } = depsDePrueba();
+    store.guardarContribuyente(perfilEmpresa());
+    sembrarMes(store, '2026-08', { sinF29: true });
+    const id = store.iniciarSincronizacion(RUT_EMPRESA, 'rcv.VENTA', '2026-09', T_SEMBRADO);
+    store.reemplazarRcv(id, RUT_EMPRESA, '2026-09', 'VENTA', [], [], T_SEMBRADO);
+    store.terminarSincronizacion(id, T_SEMBRADO, 'ok');
+    const cliente = await conectar(deps);
+
+    const r = await cliente.callTool({ name: 'sii_panorama', arguments: { rut: RUT_EMPRESA } });
+
+    expect(textoDe(r).split('\n\n')[0]).toBe('Panorama local: 2 meses. Fuentes: RCV (compras y ventas) y F29. Cobertura: ventas 2/2, compras 1/2 y F29 0/2 meses consultados.');
+    await cliente.close();
+  });
+
+  it('sii_panorama muestra cobertura 0/0 cuando no hay meses almacenados', async () => {
+    const { deps, store } = depsDePrueba();
+    store.guardarContribuyente(perfilEmpresa());
+    const cliente = await conectar(deps);
+
+    const r = await cliente.callTool({ name: 'sii_panorama', arguments: { rut: RUT_EMPRESA } });
+
+    expect(textoDe(r).split('\n\n')[0]).toBe('Panorama local: 0 meses. Fuentes: RCV (compras y ventas) y F29. Cobertura: ventas 0/0, compras 0/0 y F29 0/0 meses consultados.');
     await cliente.close();
   });
 
