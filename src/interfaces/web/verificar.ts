@@ -49,7 +49,7 @@ const MENSAJES: Readonly<Record<CodigoError, string>> = {
   CAPTCHA_REQUERIDO: 'El SII requiere un captcha. Completa la gestión directamente en el portal del SII.',
   SIN_PERMISO: 'La sesión no tiene permiso para ese RUT. Revisa el RUT y su clave tributaria.',
   RUT_INVALIDO: 'Revisa el RUT y su dígito verificador.',
-  PERIODO_INVALIDO: 'Elige un mes válido posterior a enero de 2000.',
+  PERIODO_INVALIDO: 'Elige meses válidos entre enero de 2000 y diciembre de 2100, en orden y con un máximo de 120 meses por consulta.',
   PERFIL_NO_EXISTE: 'No se pudo preparar el perfil para la consulta. Cierra y vuelve a abrir la aplicación.',
 };
 

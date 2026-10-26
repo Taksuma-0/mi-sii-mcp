@@ -1,7 +1,10 @@
 import { randomBytes } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { fechaEnSantiago } from '../../domain/fechas.js';
-import { periodoAnterior, periodoDeFecha } from '../../domain/periodo.js';
+import { parsePeriodo, periodoAnterior, periodoDeFecha, rangoPeriodos } from '../../domain/periodo.js';
+import { parseRut } from '../../domain/rut.js';
+import { ESTADOS_RCV, type EstadoRcv } from '../../domain/tipos.js';
+import { crearEspacioLocal, type OperacionesEspacio } from './espacio.js';
 import { paginaLocal } from './pagina.js';
 import { verificar, errorPublico, type EntradaVerificacion, type ResultadoVerificacion } from './verificar.js';
 
@@ -11,9 +14,10 @@ export interface ServidorLocal {
   cerrar(): Promise<void>;
 }
 
-interface OpcionesServidor {
+export interface OpcionesServidor {
   readonly puerto?: number;
   readonly verificar?: (entrada: EntradaVerificacion) => Promise<ResultadoVerificacion>;
+  readonly espacio?: OperacionesEspacio;
   readonly inactividadMs?: number;
   readonly ahora?: () => Date;
 }
@@ -23,6 +27,7 @@ class ErrorHttp extends Error {
 }
 
 const LIMITE_BODY = 16 * 1024;
+const RUTAS_ESPACIO = new Set(['/conectar', '/panorama', '/sincronizar', '/analizar', '/documentos', '/desconectar']);
 
 function leerJson(req: IncomingMessage): Promise<unknown> {
   return new Promise((resolve, reject) => {
@@ -56,10 +61,54 @@ function entradaValida(valor: unknown): valor is EntradaVerificacion {
   return Object.keys(datos).length === 3 && ['rut', 'clave', 'mes'].every((campo) => typeof datos[campo] === 'string' && datos[campo].length > 0);
 }
 
+const esTexto = (valor: unknown): valor is string => typeof valor === 'string' && valor.length > 0;
+const esEstado = (valor: unknown): valor is EstadoRcv => typeof valor === 'string' && ESTADOS_RCV.includes(valor as EstadoRcv);
+
+/** Valida incluso con un servicio inyectado: ningún campo ajeno llega al espacio. */
+function prepararOperacion(ruta: string, valor: unknown, espacio: OperacionesEspacio): () => Promise<unknown> {
+  const invalida = () => new ErrorHttp(400, 'SOLICITUD_INVALIDA', 'Revisa los datos de la solicitud.');
+  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) throw invalida();
+  const datos = valor as Record<string, unknown>;
+  const campos = (permitidos: readonly string[]) => Object.keys(datos).every(campo => permitidos.includes(campo));
+  if (ruta === '/conectar') {
+    const { rut, clave } = datos;
+    if (!campos(['rut', 'clave']) || !esTexto(rut) || !esTexto(clave)) throw invalida();
+    parseRut(rut);
+    return () => espacio.conectar({ rut, clave });
+  }
+  const { contexto } = datos;
+  if (!esTexto(contexto)) throw invalida();
+  if (ruta === '/panorama' || ruta === '/desconectar') {
+    if (!campos(['contexto'])) throw invalida();
+    return ruta === '/panorama' ? () => espacio.panorama(contexto) : async () => { await espacio.desconectar(contexto); return { desconectado: true }; };
+  }
+  if (ruta === '/sincronizar' || ruta === '/analizar') {
+    const { desde, hasta, superficies } = datos;
+    const permitidos = ruta === '/sincronizar' ? ['contexto', 'desde', 'hasta', 'superficies'] : ['contexto', 'desde', 'hasta'];
+    if (!campos(permitidos) || !esTexto(desde) || !esTexto(hasta)) throw invalida();
+    rangoPeriodos(parsePeriodo(desde), parsePeriodo(hasta), 120);
+    if (ruta === '/analizar') return () => espacio.analizar(contexto, { desde, hasta });
+    if (superficies === undefined) return () => espacio.sincronizar(contexto, { desde, hasta });
+    if (!Array.isArray(superficies) || superficies.length < 1 || superficies.length > 2 || !superficies.every((s): s is 'rcv' | 'f29' => s === 'rcv' || s === 'f29')) throw invalida();
+    return () => espacio.sincronizar(contexto, { desde, hasta, superficies });
+  }
+  if (ruta === '/documentos') {
+    const { periodo, lado, estado, pagina } = datos;
+    if (!campos(['contexto', 'periodo', 'lado', 'estado', 'pagina']) || !esTexto(periodo)) throw invalida();
+    parsePeriodo(periodo);
+    if (lado !== undefined && lado !== 'COMPRA' && lado !== 'VENTA') throw invalida();
+    if (estado !== undefined && !esEstado(estado)) throw invalida();
+    if (pagina !== undefined && (typeof pagina !== 'number' || !Number.isSafeInteger(pagina) || pagina < 1)) throw invalida();
+    return () => espacio.documentos(contexto, { periodo, ...(lado === undefined ? {} : { lado }), ...(estado === undefined ? {} : { estado }), ...(pagina === undefined ? {} : { pagina }) });
+  }
+  throw invalida();
+}
+
 export async function crearServidorLocal(opciones: OpcionesServidor = {}): Promise<ServidorLocal> {
   const token = randomBytes(32).toString('hex');
   const nonce = randomBytes(18).toString('base64');
   const ejecutar = opciones.verificar ?? verificar;
+  const espacio = opciones.espacio ?? crearEspacioLocal();
   let ocupado = false;
   let cerrando = false;
   let url = '';
@@ -101,7 +150,7 @@ export async function crearServidorLocal(opciones: OpcionesServidor = {}): Promi
         return;
       }
       if (req.method === 'GET' && req.url === '/estado') { responder(res, 200, { aplicacion: 'impuestocl-local-v1', ocupado }); return; }
-      if (req.method !== 'POST' || (req.url !== '/verificar' && req.url !== '/cerrar')) throw new ErrorHttp(404, 'NO_ENCONTRADO', 'Esta ruta no está disponible.');
+      if (req.method !== 'POST' || (req.url !== '/verificar' && req.url !== '/cerrar' && !RUTAS_ESPACIO.has(req.url ?? ''))) throw new ErrorHttp(404, 'NO_ENCONTRADO', 'Esta ruta no está disponible.');
       if (req.headers.origin !== url || req.headers['x-csrf-token'] !== token) throw new ErrorHttp(403, 'ORIGEN_INVALIDO', 'La solicitud no proviene de esta aplicación. Vuelve a abrir el lanzador local.');
       if (!/^application\/json(?:\s*;\s*charset=utf-8)?$/i.test(req.headers['content-type'] ?? '')) throw new ErrorHttp(415, 'FORMATO_INVALIDO', 'La solicitud debe usar JSON.');
       if (ocupado || cerrando) throw new ErrorHttp(409, 'OCUPADO', 'Hay una consulta en curso. Espera a que termine.');
@@ -117,8 +166,11 @@ export async function crearServidorLocal(opciones: OpcionesServidor = {}): Promi
           res.once('finish', () => { void cerrar(); });
           return;
         }
-        if (!entradaValida(datos)) throw new ErrorHttp(400, 'SOLICITUD_INVALIDA', 'Completa el RUT, la clave y el mes.');
-        const resultado = await ejecutar(datos);
+        let resultado: unknown;
+        if (req.url === '/verificar') {
+          if (!entradaValida(datos)) throw new ErrorHttp(400, 'SOLICITUD_INVALIDA', 'Completa el RUT, la clave y el mes.');
+          resultado = await ejecutar(datos);
+        } else resultado = await prepararOperacion(req.url!, datos, espacio)();
         responder(res, 200, resultado);
       } finally { ocupado = false; renovar(); }
     } catch (error) {
