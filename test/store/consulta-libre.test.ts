@@ -1,7 +1,8 @@
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { ErrorImpuestocl } from '../../src/domain/errores.js';
 import type { LimitesConsulta, OpcionesConsulta } from '../../src/ports/index.js';
 import { signoTipoDoc, TIPOS_DOC_NEGATIVOS } from '../../src/reconciliation/mapeo-f29.js';
 import { ConsultaLibreSqlite } from '../../src/store/sqlite/consulta-libre.js';
@@ -64,6 +65,17 @@ function sembrar(store: SqliteStore): void {
   for (const periodo of ['2026-08', '2026-09']) {
     sembrarMes(store, periodo, { resumenes: [resumen({ rut: RUT_PERSONA, periodo })] }, RUT_PERSONA);
   }
+}
+
+/** El ErrorImpuestocl con que rechaza la promesa; falla la prueba si termina de otra forma. */
+async function falla(promesa: Promise<unknown>): Promise<ErrorImpuestocl> {
+  try {
+    await promesa;
+  } catch (e) {
+    if (e instanceof ErrorImpuestocl) return e;
+    throw e;
+  }
+  throw new Error('La promesa debía rechazarse con un ErrorImpuestocl.');
 }
 
 const conPlazo = (milisegundos: number): OpcionesConsulta => ({ ...OPCIONES, limites: { ...LIMITES, milisegundos } });
@@ -168,6 +180,62 @@ describe('ConsultaLibreSqlite', () => {
     expect(consulta.procesosActivos).toBe(0);
     expect((await consulta.consultar('SELECT COUNT(*) AS n FROM contribuyente', OPCIONES)).filas).toEqual([[2]]);
     expect(consulta.procesosActivos).toBe(0);
+  });
+
+  describe('un hijo que muere sin responder', () => {
+    const MARCA_STDERR = 'MARCA-STDERR-HIJO';
+
+    /** Un script de hijo que escribe en stderr y sale con error, como un `dist` roto o un módulo nativo que no carga. */
+    function hijoCaido(cuerpo: string): string {
+      const ruta = join(carpetaTemporal(), 'hijo-caido.mjs');
+      writeFileSync(ruta, cuerpo);
+      return ruta;
+    }
+
+    it('informa una falla interna con el extracto de stderr, sin invitar a simplificar la consulta', async () => {
+      const db = abrirDb(':memory:');
+      abiertas.push(db);
+      const consulta = new ConsultaLibreSqlite(db, hijoCaido(`console.error('${MARCA_STDERR} ' + 'x'.repeat(5000)); process.exit(7);`));
+
+      const error = await falla(consulta.consultar('SELECT 1', OPCIONES));
+
+      expect(error).toBeInstanceOf(ErrorImpuestocl);
+      expect(error.codigo).toBe('CONSULTA_INTERRUMPIDA');
+      expect(error.message).toContain('código 7');
+      expect(error.message).toContain(MARCA_STDERR);
+      // Solo los primeros ~500 caracteres de stderr: nada de los 5 000.
+      expect(error.message.length).toBeLessThan(800);
+      expect(error.accion).toMatch(/Falla interna/);
+      expect(error.accion).toContain('npm.cmd run build');
+      expect(error.accion).toMatch(/no es un problema de la consulta/);
+      expect(error.accion).not.toMatch(/Simplifica/);
+      expect(consulta.procesosActivos).toBe(0);
+    });
+
+    it('con un script inexistente informa lo que dijo Node', async () => {
+      const db = abrirDb(':memory:');
+      abiertas.push(db);
+      const consulta = new ConsultaLibreSqlite(db, join(carpetaTemporal(), 'no-existe.js'));
+
+      const error = await falla(consulta.consultar('SELECT 1', OPCIONES));
+
+      expect(error.codigo).toBe('CONSULTA_INTERRUMPIDA');
+      expect(error.message).toMatch(/Salida de error:.*no-existe\.js/s);
+      expect(error.accion).toMatch(/Falla interna/);
+      expect(consulta.procesosActivos).toBe(0);
+    });
+
+    it('un plazo vencido sigue pidiendo simplificar la consulta', async () => {
+      const db = abrirDb(':memory:');
+      abiertas.push(db);
+      const consulta = new ConsultaLibreSqlite(db);
+
+      const error = await falla(consulta.consultar('WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c) SELECT COUNT(*) FROM c', conPlazo(300)));
+
+      expect(error.codigo).toBe('CONSULTA_INTERRUMPIDA');
+      expect(error.message).toMatch(/superó el plazo de 300 ms/);
+      expect(error.accion).toMatch(/Simplifica la consulta/);
+    });
   });
 
   it('no cambia la base real', async () => {

@@ -29,6 +29,10 @@ const SCRIPT_HIJO = ((): string => {
   return existsSync(js) ? js : join(import.meta.dirname, 'consulta-hijo.ts');
 })();
 
+/** Lo que se conserva de la salida de error de un hijo caído: el comienzo basta para ver el motivo. */
+const MAX_DIAGNOSTICO = 500;
+const ACCION_FALLA_INTERNA = 'Falla interna del proceso de consulta: recompila con `npm.cmd run build` o reinstala dependencias; no es un problema de la consulta.';
+
 /** Hijos vivos de todas las instancias: si este proceso termina, no deben quedar consultas corriendo. */
 const HIJOS_VIVOS = new Set<ChildProcess>();
 process.on('exit', () => {
@@ -42,7 +46,11 @@ process.on('exit', () => {
 export class ConsultaLibreSqlite implements ConsultaLibre {
   private readonly hijos = new Set<ChildProcess>();
 
-  constructor(private readonly db: Db) {}
+  /** `scriptHijo` solo se cambia en las pruebas, para simular un proceso hijo que muere. */
+  constructor(
+    private readonly db: Db,
+    private readonly scriptHijo: string = SCRIPT_HIJO,
+  ) {}
 
   get procesosActivos(): number {
     return this.hijos.size;
@@ -75,21 +83,28 @@ export class ConsultaLibreSqlite implements ConsultaLibre {
   /** Resuelve cuando el hijo ya terminó, para que `procesosActivos` nunca cuente procesos que siguen vivos. */
   private enHijo(pedido: PedidoHijo, milisegundos: number): Promise<RespuestaHijo> {
     return new Promise((resolver, rechazar) => {
-      const hijo = fork(SCRIPT_HIJO, [], { serialization: 'advanced', execArgv: [], stdio: ['ignore', 'ignore', 'ignore', 'ipc'] });
+      // stderr va por una tubería y nunca hacia la salida de este proceso: en el servidor MCP, stdout es el canal JSON-RPC.
+      const hijo = fork(this.scriptHijo, [], { serialization: 'advanced', execArgv: [], windowsHide: true, stdio: ['ignore', 'ignore', 'pipe', 'ipc'] });
       this.hijos.add(hijo);
       HIJOS_VIVOS.add(hijo);
       let respuesta: RespuestaHijo | null = null;
       let vencido = false;
+      let diagnostico = '';
+      // Hay que consumir la tubería aunque solo se guarde el comienzo, o un hijo muy ruidoso se bloquearía al llenarla.
+      hijo.stderr?.setEncoding('utf8');
+      hijo.stderr?.on('data', (trozo: string) => {
+        if (diagnostico.length <= MAX_DIAGNOSTICO) diagnostico += trozo;
+      });
       const plazo = setTimeout(() => {
         vencido = true;
         hijo.kill();
       }, milisegundos);
-      const terminar = (motivo: string): void => {
+      const terminar = (motivo: string, accion?: string): void => {
         clearTimeout(plazo);
         this.hijos.delete(hijo);
         HIJOS_VIVOS.delete(hijo);
         if (respuesta) resolver(respuesta);
-        else rechazar(new ErrorImpuestocl('CONSULTA_INTERRUMPIDA', motivo));
+        else rechazar(new ErrorImpuestocl('CONSULTA_INTERRUMPIDA', motivo, { accion }));
       };
       hijo.on('message', (mensaje) => {
         respuesta ??= mensaje as RespuestaHijo;
@@ -97,14 +112,17 @@ export class ConsultaLibreSqlite implements ConsultaLibre {
       });
       hijo.on('error', (error) => {
         // Sin pid no hubo proceso. Un envío fallido termina en 'close' y un kill fallido no se reintenta.
-        if (hijo.pid === undefined) terminar(`No se pudo iniciar el proceso de consulta: ${error.message}`);
+        if (hijo.pid === undefined) terminar(`No se pudo iniciar el proceso de consulta: ${error.message}`, ACCION_FALLA_INTERNA);
       });
       hijo.on('close', (codigo, senal) => {
-        terminar(
-          vencido
-            ? `La consulta superó el plazo de ${milisegundos} ms y se detuvo.`
-            : `El proceso de consulta terminó sin responder (${senal ?? `código ${codigo}`}).`,
-        );
+        if (vencido) {
+          terminar(`La consulta superó el plazo de ${milisegundos} ms y se detuvo.`);
+          return;
+        }
+        // Un hijo que muere sin responder (dist roto, módulo nativo que no carga) no es un problema de la consulta.
+        const salida = diagnostico.trim();
+        const detalle = salida === '' ? '' : ` Salida de error: ${salida.slice(0, MAX_DIAGNOSTICO)}${salida.length > MAX_DIAGNOSTICO ? '…' : ''}`;
+        terminar(`El proceso de consulta terminó sin responder (${senal ?? `código ${codigo}`}).${detalle}`, ACCION_FALLA_INTERNA);
       });
       if (hijo.connected) hijo.send(pedido);
     });
