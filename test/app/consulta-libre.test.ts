@@ -99,6 +99,31 @@ describe('esquemaDatos', () => {
     }
     expect(texto).toMatch(/Cobertura: solo el RCV.*F29/);
     expect(texto).toContain(`'${CODIGO_F29.TOTAL_CREDITOS}' menos ${CODIGOS_CREDITO_FUERA_RCV.map((c) => `'${c}'`).join(' y ')}`);
+    // Las fechas con hora no calzan con un BETWEEN de días: la regla debe enseñar a recortar.
+    expect(texto).toContain('substr(');
+    expect(texto).toMatch(/\bhora\b/);
+  });
+
+  it('las fechas con hora se filtran por día con substr, no con una comparación directa', async () => {
+    const texto = esquemaDatos().reglas.join('\n');
+    expect(texto).toContain("substr(fecha_recepcion, 1, 10) BETWEEN '2026-09-01' AND '2026-09-30'");
+
+    const { deps, store } = depsDePrueba();
+    store.guardarContribuyente(perfilEmpresa());
+    sembrarMes(store, '2026-09', {
+      documentos: [
+        documento({ folio: 1, fechaRecepcion: '2026-09-15 09:00:00' }),
+        documento({ folio: 2, fechaRecepcion: '2026-09-30 10:00:00' }),
+      ],
+    });
+
+    const directa = await consultaSql(deps, "SELECT folio FROM rcv_documento WHERE fecha_recepcion BETWEEN '2026-09-01' AND '2026-09-30' ORDER BY folio");
+    const recortada = await consultaSql(deps, "SELECT folio FROM rcv_documento WHERE substr(fecha_recepcion, 1, 10) BETWEEN '2026-09-01' AND '2026-09-30' ORDER BY folio");
+    const conDate = await consultaSql(deps, "SELECT folio FROM rcv_documento WHERE date(fecha_recepcion) BETWEEN '2026-09-01' AND '2026-09-30' ORDER BY folio");
+
+    expect(directa.filas).toEqual([[1]]);
+    expect(recortada.filas).toEqual([[1], [2]]);
+    expect(conDate.filas).toEqual([[1], [2]]);
   });
 
   it('explica la declaración vigente del F29 con la misma regla que declaracionVigente', async () => {

@@ -96,8 +96,8 @@ const TABLAS: readonly TablaEsquema[] = [
       col('folio', 'INTEGER', 'Folio del documento'),
       col('razon_social', 'TEXT', 'Razón social de la contraparte; puede ser NULL'),
       col('fecha_emision', 'TEXT', 'Fecha de emisión AAAA-MM-DD; puede ser NULL'),
-      col('fecha_recepcion', 'TEXT', 'Fecha de recepción AAAA-MM-DD, a veces con hora; puede ser NULL'),
-      col('fecha_acuse', 'TEXT', 'Fecha del acuse de recibo; NULL si no hay'),
+      col('fecha_recepcion', 'TEXT', 'Fecha de recepción; suele traer hora (AAAA-MM-DD HH:MM:SS), así que para filtrar o agrupar por día usa substr(fecha_recepcion, 1, 10); puede ser NULL'),
+      col('fecha_acuse', 'TEXT', 'Fecha del acuse de recibo; suele traer hora (AAAA-MM-DD HH:MM:SS) y, si el SII la manda en otro formato, queda tal cual: usa substr(fecha_acuse, 1, 10) para el día; NULL si no hay'),
       col('monto_exento', 'INTEGER', 'Monto exento, en pesos'),
       col('monto_neto', 'INTEGER', 'Monto neto, en pesos'),
       col('monto_iva', 'INTEGER', 'IVA, en pesos (positivo también en notas de crédito: usa signo)'),
@@ -119,7 +119,7 @@ const TABLAS: readonly TablaEsquema[] = [
       PERIODO,
       col('folio', 'INTEGER', 'Folio de la declaración; 0 si solo está guardada y no presentada'),
       col('estado', 'TEXT', 'Estado según el SII (por ejemplo Vigente)'),
-      col('fecha_presentacion', 'TEXT', 'Fecha de presentación AAAA-MM-DD; puede ser NULL'),
+      col('fecha_presentacion', 'TEXT', 'Fecha de presentación AAAA-MM-DD; si el SII informa la hora viene como AAAA-MM-DD HH:MM:SS, por lo que para el día conviene substr(fecha_presentacion, 1, 10); puede ser NULL'),
       col('codigo_interno', 'INTEGER', 'Identificador interno del portal para descargar el F29; sin valor tributario'),
       col('total_a_pagar', 'INTEGER', 'Total a pagar según el listado del SII, en pesos; puede ser NULL'),
       SINCRONIZACION_ID,
@@ -185,7 +185,7 @@ function reglas(): readonly string[] {
   const tiposConNombre = Object.entries(NOMBRES_TIPO_DOCUMENTO).map(([tipo, nombre]) => `${tipo} ${nombre}`).join(', ');
   const fueraDelRcv = CODIGOS_CREDITO_FUERA_RCV.map((c) => `'${c}'`).join(' y ');
   return [
-    'Montos en pesos chilenos enteros, sin decimales. Período AAAA-MM, RUT sin puntos y con guion, fechas AAAA-MM-DD e instantes en ISO UTC.',
+    "Montos en pesos chilenos enteros, sin decimales. Período AAAA-MM, RUT sin puntos y con guion e instantes en ISO UTC. Fechas como texto: fecha_emision viene como AAAA-MM-DD, pero fecha_recepcion, fecha_acuse y a veces fecha_presentacion traen hora (AAAA-MM-DD HH:MM:SS). Una comparación directa como fecha_recepcion BETWEEN '2026-09-01' AND '2026-09-30' pierde los documentos del último día porque tienen hora; para filtrar o agrupar por día usa substr(fecha_recepcion, 1, 10) BETWEEN '2026-09-01' AND '2026-09-30' (o date(columna)).",
     'Hay varios contribuyentes en la misma base: filtra siempre por rut (y por periodo); mira contribuyente para conocerlos.',
     `RCV: lado es COMPRA o VENTA. estado_rcv: REGISTRO = documento aceptado en el registro, el único que da derecho a crédito fiscal (IVA de compras) y el que cuenta como débito en ventas; PENDIENTE = recibido sin decisión del receptor, todavía sin derecho a crédito; NO_INCLUIR = el receptor lo excluyó del registro; RECLAMADO = el receptor lo reclamó. Las ventas solo se guardan como REGISTRO. Para IVA considera REGISTRO salvo que se pida otra cosa.`,
     `Al sumar montos usa signo: -1 en las notas de crédito (tipo_doc ${TIPOS_DOC_NEGATIVOS.join(', ')}), 1 en el resto; por ejemplo SUM(signo * iva). Los montos de una nota de crédito vienen en positivo.`,
