@@ -27,6 +27,24 @@ describe('mapeo RCV ↔ F29', () => {
     expect(montoF29(valores({ '538': 190_000 }), '504')).toBe(0);
   });
 
+  it('falta el 538 con el 502 presente y sin notas de crédito emitidas: el PDF se leyó mal, el débito queda sin dato', () => {
+    expect(montoF29(valores({ '502': 190_000, '537': 19_000 }), '538')).toBeNull();
+    expect(debitoF29(valores({ '502': 190_000, '537': 19_000 }))).toBeNull();
+    expect(reglaDebito(entrada({ valores: valores({ '502': 190_000, '537': 19_000 }) }))[0]).toMatchObject({ regla: 'IVA-01', severidad: 'advertencia', naturaleza: 'HECHO' });
+  });
+
+  it.each(['511', '520', '504'])('falta el 537 con el %s presente y sin notas de crédito recibidas: el crédito queda sin dato', (codigo) => {
+    const v = valores({ '538': 190_000, [codigo]: 19_000 });
+    expect(montoF29(v, '537')).toBeNull();
+    expect(creditoDocumentosF29(v)).toBeNull();
+    expect(reglaCredito(entrada({ valores: v }))[0]).toMatchObject({ regla: 'IVA-02', severidad: 'advertencia', naturaleza: 'HECHO' });
+  });
+
+  it('las notas de crédito pueden dejar un total en cero: entonces su ausencia sí vale 0', () => {
+    expect(debitoF29(valores({ '502': 190_000, '510': 190_000 }))).toBe(0);
+    expect(montoF29(valores({ '538': 1, '520': 19_000, '528': 19_000 }), '537')).toBe(0);
+  });
+
   it('sin valores leídos (F29 no descargado o vacío) no hay dato', () => {
     for (const v of [null, valores({})]) {
       expect(debitoF29(v)).toBeNull();

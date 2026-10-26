@@ -38,8 +38,28 @@ export const creditoRcv = (resumenes: readonly RcvResumen[]): number => ivaRegis
  */
 export const f29Leido = (v: F29Valores | null): boolean => v !== null && Object.keys(v.valores).length > 0;
 
-/** Monto de un código del F29 leído: el PDF compacto omite las líneas en cero, así que una ausente vale 0. Null si no se leyó. */
-export const montoF29 = (v: F29Valores | null, codigo: string): number | null => (v !== null && f29Leido(v) ? (v.valores[codigo] ?? 0) : null);
+/**
+ * Líneas que componen cada total: si el total falta pero el F29 trae alguna línea que lo hace positivo y ninguna que lo
+ * rebaje, el PDF se leyó mal. Las notas de crédito (510 emitidas, 528 recibidas) sí pueden dejarlo en 0 y omitido.
+ */
+export const LINEAS_DE_TOTALES: Readonly<Record<string, { readonly suman: readonly string[]; readonly restan: readonly string[] }>> = {
+  [CODIGO_F29.TOTAL_DEBITOS]: { suman: ['502'], restan: ['510'] },
+  [CODIGO_F29.TOTAL_CREDITOS]: { suman: ['511', '520', CODIGO_F29.REMANENTE_MES_ANTERIOR], restan: ['528'] },
+};
+
+/**
+ * Monto de un código del F29 leído: el PDF compacto omite las líneas en cero, así que una ausente vale 0. Null si el F29
+ * no se leyó, o si falta un total cuyas líneas sí vinieron (lectura fallida: sin dato, no cero).
+ */
+export function montoF29(v: F29Valores | null, codigo: string): number | null {
+  if (v === null || !f29Leido(v)) return null;
+  const monto = v.valores[codigo];
+  if (monto !== undefined) return monto;
+  const lineas = LINEAS_DE_TOTALES[codigo];
+  const viene = (c: string): boolean => (v.valores[c] ?? 0) !== 0;
+  if (lineas && lineas.suman.some(viene) && !lineas.restan.some(viene)) return null;
+  return 0;
+}
 
 function totalMenos(v: F29Valores | null, total: string, fuera: readonly string[]): number | null {
   const base = montoF29(v, total);
