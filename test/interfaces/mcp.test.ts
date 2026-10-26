@@ -273,6 +273,69 @@ describe('servidor MCP', () => {
       await cliente.close();
     });
 
+    it('perfiles_listar sin perfiles guía al login y no cita comandos que no están en el PATH', async () => {
+      const cliente = await conectar(depsDePrueba().deps, LOGIN);
+
+      const r = await cliente.callTool({ name: 'perfiles_listar', arguments: {} });
+
+      expect(esError(r)).toBe(false);
+      const texto = textoDe(r);
+      expect(texto).toContain('LOGIN <rut>');
+      expect(texto).toContain('Abrir impuestocl.cmd');
+      expect(texto).toMatch(/nunca pidas la clave en el chat/i);
+      expect(texto).not.toContain('impuestocl perfil');
+      await cliente.close();
+    });
+
+    it.each(['sii_panorama', 'iva_resumen', 'sincronizar'])('%s con un RUT sin perfil guía al login con ese RUT', async (herramienta) => {
+      const cliente = await conectar(depsDePrueba().deps, LOGIN);
+
+      const r = await cliente.callTool({ name: herramienta, arguments: { rut: '22.222.222-2', periodo: '2026-09', desde: '2026-09' } });
+
+      expect(esError(r)).toBe(true);
+      const texto = textoDe(r);
+      expect(texto).toContain('[PERFIL_NO_EXISTE]');
+      expect(texto).toContain('LOGIN 22222222-2');
+      expect(texto).toMatch(/crea su perfil/);
+      expect(texto).toMatch(/nunca pidas la clave en el chat/i);
+      expect(texto).not.toContain('impuestocl perfil');
+      expect(texto).not.toContain('Acción sugerida');
+      await cliente.close();
+    });
+
+    it('sincronizar con un SIN_PERMISO lanzado al abrir el SII muestra la guía de login', async () => {
+      const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorImpuestocl('SIN_PERMISO', 'Sin acceso a ese RUT.') });
+      store.guardarContribuyente(perfilEmpresa());
+      const cliente = await conectar(deps, LOGIN);
+
+      const r = await cliente.callTool({ name: 'sincronizar', arguments: { rut: '22.222.222-2', desde: '2026-09' } });
+
+      expect(esError(r)).toBe(true);
+      const texto = textoDe(r);
+      expect(texto).toContain('[SIN_PERMISO]');
+      expect(texto).toContain('LOGIN 22222222-2');
+      expect(texto).toMatch(/clave de ese contribuyente/);
+      expect(texto).not.toContain('Acción sugerida');
+      await cliente.close();
+    });
+
+    it('sincronizar con SIN_PERMISO en un período (error no fatal) agrega la guía de login una sola vez', async () => {
+      const { deps, store, sii } = depsDePrueba();
+      store.guardarContribuyente(perfilEmpresa());
+      sii.fallas.set('f29|2026-09', new ErrorImpuestocl('SIN_PERMISO', 'F29: no está autorizado.'));
+      sii.fallas.set('f29|2026-10', new ErrorImpuestocl('SIN_PERMISO', 'F29: no está autorizado.'));
+      const cliente = await conectar(deps, LOGIN);
+
+      const r = await cliente.callTool({ name: 'sincronizar', arguments: { rut: '22.222.222-2', desde: '2026-09', hasta: '2026-10' } });
+
+      const texto = textoDe(r);
+      expect(texto).toContain('f29 SIN_PERMISO');
+      expect(texto.split('LOGIN 22222222-2')).toHaveLength(2);
+      expect(texto).toMatch(/clave de ese contribuyente/);
+      expect(texto).not.toContain('impuestocl login');
+      await cliente.close();
+    });
+
     it('una sincronización sin problemas de sesión no agrega el comando', async () => {
       const { deps, store, sii } = depsDePrueba();
       store.guardarContribuyente(perfilEmpresa());

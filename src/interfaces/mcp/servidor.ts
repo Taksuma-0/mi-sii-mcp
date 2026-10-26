@@ -6,7 +6,7 @@ import type { DepsApp } from '../../app/deps.js';
 import { panorama } from '../../app/panorama.js';
 import { listarPerfiles } from '../../app/perfiles.js';
 import { sincronizar } from '../../app/sincronizar.js';
-import { esErrorImpuestocl } from '../../domain/errores.js';
+import { esErrorImpuestocl, type CodigoError } from '../../domain/errores.js';
 import { parsePeriodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
 import { textoDocumentos, textoHallazgos, textoHistorialF29, textoPerfiles, textoPlazos, textoResumenIva, textoSync } from '../formato.js';
@@ -41,7 +41,15 @@ export interface OpcionesMcp {
 
 const COMANDO_LOGIN_POR_DEFECTO = (rut: string): string => `impuestocl login ${rut} --guardar-clave`;
 /** Errores que se resuelven con un login nuevo de la persona, no con un reintento. */
-const ERRORES_DE_SESION: ReadonlySet<string> = new Set(['SESION_REQUERIDA', 'CLAVE_RECHAZADA', 'RUT_BLOQUEADO_LOCAL']);
+const ERRORES_DE_SESION: ReadonlySet<CodigoError> = new Set<CodigoError>(['SESION_REQUERIDA', 'CLAVE_RECHAZADA', 'RUT_BLOQUEADO_LOCAL']);
+/**
+ * Errores que también se resuelven entrando, con la frase que explica por qué. Sus acciones por defecto
+ * (`impuestocl perfil agregar`, "inicia sesión") nombran un comando fuera del PATH del asistente, o ninguno.
+ */
+const EXPLICACION_DE_LOGIN: ReadonlyMap<CodigoError, string> = new Map<CodigoError, string>([
+  ['PERFIL_NO_EXISTE', 'El login con la clave de ese RUT crea su perfil.'],
+  ['SIN_PERMISO', 'La sesión actual no tiene permiso para ese RUT: hay que entrar con la clave de ese contribuyente.'],
+]);
 
 interface ResultadoHerramienta {
   [clave: string]: unknown;
@@ -57,26 +65,34 @@ const respuesta = (texto: string, datos: unknown): ResultadoHerramienta => ({
   content: [{ type: 'text', text: `${texto}\n\n${JSON.stringify(datos, null, 2)}` }],
 });
 
-/** Qué hacer ante un error de sesión: la persona entra por su cuenta y el asistente nunca maneja la clave. */
-function guiaLogin(comandoLogin: (rut: string) => string, rutTexto: string | undefined): string {
+/** Qué hacer cuando hace falta entrar: la persona lo hace por su cuenta y el asistente nunca maneja la clave. */
+function guiaLogin(comandoLogin: (rut: string) => string, rutTexto: string | undefined, explicacion?: string): string {
   let rut = '<rut>';
   try {
     if (rutTexto !== undefined) rut = parseRut(rutTexto).canonico;
   } catch {
     // RUT ilegible: el comando queda con el marcador.
   }
-  return `Pide a la persona que ejecute en su propia terminal: \`${comandoLogin(rut)}\` (con --guardar-clave la sesión se renueva sola), o que entre con «Abrir impuestocl.cmd». Después reintenta. Nunca pidas la clave en el chat.`;
+  const antes = explicacion === undefined ? '' : `${explicacion} `;
+  return `${antes}Pide a la persona que ejecute en su propia terminal: \`${comandoLogin(rut)}\` (con --guardar-clave la sesión se renueva sola), o que entre con «Abrir impuestocl.cmd». Después reintenta. Nunca pidas la clave en el chat.`;
 }
 
-/** Convierte los errores de dominio en resultados de error; en los de sesión, `rut` es el de la llamada y arma el comando de login. */
+/** La guía de login que corresponde a un código de error, o `null` si el error no se resuelve entrando. `codigo` es texto porque los errores de sincronización no lo tipan. */
+function guiaDelCodigo(comandoLogin: (rut: string) => string, codigo: string, rut: string | undefined): string | null {
+  const explicacion = (EXPLICACION_DE_LOGIN as ReadonlyMap<string, string>).get(codigo);
+  if (explicacion === undefined && !(ERRORES_DE_SESION as ReadonlySet<string>).has(codigo)) return null;
+  return guiaLogin(comandoLogin, rut, explicacion);
+}
+
+/** Convierte los errores de dominio en resultados de error; en los que se resuelven entrando, `rut` es el de la llamada y arma el comando de login. */
 function crearSeguro(comandoLogin: (rut: string) => string) {
   return async (fn: () => ResultadoHerramienta | Promise<ResultadoHerramienta>, rut?: string): Promise<ResultadoHerramienta> => {
     try {
       return await fn();
     } catch (e) {
       if (!esErrorImpuestocl(e)) throw e;
-      // La acción por defecto de estos errores nombra `impuestocl login`, que no está en el PATH del asistente.
-      const accion = ERRORES_DE_SESION.has(e.codigo) ? guiaLogin(comandoLogin, rut) : `Acción sugerida: ${e.accion}`;
+      // La acción por defecto de estos errores nombra `impuestocl login` o `impuestocl perfil agregar`, que no están en el PATH del asistente.
+      const accion = guiaDelCodigo(comandoLogin, e.codigo, rut) ?? `Acción sugerida: ${e.accion}`;
       return { content: [{ type: 'text', text: `Error [${e.codigo}]: ${e.message}\n${accion}` }], isError: true };
     }
   };
@@ -99,7 +115,9 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
     async () =>
       seguro(() => {
         const perfiles = listarPerfiles(deps);
-        return respuesta(textoPerfiles(perfiles), perfiles);
+        // Sin perfiles, el primer paso es el login (registra el perfil solo); `impuestocl perfil agregar` no abre sesión ni está en el PATH.
+        const texto = perfiles.length === 0 ? `No hay perfiles todavía. ${guiaLogin(comandoLogin, undefined, 'El login con la clave de un RUT crea su perfil.')}` : textoPerfiles(perfiles);
+        return respuesta(texto, perfiles);
       }),
   );
 
@@ -134,9 +152,11 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
     async ({ rut, desde, hasta, superficies }) =>
       seguro(async () => {
         const r = await sincronizar(deps, rut, parsePeriodo(desde), parsePeriodo(hasta ?? desde), superficies ?? ['rcv', 'f29']);
-        // Los errores de sesión no se lanzan: vienen en `abortado`, así que el comando de login se agrega aquí.
-        const sesion = r.abortado !== null && ERRORES_DE_SESION.has(r.abortado.codigo);
-        return respuesta(sesion ? `${textoSync(r)}\n${guiaLogin(comandoLogin, r.rut)}` : textoSync(r), r);
+        // Los errores de sesión no se lanzan: vienen en `abortado`; SIN_PERMISO no es fatal y queda en los errores de cada período.
+        // El comando de login se agrega aquí, una sola vez.
+        const codigos = [...(r.abortado ? [r.abortado.codigo] : []), ...r.periodos.flatMap((p) => p.errores.map((e) => e.codigo))];
+        const guia = codigos.map((c) => guiaDelCodigo(comandoLogin, c, r.rut)).find((g) => g !== null);
+        return respuesta(guia ? `${textoSync(r)}\n${guia}` : textoSync(r), r);
       }, rut),
   );
 
