@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/server';
 import * as z from 'zod';
 import { documentos, f29Historial, hallazgos, plazos, resumenIva } from '../../app/consultas.js';
 import type { DepsApp } from '../../app/deps.js';
+import { panorama } from '../../app/panorama.js';
 import { listarPerfiles } from '../../app/perfiles.js';
 import { sincronizar } from '../../app/sincronizar.js';
 import { esErrorImpuestocl } from '../../domain/errores.js';
@@ -9,7 +10,7 @@ import { parsePeriodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
 import { textoDocumentos, textoHallazgos, textoHistorialF29, textoPerfiles, textoPlazos, textoResumenIva, textoSync } from '../formato.js';
 
-export const HERRAMIENTAS = ['perfiles_listar', 'sincronizar', 'iva_resumen', 'iva_hallazgos', 'rcv_documentos', 'f29_historial', 'plazos_proximos'] as const;
+export const HERRAMIENTAS = ['perfiles_listar', 'sii_panorama', 'sincronizar', 'iva_resumen', 'iva_hallazgos', 'rcv_documentos', 'f29_historial', 'plazos_proximos'] as const;
 
 interface ResultadoHerramienta {
   [clave: string]: unknown;
@@ -50,6 +51,21 @@ export function crearServidorMcp(deps: DepsApp, version: string): McpServer {
       seguro(() => {
         const perfiles = listarPerfiles(deps);
         return respuesta(textoPerfiles(perfiles), perfiles);
+      }),
+  );
+
+  servidor.registerTool(
+    'sii_panorama',
+    {
+      title: 'Panorama local del SII',
+      description: 'Muestra el panorama de todos los meses almacenados localmente para un RUT, con montos y cobertura de RCV (compras y ventas) y F29. No requiere un período y no descarga datos del SII: consulta solo lo almacenado localmente.',
+      inputSchema: z.object({ rut: RUT }),
+      annotations: SOLO_LECTURA,
+    },
+    async ({ rut }) =>
+      seguro(() => {
+        const r = panorama(deps, rut);
+        return respuesta(`Panorama local: ${r.periodos.length} meses. Fuentes: RCV (compras y ventas) y F29.`, r);
       }),
   );
 
