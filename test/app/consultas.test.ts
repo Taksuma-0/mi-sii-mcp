@@ -184,9 +184,9 @@ describe('plazos', () => {
     expect(plazos(deps, RUT_EMPRESA, 3).map((p) => p.tipo)).toEqual(['F29']);
   });
 
-  it('si el mes anterior no se sincronizó lo dice', () => {
+  it('si el mes anterior no se sincronizó lo dice sin nombrar un comando (sirve en la CLI y en MCP)', () => {
     const { deps } = conEmpresa();
-    expect(plazos(deps, RUT_EMPRESA)[0]?.descripcion).toContain('sin sincronizar');
+    expect(plazos(deps, RUT_EMPRESA)[0]?.descripcion).toBe('F29 de 2026-09: sin sincronizar; sincroniza ese mes para confirmar si está presentado');
   });
 });
 

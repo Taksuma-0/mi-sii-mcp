@@ -156,7 +156,7 @@ export function plazos(deps: DepsApp, rutTexto: string, dias = 30): Plazo[] {
     const restantes = diasEntre(fechaHoy, vence);
     if (restantes > dias) continue;
     const descripcion = !sincronizado
-      ? `F29 de ${texto}: sin sincronizar; ejecuta sync para confirmar si está presentado`
+      ? `F29 de ${texto}: sin sincronizar; sincroniza ese mes para confirmar si está presentado`
       : restantes < 0
         ? `F29 de ${texto} no presentado (vencido)`
         : `Presentar el F29 de ${texto}`;
