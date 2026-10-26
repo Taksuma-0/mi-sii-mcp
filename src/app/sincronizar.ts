@@ -42,6 +42,9 @@ export const SINCRONIZACION_CANCELADA: ErrorSuperficie = {
   mensaje: 'Sincronización cancelada; se conservan los meses ya traídos.',
 };
 
+/** Aviso del mes que la cancelación dejó a medias: sus superficies guardadas están completas, pero faltan otras. */
+export const AVISO_MES_CANCELADO = 'incompleto: la sincronización se canceló antes de terminar este mes';
+
 /** Se lanza entre superficies, nunca dentro de una: lo ya guardado queda completo. */
 class Cancelada extends Error {}
 
@@ -66,6 +69,8 @@ export async function sincronizar(
   const periodos = rangoPeriodos(desde, hasta);
   const buffer: RespuestaCruda[] = [];
   const resultados: ResultadoPeriodo[] = [];
+  /** El período en curso; null entre períodos. */
+  let enCurso: ResultadoPeriodo | null = null;
   try {
     revisarCancelacion(signal);
     const sii = await deps.abrirSii(rut, (r) => {
@@ -75,6 +80,7 @@ export async function sincronizar(
       revisarCancelacion(signal);
       const res: ResultadoPeriodo = { periodo: periodo.texto, errores: [], avisos: [], documentos: 0, f29Folio: null };
       resultados.push(res);
+      enCurso = res;
       if (superficies.includes('rcv')) {
         for (const lado of LADOS) {
           revisarCancelacion(signal);
@@ -108,10 +114,14 @@ export async function sincronizar(
           });
         }
       }
+      enCurso = null;
     }
     return { rut, periodos: resultados, abortado: null };
   } catch (e) {
-    if (e instanceof Cancelada) return { rut, periodos: resultados, abortado: SINCRONIZACION_CANCELADA };
+    if (e instanceof Cancelada) {
+      enCurso?.avisos.push(AVISO_MES_CANCELADO);
+      return { rut, periodos: resultados, abortado: SINCRONIZACION_CANCELADA };
+    }
     if (esErrorImpuestocl(e) && ERRORES_FATALES.has(e.codigo)) {
       return { rut, periodos: resultados, abortado: { superficie: 'sesion', codigo: e.codigo, mensaje: e.message } };
     }

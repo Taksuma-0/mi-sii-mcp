@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { sincronizar } from '../../src/app/sincronizar.js';
+import { AVISO_MES_CANCELADO, sincronizar } from '../../src/app/sincronizar.js';
+import { textoSync } from '../../src/interfaces/formato.js';
 import { resumenIva } from '../../src/app/consultas.js';
 import { ErrorImpuestocl } from '../../src/domain/errores.js';
 import { parsePeriodo } from '../../src/domain/periodo.js';
@@ -161,7 +162,7 @@ describe('sincronizar', () => {
       expect(persistidos).toEqual([RUT_EMPRESA]);
     });
 
-    it('revisa la señal antes de cada superficie y no deja escrituras a medias', async () => {
+    it('revisa la señal antes de cada superficie, no deja escrituras a medias y marca el mes como incompleto', async () => {
       const { deps, store, sii, db } = mesCompleto();
       const cancelar = new AbortController();
       sii.alLlamar = (llamada) => {
@@ -174,6 +175,8 @@ describe('sincronizar', () => {
       expect(store.documentosRcv(RUT_EMPRESA, SEPT.texto, { lado: 'VENTA' })).toHaveLength(2);
       expect(sii.llamadas).toEqual(['resumen|2026-09|VENTA|REGISTRO', 'detalle|2026-09|VENTA|REGISTRO|33']);
       expect(db.prepare('SELECT superficie, estado FROM sincronizacion ORDER BY id').all()).toEqual([{ superficie: 'rcv.VENTA', estado: 'ok' }]);
+      expect(r.periodos[0]!.avisos).toEqual([AVISO_MES_CANCELADO]);
+      expect(textoSync(r)).toContain('2026-09: 2 documentos RCV · F29 sin folio informado\n    avisos: incompleto: la sincronización se canceló antes de terminar este mes');
     });
 
     it('con la señal ya cancelada no abre la sesión del SII ni consulta ningún período', async () => {
