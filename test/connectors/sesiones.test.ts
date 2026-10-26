@@ -335,6 +335,57 @@ describe('GestorSesiones', () => {
     }
   });
 
+  it('con su sesión y la de otro proceso vencidas, entra con la clave del llavero y no vuelve a probar la ajena', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      const dir = dirTemporal();
+      const secretosA = new SecretosEnMemoria();
+      secretosA.mapa.set(RUT, 'secreta');
+      const ok = rutasLoginOk();
+      // Cada login de A recibe un token propio (tokA1, tokA2…) y solo vale el que `vigente` indique; el de B (tokB) nunca vale.
+      let vigente = 'tokA1';
+      const { g: a, llamadas } = gestor(dir, secretosA, {
+        ...ok,
+        [RUTA_POST]: (_l, n) => ({ ...ok[RUTA_POST]!, headers: [...HTML, ['set-cookie', `TOKEN=tokA${n}; Domain=.sii.cl; Path=/`]] }),
+        [RUTA_MI_SII]: (l) => (l.headers['Cookie']?.includes(`TOKEN=${vigente}`) ? DATOS_OK : STUB),
+      });
+      const posts = () => llamadas.filter((l) => l.method === 'POST').length;
+      const consultasMiSii = () => llamadas.filter((l) => `${l.method} ${l.url.split('?')[0]}` === RUTA_MI_SII).length;
+      const pruebasDeB = () => llamadas.filter((l) => l.headers['Cookie']?.includes('TOKEN=tokB')).length;
+
+      vi.setSystemTime(new Date('2026-10-26T10:00:00Z'));
+      await a.loginInteractivo(RUT, 'secreta', false);
+      expect(posts()).toBe(1);
+
+      // La sesión de A vence y otro proceso entra de nuevo sobre la misma carpeta, con una sesión que también está vencida.
+      vigente = 'tokA2';
+      vi.setSystemTime(new Date('2026-10-26T10:05:00Z'));
+      const { g: b } = gestor(dir, new SecretosEnMemoria(), rutasLoginOk('22222222', '2', 'EMPRESA DEMO SPA', 'tokB'));
+      await b.loginInteractivo(RUT, 'secreta', false);
+
+      vi.setSystemTime(new Date('2026-10-26T10:10:00Z'));
+      const antes = consultasMiSii();
+      await a.sesionActiva(RUT);
+      // Prueba la suya, prueba la de B una vez y, como ninguna sirve, entra con la clave del llavero (un solo POST).
+      expect(posts()).toBe(2);
+      expect(pruebasDeB()).toBe(1);
+      expect(consultasMiSii() - antes).toBe(3);
+      expect(llamadas.at(-1)!.headers['Cookie']).toContain('TOKEN=tokA2');
+      expect(secretosA.mapa.get(RUT)).toBe('secreta');
+
+      // La sesión nueva también vence: la llamada siguiente prueba solo la de memoria; el archivo de B ya no existe ni se reprueba.
+      vigente = 'tokA3';
+      vi.setSystemTime(new Date('2026-10-26T10:15:00Z'));
+      const antesSiguiente = consultasMiSii();
+      await a.sesionActiva(RUT);
+      expect(posts()).toBe(3);
+      expect(pruebasDeB()).toBe(1);
+      expect(consultasMiSii() - antesSiguiente).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('si el archivo en disco es el mismo que venció, exige login sin reintentarlo', async () => {
     let vencida = false;
     const { g, llamadas } = gestor(dirTemporal(), new SecretosEnMemoria(), {
