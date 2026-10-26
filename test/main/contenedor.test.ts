@@ -50,6 +50,21 @@ describe('configuración y contenedor', () => {
     }
   });
 
+  it('crearContenedor conecta las consultas libres a la base local', async () => {
+    const c = crearContenedor({ config: cargarConfig({ IMPUESTOCL_HOME: home }), secretos: new SecretosEnMemoria() });
+    try {
+      const limites = { filas: 200, caracteres: 40_000, caracteresCelda: 1_000, milisegundos: 15_000 };
+      const vacia = await c.deps.consultaLibre.consultar('SELECT COUNT(*) AS n FROM contribuyente', { limites, tiposNegativos: [60, 61, 112] });
+      expect(vacia).toEqual({ columnas: ['n'], filas: [[0]], truncado: false });
+
+      c.deps.store.guardarContribuyente({ rut: '22222222-2', alias: 'Demo', tipo: 'empresa', representa: [], razonSocial: null });
+      const con = await c.deps.consultaLibre.consultar('SELECT rut FROM contribuyente', { limites, tiposNegativos: [60, 61, 112] });
+      expect(con.filas).toEqual([['22222222-2']]);
+    } finally {
+      c.cerrar();
+    }
+  });
+
   it('crearContenedor cierra la base y conserva el error si no puede crear el directorio de sesiones', () => {
     const config = cargarConfig({ IMPUESTOCL_HOME: home });
     writeFileSync(config.dirSesiones, 'archivo que impide crear el directorio');

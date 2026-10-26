@@ -32,7 +32,7 @@ const LADOS: readonly Lado[] = ['VENTA', 'COMPRA'];
 /** Las ventas no tienen pendientes ni reclamos propios: esos estados son del receptor. */
 const ESTADOS_POR_LADO: Readonly<Record<Lado, readonly EstadoRcv[]>> = { VENTA: ['REGISTRO'], COMPRA: ESTADOS_RCV };
 /** Boletas y comprobantes de venta: el RCV los entrega solo como resumen. */
-const SOLO_RESUMEN_VENTA: ReadonlySet<number> = new Set([35, 38, 39, 41, 48]);
+export const SOLO_RESUMEN_VENTA: ReadonlySet<number> = new Set([35, 38, 39, 41, 48]);
 const DATOS_INCOMPLETOS = Symbol('DATOS_INCOMPLETOS');
 
 export async function sincronizar(

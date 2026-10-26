@@ -6,6 +6,7 @@ import type { OpcionesHttp } from '../connectors/sii/http.js';
 import { LectorPortalSii } from '../connectors/sii/lector.js';
 import { GestorSesiones } from '../connectors/sii/sesiones.js';
 import type { SecretStore } from '../ports/index.js';
+import { ConsultaLibreSqlite } from '../store/sqlite/consulta-libre.js';
 import { abrirDb } from '../store/sqlite/db.js';
 import { SqliteStore } from '../store/sqlite/store.js';
 import { cargarConfig, type Config } from './config.js';
@@ -25,6 +26,7 @@ export function crearContenedor(o: { config?: Config; secretos?: SecretStore; op
     const sesiones = new GestorSesiones(config.dirSesiones, o.secretos ?? new LlaveroSistema(), { intervaloMinMs: config.intervaloMinMs, ...o.opcionesHttp });
     const deps: DepsApp = {
       store: new SqliteStore(db),
+      consultaLibre: new ConsultaLibreSqlite(db),
       sesiones,
       reloj: { ahora: () => new Date() },
       toleranciaPesos: config.toleranciaPesos,

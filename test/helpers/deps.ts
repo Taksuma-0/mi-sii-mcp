@@ -1,4 +1,5 @@
 import type { DepsApp } from '../../src/app/deps.js';
+import { ConsultaLibreSqlite } from '../../src/store/sqlite/consulta-libre.js';
 import { abrirDb, type Db } from '../../src/store/sqlite/db.js';
 import { SqliteStore } from '../../src/store/sqlite/store.js';
 import { SiiFalso } from './sii-falso.js';
@@ -20,6 +21,7 @@ export function depsDePrueba(o: { ahora?: string; tolerancia?: number; fallaAlAb
   const persistidos: string[] = [];
   const deps: DepsApp = {
     store,
+    consultaLibre: new ConsultaLibreSqlite(db),
     toleranciaPesos: o.tolerancia ?? 0,
     reloj: { ahora: () => new Date(o.ahora ?? '2026-10-21T15:00:00.000Z') },
     sesiones: { estado: () => ({ tieneSesion: true, guardadaEn: '2026-10-21T10:00:00.000Z', bloqueado: false }) },

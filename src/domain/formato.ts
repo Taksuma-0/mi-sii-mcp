@@ -4,7 +4,7 @@ export function formatearClp(n: number): string {
   return `${n < 0 ? '-' : ''}$${absoluto}`;
 }
 
-const NOMBRES_TIPO: Readonly<Record<number, string>> = {
+export const NOMBRES_TIPO_DOCUMENTO: Readonly<Record<number, string>> = {
   29: 'Factura de inicio',
   30: 'Factura',
   32: 'Factura exenta',
@@ -29,4 +29,4 @@ const NOMBRES_TIPO: Readonly<Record<number, string>> = {
   914: 'Declaración de ingreso (importación)',
 };
 
-export const nombreTipoDocumento = (tipo: number): string => NOMBRES_TIPO[tipo] ?? `Documento tipo ${tipo}`;
+export const nombreTipoDocumento = (tipo: number): string => NOMBRES_TIPO_DOCUMENTO[tipo] ?? `Documento tipo ${tipo}`;

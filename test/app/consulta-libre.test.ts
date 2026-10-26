@@ -1,0 +1,132 @@
+import { describe, expect, it, vi } from 'vitest';
+import { esquemaDatos, consultaSql, LIMITES_CONSULTA, MAX_CARACTERES_SQL } from '../../src/app/consulta-libre.js';
+import type { DepsApp } from '../../src/app/deps.js';
+import { SOLO_RESUMEN_VENTA } from '../../src/app/sincronizar.js';
+import { declaracionVigente } from '../../src/domain/f29.js';
+import { NOMBRES_TIPO_DOCUMENTO } from '../../src/domain/formato.js';
+import type { ConsultaLibre, ResultadoConsulta } from '../../src/ports/index.js';
+import { CODIGO_F29, CODIGOS_CREDITO_FUERA_RCV, TIPOS_DOC_NEGATIVOS } from '../../src/reconciliation/mapeo-f29.js';
+import { depsDePrueba } from '../helpers/deps.js';
+import { codigoDe } from '../helpers/errores.js';
+import { declaracion, documento, fila, perfilEmpresa, resumen, RUT_EMPRESA } from '../helpers/fabricas.js';
+import { sembrarMes } from '../helpers/sembrar.js';
+
+const VACIO: ResultadoConsulta = { columnas: ['n'], filas: [[1]], truncado: false };
+
+function conEspia() {
+  const consultar = vi.fn<ConsultaLibre['consultar']>(async () => VACIO);
+  const base = depsDePrueba();
+  const deps: DepsApp = { ...base.deps, consultaLibre: { consultar } };
+  return { deps, consultar };
+}
+
+describe('consultaSql', () => {
+  it('rechaza SQL vacío o de más de 20 000 caracteres sin consultar', async () => {
+    const { deps, consultar } = conEspia();
+
+    expect(MAX_CARACTERES_SQL).toBe(20_000);
+    for (const sql of ['', '   ', '\n\t ', 'x'.repeat(20_001)]) {
+      expect(await codigoDe(consultaSql(deps, sql))).toBe('CONSULTA_RECHAZADA');
+    }
+    expect(consultar).not.toHaveBeenCalled();
+
+    await consultaSql(deps, 'x'.repeat(20_000));
+    expect(consultar).toHaveBeenCalledTimes(1);
+  });
+
+  it('entrega LIMITES_CONSULTA y TIPOS_DOC_NEGATIVOS al puerto', async () => {
+    const { deps, consultar } = conEspia();
+
+    expect(LIMITES_CONSULTA).toEqual({ filas: 200, caracteres: 40_000, caracteresCelda: 1_000, milisegundos: 15_000 });
+    expect(await consultaSql(deps, 'SELECT 1')).toBe(VACIO);
+    expect(consultar).toHaveBeenLastCalledWith('SELECT 1', { limites: LIMITES_CONSULTA, tiposNegativos: TIPOS_DOC_NEGATIVOS });
+
+    const corto = { ...LIMITES_CONSULTA, milisegundos: 50 };
+    await consultaSql(deps, 'SELECT 2', corto);
+    expect(consultar).toHaveBeenLastCalledWith('SELECT 2', { limites: corto, tiposNegativos: TIPOS_DOC_NEGATIVOS });
+  });
+
+  it('consulta la copia de la base conectada en las dependencias de prueba', async () => {
+    const { deps, store } = depsDePrueba();
+    store.guardarContribuyente(perfilEmpresa());
+    sembrarMes(store, '2026-09', {
+      resumenes: [resumen({ filas: [fila(33, 100_000, 19_000), fila(61, 10_000, 1_900)] })],
+      documentos: [documento({ lado: 'VENTA', tipoDoc: 61, folio: 7 })],
+    });
+
+    const r = await consultaSql(deps, 'SELECT tipo_doc, signo FROM rcv_resumen ORDER BY tipo_doc');
+
+    expect(r).toEqual({ columnas: ['tipo_doc', 'signo'], filas: [[33, 1], [61, -1]], truncado: false });
+  });
+});
+
+describe('esquemaDatos', () => {
+  it('el esquema documenta exactamente las tablas y columnas de la copia', async () => {
+    const { deps } = depsDePrueba();
+
+    const copia = await consultaSql(
+      deps,
+      "SELECT m.name, p.name FROM sqlite_master m JOIN pragma_table_info(m.name) p WHERE m.type = 'table' ORDER BY 1, 2",
+    );
+    const documentado = esquemaDatos()
+      .tablas.flatMap((t) => t.columnas.map((c) => [t.nombre, c.nombre]))
+      .sort((a, b) => (a[0]! + '.' + a[1]!).localeCompare(b[0]! + '.' + b[1]!));
+    const real = copia.filas.map((f) => [f[0], f[1]]).sort((a, b) => (a[0] + '.' + a[1]).localeCompare(b[0] + '.' + b[1]));
+
+    expect(documentado).toEqual(real);
+    expect(documentado.length).toBeGreaterThan(50);
+  });
+
+  it('describe cada tabla y cada columna con tipo y significado', () => {
+    for (const tabla of esquemaDatos().tablas) {
+      expect(tabla.descripcion.length, tabla.nombre).toBeGreaterThan(10);
+      for (const c of tabla.columnas) {
+        expect(['INTEGER', 'TEXT', 'REAL'], `${tabla.nombre}.${c.nombre}`).toContain(c.tipo);
+        expect(c.significado.length, `${tabla.nombre}.${c.nombre}`).toBeGreaterThan(3);
+      }
+    }
+  });
+
+  it('las reglas citan constantes del código', () => {
+    const texto = esquemaDatos().reglas.join('\n');
+
+    for (const codigo of Object.values(CODIGO_F29)) expect(texto).toContain(`'${codigo}'`);
+    expect(texto).toContain([...SOLO_RESUMEN_VENTA].join(', '));
+    expect(texto).toContain(TIPOS_DOC_NEGATIVOS.join(', '));
+    for (const [tipo, nombre] of Object.entries(NOMBRES_TIPO_DOCUMENTO)) expect(texto).toContain(`${tipo} ${nombre}`);
+    for (const palabra of ['signo', 'REGISTRO', 'PENDIENTE', 'NO_INCLUIR', 'RECLAMADO', 'COMPRA', 'VENTA', 'AAAA-MM', 'sincronizacion']) {
+      expect(texto).toContain(palabra);
+    }
+    expect(texto).toMatch(/Cobertura: solo el RCV.*F29/);
+    expect(texto).toContain(`'${CODIGO_F29.TOTAL_CREDITOS}' menos ${CODIGOS_CREDITO_FUERA_RCV.map((c) => `'${c}'`).join(' y ')}`);
+  });
+
+  it('explica la declaración vigente del F29 con la misma regla que declaracionVigente', async () => {
+    const texto = esquemaDatos().reglas.join('\n');
+    expect(texto).toMatch(/folio > 0/);
+    expect(texto).toMatch(/vigente/i);
+    expect(texto).toMatch(/fecha_presentacion/);
+
+    // La consulta de ejemplo de las reglas debe elegir lo mismo que declaracionVigente en los casos límite.
+    const ejemplo = /`(SELECT[^`]*f29_declaracion[^`]*)`/.exec(texto)?.[1];
+    expect(ejemplo).toBeDefined();
+    const casos = {
+      '2026-01': [declaracion({ periodo: '2026-01', folio: 10, estado: 'Vigente', fechaPresentacion: '2026-02-10' }), declaracion({ periodo: '2026-01', folio: 11, estado: 'Reemplazada', fechaPresentacion: '2026-02-20' })],
+      '2026-02': [declaracion({ periodo: '2026-02', folio: 20, estado: 'Reemplazada', fechaPresentacion: '2026-03-10' }), declaracion({ periodo: '2026-02', folio: 21, estado: 'Rectificada', fechaPresentacion: '2026-03-15' })],
+      '2026-03': [declaracion({ periodo: '2026-03', folio: 30, estado: 'Vigente', fechaPresentacion: '2026-04-10' }), declaracion({ periodo: '2026-03', folio: 31, estado: 'Vigente', fechaPresentacion: '2026-04-10' })],
+      '2026-04': [declaracion({ periodo: '2026-04', folio: 0, estado: 'Guardada', fechaPresentacion: '2026-05-30' }), declaracion({ periodo: '2026-04', folio: 40, estado: 'Presentada', fechaPresentacion: null })],
+      '2026-05': [declaracion({ periodo: '2026-05', folio: 0, estado: 'Vigente', fechaPresentacion: '2026-06-01' })],
+      '2026-06': [declaracion({ periodo: '2026-06', folio: 50, estado: 'VIGENTE', fechaPresentacion: null }), declaracion({ periodo: '2026-06', folio: 51, estado: 'Presentada', fechaPresentacion: '2026-07-10' })],
+    };
+    const { deps, store } = depsDePrueba();
+    store.guardarContribuyente(perfilEmpresa());
+    for (const [periodo, declaraciones] of Object.entries(casos)) sembrarMes(store, periodo, { declaraciones });
+
+    for (const [periodo, declaraciones] of Object.entries(casos)) {
+      const sql = ejemplo!.replaceAll('<RUT>', RUT_EMPRESA).replaceAll('<AAAA-MM>', periodo);
+      const r = await consultaSql(deps, sql);
+      const esperado = declaracionVigente(declaraciones)?.folio;
+      expect(r.filas.map((f) => f[r.columnas.indexOf('folio')]), periodo).toEqual(esperado === undefined ? [] : [esperado]);
+    }
+  });
+});
