@@ -59,7 +59,7 @@ Qué implica `--guardar-clave`:
 
 - La clave queda guardada en el **Administrador de credenciales de Windows**, bajo el servicio `impuestocl` (en la lista aparece una entrada cuyo nombre contiene `impuestocl`). No se guarda en archivos del proyecto ni en la base de datos.
 - Con la clave guardada, cuando la sesión del SII vence, impuestocl inicia una nueva sola. No tienes que volver a la terminal cada vez que expire.
-- Quien use tu cuenta de Windows podría usar esa clave guardada. Si prefieres no guardarla, omite `--guardar-clave`: la sesión dura menos y tendrás que repetir el login cuando venza.
+- Quien use tu cuenta de Windows podría usar esa clave guardada. Si prefieres no guardarla, omite `--guardar-clave`: cuando la sesión venza, tendrás que repetir el login.
 - Para olvidarla en cualquier momento:
 
   ```powershell
@@ -113,7 +113,27 @@ Si el archivo ya tiene otros servidores, agrega solo la entrada `impuestocl` den
 - Los datos están al día hasta la última sincronización. Si necesitas cifras recientes, pide primero que sincronice el rango que te interesa.
 - Las cifras y los hallazgos son una ayuda para revisar tu información, no asesoría tributaria. Contrástalos con el SII o con tu contador antes de declarar o pagar.
 
-## 7. Quitar el registro
+## 7. Si algo falla
+
+- **`claude mcp list` muestra un error en `impuestocl`** (o la conexión se cae al abrir Claude): ejecuta el servidor a mano para ver el mensaje real.
+
+  ```powershell
+  node "C:\ruta\a\mi-sii-mcp\dist\interfaces\cli\bin.js" mcp
+  ```
+
+  Si todo está bien, escribe «impuestocl: servidor MCP listo (stdio).» y queda esperando: cierra con Ctrl+C. Si hay un problema, imprime el error y termina.
+- **Actualizaste Node a otra versión mayor** (por ejemplo, de 22 a 24): el módulo nativo de la base de datos hay que reconstruirlo y volver a compilar el proyecto.
+
+  ```powershell
+  cd 'C:\ruta\a\mi-sii-mcp'
+  npm.cmd rebuild better-sqlite3
+  npm.cmd run build
+  ```
+
+- **`node` debe estar en el PATH, versión 22.12 o superior.** Compruébalo en una terminal nueva con `node --version`. Esto vale también para Claude Desktop: lanza `node` con el PATH de Windows, así que reinícialo por completo después de instalar o actualizar Node.
+- **No encuentras «Abrir impuestocl.cmd»**: está en la carpeta del proyecto, `C:\ruta\a\mi-sii-mcp\Abrir impuestocl.cmd`. Haz doble clic para abrir la interfaz local (ver `docs/guias/interfaz-local.md`).
+
+## 8. Quitar el registro
 
 ```powershell
 claude mcp remove --scope user impuestocl
@@ -121,7 +141,7 @@ claude mcp remove --scope user impuestocl
 
 Esto desconecta al asistente. No borra tus datos guardados ni tu clave: para la clave, usa `logout <tu RUT> --olvidar-clave` (sección 3). Tus datos locales están en la carpeta `.impuestocl` de tu usuario de Windows. En Claude Desktop, borra la entrada `impuestocl` del archivo de configuración y reinicia la aplicación.
 
-## 8. Actualizar el código
+## 9. Actualizar el código
 
 Cada vez que cambie el código del proyecto (por ejemplo, tras bajar una versión nueva), recompila:
 
