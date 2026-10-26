@@ -150,6 +150,16 @@ describe('lector del PDF compacto del F29', () => {
 });
 
 describe('lector del PDF compacto del F29 con el formato real', () => {
+  /** Cabecera de la tabla de dos columnas del PDF compacto, con sus posiciones reales. */
+  const CABECERA_TABLA = [
+    { str: 'Código', x: 34.1, y: 614.7 },
+    { str: 'Glosa', x: 144.7, y: 614.7 },
+    { str: 'Valor', x: 277.9, y: 614.7 },
+    { str: 'Código', x: 334.1, y: 614.7 },
+    { str: 'Glosa', x: 444.6, y: 614.7 },
+    { str: 'Valor', x: 577.8, y: 614.7 },
+  ];
+
   it('quita los ceros a la izquierda de los códigos al compararlos y en la salida', () => {
     expect(codigosDesdeLineas([[t('077'), t('REMANENTE'), t('250.000'), t('048'), t('RET.'), t('4.000')]])).toEqual({ '77': 250_000, '48': 4_000 });
   });
@@ -204,6 +214,40 @@ describe('lector del PDF compacto del F29 con el formato real', () => {
       { str: '915', x: 485.6, y: 580 },
       { str: 'Fecha Condonación', x: 537.3, y: 580 },
     ]))).toEqual({ '595': 22_750 });
+  });
+
+  it.each([
+    {
+      caso: '151 … Art. | 50 | Ley 54',
+      fila: [
+        { str: '151', x: 38.6, y: 600 },
+        { str: 'Retencion Art.', x: 59.2, y: 600 },
+        { str: '50', x: 100.0, y: 600 },
+        { str: 'Ley 54', x: 108.0, y: 600 },
+        { str: '10.000', x: 304.2, y: 600 },
+      ],
+      inicios: ['151'],
+      esperado: { '151': 10_000 },
+    },
+    {
+      caso: '048 … ART. | 74 | N 1 LIR',
+      fila: [
+        { str: '048', x: 38.6, y: 600 },
+        { str: 'RET. IMP. ÚNICO TRAB. ART.', x: 59.2, y: 600 },
+        { str: '74', x: 140.0, y: 600 },
+        { str: 'N 1 LIR', x: 148.0, y: 600 },
+        { str: '4.000', x: 307.6, y: 600 },
+        { str: '504', x: 338.6, y: 600 },
+        { str: 'REMANENTE CRÉDITO MES ANTERIOR', x: 359.1, y: 600 },
+        { str: '150.000', x: 600.7, y: 600 },
+      ],
+      inicios: ['048', '504'],
+      esperado: { '48': 4_000, '504': 150_000 },
+    },
+  ])('un número suelto de una glosa partida ($caso) no inicia celda ni es valor', ({ fila, inicios, esperado }) => {
+    const lineas = lineasDeItems([...CABECERA_TABLA, ...fila]);
+    expect(lineas.flat().filter((token) => token.inicioCelda).map((token) => token.s)).toEqual(inicios);
+    expect(codigosDesdeLineas(lineas)).toEqual(esperado);
   });
 
   it.each([

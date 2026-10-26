@@ -6,10 +6,13 @@ export interface TokenPdf {
   readonly x: number;
   /**
    * El token es un código que inicia una celda: en una línea que empieza con un número, un texto completo de 1 a 4
-   * dígitos seguido de un texto con letras (su glosa). Es límite de celda aunque no esté en el catálogo y nunca es un
-   * valor. Sin el campo, se infiere del contexto.
+   * dígitos seguido de un texto con letras (su glosa) y que es el primero de la línea o sigue a un texto sin letras (el
+   * valor de la celda izquierda). Es límite de celda aunque no esté en el catálogo y nunca es un valor. Sin el campo, se
+   * infiere del contexto.
    */
   readonly inicioCelda?: boolean;
+  /** El token es un número suelto entre dos textos con letras (una glosa partida, o un código sin valor): ni valor ni código. */
+  readonly enGlosa?: boolean;
 }
 
 const ES_MONTO = /^-?\d{1,3}(?:\.\d{3})+$|^-?\d+$/;
@@ -41,9 +44,12 @@ export function lineasDeItems(items: readonly { str: string; x: number; y: numbe
     // Una línea que empieza con glosa (el pie: glosa-código-monto) no tiene celdas: tras el monto puede venir una unidad.
     const empiezaConGlosa = TIENE_LETRAS.test(enOrden[0]?.str ?? '');
     return enOrden.flatMap((item, i) => {
-      // En la tabla del PDF compacto cada texto es una celda completa: un número suelto seguido de su glosa es un código.
+      // En la tabla del PDF compacto cada texto es una celda completa: un número suelto seguido de su glosa es un código,
+      // salvo que venga tras otro texto con letras: el código de la columna derecha siempre sigue a un valor.
       const siguiente = enOrden[i + 1];
       if (!empiezaConGlosa && ES_CODIGO_DE_CELDA.test(item.str) && siguiente !== undefined && TIENE_LETRAS.test(siguiente.str)) {
+        const anterior = enOrden[i - 1];
+        if (anterior !== undefined && TIENE_LETRAS.test(anterior.str)) return [{ s: item.str, x: item.x, enGlosa: true }];
         return [{ s: item.str, x: item.x, inicioCelda: true }];
       }
       return item.str.split(/\s+/).map((parte, j) => ({ s: parte, x: item.x + j * PASO_PALABRA_X }));
@@ -61,6 +67,7 @@ export function codigosDesdeLineas(lineas: readonly (readonly TokenPdf[])[], con
     let valor: string | null = null;
     for (let i = tokens.length - 1; i >= 0; i--) {
       const token = tokens[i]!;
+      if (token.enGlosa) continue;
       const codigo = codigoNormalizado(token.s);
       if (token.inicioCelda) {
         // El valor reservado es de esta celda: se guarda si el código es del catálogo y se descarta si no.
@@ -71,7 +78,7 @@ export function codigosDesdeLineas(lineas: readonly (readonly TokenPdf[])[], con
       const anterior = tokens[i - 1];
       // Sin código inicial, admite glosa-código-monto. Con celda ya iniciada, un numeral separado puede pertenecer a su glosa.
       const separadoTrasGlosa = !tieneCodigoInicial && anterior !== undefined && token.x - anterior.x > 2 * PASO_PALABRA_X && esValor(tokens[i + 1]?.s ?? '');
-      if (valor !== null && conocidos.has(codigo) && (i === 0 || esValor(anterior!.s) || separadoTrasGlosa)) {
+      if (valor !== null && conocidos.has(codigo) && (i === 0 || (!anterior!.enGlosa && esValor(anterior!.s)) || separadoTrasGlosa)) {
         celdas.push([codigo, aNumero(valor)]);
         valor = null;
       } else if (valor === null && esValor(token.s)) {
