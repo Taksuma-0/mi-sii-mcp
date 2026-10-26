@@ -278,10 +278,61 @@ describe('lector del PDF compacto del F29 con el formato real', () => {
       inicios: ['048', '504'],
       esperado: { '48': 4_000, '504': 150_000 },
     },
+    {
+      caso: '779 | Monto de IVA postergado | 6 | o 12 cuotas',
+      fila: [
+        { str: '563', x: 38.6, y: 600 },
+        { str: 'BASE IMPONIBLE', x: 59.2, y: 600 },
+        { str: '2.500.000', x: 295.9, y: 600 },
+        { str: '779', x: 338.6, y: 600 },
+        { str: 'Monto de IVA postergado', x: 359.1, y: 600 },
+        { str: '6', x: 425.0, y: 600 },
+        { str: 'o 12 cuotas', x: 430.0, y: 600 },
+        { str: '0', x: 619.1, y: 600 },
+      ],
+      inicios: ['563', '779'],
+      esperado: { '563': 2_500_000, '779': 0 },
+    },
   ])('un número suelto de una glosa partida ($caso) no inicia celda ni es valor', ({ fila, inicios, esperado }) => {
     const lineas = lineasDeItems([...CABECERA_TABLA, ...fila]);
     expect(lineas.flat().filter((token) => token.inicioCelda).map((token) => token.s)).toEqual(inicios);
     expect(codigosDesdeLineas(lineas)).toEqual(esperado);
+  });
+
+  it.each([
+    { caso: 'código de 3 dígitos', codigo: '538', x: 338.6, esperado: { '538': 300_000 } },
+    { caso: 'código de 4 dígitos', codigo: '9999', x: 337.0, esperado: { '9999': 300_000 } },
+  ])('una celda izquierda sin valor no se queda con el valor de la derecha ($caso)', ({ codigo, x, esperado }) => {
+    const lineas = lineasDeItems([
+      ...CABECERA_TABLA,
+      { str: '544', x: 38.6, y: 600 },
+      { str: 'RECUP. IMP. ESP. DIESEL (Art. 2)', x: 59.2, y: 600 },
+      { str: codigo, x, y: 600 },
+      { str: 'GLOSA FICTICIA DE LA CELDA DERECHA', x: 359.1, y: 600 },
+      { str: '300.000', x: 600.7, y: 600 },
+    ]);
+    expect(lineas.flat().filter((token) => token.inicioCelda).map((token) => token.s)).toEqual(['544', codigo]);
+    expect(codigosDesdeLineas(lineas)).toEqual(esperado);
+  });
+
+  it('bajo la cabecera, la fila de intereses y multas sin valores no da ningún código', () => {
+    expect(codigosDesdeLineas(lineasDeItems([
+      ...CABECERA_TABLA,
+      { str: '931', x: 35.8, y: 486.7 },
+      { str: 'Monto Interés', x: 71.0, y: 486.7 },
+      { str: '932', x: 132.8, y: 486.7 },
+      { str: 'Monto Multa', x: 169.8, y: 486.7 },
+      { str: '60', x: 231.5, y: 486.7 },
+      { str: 'Condonación', x: 265.7, y: 486.7 },
+      { str: '922', x: 338.6, y: 486.7 },
+      { str: 'Número Resolución', x: 390.8, y: 486.7 },
+      { str: '915', x: 485.6, y: 486.7 },
+      { str: 'Fecha Condonación', x: 537.3, y: 486.7 },
+      { str: '9311', x: 34.1, y: 464.7 },
+      { str: 'Monto Interés Base', x: 63.3, y: 464.7 },
+      { str: '9312', x: 337.0, y: 464.7 },
+      { str: 'Monto Interés Spread', x: 388.3, y: 464.7 },
+    ]))).toEqual({});
   });
 
   it.each([

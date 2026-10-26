@@ -6,12 +6,13 @@ export interface TokenPdf {
   readonly x: number;
   /**
    * El token es un código que inicia una celda: en una línea que empieza con un número, un texto completo de 1 a 4
-   * dígitos seguido de un texto con letras (su glosa) y que es el primero de la línea o sigue a un texto sin letras (el
-   * valor de la celda izquierda). Es límite de celda aunque no esté en el catálogo y nunca es un valor. Sin el campo, se
-   * infiere del contexto.
+   * dígitos seguido de un texto con letras (su glosa) que es el primero de la línea, sigue a un texto sin letras (el
+   * valor de la celda izquierda) o, bajo la cabecera de la tabla, está en una columna de código (la celda izquierda no
+   * tenía valor). Es límite de celda aunque no esté en el catálogo y nunca es un valor. Sin el campo, se infiere del
+   * contexto.
    */
   readonly inicioCelda?: boolean;
-  /** El token es un número suelto entre dos textos con letras (una glosa partida, o un código sin valor): ni valor ni código. */
+  /** El token es un número suelto entre dos textos con letras fuera de una columna de código (una glosa partida): ni valor ni código. */
   readonly enGlosa?: boolean;
 }
 
@@ -26,7 +27,9 @@ const aNumero = (s: string): number => (ES_DECIMAL.test(s) ? Number(s.replace(',
 const esValor = (s: string): boolean => ES_MONTO.test(s) || ES_DECIMAL.test(s);
 /** La cabecera de la tabla del PDF compacto («Código Glosa Valor», una vez por columna). */
 const PALABRAS_CABECERA = ['código', 'glosa', 'valor'];
-const esCabeceraDeTabla = (tokens: readonly TokenPdf[]): boolean => PALABRAS_CABECERA.every((p) => tokens.some((t) => t.s.toLowerCase() === p));
+const esCabeceraDeTabla = (textos: readonly string[]): boolean => PALABRAS_CABECERA.every((p) => textos.some((t) => t.toLowerCase() === p));
+/** Cada código de la tabla va entre 3 y 5 puntos a la derecha del «Código» de su columna en la cabecera. */
+const HOLGURA_COLUMNA_CODIGO = { antes: 2, despues: 10 } as const;
 /** El PDF trae algunos códigos con ceros a la izquierda (`077`); el catálogo y la salida usan la forma sin ellos (`77`). */
 const codigoNormalizado = (s: string): string => (/^\d+$/.test(s) ? s.replace(/^0+(?=\d)/, '') : s);
 
@@ -42,17 +45,24 @@ export function lineasDeItems(items: readonly { str: string; x: number; y: numbe
     }
     linea.items.push({ str: item.str.trim(), x: item.x });
   }
-  return lineas.map((l) => {
+  // Columnas de código de la tabla: la x de cada «Código» de su cabecera, si la página la tiene.
+  const indiceCabecera = lineas.findIndex((l) => esCabeceraDeTabla(l.items.flatMap((i) => i.str.split(/\s+/))));
+  const columnasCodigo = indiceCabecera < 0 ? [] : lineas[indiceCabecera]!.items.filter((i) => i.str.toLowerCase() === 'código').map((i) => i.x);
+  const enColumnaDeCodigo = (x: number): boolean => columnasCodigo.some((c) => x >= c - HOLGURA_COLUMNA_CODIGO.antes && x <= c + HOLGURA_COLUMNA_CODIGO.despues);
+  return lineas.map((l, indice) => {
     const enOrden = [...l.items].sort((a, b) => a.x - b.x);
+    const bajoCabecera = indiceCabecera >= 0 && indice > indiceCabecera;
     // Una línea que empieza con glosa (el pie: glosa-código-monto) no tiene celdas: tras el monto puede venir una unidad.
     const empiezaConGlosa = TIENE_LETRAS.test(enOrden[0]?.str ?? '');
     return enOrden.flatMap((item, i) => {
-      // En la tabla del PDF compacto cada texto es una celda completa: un número suelto seguido de su glosa es un código,
-      // salvo que venga tras otro texto con letras: el código de la columna derecha siempre sigue a un valor.
+      // En la tabla del PDF compacto cada texto es una celda completa: un número suelto seguido de su glosa es un código.
+      // Tras otro texto con letras es parte de esa glosa, salvo que esté en una columna de código de la cabecera: entonces
+      // la celda izquierda no tenía valor y este número abre la siguiente.
       const siguiente = enOrden[i + 1];
       if (!empiezaConGlosa && ES_CODIGO_DE_CELDA.test(item.str) && siguiente !== undefined && TIENE_LETRAS.test(siguiente.str)) {
         const anterior = enOrden[i - 1];
-        if (anterior !== undefined && TIENE_LETRAS.test(anterior.str)) return [{ s: item.str, x: item.x, enGlosa: true }];
+        const trasGlosa = anterior !== undefined && TIENE_LETRAS.test(anterior.str);
+        if (trasGlosa && !(bajoCabecera && enColumnaDeCodigo(item.x))) return [{ s: item.str, x: item.x, enGlosa: true }];
         return [{ s: item.str, x: item.x, inicioCelda: true }];
       }
       return item.str.split(/\s+/).map((parte, j) => ({ s: parte, x: item.x + j * PASO_PALABRA_X }));
@@ -69,7 +79,7 @@ export function codigosDesdeLineas(lineas: readonly (readonly TokenPdf[])[], con
   const out: Record<string, number> = {};
   let bajoCabecera = false;
   for (const tokens of lineas) {
-    if (esCabeceraDeTabla(tokens)) {
+    if (esCabeceraDeTabla(tokens.map((t) => t.s))) {
       bajoCabecera = true;
       continue;
     }
