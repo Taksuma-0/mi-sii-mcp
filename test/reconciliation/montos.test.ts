@@ -1,10 +1,31 @@
 import { describe, expect, it } from 'vitest';
-import { creditoDocumentosF29, creditoRcv, debitoF29, debitoRcv, montoF29 } from '../../src/reconciliation/mapeo-f29.js';
+import { CODIGOS_F29 } from '../../src/connectors/sii/codigos-f29.js';
+import {
+  CODIGO_F29,
+  CODIGOS_CREDITO_FUERA_RCV,
+  CODIGOS_DEBITO_FUERA_RCV,
+  creditoDocumentosF29,
+  creditoRcv,
+  debitoF29,
+  debitoRcv,
+  LINEAS_DE_TOTALES,
+  montoF29,
+} from '../../src/reconciliation/mapeo-f29.js';
 import { REAJUSTE_UTM_REMANENTE, reglaCredito, reglaDebito, reglaRemanente } from '../../src/reconciliation/reglas.js';
 import { entrada } from '../helpers/entrada.js';
 import { fila, resumen, valores } from '../helpers/fabricas.js';
 
 describe('mapeo RCV ↔ F29', () => {
+  it('todo código que usan las reglas está en el catálogo del lector', () => {
+    const usados = [
+      ...Object.values(CODIGO_F29),
+      ...CODIGOS_DEBITO_FUERA_RCV,
+      ...CODIGOS_CREDITO_FUERA_RCV,
+      ...Object.entries(LINEAS_DE_TOTALES).flatMap(([total, { suman, restan }]) => [total, ...suman, ...restan]),
+    ];
+    expect(usados.filter((codigo) => !CODIGOS_F29.has(codigo))).toEqual([]);
+  });
+
   it('las notas de crédito restan del débito', () => {
     expect(debitoRcv([resumen({ lado: 'VENTA', filas: [fila(33, 1_000_000, 190_000), fila(61, 100_000, 19_000)] })])).toBe(171_000);
   });
