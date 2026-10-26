@@ -32,11 +32,14 @@ export const debitoRcv = (resumenes: readonly RcvResumen[]): number => ivaRegist
 /** IVA crédito según las compras registradas en el RCV (los pendientes aún no dan derecho a crédito). */
 export const creditoRcv = (resumenes: readonly RcvResumen[]): number => ivaRegistrado(resumenes, 'COMPRA');
 
-/** El F29 se leyó si trae al menos un código; null o vacío es un F29 sin descargar o ilegible. */
-export const f29Leido = (v: F29Valores | null): v is F29Valores => v !== null && Object.keys(v.valores).length > 0;
+/**
+ * El F29 se leyó si trae al menos un código; null o vacío es un F29 sin descargar o ilegible. No es un guardia de tipo:
+ * un `F29Valores` con `valores` vacío no se leyó y tampoco es null.
+ */
+export const f29Leido = (v: F29Valores | null): boolean => v !== null && Object.keys(v.valores).length > 0;
 
 /** Monto de un código del F29 leído: el PDF compacto omite las líneas en cero, así que una ausente vale 0. Null si no se leyó. */
-export const montoF29 = (v: F29Valores | null, codigo: string): number | null => (f29Leido(v) ? (v.valores[codigo] ?? 0) : null);
+export const montoF29 = (v: F29Valores | null, codigo: string): number | null => (v !== null && f29Leido(v) ? (v.valores[codigo] ?? 0) : null);
 
 function totalMenos(v: F29Valores | null, total: string, fuera: readonly string[]): number | null {
   const base = montoF29(v, total);

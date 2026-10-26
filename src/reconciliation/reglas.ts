@@ -108,7 +108,7 @@ export const REAJUSTE_UTM_REMANENTE = 0.02;
 /** IVA-03: el remanente que deja un mes (77) debe ser el que entra al siguiente (504), salvo el reajuste por la UTM. */
 export function reglaRemanente(e: EntradaConciliacion): Hallazgo[] {
   // Sin los valores de ambos F29 no hay con qué comparar: no se inventa un remanente de 0.
-  if (!f29Leido(e.valores) || !f29Leido(e.valoresAnterior)) return [];
+  if (!e.valores || !e.valoresAnterior || !f29Leido(e.valores) || !f29Leido(e.valoresAnterior)) return [];
   const esperado = montoF29(e.valoresAnterior, CODIGO_F29.REMANENTE_PERIODO_SIGUIENTE) ?? 0;
   const declarado = montoF29(e.valores, CODIGO_F29.REMANENTE_MES_ANTERIOR) ?? 0;
   return comparar(
