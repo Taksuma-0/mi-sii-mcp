@@ -85,6 +85,32 @@ export interface Frescura {
   readonly f29: string | null;
 }
 
+/** Topes de una consulta libre: filas, caracteres del JSON compacto de las filas, largo de cada celda de texto y plazo. */
+export interface LimitesConsulta {
+  readonly filas: number;
+  readonly caracteres: number;
+  readonly caracteresCelda: number;
+  readonly milisegundos: number;
+}
+
+export interface OpcionesConsulta {
+  readonly limites: LimitesConsulta;
+  /** Tipos de documento que restan (notas de crédito): dan `signo = -1` en la copia. */
+  readonly tiposNegativos: readonly number[];
+}
+
+export interface ResultadoConsulta {
+  readonly columnas: readonly string[];
+  readonly filas: readonly (readonly unknown[])[];
+  /** true si se omitieron filas o se recortaron celdas por los límites. */
+  readonly truncado: boolean;
+}
+
+/** SQL de solo lectura sobre una copia curada de la base, sin tokens ni respuestas crudas. */
+export interface ConsultaLibre {
+  consultar(sql: string, opciones: OpcionesConsulta): Promise<ResultadoConsulta>;
+}
+
 export interface Store {
   guardarContribuyente(perfil: Perfil): void;
   contribuyente(rut: string): Perfil | null;

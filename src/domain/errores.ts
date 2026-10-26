@@ -10,7 +10,9 @@ export type CodigoError =
   | 'SIN_PERMISO'
   | 'RUT_INVALIDO'
   | 'PERIODO_INVALIDO'
-  | 'PERFIL_NO_EXISTE';
+  | 'PERFIL_NO_EXISTE'
+  | 'CONSULTA_RECHAZADA'
+  | 'CONSULTA_INTERRUMPIDA';
 
 const ACCION_POR_DEFECTO: Record<CodigoError, string> = {
   SESION_REQUERIDA: 'Ejecuta `impuestocl login <rut>` para iniciar sesión en el SII.',
@@ -25,6 +27,8 @@ const ACCION_POR_DEFECTO: Record<CodigoError, string> = {
   RUT_INVALIDO: 'Revisa el RUT (formato 12.345.678-9).',
   PERIODO_INVALIDO: 'Usa el formato AAAA-MM, por ejemplo 2026-09.',
   PERFIL_NO_EXISTE: 'Agrega el perfil con `impuestocl perfil agregar <rut> --alias <nombre> --tipo empresa`.',
+  CONSULTA_RECHAZADA: 'Usa una sola sentencia SELECT o WITH sobre las tablas de datos_esquema.',
+  CONSULTA_INTERRUMPIDA: 'Simplifica la consulta: filtra por RUT o período, agrega LIMIT o agrupa.',
 };
 
 export class ErrorImpuestocl extends Error {

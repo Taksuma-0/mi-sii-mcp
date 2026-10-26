@@ -51,6 +51,8 @@ const MENSAJES: Readonly<Record<CodigoError, string>> = {
   RUT_INVALIDO: 'Revisa el RUT y su dígito verificador.',
   PERIODO_INVALIDO: 'Elige meses válidos entre enero de 2000 y diciembre de 2100, en orden y con un máximo de 120 meses por consulta.',
   PERFIL_NO_EXISTE: 'No se pudo preparar el perfil para la consulta. Cierra y vuelve a abrir la aplicación.',
+  CONSULTA_RECHAZADA: 'La consulta no está permitida. Usa una sola sentencia SELECT o WITH.',
+  CONSULTA_INTERRUMPIDA: 'La consulta tardó demasiado y se detuvo. Simplifica la consulta y vuelve a intentarlo.',
 };
 
 /** Nunca expone mensajes, causas o cuerpos recibidos del SII. */

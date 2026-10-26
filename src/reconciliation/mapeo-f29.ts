@@ -16,9 +16,9 @@ export const CODIGOS_DEBITO_FUERA_RCV: readonly string[] = [];
 /** Códigos que suman en el 537 pero no vienen del RCV. El remanente del mes anterior nunca viene del RCV. */
 export const CODIGOS_CREDITO_FUERA_RCV: readonly string[] = [CODIGO_F29.REMANENTE_MES_ANTERIOR];
 
-/** Notas de crédito (60, 61 y 112 de exportación) restan; todo lo demás suma. */
-const SIGNO_TIPO_DOC: Readonly<Record<number, 1 | -1>> = { 60: -1, 61: -1, 112: -1 };
-export const signoTipoDoc = (tipoDoc: number): 1 | -1 => SIGNO_TIPO_DOC[tipoDoc] ?? 1;
+/** Notas de crédito (60, 61 y 112 de exportación): restan; todo lo demás suma. Única fuente de la regla de signo. */
+export const TIPOS_DOC_NEGATIVOS: readonly number[] = [60, 61, 112];
+export const signoTipoDoc = (tipoDoc: number): 1 | -1 => (TIPOS_DOC_NEGATIVOS.includes(tipoDoc) ? -1 : 1);
 
 const ivaRegistrado = (resumenes: readonly RcvResumen[], lado: Lado): number =>
   resumenes
