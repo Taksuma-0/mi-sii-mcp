@@ -1,0 +1,134 @@
+# Usar impuestocl con un asistente (MCP)
+
+Con esta guía, Claude (Claude Code o Claude Desktop) puede traer tus datos del SII a tu equipo, cruzarlos entre meses y contrapartes, y responder preguntas como «¿cómo evolucionó mi remanente de IVA en los últimos tres años?». Tú preguntas en lenguaje natural; el asistente usa las herramientas de impuestocl para hacer el trabajo.
+
+Qué hace cada parte:
+
+- **impuestocl** descarga tu RCV (compras y ventas) y tu F29 desde el SII, los guarda en tu equipo y responde consultas de solo lectura sobre ellos.
+- **El asistente** decide qué consultar, escribe las consultas y te explica el resultado.
+- **Tú** inicias sesión en el SII una sola vez, en tu propia terminal. La clave tributaria no se escribe nunca en el chat y ninguna herramienta del asistente la recibe.
+
+Cobertura actual: **solo RCV (compras y ventas) y F29**. No incluye boletas de honorarios, renta (F22), carpeta tributaria ni otras áreas del portal. Esta herramienta no es oficial, no está afiliada al SII y no es asesoría tributaria.
+
+Todo se ejecuta en PowerShell, en la carpeta del proyecto: `C:\ruta\a\mi-sii-mcp`.
+
+## 1. Compilar
+
+```powershell
+cd 'C:\ruta\a\mi-sii-mcp'
+npm.cmd run build
+```
+
+Esto genera la carpeta `dist`. El asistente ejecuta ese código compilado, no el código fuente. Para comprobar que quedó bien:
+
+```powershell
+npm.cmd run probar:mcp
+```
+
+Debe terminar con una línea que empieza con `OK`. La prueba usa una carpeta temporal y no entra al SII ni toca tus datos.
+
+## 2. Registrar el servidor en Claude Code
+
+```powershell
+claude mcp add --scope user impuestocl -- node "C:\ruta\a\mi-sii-mcp\dist\interfaces\cli\bin.js" mcp
+```
+
+`--scope user` lo deja disponible en cualquier carpeta y sesión de Claude Code, no solo dentro del proyecto. Se usa `node` con la ruta completa, así que no hace falta instalar nada de forma global.
+
+Comprueba que quedó conectado:
+
+```powershell
+claude mcp list
+```
+
+Debe aparecer `impuestocl` con `✔ Connected`. Dentro de una sesión de Claude Code, `/mcp` muestra lo mismo y deja reconectar.
+
+Una sesión de Claude Code que ya estaba abierta no ve las herramientas nuevas hasta que la reinicies o ejecutes `/mcp` para reconectar.
+
+## 3. Iniciar sesión en el SII (una sola vez)
+
+En tu propia terminal, no en el chat:
+
+```powershell
+node "C:\ruta\a\mi-sii-mcp\dist\interfaces\cli\bin.js" login <tu RUT> --guardar-clave
+```
+
+Reemplaza `<tu RUT>` por el RUT del contribuyente, con o sin puntos. El programa te pide la clave tributaria con la escritura oculta y hace **un solo intento**: si el SII la rechaza, no reintenta. El login también registra el perfil (si no existía, con el nombre que informa el SII como alias), así que después el RUT aparece en `perfiles_listar`.
+
+Qué implica `--guardar-clave`:
+
+- La clave queda guardada en el **Administrador de credenciales de Windows**, bajo el servicio `impuestocl` (en la lista aparece una entrada cuyo nombre contiene `impuestocl`). No se guarda en archivos del proyecto ni en la base de datos.
+- Con la clave guardada, cuando la sesión del SII vence, impuestocl inicia una nueva sola. No tienes que volver a la terminal cada vez que expire.
+- Quien use tu cuenta de Windows podría usar esa clave guardada. Si prefieres no guardarla, omite `--guardar-clave`: la sesión dura menos y tendrás que repetir el login cuando venza.
+- Para olvidarla en cualquier momento:
+
+  ```powershell
+  node "C:\ruta\a\mi-sii-mcp\dist\interfaces\cli\bin.js" logout <tu RUT> --olvidar-clave
+  ```
+
+  Esto cierra la sesión local y borra la clave del Administrador de credenciales.
+
+Si el asistente necesita sesión y no hay una válida, te mostrará este mismo comando con tu RUT para que lo ejecutes tú. También sirve entrar por **Abrir impuestocl.cmd** (ver `docs/guias/interfaz-local.md`): esa interfaz no guarda la clave, pero el asistente toma la sesión nueva sin reiniciarse. Si el SII rechazó una clave, impuestocl bloquea ese RUT localmente hasta que hagas un login correcto, para no seguir intentando con una clave incorrecta.
+
+## 4. Qué puedes preguntar
+
+Escribe en el chat de Claude como lo harías con una persona. Algunos ejemplos:
+
+- «¿Qué contribuyentes tengo configurados y qué meses hay guardados de cada uno?»
+- «Trae el RCV y el F29 de 2024 a hoy.» El asistente descarga por tramos de 12 meses y te va informando el avance.
+- «Revisa el IVA de septiembre de 2026 y dime qué hallazgos hay.»
+- «¿En qué meses el crédito del F29 no coincide con el RCV?»
+- «Muéstrame mes a mes cómo evolucionaron el remanente y el total a pagar del F29 en los últimos tres años.»
+- «¿Qué proveedores concentran más de la mitad de mis compras de 2026? Dame el detalle por mes.»
+- «Cruza mis ventas con mis compras: ¿qué contrapartes aparecen en ambos lados y cuánto suman?»
+- «¿Qué facturas recibidas están pendientes y cuándo vence su plazo de reclamo?»
+- «¿Qué plazos tengo en los próximos 30 días?»
+
+Cómo trabaja el asistente: para los cálculos de IVA usa herramientas que aplican las reglas del dominio (`iva_resumen`, `iva_hallazgos`, `f29_historial`, `plazos_proximos`). Para cruces y preguntas libres lee primero el mapa de las tablas (`datos_esquema`) y luego escribe consultas de solo lectura (`consulta_sql`) sobre una **copia** de tus datos, así que no puede modificar la base real. Cada respuesta tiene un tope de 200 filas y 40 000 caracteres: si una pregunta es muy amplia, el asistente agrupa o filtra.
+
+Una ausencia de filas no significa cero: puede ser un mes que nunca se descargó. Pídele que lo distinga con la bitácora de sincronización.
+
+Los resultados de las herramientas pasan a la conversación con el asistente, igual que cualquier cosa que le muestres. Pregunta solo por los contribuyentes que estés dispuesto a comentar en ese chat.
+
+## 5. Claude Desktop
+
+Si usas Claude Desktop en vez de Claude Code, agrega el servidor a su archivo de configuración (en Claude Desktop: Configuración → Desarrollador → Editar configuración; normalmente es `%APPDATA%\Claude\claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "impuestocl": {
+      "command": "node",
+      "args": ["C:\\ruta\\a\\mi-sii-mcp\\dist\\interfaces\\cli\\bin.js", "mcp"]
+    }
+  }
+}
+```
+
+Si el archivo ya tiene otros servidores, agrega solo la entrada `impuestocl` dentro de `mcpServers`. Reinicia Claude Desktop por completo para que lo cargue. El login (sección 3) se hace igual, en tu terminal.
+
+## 6. Cuidados al usarlo
+
+- **No sincronices el mismo RUT desde dos lugares a la vez**, por ejemplo la interfaz de **Abrir impuestocl.cmd** y el asistente. Cada uno coordina sus descargas por separado y dos descargas simultáneas del mismo RUT pueden pisarse. Espera a que termine una antes de iniciar la otra.
+- Los datos están al día hasta la última sincronización. Si necesitas cifras recientes, pide primero que sincronice el rango que te interesa.
+- Las cifras y los hallazgos son una ayuda para revisar tu información, no asesoría tributaria. Contrástalos con el SII o con tu contador antes de declarar o pagar.
+
+## 7. Quitar el registro
+
+```powershell
+claude mcp remove --scope user impuestocl
+```
+
+Esto desconecta al asistente. No borra tus datos guardados ni tu clave: para la clave, usa `logout <tu RUT> --olvidar-clave` (sección 3). Tus datos locales están en la carpeta `.impuestocl` de tu usuario de Windows. En Claude Desktop, borra la entrada `impuestocl` del archivo de configuración y reinicia la aplicación.
+
+## 8. Actualizar el código
+
+Cada vez que cambie el código del proyecto (por ejemplo, tras bajar una versión nueva), recompila:
+
+```powershell
+cd 'C:\ruta\a\mi-sii-mcp'
+npm.cmd run build
+npm.cmd run probar:mcp
+```
+
+El registro en Claude Code apunta a la carpeta `dist`, así que no hay que registrarlo de nuevo. Reinicia Claude Code, o usa `/mcp` para reconectar, para que cargue la versión compilada.
