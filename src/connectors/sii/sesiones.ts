@@ -20,6 +20,8 @@ export class GestorSesiones implements ConsultaSesiones {
   private readonly activas = new Map<string, ClienteHttp>();
   private readonly pendientes = new Map<string, Promise<ClienteHttp>>();
   private readonly operaciones = new Map<string, Promise<void>>();
+  /** `guardadaEn` del último archivo de sesión que este proceso leyó o escribió, para notar el que deje otro proceso. */
+  private readonly ultimaGuardadaEn = new Map<string, string>();
 
   constructor(
     private readonly dir: string,
@@ -92,6 +94,7 @@ export class GestorSesiones implements ConsultaSesiones {
     return this.coordinar(rut, async () => {
       await cerrarSesion(this.activas.get(rut) ?? this.clienteDesdeArchivo(rut));
       this.activas.delete(rut);
+      this.ultimaGuardadaEn.delete(rut);
       rmSync(this.rutaSesion(rut), { force: true });
       if (olvidarClave) await this.secretos.borrar(rut);
     });
@@ -109,16 +112,21 @@ export class GestorSesiones implements ConsultaSesiones {
   }
 
   private async obtenerSesion(rut: Rut): Promise<ClienteHttp> {
-    const guardada = this.activas.get(rut.canonico) ?? this.clienteDesdeArchivo(rut.canonico);
-    try {
-      const identidad = await leerIdentidad(guardada);
-      if (identidad.rut !== rut.canonico) {
-        throw new ErrorImpuestocl('PORTAL_CAMBIO', `El SII devolvió la identidad ${identidad.rut} en vez de ${rut.canonico}.`);
-      }
+    const enMemoria = this.activas.get(rut.canonico);
+    const guardada = enMemoria ?? this.clienteDesdeArchivo(rut.canonico);
+    if (await this.sesionVigente(rut, guardada)) {
       this.activas.set(rut.canonico, guardada);
       return guardada;
-    } catch (e) {
-      if (!(e instanceof ErrorImpuestocl) || e.codigo !== 'SESION_REQUERIDA') throw e;
+    }
+    // Otro proceso (terminal o interfaz web) pudo dejar en disco una sesión más nueva que la memorizada.
+    const deOtroProceso = enMemoria ? this.clienteNuevoEnDisco(rut.canonico) : null;
+    if (deOtroProceso) {
+      const vigente = await this.sesionVigente(rut, deOtroProceso.http);
+      this.ultimaGuardadaEn.set(rut.canonico, deOtroProceso.guardadaEn);
+      if (vigente) {
+        this.activas.set(rut.canonico, deOtroProceso.http);
+        return deOtroProceso.http;
+      }
     }
     const clave = await this.secretos.obtener(rut.canonico);
     if (!clave) throw new ErrorImpuestocl('SESION_REQUERIDA', `No hay sesión activa para ${rut.canonico} ni clave guardada en el llavero.`);
@@ -130,6 +138,20 @@ export class GestorSesiones implements ConsultaSesiones {
     this.guardarArchivo(rut.canonico, http);
     this.activas.set(rut.canonico, http);
     return http;
+  }
+
+  /** `false` si el SII dice que la sesión venció; cualquier otro fallo (incluida otra identidad) se propaga. */
+  private async sesionVigente(rut: Rut, http: ClienteHttp): Promise<boolean> {
+    try {
+      const identidad = await leerIdentidad(http);
+      if (identidad.rut !== rut.canonico) {
+        throw new ErrorImpuestocl('PORTAL_CAMBIO', `El SII devolvió la identidad ${identidad.rut} en vez de ${rut.canonico}.`);
+      }
+      return true;
+    } catch (e) {
+      if (e instanceof ErrorImpuestocl && e.codigo === 'SESION_REQUERIDA') return false;
+      throw e;
+    }
   }
 
   private rutaSesion(rut: string): string {
@@ -156,19 +178,32 @@ export class GestorSesiones implements ConsultaSesiones {
 
   private clienteDesdeArchivo(rut: string): ClienteHttp {
     const archivo = this.leerArchivo(rut);
-    if (archivo?.jar) {
-      try {
-        return new ClienteHttp(CookieJar.deserializeSync(archivo.jar), this.opcionesHttp);
-      } catch {
-        // archivo corrupto: se parte de cero
-      }
+    const http = archivo ? this.clienteDeArchivo(archivo) : null;
+    if (archivo && http) this.ultimaGuardadaEn.set(rut, archivo.guardadaEn);
+    return http ?? this.nuevoCliente();
+  }
+
+  /** Cliente de un archivo distinto del último que este proceso leyó o escribió; `null` si no hay nada nuevo que probar. */
+  private clienteNuevoEnDisco(rut: string): { http: ClienteHttp; guardadaEn: string } | null {
+    const archivo = this.leerArchivo(rut);
+    if (!archivo || archivo.guardadaEn === this.ultimaGuardadaEn.get(rut)) return null;
+    const http = this.clienteDeArchivo(archivo);
+    return http ? { http, guardadaEn: archivo.guardadaEn } : null;
+  }
+
+  private clienteDeArchivo(archivo: ArchivoSesion): ClienteHttp | null {
+    if (!archivo.jar) return null;
+    try {
+      return new ClienteHttp(CookieJar.deserializeSync(archivo.jar), this.opcionesHttp);
+    } catch {
+      return null; // archivo corrupto: se parte de cero
     }
-    return this.nuevoCliente();
   }
 
   private guardarArchivo(rut: string, http: ClienteHttp): void {
     const archivo: ArchivoSesion = { rut, guardadaEn: new Date().toISOString(), jar: http.jar.serializeSync() ?? null };
     writeFileSync(this.rutaSesion(rut), JSON.stringify(archivo), { mode: 0o600 });
+    this.ultimaGuardadaEn.set(rut, archivo.guardadaEn);
   }
 
   private async siRechazoBloquear(rut: string, e: unknown): Promise<void> {

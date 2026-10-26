@@ -1,7 +1,7 @@
 import { mkdtempSync, readFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { GestorSesiones } from '../../src/connectors/sii/sesiones.js';
 import { codigoDe } from '../helpers/errores.js';
 import { crearFetchFalso, HTML, sinEsperas, type DefRespuesta, type RutaFalsa } from '../helpers/http-falso.js';
@@ -298,5 +298,57 @@ describe('GestorSesiones', () => {
     expirada = true;
     await g.sesionActiva(RUT);
     expect(llamadas.filter((l) => l.method === 'POST')).toHaveLength(2);
+  });
+
+  it('toma la sesión nueva que otro proceso dejó en disco cuando la suya vence, sin llavero', async () => {
+    // Fecha controlada: las dos sesiones deben distinguirse por `guardadaEn`, no por el reloj de la prueba.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      const dir = dirTemporal();
+      const secretosA = new SecretosEnMemoria();
+      let vencida = false;
+      const { g: a, llamadas } = gestor(dir, secretosA, {
+        ...rutasLoginOk(),
+        [RUTA_MI_SII]: (l) => {
+          const cookie = l.headers['Cookie'] ?? '';
+          return cookie.includes('TOKEN=tok456') || (!vencida && cookie.includes('TOKEN=')) ? DATOS_OK : STUB;
+        },
+      });
+      vi.setSystemTime(new Date('2026-10-26T10:00:00Z'));
+      await a.loginInteractivo(RUT, 'secreta', false);
+      await a.sesionActiva(RUT);
+      expect(llamadas.filter((l) => l.method === 'POST')).toHaveLength(1);
+
+      // La sesión de A vence y otro proceso (terminal o interfaz web) entra de nuevo sobre la misma carpeta.
+      vencida = true;
+      vi.setSystemTime(new Date('2026-10-26T10:05:00Z'));
+      const { g: b } = gestor(dir, new SecretosEnMemoria(), rutasLoginOk('22222222', '2', 'EMPRESA DEMO SPA', 'tok456'));
+      await b.loginInteractivo(RUT, 'secreta', false);
+
+      const renovada = await a.sesionActiva(RUT);
+      expect(llamadas.filter((l) => l.method === 'POST')).toHaveLength(1);
+      expect(secretosA.mapa.size).toBe(0);
+      expect(llamadas.at(-1)!.headers['Cookie']).toContain('TOKEN=tok456');
+      expect(await a.sesionActiva(RUT)).toBe(renovada);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('si el archivo en disco es el mismo que venció, exige login sin reintentarlo', async () => {
+    let vencida = false;
+    const { g, llamadas } = gestor(dirTemporal(), new SecretosEnMemoria(), {
+      ...rutasLoginOk(),
+      [RUTA_MI_SII]: () => (vencida ? STUB : DATOS_OK),
+    });
+    await g.loginInteractivo(RUT, 'secreta', false);
+    vencida = true;
+    const consultasMiSii = () => llamadas.filter((l) => `${l.method} ${l.url.split('?')[0]}` === RUTA_MI_SII).length;
+    const antes = consultasMiSii();
+    expect(await codigoDe(g.sesionActiva(RUT))).toBe('SESION_REQUERIDA');
+    expect(consultasMiSii() - antes).toBe(1);
+    // Una segunda consulta vuelve a probar solo la sesión en memoria, no el archivo ya descartado.
+    expect(await codigoDe(g.sesionActiva(RUT))).toBe('SESION_REQUERIDA');
+    expect(consultasMiSii() - antes).toBe(2);
   });
 });

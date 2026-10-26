@@ -32,11 +32,16 @@ export function paginaErrorClave(): DefRespuesta {
   return { body: Uint8Array.from(Buffer.from(html, 'latin1')), headers: [['content-type', 'text/html; charset=ISO-8859-1']] };
 }
 
-export function rutasLoginOk(rut = '22222222', dv = '2', razonSocial: string | null = 'EMPRESA DEMO SPA'): Record<string, DefRespuesta> {
+export function rutasLoginOk(
+  rut = '22222222',
+  dv = '2',
+  razonSocial: string | null = 'EMPRESA DEMO SPA',
+  token = 'tok123',
+): Record<string, DefRespuesta> {
   return {
     [RUTA_PAGINA]: { headers: [...HTML, ['set-cookie', 'TS01=waf; Domain=.sii.cl; Path=/']] },
     [RUTA_POST]: {
-      headers: [...HTML, ['set-cookie', 'TOKEN=tok123; Domain=.sii.cl; Path=/'], ['set-cookie', 'CSESSIONID=ses; Domain=.sii.cl; Path=/']],
+      headers: [...HTML, ['set-cookie', `TOKEN=${token}; Domain=.sii.cl; Path=/`], ['set-cookie', 'CSESSIONID=ses; Domain=.sii.cl; Path=/']],
       body: '<html><script>window.location="https://misiir.sii.cl/cgi_misii/siihome.cgi"</script></html>',
     },
     [RUTA_MI_SII]: { headers: HTML, body: paginaDatosCntr(rut, dv, razonSocial) },
