@@ -99,6 +99,8 @@ describe('esquemaDatos', () => {
     }
     expect(texto).toMatch(/Cobertura: solo el RCV.*F29/);
     expect(texto).toContain(`'${CODIGO_F29.TOTAL_CREDITOS}' menos ${CODIGOS_CREDITO_FUERA_RCV.map((c) => `'${c}'`).join(' y ')}`);
+    // Igual que las reglas de IVA: en un F29 con valores leídos, el PDF compacto omite las líneas en cero.
+    expect(texto).toMatch(/F29.*código ausente vale 0/);
     // Las fechas con hora no calzan con un BETWEEN de días: la regla debe enseñar a recortar.
     expect(texto).toContain('substr(');
     expect(texto).toMatch(/\bhora\b/);
