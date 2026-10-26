@@ -41,6 +41,18 @@ describe('resumenIva', () => {
     expect(medicion.lecturas.filter((l) => l.sql.includes('rcv_documento_snapshot'))).toEqual([]);
   });
 
+  it.each([
+    ['sin consultar', null],
+    ['presentado sin valores leídos', { declaraciones: [declaracion({ periodo: '2026-08', folio: 554_000 })] }],
+  ] as const)('con el F29 anterior %s no compara el remanente', (_caso, agosto) => {
+    const { deps, store } = conEmpresa();
+    if (agosto) sembrarMes(store, '2026-08', agosto);
+    sembrarMes(store, '2026-09', SEPT);
+    const r = resumenIva(deps, RUT_EMPRESA, '2026-09');
+    expect(r.comparaciones).toMatchObject({ remanenteAnterior77: null, remanenteActual504: 5_000 });
+    expect(r.hallazgos.map((h) => h.regla)).not.toContain('IVA-03');
+  });
+
   it('sólo F29 no compara RCV desconocido con cero y comunica las fuentes faltantes', async () => {
     const { deps, sii } = conEmpresa();
     sii.declaraciones.set('2026-09', [declaracion()]);

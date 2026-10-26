@@ -4,7 +4,7 @@ import { diasEntre, fechaEnSantiago } from '../domain/fechas.js';
 import { formatearClp, nombreTipoDocumento } from '../domain/formato.js';
 import { compararPeriodos, periodoAnterior, periodoDeFecha, type Periodo } from '../domain/periodo.js';
 import { claveDocumento, type DisponibilidadFuentes, type DocumentoRcv, type F29Declaracion, type F29Valores, type Hallazgo, type Lado, type RcvResumen, type SnapshotRcv, type TipoContribuyente } from '../domain/tipos.js';
-import { CODIGO_F29, creditoDocumentosF29, creditoRcv, debitoF29, debitoRcv, montoF29 } from './mapeo-f29.js';
+import { CODIGO_F29, creditoDocumentosF29, creditoRcv, debitoF29, debitoRcv, f29Leido, montoF29 } from './mapeo-f29.js';
 
 export interface EntradaConciliacion {
   readonly rut: string;
@@ -29,9 +29,18 @@ type DatosHallazgo = Omit<Hallazgo, 'rut' | 'periodo'>;
 
 const hallazgo = (e: EntradaConciliacion, datos: DatosHallazgo): Hallazgo => ({ rut: e.rut, periodo: e.periodo.texto, ...datos });
 
-function comparar(e: EntradaConciliacion, regla: string, titulo: string, esperado: number, declarado: number, detalle: string, evidencia: string[]): Hallazgo[] {
+function comparar(
+  e: EntradaConciliacion,
+  regla: string,
+  titulo: string,
+  esperado: number,
+  declarado: number,
+  detalle: string,
+  evidencia: string[],
+  tolerancia = e.toleranciaPesos,
+): Hallazgo[] {
   const diferencia = esperado - declarado;
-  if (Math.abs(diferencia) <= e.toleranciaPesos) return [];
+  if (Math.abs(diferencia) <= tolerancia) return [];
   return [hallazgo(e, { regla, severidad: 'critico', naturaleza: 'DERIVADO', titulo, detalle, montos: { esperado, declarado, diferencia }, evidencia })];
 }
 
@@ -93,9 +102,13 @@ export function reglaCredito(e: EntradaConciliacion): Hallazgo[] {
   );
 }
 
-/** IVA-03: el remanente que deja un mes (77) debe ser el que entra al siguiente (504). */
+/** El SII reajusta el remanente que arrastra un mes según la variación de la UTM: hasta esta fracción del 77 es reajuste. */
+export const REAJUSTE_UTM_REMANENTE = 0.02;
+
+/** IVA-03: el remanente que deja un mes (77) debe ser el que entra al siguiente (504), salvo el reajuste por la UTM. */
 export function reglaRemanente(e: EntradaConciliacion): Hallazgo[] {
-  if (!e.valores || !e.valoresAnterior) return [];
+  // Sin los valores de ambos F29 no hay con qué comparar: no se inventa un remanente de 0.
+  if (!f29Leido(e.valores) || !f29Leido(e.valoresAnterior)) return [];
   const esperado = montoF29(e.valoresAnterior, CODIGO_F29.REMANENTE_PERIODO_SIGUIENTE) ?? 0;
   const declarado = montoF29(e.valores, CODIGO_F29.REMANENTE_MES_ANTERIOR) ?? 0;
   return comparar(
@@ -104,8 +117,9 @@ export function reglaRemanente(e: EntradaConciliacion): Hallazgo[] {
     'El remanente no calza con el mes anterior',
     esperado,
     declarado,
-    `F29 de ${periodoAnterior(e.periodo).texto} (código ${CODIGO_F29.REMANENTE_PERIODO_SIGUIENTE}): ${formatearClp(esperado)}. F29 de ${e.periodo.texto} (código ${CODIGO_F29.REMANENTE_MES_ANTERIOR}): ${formatearClp(declarado)}.`,
+    `F29 de ${periodoAnterior(e.periodo).texto} (código ${CODIGO_F29.REMANENTE_PERIODO_SIGUIENTE}): ${formatearClp(esperado)}. F29 de ${e.periodo.texto} (código ${CODIGO_F29.REMANENTE_MES_ANTERIOR}): ${formatearClp(declarado)}. Hasta un ${REAJUSTE_UTM_REMANENTE * 100} % de diferencia se atribuye al reajuste del remanente según la variación de la UTM.`,
     [`F29:${e.valoresAnterior.folio}`, `F29:${e.valores.folio}`],
+    Math.max(e.toleranciaPesos, REAJUSTE_UTM_REMANENTE * esperado),
   );
 }
 

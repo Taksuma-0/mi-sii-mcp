@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { creditoDocumentosF29, creditoRcv, debitoF29, debitoRcv, montoF29 } from '../../src/reconciliation/mapeo-f29.js';
-import { reglaCredito, reglaDebito, reglaRemanente } from '../../src/reconciliation/reglas.js';
+import { REAJUSTE_UTM_REMANENTE, reglaCredito, reglaDebito, reglaRemanente } from '../../src/reconciliation/reglas.js';
 import { entrada } from '../helpers/entrada.js';
 import { fila, resumen, valores } from '../helpers/fabricas.js';
 
@@ -87,5 +87,34 @@ describe('IVA-02 crédito e IVA-03 remanente', () => {
 
   it('sin F29 del mes anterior no compara el remanente', () => {
     expect(reglaRemanente(entrada({ valoresAnterior: null }))).toEqual([]);
+  });
+
+  const anterior77 = (monto: number) => valores({ '77': monto }, { periodo: '2026-08', folio: 554_000 });
+  const actual504 = (monto: number) => valores({ '538': 190_000, '537': 19_000 + monto, '504': monto });
+
+  it.each([101_500, 102_000, 98_000, 100_040])('considera coherente un 504 de %s tras un 77 de 100.000: el SII reajusta el remanente por la UTM', (monto) => {
+    expect(reglaRemanente(entrada({ valoresAnterior: anterior77(100_000), valores: actual504(monto) }))).toEqual([]);
+  });
+
+  it('más allá del 2 % es crítico y el detalle atribuye hasta un 2 % al reajuste por la UTM', () => {
+    const [h] = reglaRemanente(entrada({ valoresAnterior: anterior77(100_000), valores: actual504(102_100) }));
+    expect(h).toMatchObject({ regla: 'IVA-03', severidad: 'critico', montos: { esperado: 100_000, declarado: 102_100, diferencia: -2_100 } });
+    expect(h!.detalle).toContain('Hasta un 2 % de diferencia se atribuye al reajuste del remanente según la variación de la UTM.');
+    expect(REAJUSTE_UTM_REMANENTE).toBe(0.02);
+  });
+
+  it('usa la tolerancia en pesos cuando supera el 2 % del remanente', () => {
+    expect(reglaRemanente(entrada({ toleranciaPesos: 500, valoresAnterior: anterior77(10_000), valores: actual504(10_400) }))).toEqual([]);
+    expect(reglaRemanente(entrada({ toleranciaPesos: 500, valoresAnterior: anterior77(10_000), valores: actual504(10_600) }))).toHaveLength(1);
+  });
+
+  it('un 504 sin remanente en el F29 anterior leído es crítico', () => {
+    const [h] = reglaRemanente(entrada({ valoresAnterior: valores({ '91': 1 }, { periodo: '2026-08', folio: 554_000 }), valores: actual504(5_000) }));
+    expect(h?.montos).toEqual({ esperado: 0, declarado: 5_000, diferencia: -5_000 });
+  });
+
+  it('si algún F29 no trajo valores no compara ni inventa un esperado de 0', () => {
+    expect(reglaRemanente(entrada({ valoresAnterior: valores({}, { periodo: '2026-08', folio: 554_000 }) }))).toEqual([]);
+    expect(reglaRemanente(entrada({ valores: valores({}) }))).toEqual([]);
   });
 });
