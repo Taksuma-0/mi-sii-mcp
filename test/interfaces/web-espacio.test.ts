@@ -27,7 +27,7 @@ describe('espacio local por contexto', () => {
   it('explica períodos inválidos sin excluir enero de 2000 del espacio', () => {
     expect(errorPublico(new ErrorImpuestocl('PERIODO_INVALIDO', '')).mensaje).not.toContain('posterior a enero de 2000');
   });
-  it.each<CodigoError>(['SII_SESIONES_MAXIMAS', 'RESPUESTA_VACIA', 'DATOS_INCOMPLETOS', 'LECTURA_INCOHERENTE'])('%s tiene un mensaje público propio sin texto del SII', (codigo) => {
+  it.each<CodigoError>(['SII_SESIONES_MAXIMAS', 'RESPUESTA_VACIA', 'DATOS_INCOMPLETOS', 'LECTURA_INCOHERENTE', 'RESPALDO_FALLIDO'])('%s tiene un mensaje público propio sin texto del SII', (codigo) => {
     const r = errorPublico(new ErrorImpuestocl(codigo, 'Texto interno del SII que no debe salir.'));
     expect(r.codigo).toBe(codigo);
     expect(r.mensaje.length).toBeGreaterThan(20);

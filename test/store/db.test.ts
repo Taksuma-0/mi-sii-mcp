@@ -1,10 +1,11 @@
 import Database from 'better-sqlite3';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { abrirDb, aplicarMigraciones, versionEsquema } from '../../src/store/sqlite/db.js';
 import type { Db } from '../../src/store/sqlite/db.js';
+import { ErrorImpuestocl } from '../../src/domain/errores.js';
 import { MIGRACIONES, type Migracion } from '../../src/store/sqlite/migraciones.js';
 import { sha256, SqliteStore } from '../../src/store/sqlite/store.js';
 import { perfilEmpresa, perfilPersona, RUT_EMPRESA, RUT_PERSONA } from '../helpers/fabricas.js';
@@ -114,6 +115,61 @@ describe('respaldo antes de migrar', () => {
     const copia = new Database(respaldo, { readonly: true });
     expect(copia.prepare("SELECT name FROM sqlite_master WHERE name = 'marca'").all()).toHaveLength(1);
     copia.close();
+  });
+
+  it('migra de verdad una base v1 en archivo con MIGRACIONES y deja el respaldo -antes-v2 con datos v1', () => {
+    const ruta = join(carpeta(), 'real.db');
+    conV1(ruta);
+    const db = abrirDb(ruta);
+    expect(versionEsquema(db)).toBe(MIGRACIONES[MIGRACIONES.length - 1]!.version);
+    const columnas = (d: Db): string[] => (d.prepare('PRAGMA table_info(f29_declaracion)').all() as { name: string }[]).map((c) => c.name);
+    expect(columnas(db)).toContain('estado_id');
+    db.close();
+    const respaldo = join(dirs[0]!, 'real-antes-v2.db');
+    const copia = new Database(respaldo, { readonly: true });
+    expect(versionEsquema(copia)).toBe(1);
+    expect(copia.prepare('SELECT COUNT(*) AS n FROM contribuyente').get()).toEqual({ n: 1 });
+    expect(columnas(copia)).not.toContain('estado_id');
+    copia.close();
+  });
+
+  it('si el respaldo falla no migra, no deja respaldo ni temporal parcial, y lanza RESPALDO_FALLIDO', () => {
+    const ruta = join(carpeta(), 'datos.db');
+    conV1(ruta);
+    const copiarFallida = (_db: Db, destino: string): void => {
+      writeFileSync(destino, 'parcial');
+      throw new Error('disco lleno');
+    };
+    let error: unknown;
+    try {
+      abrirDb(ruta, [...MIGRACIONES.slice(0, 1), V2], copiarFallida);
+    } catch (e) {
+      error = e;
+    }
+    expect(error).toBeInstanceOf(ErrorImpuestocl);
+    expect((error as ErrorImpuestocl).codigo).toBe('RESPALDO_FALLIDO');
+    expect((error as ErrorImpuestocl).accion).toContain('no se pudo respaldar');
+    expect(readdirSync(dirs[0]!).filter((f) => f.includes('antes-v99'))).toEqual([]);
+    // La conexión se cerró (se puede borrar el archivo) y la base quedó sin migrar.
+    const intacta = new Database(ruta, { readonly: true });
+    expect(versionEsquema(intacta)).toBe(1);
+    intacta.close();
+    rmSync(ruta, { force: true });
+    expect(existsSync(ruta)).toBe(false);
+  });
+
+  it('el respaldo se escribe a un temporal y solo al terminar toma el nombre final', () => {
+    const ruta = join(carpeta(), 'datos.db');
+    conV1(ruta);
+    const vistos: boolean[] = [];
+    const copiar = (db: Db, destino: string): void => {
+      vistos.push(destino.endsWith('.tmp'), existsSync(join(dirs[0]!, 'datos-antes-v99.db')));
+      db.prepare('VACUUM INTO ?').run(destino);
+    };
+    abrirDb(ruta, [...MIGRACIONES.slice(0, 1), V2], copiar).close();
+    expect(vistos).toEqual([true, false]);
+    expect(existsSync(join(dirs[0]!, 'datos-antes-v99.db'))).toBe(true);
+    expect(existsSync(join(dirs[0]!, 'datos-antes-v99.db.tmp'))).toBe(false);
   });
 
   it('no respalda una base nueva, una al día ni una en memoria', () => {

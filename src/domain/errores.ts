@@ -16,7 +16,8 @@ export type CodigoError =
   | 'SII_SESIONES_MAXIMAS'
   | 'RESPUESTA_VACIA'
   | 'DATOS_INCOMPLETOS'
-  | 'LECTURA_INCOHERENTE';
+  | 'LECTURA_INCOHERENTE'
+  | 'RESPALDO_FALLIDO';
 
 export const ACCION_POR_DEFECTO: Readonly<Record<CodigoError, string>> = {
   SESION_REQUERIDA: 'Ejecuta `impuestocl login <rut>` para iniciar sesión en el SII.',
@@ -37,6 +38,7 @@ export const ACCION_POR_DEFECTO: Readonly<Record<CodigoError, string>> = {
   RESPUESTA_VACIA: 'El SII respondió sin datos donde antes había; se conservan los datos anteriores. Reintenta más tarde.',
   DATOS_INCOMPLETOS: 'El SII entregó menos documentos que su propio resumen; se conserva el último conjunto completo. Reintenta más tarde.',
   LECTURA_INCOHERENTE: 'El F29 leído no cuadra; se conserva la lectura anterior. Puede que el SII haya cambiado el formulario.',
+  RESPALDO_FALLIDO: 'No se migró la base porque no se pudo respaldar; revisa espacio en disco o que OneDrive/antivirus no bloquee la carpeta.',
 };
 
 export class ErrorImpuestocl extends Error {
@@ -90,6 +92,7 @@ export const REINTENTO: Readonly<Record<CodigoError, Reintento>> = {
   RESPUESTA_VACIA: 'mas_tarde',
   DATOS_INCOMPLETOS: 'mas_tarde',
   LECTURA_INCOHERENTE: 'no',
+  RESPALDO_FALLIDO: 'mas_tarde',
 };
 
 /** `codigo` es texto porque los errores de sincronización no lo tipan: CANCELADO se reintenta ya; ERROR_INTERNO y los desconocidos no. */

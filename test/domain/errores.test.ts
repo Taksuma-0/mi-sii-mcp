@@ -28,13 +28,13 @@ describe('ErrorImpuestocl', () => {
     expect([...ERRORES_FATALES].sort()).toEqual(['CLAVE_RECHAZADA', 'RUT_BLOQUEADO_LOCAL', 'SESION_REQUERIDA', 'SII_EN_ESPERA', 'SII_SESIONES_MAXIMAS']);
   });
 
-  it.each<CodigoError>(['SII_SESIONES_MAXIMAS', 'RESPUESTA_VACIA', 'DATOS_INCOMPLETOS', 'LECTURA_INCOHERENTE'])('%s trae una acción por defecto clara', (codigo) => {
+  it.each<CodigoError>(['SII_SESIONES_MAXIMAS', 'RESPUESTA_VACIA', 'DATOS_INCOMPLETOS', 'LECTURA_INCOHERENTE', 'RESPALDO_FALLIDO'])('%s trae una acción por defecto clara', (codigo) => {
     expect(new ErrorImpuestocl(codigo, 'x').accion.length).toBeGreaterThan(20);
   });
 
   it('solo las sesiones máximas son fatales entre los códigos nuevos', () => {
     expect(ERRORES_FATALES.has('SII_SESIONES_MAXIMAS')).toBe(true);
-    for (const codigo of ['RESPUESTA_VACIA', 'DATOS_INCOMPLETOS', 'LECTURA_INCOHERENTE'] as const) expect(ERRORES_FATALES.has(codigo)).toBe(false);
+    for (const codigo of ['RESPUESTA_VACIA', 'DATOS_INCOMPLETOS', 'LECTURA_INCOHERENTE', 'RESPALDO_FALLIDO'] as const) expect(ERRORES_FATALES.has(codigo)).toBe(false);
   });
 
   it('esErrorImpuestocl rechaza errores comunes', () => {
@@ -59,6 +59,7 @@ describe('ErrorImpuestocl', () => {
       ['SIN_PERMISO', 'no'],
       ['PORTAL_CAMBIO', 'no'],
       ['LECTURA_INCOHERENTE', 'no'],
+      ['RESPALDO_FALLIDO', 'mas_tarde'],
       ['RUT_INVALIDO', 'no'],
       ['PERIODO_INVALIDO', 'no'],
       ['PERFIL_NO_EXISTE', 'no'],

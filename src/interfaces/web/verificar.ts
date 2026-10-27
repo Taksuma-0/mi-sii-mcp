@@ -57,6 +57,7 @@ const MENSAJES: Readonly<Record<CodigoError, string>> = {
   RESPUESTA_VACIA: 'El SII respondió sin datos donde antes había. Se conservan los datos anteriores; puedes volver a intentarlo más tarde.',
   DATOS_INCOMPLETOS: 'El SII entregó menos documentos de los esperados. Se conserva el último conjunto completo; puedes volver a intentarlo más tarde.',
   LECTURA_INCOHERENTE: 'La lectura del F29 no cuadra, así que se conserva la anterior. Puede que el SII haya cambiado el formulario.',
+  RESPALDO_FALLIDO: 'No se pudo respaldar la base antes de actualizarla, así que no se actualizó. Revisa el espacio en disco o que OneDrive o el antivirus no bloqueen la carpeta.',
 };
 
 /** Nunca expone mensajes, causas o cuerpos recibidos del SII. */
