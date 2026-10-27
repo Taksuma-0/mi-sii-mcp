@@ -624,6 +624,23 @@ describe('SqliteStore: renta F22', () => {
     expect(store.detalleF22(RUT_EMPRESA, 2025, 3).valores).toHaveLength(3);
   });
 
+  it('el detalle es solo del folio vigente: guardar el de un folio borra el de los otros folios del año', () => {
+    syncF22(2026, [declaracionF22({ folio: 1, vigente: true }), declaracionF22({ folio: 2, vigente: false })]);
+    syncF22(2025, [declaracionF22({ anioTributario: 2025, folio: 3 })]);
+    store.reemplazarF22Detalle(RUT_EMPRESA, 2026, 1, detalleF22());
+    store.reemplazarF22Detalle(RUT_EMPRESA, 2025, 3, detalleF22());
+
+    syncF22(2026, [declaracionF22({ folio: 1, vigente: false }), declaracionF22({ folio: 2, vigente: true })]);
+    store.reemplazarF22Detalle(RUT_EMPRESA, 2026, 2, detalleF22());
+
+    expect(store.detalleF22(RUT_EMPRESA, 2026, 1)).toEqual({ valores: [], observaciones: [], eventos: [] });
+    expect(store.detalleF22(RUT_EMPRESA, 2026, 2).valores).toHaveLength(3);
+    expect(store.detalleF22(RUT_EMPRESA, 2025, 3).valores).toHaveLength(3);
+    for (const tabla of ['f22_valor', 'f22_observacion', 'f22_evento']) {
+      expect(db.prepare(`SELECT DISTINCT folio FROM ${tabla} WHERE anio_tributario = 2026`).all(), tabla).toEqual([{ folio: 2 }]);
+    }
+  });
+
   it('revierte el reemplazo si falla una inserción (folio o código repetido)', () => {
     syncF22(2026, [declaracionF22({ folio: 1 })]);
     store.reemplazarF22Detalle(RUT_EMPRESA, 2026, 1, detalleF22());

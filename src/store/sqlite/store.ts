@@ -678,8 +678,9 @@ export class SqliteStore implements Store {
       'INSERT INTO f22_evento (rut, anio_tributario, folio, orden, codigo_evento, nombre, fecha, tipo, codigo_carta) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
     );
     this.db.transaction(() => {
+      // El detalle es solo del folio vigente: el de otro folio del año (uno que dejó de ser vigente) se borra.
       for (const tabla of TABLAS_DETALLE_F22) {
-        this.db.prepare(`DELETE FROM ${tabla} WHERE rut = ? AND anio_tributario = ? AND folio = ?`).run(rut, anioTributario, folio);
+        this.db.prepare(`DELETE FROM ${tabla} WHERE rut = ? AND anio_tributario = ?`).run(rut, anioTributario);
       }
       for (const v of detalle.valores) insValor.run(rut, anioTributario, folio, v.codigo, v.valor, v.glosa);
       for (const o of detalle.observaciones) insObservacion.run(rut, anioTributario, folio, o.codigo, o.descripcion);

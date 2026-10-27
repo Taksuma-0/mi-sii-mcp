@@ -211,7 +211,7 @@ export interface Store {
   empresasAutorizadas(rut: string): EmpresaAutorizada[];
   /** Reemplaza las declaraciones F22 del año tributario y borra el detalle de los folios que ya no están, en una transacción. */
   reemplazarF22Declaraciones(sincronizacionId: number, rut: string, anioTributario: number, declaraciones: readonly F22Declaracion[], obtenidoEn: string): void;
-  /** Reemplaza los valores, observaciones y eventos de un folio del F22 en una transacción. */
+  /** Reemplaza el detalle del F22 del año (valores, observaciones y eventos) por el de un folio, el vigente, en una transacción: borra el de los demás folios del año. */
   reemplazarF22Detalle(rut: string, anioTributario: number, folio: number, detalle: F22Detalle): void;
   /** Declaraciones F22 guardadas (de un año o de todos), del año más nuevo al más antiguo y por folio. */
   declaracionesF22(rut: string, anioTributario?: number): F22DeclaracionGuardada[];

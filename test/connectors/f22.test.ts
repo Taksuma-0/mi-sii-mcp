@@ -234,6 +234,106 @@ describe('f22Detalle', () => {
     expect(r.valores).toEqual([{ codigo: '305', valor: 1000, glosa: 'Uno' }]);
   });
 
+  it('una observación con código repetido queda una sola vez (la primera), también en la evidencia', async () => {
+    const observaciones = sobre([
+      { codigo: 'A01', descripcion: 'Primera ficticia', url: null },
+      { codigo: 'A01', descripcion: 'Repetida ficticia', url: null },
+      { codigo: ' A01 ', descripcion: 'Repetida con espacios', url: null },
+      { codigo: 'B02', descripcion: 'Otra ficticia', url: null },
+    ]);
+    const { http, sumidero, crudas } = await preparar({ ...DETALLE_OK, [RUTA('situacionObservacion')]: conBody(observaciones) });
+
+    const r = await f22Detalle(http, sumidero, EMPRESA, 2026, FOLIO);
+
+    expect(r.observaciones).toEqual([
+      { codigo: 'A01', descripcion: 'Primera ficticia', url: null },
+      { codigo: 'B02', descripcion: 'Otra ficticia', url: null },
+    ]);
+    const evidencia = JSON.parse(crudas.find((c) => c.superficie === 'f22.observaciones')!.cuerpo) as { data: { codigo: string }[] };
+    expect(evidencia.data.map((o) => o.codigo)).toEqual(['A01', 'B02']);
+  });
+
+  it('con los códigos de un F22 real (valores ficticios) excluye solo los de identificación y conserva las filas tributarias', async () => {
+    // Glosas ficticias; las de identificación imitan las reales (306 llega con un número de cuenta numérico).
+    const filas: [string, string, string][] = [
+      ['1', 'APELLIDOFICTICIO PERSONA FICTICIA', 'Apellido paterno, materno y nombres'],
+      ['3', '22222222', 'Rol Único Tributario'],
+      ['6', 'COMUNA FICTICIA', 'Comuna'],
+      ['7', '123456789', 'Folio'],
+      ['8', 'CALLE FICTICIA 123', 'Domicilio'],
+      ['13', 'GIRO FICTICIO', 'Actividad económica'],
+      ['14', '1', 'Dato ficticio 14'],
+      ['15', '15/04/2026', 'Fecha de presentación'],
+      ['53', '100', 'Monto ficticio 53'],
+      ['55', 'persona@example.invalid', 'Correo electrónico'],
+      ['91', '0', 'Total a pagar dentro del plazo'],
+      ['301', 'BANCO FICTICIO', 'Banco'],
+      ['305', '-250.000', 'Resultado liquidación anual'],
+      ['306', '000111222333', 'Numero de Cuenta'],
+      ['315', '30/04/2026', 'Fecha de vencimiento'],
+      ['645', '1.000', 'Monto ficticio 645'],
+      ['646', '2.000', 'Monto ficticio 646'],
+      ['780', 'CORRIENTE', 'Tipo de cuenta'],
+      ['903', '1', 'Moneda'],
+      ['1582', '3.000', 'Monto ficticio 1582'],
+      ['1583', '4.000', 'Monto ficticio 1583'],
+      ['1585', '5.000', 'Monto ficticio 1585'],
+      ['1600', '6.000', 'Monto ficticio 1600'],
+      ['1610', '7.000', 'Monto ficticio 1610'],
+      ['1614', '8.000', 'Monto ficticio 1614'],
+      ['1616', '9.000', 'Honorarios ficticios pagados'],
+      ['1617', '10.000', 'Gastos ficticios rechazados'],
+      ['1625', '11.000', 'Honorarios y gastos ficticios'],
+      ['1629', '12.000', 'Monto ficticio 1629'],
+      ['1630', '13.000', 'Pagos provisionales a cuenta del impuesto ficticio'],
+      ['1713', '14.000', 'Monto ficticio 1713'],
+      ['8811', '33333333', 'RUT del representante'],
+      ['39', '15.000', 'Monto ficticio 39'],
+      ['85', '250.000', 'Saldo a favor'],
+      ['86', '', 'Monto ficticio 86'],
+      ['87', '250.000', 'Monto devolución solicitada'],
+      ['90', '', 'Saldo a pagar'],
+      ['92', '', 'Reajuste'],
+      ['93', '', 'Intereses y multas'],
+      ['94', '', 'Total a pagar con recargo'],
+    ];
+    const compacto = sobre(filas.map(([codigo, valor, glosa]) => ({ codigo, valor, glosa })));
+    const { http, sumidero, crudas } = await preparar({ ...DETALLE_OK, [RUTA('f22Compacto')]: conBody(compacto) });
+
+    const r = await f22Detalle(http, sumidero, EMPRESA, 2026, FOLIO);
+
+    const excluidos = ['1', '3', '6', '8', '13', '55', '301', '306', '780', '903', '8811'];
+    const esperados = filas.map(([codigo]) => codigo).filter((c) => !excluidos.includes(c));
+    expect(r.valores.map((v) => v.codigo)).toEqual(esperados);
+    expect(r.valores.find((v) => v.codigo === '1630')).toEqual({ codigo: '1630', valor: 13_000, glosa: 'Pagos provisionales a cuenta del impuesto ficticio' });
+    expect(r.valores.find((v) => v.codigo === '7')?.valor).toBe(123_456_789);
+    for (const texto of ['000111222333', 'Numero de Cuenta', 'Rol Único', 'RUT del representante', '33333333', 'BANCO FICTICIO', 'COMUNA FICTICIA']) {
+      expect(JSON.stringify(r), texto).not.toContain(texto);
+      expect(crudas[0]!.cuerpo, texto).not.toContain(texto);
+    }
+  });
+
+  it('excluye el 306 por su código aunque la glosa no lo delate, y glosas personales ampliadas', async () => {
+    const compacto = sobre([
+      { codigo: '306', valor: '000111222333', glosa: 'Dato ficticio' },
+      { codigo: '701', valor: '1', glosa: 'Cta. ficticia' },
+      { codigo: '702', valor: '1', glosa: 'E-mail de contacto' },
+      { codigo: '703', valor: '1', glosa: 'Email ficticio' },
+      { codigo: '704', valor: '1', glosa: 'Dirección ficticia' },
+      { codigo: '705', valor: '1', glosa: 'Celular ficticio' },
+      { codigo: '706', valor: '1', glosa: 'Fono ficticio' },
+      { codigo: '707', valor: '1', glosa: 'Rut representante legal' },
+      { codigo: '708', valor: '1', glosa: 'Rol único tributario del cónyuge' },
+      { codigo: '709', valor: '1', glosa: 'Número de cuenta para depósito' },
+      { codigo: '710', valor: '5', glosa: 'Crédito ficticio imputable a cuenta del impuesto' },
+    ]);
+    const { http, sumidero } = await preparar({ ...DETALLE_OK, [RUTA('f22Compacto')]: conBody(compacto) });
+
+    const r = await f22Detalle(http, sumidero, EMPRESA, 2026, FOLIO);
+
+    expect(r.valores.map((v) => v.codigo)).toEqual(['710']);
+  });
+
   it('listas nulas son vacías; un error en cualquier operación falla el detalle', async () => {
     const vacio = await preparar({ [RUTA('f22Compacto')]: conBody(sobre(null)), [RUTA('situacionObservacion')]: conBody(sobre([])), [RUTA('buscaEventos')]: conBody(sobre(null)) });
     expect(await f22Detalle(vacio.http, vacio.sumidero, EMPRESA, 2026, FOLIO)).toEqual({ valores: [], observaciones: [], eventos: [] });

@@ -35,10 +35,18 @@ const CAMPOS_DECLARACION = [
 /** Campos de cada evento; sin `referencia`, `idCarta` ni `unidadSii`. */
 const CAMPOS_EVENTO = ['codEvento', 'nombre', 'fechaEvento', 'tipoEvento', 'codCarta'] as const;
 
-/** Códigos de identificación del F22 (nombre, domicilio, comuna, giro, correo, banco, tipo de cuenta, RUT del representante…): nunca se guardan. Ya normalizados. */
-const CODIGOS_EXCLUIDOS: ReadonlySet<string> = new Set(['1', '2', '3', '5', '6', '8', '13', '55', '301', '780', '903', '8811']);
-/** Filas con datos personales aunque su código no esté en la lista: se reconocen por la glosa. */
-const GLOSA_PERSONAL = /apellido|nombre|raz[oó]n social|domicilio|calle|comuna|correo|tel[eé]fono|banco|cuenta|rut representante/i;
+/**
+ * Códigos de identificación del F22 (nombre, RUT, domicilio, comuna, giro, correo, banco, número y tipo de cuenta,
+ * moneda, RUT del representante): nunca se guardan, aunque su valor sea numérico (el 306 es el número de cuenta). Ya
+ * normalizados.
+ */
+const CODIGOS_EXCLUIDOS: ReadonlySet<string> = new Set(['1', '2', '3', '5', '6', '8', '13', '55', '301', '306', '780', '903', '8811']);
+/**
+ * Filas con datos personales aunque su código no esté en la lista: se reconocen por la glosa. «Cuenta» solo como cuenta
+ * bancaria: «a cuenta del impuesto» es una fila tributaria y se conserva.
+ */
+const GLOSA_PERSONAL =
+  /apellido|nombre|raz[oó]n social|domicilio|direcci[oó]n|calle|comuna|correo|e-?mail|tel[eé]fono|celular|\bfono\b|banco|n[uú]mero de cuenta|tipo de cuenta|cuenta (?:corriente|vista|de ahorro|bancaria|rut)|\bcta\b|rut (?:del )?representante|rol [uú]nico tributario/i;
 /** Códigos cuyo valor es una fecha: se guarda la glosa, no el valor. */
 const CODIGOS_FECHA: ReadonlySet<string> = new Set(['15', '315']);
 
@@ -96,6 +104,17 @@ const observacionDe = (fila: unknown): F22Observacion | null => {
   return codigo === null ? null : { codigo, descripcion: texto(fila['descripcion']), url: urlDelSii(fila['url']) };
 };
 
+/** Observaciones legibles sin repetir código (queda la primera): la base guarda una por código. */
+function observacionesDe(filas: readonly unknown[]): F22Observacion[] {
+  const vistas = new Set<string>();
+  return filas.flatMap((fila) => {
+    const o = observacionDe(fila);
+    if (o === null || vistas.has(o.codigo)) return [];
+    vistas.add(o.codigo);
+    return [o];
+  });
+}
+
 /** Cabecera común de la evidencia saneada: los errores como texto, nunca el objeto completo. */
 function sobreSaneado(cuerpo: unknown, data: unknown): unknown {
   const sobre = esObjeto(cuerpo) ? cuerpo : {};
@@ -129,7 +148,7 @@ export function sanearCompactoF22(cuerpo: unknown): unknown {
 /** Evidencia de situacionObservacion: código, descripción y enlace solo si es de sii.cl. Nunca lanza. */
 export function sanearObservacionesF22(cuerpo: unknown): unknown {
   const data = dataDe(cuerpo);
-  return sobreSaneado(cuerpo, Array.isArray(data) ? data.flatMap((f) => observacionDe(f) ?? []) : null);
+  return sobreSaneado(cuerpo, Array.isArray(data) ? observacionesDe(data) : null);
 }
 
 /** Evidencia de buscaEventos: solo los campos permitidos de cada evento. Nunca lanza. */
@@ -217,7 +236,7 @@ export async function f22Detalle(http: Http, sumidero: SumideroRespuestas, rut: 
   const base = { rut: String(rut.cuerpo), dv: rut.dv };
   const comoTexto = { ...base, periodo: String(anioTributario), folio: String(folio) };
   const valores = valoresCompacto(lista(await consultar(http, sumidero, COMPACTO, comoTexto), COMPACTO));
-  const observaciones = lista(await consultar(http, sumidero, OBSERVACIONES, { ...base, periodo: anioTributario, folio }), OBSERVACIONES).flatMap((f) => observacionDe(f) ?? []);
+  const observaciones = observacionesDe(lista(await consultar(http, sumidero, OBSERVACIONES, { ...base, periodo: anioTributario, folio }), OBSERVACIONES));
   const eventos: F22Evento[] = lista(await consultar(http, sumidero, EVENTOS, comoTexto), EVENTOS)
     .filter(esObjeto)
     .map((f, i) => ({
