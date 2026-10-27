@@ -121,7 +121,7 @@ $('formulario').addEventListener('submit', async (evento) => {
 $('entrar-navegador').addEventListener('click', async () => {
   if (ocupado) return;
   const rut = $('rut').value.trim();
-  clave.value = ''; contexto = null; limpiarConsultas(); bloquear(true); informar('Entra en la ventana del SII que se abrió (hasta 10 minutos).');
+  clave.value = ''; contexto = null; limpiarConsultas(); bloquear(true); informar('Entra en la ventana del SII que se abrió (hasta ' + document.querySelector('meta[name="plazo-navegador"]').content + ' minutos).');
   try {
     const r = await enviar('/conectar-navegador', rut ? { rut } : {});
     mostrarPanorama(r.panorama); contexto = r.contexto; sugerirFechas();

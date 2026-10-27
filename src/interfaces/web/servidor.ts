@@ -4,6 +4,7 @@ import { fechaEnSantiago } from '../../domain/fechas.js';
 import { parsePeriodo, periodoAnterior, periodoDeFecha, rangoPeriodos } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
 import { ESTADOS_RCV, type EstadoRcv } from '../../domain/tipos.js';
+import { cargarConfig } from '../../main/config.js';
 import { crearEspacioLocal, type OperacionesEspacio } from './espacio.js';
 import { paginaLocal } from './pagina.js';
 import { verificar, errorPublico, type EntradaVerificacion, type ResultadoVerificacion } from './verificar.js';
@@ -20,6 +21,8 @@ export interface OpcionesServidor {
   readonly espacio?: OperacionesEspacio;
   readonly inactividadMs?: number;
   readonly ahora?: () => Date;
+  /** Plazo del login con navegador, para el aviso de la página; por defecto el de la configuración. */
+  readonly plazoNavegadorMs?: number;
 }
 
 class ErrorHttp extends Error {
@@ -116,6 +119,7 @@ export async function crearServidorLocal(opciones: OpcionesServidor = {}): Promi
   const token = randomBytes(32).toString('hex');
   const nonce = randomBytes(18).toString('base64');
   const ejecutar = opciones.verificar ?? verificar;
+  const minutosNavegador = Math.round((opciones.plazoNavegadorMs ?? cargarConfig().plazoNavegadorMs) / 60_000);
   const espacio = opciones.espacio ?? crearEspacioLocal();
   let ocupado = false;
   let cerrando = false;
@@ -154,7 +158,7 @@ export async function crearServidorLocal(opciones: OpcionesServidor = {}): Promi
       renovar();
       if (req.method === 'GET' && req.url === '/') {
         const mes = periodoAnterior(periodoDeFecha(fechaEnSantiago((opciones.ahora ?? (() => new Date()))()))).texto;
-        responder(res, 200, paginaLocal(token, nonce, mes), true);
+        responder(res, 200, paginaLocal(token, nonce, mes, minutosNavegador), true);
         return;
       }
       if (req.method === 'GET' && req.url === '/estado') { responder(res, 200, { aplicacion: 'impuestocl-local-v1', ocupado }); return; }

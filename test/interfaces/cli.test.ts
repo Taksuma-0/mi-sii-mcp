@@ -31,7 +31,7 @@ function entorno(o: { claveStdin?: string; fallaAlAbrir?: Error; falloNavegador?
   const contenedor: ContenedorCli = {
     deps: p.deps,
     sesiones,
-    config: { home: '/tmp/impuestocl', rutaDb: '/tmp/impuestocl/impuestocl.db' },
+    config: { home: '/tmp/impuestocl', rutaDb: '/tmp/impuestocl/impuestocl.db', plazoNavegadorMs: 25 * 60_000 },
     cerrar: () => {
       contadores.cerrado++;
     },
@@ -111,6 +111,7 @@ describe('CLI', () => {
     expect(e.navegador).toEqual([undefined]);
     expect(e.store.contribuyente('33333333-3')).toMatchObject({ tipo: 'persona', alias: 'JUANA PÉREZ' });
     expect(e.salidaTexto.join(' ')).toContain('ClaveÚnica');
+    expect(e.salidaTexto[0]).toContain('Tienes 25 minutos');
     expect(e.salidaTexto.at(-1)).toContain('Sesión iniciada desde el navegador: JUANA PÉREZ (33333333-3, persona)');
     expect(e.salidaTexto.at(-1)).toContain('no se renueva sola');
   });

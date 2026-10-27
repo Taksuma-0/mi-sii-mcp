@@ -76,7 +76,31 @@ Qué implica `--guardar-clave`:
 
   Esto cierra la sesión local y borra la clave del Administrador de credenciales.
 
-Si el asistente necesita sesión y no hay una válida, te mostrará este mismo comando con tu RUT para que lo ejecutes tú. También sirve entrar por **Abrir impuestocl.cmd** (ver `docs/guias/interfaz-local.md`): esa interfaz no guarda la clave, pero el asistente toma la sesión nueva sin reiniciarse. Si el SII rechazó una clave, impuestocl bloquea ese RUT localmente hasta que hagas un login correcto, para no seguir intentando con una clave incorrecta.
+### Entrar con ClaveÚnica (o con la clave, desde el navegador)
+
+Si entras al SII con ClaveÚnica, usa en tu terminal:
+
+```powershell
+node "C:\ruta\a\mi-sii-mcp\dist\interfaces\cli\bin.js" login-navegador --rut <tu RUT>
+```
+
+- Se abre una ventana de Microsoft Edge o Google Chrome en la página real del SII, con un perfil temporal que no guarda contraseñas. Entras ahí como siempre (ClaveÚnica o clave tributaria). impuestocl no ve ni guarda lo que escribes: espera a que el SII inicie la sesión, toma solo las cookies de `sii.cl`, cierra la ventana y borra el perfil temporal.
+- `--rut` es opcional: si lo indicas y entras con otra identidad, la sesión no se guarda. Sin él, la sesión queda con el RUT con que entraste (puede ser una persona natural) y ese perfil se registra.
+- Tienes 10 minutos para entrar. Se cambia con la variable de entorno `IMPUESTOCL_PLAZO_NAVEGADOR_MS` (en milisegundos, entre 1 y 30 minutos).
+- Si Edge o Chrome no están en las carpetas habituales, indica la ruta del navegador con la variable de entorno `IMPUESTOCL_NAVEGADOR` (por ejemplo, la ruta completa de `chrome.exe`).
+- Esta sesión **no se renueva sola** (no hay clave en el llavero): cuando vence, el asistente te mostrará el comando de nuevo. La interfaz local también tiene el botón «Entrar con el navegador (ClaveÚnica o clave)».
+
+### Una empresa con la sesión de quien la representa
+
+Si entras con tu persona (por ejemplo, con ClaveÚnica) y quieres consultar una empresa que representas, configura con qué sesión se entra a ella:
+
+```powershell
+node "C:\ruta\a\mi-sii-mcp\dist\interfaces\cli\bin.js" perfil agregar <RUT de la empresa> --alias <nombre> --tipo empresa --accede-con <tu RUT>
+```
+
+Mientras la empresa no tenga sesión propia, impuestocl usa la tuya **solo para el RCV**, y cada mes sincronizado lleva el aviso «lectura por representación sin confirmar en vivo»: todavía no se comprobó con una sesión real que el SII entregue así el RCV de la empresa. El F29, la propuesta, las boletas, la renta F22, el perfil y las empresas autorizadas exigen la sesión de la propia empresa (`SIN_PERMISO`, sin consultar al SII). `perfiles_listar` muestra «accede con <rut>». Si la empresa entra con su propia clave, se usa esa sesión. Para quitar el acceso, vuelve a ejecutar `perfil agregar` sin `--accede-con`.
+
+Si el asistente necesita sesión y no hay una válida, te mostrará este mismo comando con tu RUT para que lo ejecutes tú (y el de `login-navegador`, si entras con ClaveÚnica). También sirve entrar por **Abrir impuestocl.cmd** (ver `docs/guias/interfaz-local.md`): esa interfaz no guarda la clave, pero el asistente toma la sesión nueva sin reiniciarse. Si el SII rechazó una clave, impuestocl bloquea ese RUT localmente hasta que hagas un login correcto, para no seguir intentando con una clave incorrecta.
 
 ## 4. Qué puedes preguntar
 

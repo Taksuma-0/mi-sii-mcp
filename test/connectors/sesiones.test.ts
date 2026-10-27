@@ -540,6 +540,16 @@ describe('GestorSesiones con una sesión del navegador', () => {
     expect(g.estado(RUT).tieneSesion).toBe(false);
   });
 
+  it('usa la misma regla de TOKEN que la captura: uno de otro host del SII o vacío no sirve', async () => {
+    for (const token of [cookieNav('TOKEN', 'zeusr.sii.cl'), cookieNav('TOKEN', '.sii.cl', ''), cookieNav('TOKEN', '.evilsii.cl')]) {
+      const { g, llamadas } = gestor(dirTemporal(), new SecretosEnMemoria(), { [RUTA_MI_SII]: DATOS_OK });
+      expect(await codigoDe(g.importarSesion([token, cookieNav('CSESSIONID', '.sii.cl')]))).toBe('SESION_REQUERIDA');
+      expect(llamadas).toHaveLength(0);
+    }
+    const { g } = gestor(dirTemporal(), new SecretosEnMemoria(), { [RUTA_MI_SII]: DATOS_OK });
+    expect((await g.importarSesion([cookieNav('TOKEN', 'www4.sii.cl', 'tok-www4')])).rut).toBe(RUT);
+  });
+
   it('levanta el bloqueo local: la persona acaba de entrar', async () => {
     const dir = dirTemporal();
     const secretos = new SecretosEnMemoria();

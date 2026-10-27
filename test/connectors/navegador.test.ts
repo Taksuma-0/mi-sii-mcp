@@ -1,11 +1,11 @@
 import { EventEmitter } from 'node:events';
-import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buscarNavegador } from '../../src/connectors/navegador/buscar.js';
 import type { TransporteCdp } from '../../src/connectors/navegador/cdp.js';
-import { capturarCookiesSii, type ProcesoNavegador } from '../../src/connectors/navegador/sesion-navegador.js';
+import { capturarCookiesSii, esCookieTokenSii, limpiarPerfilesViejos, type ProcesoNavegador } from '../../src/connectors/navegador/sesion-navegador.js';
 import { codigoDe } from '../helpers/errores.js';
 import { temporizadorFalso } from '../helpers/http-falso.js';
 
@@ -73,8 +73,8 @@ const CON_LOGIN = [
 ];
 
 /** Navegador y transporte CDP falsos: nunca se lanza un navegador real. */
-function navegadorFalso(o: { respuestas?: CookieCdp[][]; noCierra?: boolean; sinPuerto?: boolean; fallaEn?: number } = {}) {
-  const registro: { ejecutable?: string; argumentos?: readonly string[]; metodos: string[]; terminado: number; transporteCerrado: number; urlWs?: string } = {
+function navegadorFalso(o: { respuestas?: CookieCdp[][]; noCierra?: boolean; noResponde?: boolean; fallaEn?: number } = {}) {
+  const registro: { ejecutable?: string; argumentos?: readonly string[]; metodos: string[]; terminado: number; transporteCerrado: number; preferencias?: unknown } = {
     metodos: [],
     terminado: 0,
     transporteCerrado: 0,
@@ -96,25 +96,21 @@ function navegadorFalso(o: { respuestas?: CookieCdp[][]; noCierra?: boolean; sin
     },
     salida,
   };
-  const lanzar = (ejecutable: string, argumentos: readonly string[]): ProcesoNavegador => {
-    registro.ejecutable = ejecutable;
-    registro.argumentos = argumentos;
-    const carpeta = argumentos.find((a) => a.startsWith('--user-data-dir='))!.slice('--user-data-dir='.length);
-    if (o.sinPuerto) morir();
-    else writeFileSync(join(carpeta, 'DevToolsActivePort'), '54321\n/devtools/browser/abc-123\n');
-    return proceso;
-  };
   let lecturas = 0;
   const transporte: TransporteCdp = {
     enviar: async (metodo) => {
       registro.metodos.push(metodo);
+      if (o.noResponde) {
+        morir();
+        throw new Error('la tubería del navegador se cerró');
+      }
       if (metodo === 'Browser.close') {
         if (!o.noCierra) morir();
         return {};
       }
       if (metodo === 'Storage.getCookies') {
         lecturas++;
-        if (o.fallaEn === lecturas) throw new Error('conexión CDP cerrada');
+        if (o.fallaEn === lecturas) throw new Error('la tubería del navegador se cerró');
         const respuestas = o.respuestas ?? [SIN_LOGIN, CON_LOGIN];
         return { cookies: respuestas[Math.min(lecturas, respuestas.length) - 1] };
       }
@@ -124,11 +120,14 @@ function navegadorFalso(o: { respuestas?: CookieCdp[][]; noCierra?: boolean; sin
       registro.transporteCerrado++;
     },
   };
-  const conectar = async (urlWs: string) => {
-    registro.urlWs = urlWs;
-    return transporte;
+  const lanzar = (ejecutable: string, argumentos: readonly string[]) => {
+    registro.ejecutable = ejecutable;
+    registro.argumentos = argumentos;
+    const carpeta = argumentos.find((a) => a.startsWith('--user-data-dir='))!.slice('--user-data-dir='.length);
+    registro.preferencias = JSON.parse(readFileSync(join(carpeta, 'Default', 'Preferences'), 'utf8'));
+    return { proceso, transporte };
   };
-  return { registro, lanzar, conectar, proceso: () => vivo };
+  return { registro, lanzar, proceso: () => vivo };
 }
 
 describe('capturarCookiesSii', () => {
@@ -146,13 +145,12 @@ describe('capturarCookiesSii', () => {
     ejecutable: 'C:\\falso\\msedge.exe',
     carpetaBase: base,
     lanzar: n.lanzar,
-    conectar: n.conectar,
     temporizador: temporizadorFalso().temporizador,
     procesoNode: new EventEmitter(),
     ...extra,
   });
 
-  it('lanza el navegador con un perfil temporal y depuración solo local, espera TOKEN y devuelve solo cookies del SII', async () => {
+  it('lanza el navegador con un perfil temporal, depuración por tubería (sin puerto), sin gestor de contraseñas, y devuelve solo cookies del SII', async () => {
     const n = navegadorFalso();
     const { temporizador, esperas } = temporizadorFalso();
     const cookies = await capturarCookiesSii(opciones(n, { temporizador }));
@@ -163,13 +161,14 @@ describe('capturarCookiesSii', () => {
     expect(carpeta.startsWith(join(base, 'impuestocl-navegador-'))).toBe(true);
     expect(args).toEqual([
       `--user-data-dir=${carpeta}`,
-      '--remote-debugging-port=0',
-      '--remote-debugging-address=127.0.0.1',
+      '--remote-debugging-pipe',
       '--no-first-run',
       '--no-default-browser-check',
+      '--disable-sync',
       'https://zeusr.sii.cl/AUT2000/InicioAutenticacion/IngresoRutClave.html?https://misiir.sii.cl/cgi_misii/siihome.cgi',
     ]);
-    expect(n.registro.urlWs).toBe('ws://127.0.0.1:54321/devtools/browser/abc-123');
+    expect(args.some((a) => a.startsWith('--remote-debugging-port') || a.startsWith('--remote-debugging-address'))).toBe(false);
+    expect(n.registro.preferencias).toEqual({ credentials_enable_service: false, profile: { password_manager_enabled: false } });
     expect(esperas.filter((ms) => ms === 2000)).toHaveLength(1);
 
     expect(cookies.map((c) => `${c.nombre}@${c.dominio}`)).toEqual(['TOKEN@.sii.cl', 'CSESSIONID@.sii.cl', 'NETSCAPE_LIVEWIRE.rut@www4.sii.cl']);
@@ -189,12 +188,20 @@ describe('capturarCookiesSii', () => {
     expect(token!.expira).toBe(1_900_000_000.5);
   });
 
+  it('una cookie TOKEN de otro host del SII (o vacía) no cuenta como sesión iniciada', async () => {
+    const n = navegadorFalso({ respuestas: [[cookie('TOKEN', 'zeusr.sii.cl')], [cookie('TOKEN', '.sii.cl', '')], [cookie('TOKEN', 'www4.sii.cl', 'tok-www4')]] });
+    const { temporizador, esperas } = temporizadorFalso();
+    const cookies = await capturarCookiesSii(opciones(n, { temporizador }));
+    expect(esperas.filter((ms) => ms === 2000)).toHaveLength(2);
+    expect(cookies.find((c) => c.valor === 'tok-www4')).toBeDefined();
+  });
+
   it('sin TOKEN dentro del plazo cierra todo, borra el perfil y pide entrar de nuevo', async () => {
     const n = navegadorFalso({ respuestas: [SIN_LOGIN], noCierra: true });
     const { temporizador, esperas } = temporizadorFalso();
-    const error = await capturarCookiesSii(opciones(n, { temporizador, plazoMs: 10_000 })).catch((e: unknown) => e);
-    expect(error).toMatchObject({ codigo: 'SESION_REQUERIDA', message: expect.stringContaining('plazo') });
-    expect(esperas.filter((ms) => ms === 2000).length).toBeGreaterThanOrEqual(4);
+    const error = await capturarCookiesSii(opciones(n, { temporizador, plazoMs: 60_000 })).catch((e: unknown) => e);
+    expect(error).toMatchObject({ codigo: 'SESION_REQUERIDA', message: expect.stringContaining('(1 min)') });
+    expect(esperas.filter((ms) => ms === 2000).length).toBe(30);
     expect(n.registro.metodos).toContain('Browser.close');
     // El navegador no se cerró con Browser.close: se termina el proceso.
     expect(n.registro.terminado).toBe(1);
@@ -206,9 +213,7 @@ describe('capturarCookiesSii', () => {
     const n = navegadorFalso({ respuestas: [SIN_LOGIN] });
     const { temporizador, esperas } = temporizadorFalso();
     expect(await codigoDe(capturarCookiesSii(opciones(n, { temporizador })))).toBe('SESION_REQUERIDA');
-    const esperado = (10 * 60 * 1000) / 2000;
-    expect(esperas.filter((ms) => ms === 2000).length).toBeGreaterThanOrEqual(esperado - 1);
-    expect(esperas.filter((ms) => ms === 2000).length).toBeLessThanOrEqual(esperado + 1);
+    expect(esperas.filter((ms) => ms === 2000).length).toBe((10 * 60 * 1000) / 2000);
   });
 
   it('si la persona cierra el navegador antes de entrar, limpia y lo explica', async () => {
@@ -220,10 +225,10 @@ describe('capturarCookiesSii', () => {
     expect(readdirSync(base)).toEqual([]);
   });
 
-  it('si el navegador no abre la depuración, borra el perfil temporal', async () => {
-    const n = navegadorFalso({ sinPuerto: true });
+  it('si el navegador nunca responde por la tubería, dice que no se pudo abrir y borra el perfil', async () => {
+    const n = navegadorFalso({ noResponde: true });
     expect(await codigoDe(capturarCookiesSii(opciones(n)))).toBe('NAVEGADOR_NO_DISPONIBLE');
-    expect(n.registro.urlWs).toBeUndefined();
+    expect(n.registro.transporteCerrado).toBe(1);
     expect(readdirSync(base)).toEqual([]);
   });
 
@@ -234,24 +239,28 @@ describe('capturarCookiesSii', () => {
     expect(readdirSync(base)).toEqual([]);
   });
 
-  it('si falla la conexión CDP, termina el navegador y borra el perfil', async () => {
-    const n = navegadorFalso();
-    const conectar = async () => {
-      throw new Error('conexión rechazada');
-    };
-    await expect(capturarCookiesSii(opciones(n, { conectar }))).rejects.toThrow();
-    expect(n.registro.terminado).toBe(1);
+  it('el lanzador real se niega a correr dentro de las pruebas, y el perfil se borra igual', async () => {
+    const error = await capturarCookiesSii({ ejecutable: 'C:\\falso\\msedge.exe', carpetaBase: base, procesoNode: new EventEmitter() }).catch((e: unknown) => e);
+    expect(error).toMatchObject({ codigo: 'NAVEGADOR_NO_DISPONIBLE', message: expect.stringContaining('pruebas') });
     expect(readdirSync(base)).toEqual([]);
   });
 
-  it('Ctrl+C cancela la espera, cierra el navegador y borra el perfil', async () => {
+  it('si lanzar falla, borra el perfil', async () => {
+    const lanzar = () => {
+      throw new Error('spawn falló');
+    };
+    await expect(capturarCookiesSii(opciones(navegadorFalso(), { lanzar }))).rejects.toThrow('spawn falló');
+    expect(readdirSync(base)).toEqual([]);
+  });
+
+  it.each(['SIGINT', 'SIGHUP', 'SIGBREAK'])('%s cancela la espera, cierra el navegador, borra el perfil y quita sus oyentes', async (senal) => {
     const n = navegadorFalso({ respuestas: [SIN_LOGIN] });
     const procesoNode = new EventEmitter();
     let vueltas = 0;
     const temporizador = {
       ahoraMs: () => 0,
       dormir: async () => {
-        if (++vueltas === 3) procesoNode.emit('SIGINT');
+        if (++vueltas === 3) procesoNode.emit(senal);
         await new Promise((resolve) => setImmediate(resolve));
       },
     };
@@ -260,8 +269,7 @@ describe('capturarCookiesSii', () => {
     expect(n.registro.metodos).toContain('Browser.close');
     expect(n.proceso()).toBe(false);
     expect(readdirSync(base)).toEqual([]);
-    expect(procesoNode.listenerCount('SIGINT')).toBe(0);
-    expect(procesoNode.listenerCount('exit')).toBe(0);
+    for (const evento of ['SIGINT', 'SIGHUP', 'SIGBREAK', 'exit']) expect(procesoNode.listenerCount(evento)).toBe(0);
   });
 
   it('una señal abortada también cancela', async () => {
@@ -272,16 +280,71 @@ describe('capturarCookiesSii', () => {
     expect(readdirSync(base)).toEqual([]);
   });
 
-  it('rechaza un DevToolsActivePort que no apunta a un navegador local', async () => {
-    const n = navegadorFalso();
-    const lanzar = (ejecutable: string, argumentos: readonly string[]) => {
-      const proceso = n.lanzar(ejecutable, argumentos);
-      const carpeta = argumentos[0]!.slice('--user-data-dir='.length);
-      writeFileSync(join(carpeta, 'DevToolsActivePort'), '54321\n@evil.example/devtools\n');
-      return proceso;
-    };
-    expect(await codigoDe(capturarCookiesSii(opciones(n, { lanzar })))).toBe('NAVEGADOR_NO_DISPONIBLE');
-    expect(n.registro.urlWs).toBeUndefined();
-    expect(readdirSync(base)).toEqual([]);
+  it('al empezar borra perfiles temporales viejos de intentos anteriores, sin tocar otras carpetas', async () => {
+    const viejo = join(base, 'impuestocl-navegador-viejo1');
+    mkdirSync(join(viejo, 'Default'), { recursive: true });
+    writeFileSync(join(viejo, 'Default', 'Cookies'), 'x');
+    const horasAtras = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    utimesSync(viejo, horasAtras, horasAtras);
+    mkdirSync(join(base, 'otra-carpeta'));
+    await capturarCookiesSii(opciones(navegadorFalso()));
+    expect(readdirSync(base)).toEqual(['otra-carpeta']);
+  });
+});
+
+describe('limpiarPerfilesViejos', () => {
+  let base: string;
+
+  beforeEach(() => {
+    base = mkdtempSync(join(tmpdir(), 'impuestocl-prueba-limpieza-'));
+  });
+
+  afterEach(() => {
+    rmSync(base, { recursive: true, force: true });
+  });
+
+  const crear = (nombre: string, edadMs: number) => {
+    const ruta = join(base, nombre);
+    mkdirSync(ruta);
+    const fecha = new Date(Date.now() - edadMs);
+    utimesSync(ruta, fecha, fecha);
+    return ruta;
+  };
+
+  it('borra solo los perfiles impuestocl-navegador-* de más de una hora (uno reciente puede estar en uso) e ignora los que no se pueden borrar', () => {
+    const viejo = crear('impuestocl-navegador-aaa', 2 * 60 * 60 * 1000);
+    const tomado = crear('impuestocl-navegador-bbb', 3 * 60 * 60 * 1000);
+    crear('impuestocl-navegador-reciente', 5 * 60 * 1000);
+    crear('otra-viejisima', 10 * 60 * 60 * 1000);
+    writeFileSync(join(base, 'impuestocl-navegador-archivo'), 'no es carpeta');
+    const intentos: string[] = [];
+    limpiarPerfilesViejos(base, (ruta) => {
+      intentos.push(ruta);
+      if (ruta === tomado) throw new Error('EBUSY');
+      rmSync(ruta, { recursive: true, force: true });
+    });
+    expect(intentos.sort()).toEqual([viejo, tomado].sort());
+    expect(readdirSync(base).sort()).toEqual(['impuestocl-navegador-archivo', 'impuestocl-navegador-bbb', 'impuestocl-navegador-reciente', 'otra-viejisima']);
+  });
+
+  it('una carpeta base inexistente no es un error', () => {
+    expect(() => limpiarPerfilesViejos(join(base, 'no-existe'))).not.toThrow();
+  });
+});
+
+describe('esCookieTokenSii', () => {
+  const token = (dominio: string, valor = 't') => ({ nombre: 'TOKEN', valor, dominio, ruta: '/', expira: null, httpOnly: true, seguro: true });
+
+  it.each(['sii.cl', '.sii.cl', 'www4.sii.cl', '.www4.sii.cl', 'WWW4.SII.CL'])('acepta TOKEN de %s', (dominio) => {
+    expect(esCookieTokenSii(token(dominio))).toBe(true);
+  });
+
+  it.each(['zeusr.sii.cl', 'misiir.sii.cl', '.evilsii.cl', 'sii.cl.example.com'])('rechaza TOKEN de %s', (dominio) => {
+    expect(esCookieTokenSii(token(dominio))).toBe(false);
+  });
+
+  it('rechaza un TOKEN vacío u otra cookie', () => {
+    expect(esCookieTokenSii(token('.sii.cl', ''))).toBe(false);
+    expect(esCookieTokenSii({ ...token('.sii.cl'), nombre: 'CSESSIONID' })).toBe(false);
   });
 });

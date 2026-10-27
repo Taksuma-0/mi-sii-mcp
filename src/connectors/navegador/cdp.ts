@@ -1,3 +1,5 @@
+import type { Readable, Writable } from 'node:stream';
+
 /** Lo mínimo del Chrome DevTools Protocol que usa el login asistido; las pruebas lo reemplazan por uno falso. */
 export interface TransporteCdp {
   enviar(metodo: string, params?: Record<string, unknown>): Promise<unknown>;
@@ -10,77 +12,83 @@ interface MensajeCdp {
   readonly error?: { readonly message?: string };
 }
 
+interface Pendiente {
+  readonly resolve: (v: unknown) => void;
+  readonly reject: (e: Error) => void;
+  readonly temporizador: ReturnType<typeof setTimeout>;
+}
+
+const SEPARADOR = 0;
+
 /**
- * Conecta al WebSocket de depuración del navegador con el `WebSocket` global de Node (sin dependencias). Solo acepta
- * `ws://127.0.0.1`: el navegador lo abrió en este equipo. Cada mensaje tiene su propio plazo.
+ * CDP por las tuberías que abre `--remote-debugging-pipe`: el navegador lee las órdenes de su descriptor 3 (`escritura`)
+ * y escribe en el 4 (`lectura`); cada mensaje es JSON terminado en NUL. No hay puerto ni nada que escuche en la red, así que
+ * ningún otro programa del equipo puede conectarse a la depuración. Cada orden tiene su propio plazo.
  */
-export function conectarCdp(urlWs: string, plazoMs = 15_000): Promise<TransporteCdp> {
-  const url = new URL(urlWs);
-  if (url.protocol !== 'ws:' || url.hostname !== '127.0.0.1') {
-    return Promise.reject(new Error('La depuración del navegador debe estar en ws://127.0.0.1.'));
-  }
-  return new Promise((resolve, reject) => {
-    const socket = new WebSocket(url);
-    const pendientes = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void; temporizador: ReturnType<typeof setTimeout> }>();
-    let siguiente = 1;
-    let abierto = false;
-    const fallarTodo = (motivo: string) => {
-      for (const [id, p] of pendientes) {
-        clearTimeout(p.temporizador);
-        p.reject(new Error(motivo));
-        pendientes.delete(id);
-      }
-    };
-    const arranque = setTimeout(() => {
-      socket.close();
-      reject(new Error('El navegador no aceptó la conexión de depuración a tiempo.'));
-    }, plazoMs);
-    socket.addEventListener('open', () => {
-      abierto = true;
-      clearTimeout(arranque);
-      resolve({
-        enviar(metodo, params = {}) {
-          if (socket.readyState !== WebSocket.OPEN) return Promise.reject(new Error('La conexión con el navegador está cerrada.'));
-          const id = siguiente++;
-          return new Promise((res, rej) => {
-            const temporizador = setTimeout(() => {
-              pendientes.delete(id);
-              rej(new Error(`El navegador no respondió ${metodo} a tiempo.`));
-            }, plazoMs);
-            pendientes.set(id, { resolve: res, reject: rej, temporizador });
-            socket.send(JSON.stringify({ id, method: metodo, params }));
-          });
-        },
-        cerrar() {
-          fallarTodo('La conexión con el navegador se cerró.');
-          socket.close();
-        },
-      });
-    });
-    socket.addEventListener('message', (evento) => {
+export function transportePipe(escritura: Writable, lectura: Readable, plazoMs = 30_000): TransporteCdp {
+  const pendientes = new Map<number, Pendiente>();
+  let siguiente = 1;
+  let cerrado = false;
+  let resto = Buffer.alloc(0);
+
+  const fallarTodo = (motivo: string) => {
+    cerrado = true;
+    for (const [id, p] of pendientes) {
+      clearTimeout(p.temporizador);
+      p.reject(new Error(motivo));
+      pendientes.delete(id);
+    }
+  };
+  const alCerrarse = () => fallarTodo('La tubería del navegador se cerró.');
+
+  lectura.on('data', (parte: Buffer | string) => {
+    resto = Buffer.concat([resto, typeof parte === 'string' ? Buffer.from(parte, 'utf8') : parte]);
+    let fin: number;
+    while ((fin = resto.indexOf(SEPARADOR)) >= 0) {
+      const texto = resto.subarray(0, fin).toString('utf8');
+      resto = resto.subarray(fin + 1);
       let mensaje: MensajeCdp;
       try {
-        mensaje = JSON.parse(String(evento.data)) as MensajeCdp;
+        mensaje = JSON.parse(texto) as MensajeCdp;
       } catch {
-        return;
+        continue;
       }
-      if (typeof mensaje.id !== 'number') return; // eventos del navegador: no se usan
+      if (typeof mensaje.id !== 'number') continue; // eventos del navegador: no se usan
       const p = pendientes.get(mensaje.id);
-      if (!p) return;
+      if (!p) continue;
       pendientes.delete(mensaje.id);
       clearTimeout(p.temporizador);
       if (mensaje.error) p.reject(new Error(`El navegador rechazó la orden: ${mensaje.error.message ?? 'sin detalle'}.`));
       else p.resolve(mensaje.result);
-    });
-    socket.addEventListener('close', () => {
-      fallarTodo('La conexión con el navegador se cerró.');
-      if (!abierto) {
-        clearTimeout(arranque);
-        reject(new Error('El navegador cerró la conexión de depuración.'));
-      }
-    });
-    socket.addEventListener('error', () => {
-      // `close` llega después y rechaza lo pendiente.
-    });
+    }
   });
+  lectura.on('end', alCerrarse);
+  lectura.on('close', alCerrarse);
+  // Un error de las tuberías (p. ej., EPIPE si el navegador murió) nunca derriba el proceso: rechaza lo pendiente.
+  lectura.on('error', alCerrarse);
+  escritura.on('error', alCerrarse);
+  escritura.on('close', alCerrarse);
+
+  return {
+    enviar(metodo, params = {}) {
+      if (cerrado) return Promise.reject(new Error('La tubería del navegador se cerró.'));
+      const id = siguiente++;
+      return new Promise((resolve, reject) => {
+        const temporizador = setTimeout(() => {
+          pendientes.delete(id);
+          reject(new Error(`El navegador no respondió ${metodo} a tiempo.`));
+        }, plazoMs);
+        temporizador.unref();
+        pendientes.set(id, { resolve, reject, temporizador });
+        escritura.write(`${JSON.stringify({ id, method: metodo, params })}\0`, (error) => {
+          if (error) alCerrarse();
+        });
+      });
+    },
+    cerrar() {
+      fallarTodo('La tubería del navegador se cerró.');
+      escritura.end();
+      lectura.destroy();
+    },
+  };
 }

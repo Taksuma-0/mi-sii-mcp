@@ -1,12 +1,13 @@
 import { spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { Readable, Writable } from 'node:stream';
 import { ErrorImpuestocl } from '../../domain/errores.js';
 import { temporizadorReal, type Temporizador } from '../sii/http.js';
 import { URL_LOGIN_PAGINA } from '../sii/login.js';
 import { buscarNavegador } from './buscar.js';
-import { conectarCdp, type TransporteCdp } from './cdp.js';
+import { transportePipe, type TransporteCdp } from './cdp.js';
 
 /** Cookie del SII tomada del navegador. Nunca se muestra ni se devuelve fuera del gestor de sesiones. */
 export interface CookieNavegador {
@@ -28,10 +29,20 @@ export interface ProcesoNavegador {
   readonly salida: Promise<void>;
 }
 
-/** Lo que se usa de `process`: Ctrl+C y la salida de Node, para limpiar siempre. */
+/** El navegador lanzado y su CDP por tubería. */
+export interface NavegadorLanzado {
+  readonly proceso: ProcesoNavegador;
+  readonly transporte: TransporteCdp;
+}
+
+/** Señales con que se interrumpe Node (Ctrl+C, cerrar la consola, Ctrl+Break) y su salida: siempre se limpia. */
+export type EventoProceso = 'SIGINT' | 'SIGHUP' | 'SIGBREAK' | 'exit';
+const SENALES: readonly EventoProceso[] = ['SIGINT', 'SIGHUP', 'SIGBREAK'];
+
+/** Lo que se usa de `process` para limpiar siempre. */
 export interface EmisorProceso {
-  once(evento: 'SIGINT' | 'exit', oyente: () => void): unknown;
-  off(evento: 'SIGINT' | 'exit', oyente: () => void): unknown;
+  once(evento: EventoProceso, oyente: () => void): unknown;
+  off(evento: EventoProceso, oyente: () => void): unknown;
 }
 
 export interface OpcionesNavegador {
@@ -41,30 +52,42 @@ export interface OpcionesNavegador {
   readonly plazoMs?: number;
   /** Cada cuánto se revisan las cookies (por defecto 2 s). */
   readonly intervaloMs?: number;
-  /** Plazo para que el navegador abra la depuración local (por defecto 30 s). */
-  readonly plazoArranqueMs?: number;
   /** Cancela la espera: se cierra el navegador y se borra el perfil igual. */
   readonly signal?: AbortSignal;
   /** Carpeta donde se crea el perfil temporal (por defecto la carpeta temporal del sistema). */
   readonly carpetaBase?: string;
   readonly temporizador?: Temporizador;
-  readonly lanzar?: (ejecutable: string, argumentos: readonly string[]) => ProcesoNavegador;
-  readonly conectar?: (urlWs: string) => Promise<TransporteCdp>;
+  readonly lanzar?: (ejecutable: string, argumentos: readonly string[]) => NavegadorLanzado;
   readonly procesoNode?: EmisorProceso;
 }
 
 export const PLAZO_LOGIN_NAVEGADOR_MS = 10 * 60 * 1000;
+/** Tope del plazo configurable; los perfiles temporales más antiguos que el doble se dan por abandonados. */
+export const PLAZO_MAXIMO_LOGIN_NAVEGADOR_MS = 30 * 60 * 1000;
 const INTERVALO_MS = 2000;
-const PLAZO_ARRANQUE_MS = 30_000;
-const ESPERA_ARRANQUE_MS = 100;
 const PLAZO_CIERRE_MS = 5000;
-const ARCHIVO_PUERTO = 'DevToolsActivePort';
+const PREFIJO_PERFIL = 'impuestocl-navegador-';
+/** Un perfil temporal más antiguo que esto ya no está en uso: el plazo de login tiene un máximo de 30 minutos. */
+const ANTIGUEDAD_PERFIL_VIEJO_MS = 2 * PLAZO_MAXIMO_LOGIN_NAVEGADOR_MS;
+/** El perfil temporal no ofrece guardar contraseñas. */
+const PREFERENCIAS = { credentials_enable_service: false, profile: { password_manager_enabled: false } };
 const ACCION_REINTENTO = 'Vuelve a ejecutar `impuestocl login-navegador` e inicia sesión en la ventana que se abre (ClaveÚnica o clave tributaria).';
+
+const sinPunto = (dominio: string): string => dominio.trim().toLowerCase().replace(/^\./, '');
 
 /** `sii.cl` o un subdominio suyo (no basta con terminar en "sii.cl": `evilsii.cl` no lo es). */
 export function esDominioSii(dominio: string): boolean {
-  const d = dominio.trim().toLowerCase().replace(/^\./, '');
+  const d = sinPunto(dominio);
   return d === 'sii.cl' || d.endsWith('.sii.cl');
+}
+
+/**
+ * La cookie TOKEN que usan las consultas de www4 (la misma regla al capturar y al importar): no vacía y de `sii.cl` o de
+ * `www4.sii.cl`, con o sin punto inicial.
+ */
+export function esCookieTokenSii(c: CookieNavegador): boolean {
+  const d = sinPunto(c.dominio);
+  return c.nombre === 'TOKEN' && c.valor !== '' && (d === 'sii.cl' || d === 'www4.sii.cl');
 }
 
 /** Esperas de la limpieza: no retienen a Node si el navegador ya cerró. */
@@ -73,8 +96,12 @@ const temporizadorCierre: Temporizador = {
   ahoraMs: () => Date.now(),
 };
 
-function lanzarNavegador(ejecutable: string, argumentos: readonly string[]): ProcesoNavegador {
-  const hijo = spawn(ejecutable, argumentos, { stdio: 'ignore' });
+/** Lanza el navegador con el CDP por los descriptores 3 (órdenes) y 4 (respuestas). Nunca durante las pruebas. */
+function lanzarNavegador(ejecutable: string, argumentos: readonly string[]): NavegadorLanzado {
+  if (process.env['VITEST']) {
+    throw new ErrorImpuestocl('NAVEGADOR_NO_DISPONIBLE', 'impuestocl no lanza un navegador real durante las pruebas.');
+  }
+  const hijo = spawn(ejecutable, argumentos, { stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe'] });
   let vivo = true;
   const salida = new Promise<void>((resolve) => {
     const fin = () => {
@@ -84,7 +111,14 @@ function lanzarNavegador(ejecutable: string, argumentos: readonly string[]): Pro
     hijo.once('exit', fin);
     hijo.once('error', fin);
   });
-  return { vivo: () => vivo, terminar: () => void (vivo && hijo.kill()), salida };
+  const proceso: ProcesoNavegador = { vivo: () => vivo, terminar: () => void (vivo && hijo.kill()), salida };
+  const escritura = hijo.stdio[3] as Writable | null | undefined;
+  const lectura = hijo.stdio[4] as Readable | null | undefined;
+  if (!escritura || !lectura) {
+    proceso.terminar();
+    throw new ErrorImpuestocl('NAVEGADOR_NO_DISPONIBLE', 'No se pudo abrir la tubería de depuración del navegador.');
+  }
+  return { proceso, transporte: transportePipe(escritura, lectura) };
 }
 
 function borrarCarpeta(carpeta: string): boolean {
@@ -96,18 +130,47 @@ function borrarCarpeta(carpeta: string): boolean {
   }
 }
 
+/**
+ * Borra los perfiles temporales que dejó un intento anterior interrumpido (más de una hora: uno reciente puede ser de otro
+ * login en curso). Lo que no se pueda borrar (archivos tomados) se deja.
+ */
+export function limpiarPerfilesViejos(
+  base: string,
+  borrar: (ruta: string) => void = (ruta) => rmSync(ruta, { recursive: true, force: true }),
+  ahoraMs: number = Date.now(),
+): void {
+  let entradas;
+  try {
+    entradas = readdirSync(base, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entrada of entradas) {
+    if (!entrada.isDirectory() || !entrada.name.startsWith(PREFIJO_PERFIL)) continue;
+    const ruta = join(base, entrada.name);
+    try {
+      if (ahoraMs - statSync(ruta).mtimeMs < ANTIGUEDAD_PERFIL_VIEJO_MS) continue;
+      borrar(ruta);
+    } catch {
+      // tomado por otro proceso o ya no existe: se deja
+    }
+  }
+}
+
 const sinTerminar = (texto: string, cause?: unknown) => new ErrorImpuestocl('SESION_REQUERIDA', texto, { accion: ACCION_REINTENTO, cause });
 
 /**
- * Abre el navegador instalado en la página de login del SII con un perfil temporal y la depuración solo en 127.0.0.1
- * (puerto al azar). La persona entra ahí (ClaveÚnica o clave): impuestocl no ve ni guarda la clave ni lo escrito en los
- * formularios; solo lee las cookies con `Storage.getCookies` hasta ver la cookie TOKEN del SII y devuelve únicamente las
- * de `sii.cl`. Pase lo que pase (éxito, error, plazo o Ctrl+C) cierra el navegador y borra el perfil temporal.
+ * Abre el navegador instalado en la página de login del SII con un perfil temporal (sin gestor de contraseñas ni
+ * sincronización) y el CDP por tubería, sin puerto de depuración. La persona entra ahí (ClaveÚnica o clave): impuestocl no
+ * ve ni guarda la clave ni lo escrito en los formularios; solo lee las cookies con `Storage.getCookies` hasta ver la cookie
+ * TOKEN del SII y devuelve únicamente las de `sii.cl`. Pase lo que pase (éxito, error, plazo, Ctrl+C o cierre de la
+ * consola) cierra el navegador y borra el perfil temporal.
  */
 export async function capturarCookiesSii(o: OpcionesNavegador = {}): Promise<CookieNavegador[]> {
   const temporizador = o.temporizador ?? temporizadorReal;
   const procesoNode = o.procesoNode ?? process;
   const ejecutable = o.ejecutable ?? buscarNavegador();
+  const base = o.carpetaBase ?? tmpdir();
   const control = new AbortController();
   const senal = o.signal ? AbortSignal.any([o.signal, control.signal]) : control.signal;
   const cancelacion = new Promise<never>((_resolve, reject) => {
@@ -118,61 +181,35 @@ export async function capturarCookiesSii(o: OpcionesNavegador = {}): Promise<Coo
   cancelacion.catch(() => {});
   const conCancelacion = <T>(p: Promise<T>): Promise<T> => Promise.race([p, cancelacion]);
 
-  const carpeta = mkdtempSync(join(o.carpetaBase ?? tmpdir(), 'impuestocl-navegador-'));
-  let proceso: ProcesoNavegador | null = null;
-  let transporte: TransporteCdp | null = null;
-  const alCtrlC = () => control.abort();
+  limpiarPerfilesViejos(base);
+  const carpeta = mkdtempSync(join(base, PREFIJO_PERFIL));
+  let lanzado: NavegadorLanzado | null = null;
+  const alInterrumpir = () => control.abort();
   // Si Node termina de golpe, al menos se termina el navegador y se borra el perfil (todo síncrono).
   const alSalir = () => {
-    if (proceso?.vivo()) proceso.terminar();
+    if (lanzado?.proceso.vivo()) lanzado.proceso.terminar();
     borrarCarpeta(carpeta);
   };
-  procesoNode.once('SIGINT', alCtrlC);
+  for (const s of SENALES) procesoNode.once(s, alInterrumpir);
   procesoNode.once('exit', alSalir);
   try {
     if (senal.aborted) await cancelacion;
-    proceso = (o.lanzar ?? lanzarNavegador)(ejecutable, [
+    mkdirSync(join(carpeta, 'Default'), { recursive: true });
+    writeFileSync(join(carpeta, 'Default', 'Preferences'), JSON.stringify(PREFERENCIAS));
+    lanzado = (o.lanzar ?? lanzarNavegador)(ejecutable, [
       `--user-data-dir=${carpeta}`,
-      '--remote-debugging-port=0',
-      '--remote-debugging-address=127.0.0.1',
+      '--remote-debugging-pipe',
       '--no-first-run',
       '--no-default-browser-check',
+      '--disable-sync',
       URL_LOGIN_PAGINA,
     ]);
-    const urlWs = await esperarDepuracion(carpeta, proceso, temporizador, o.plazoArranqueMs ?? PLAZO_ARRANQUE_MS, conCancelacion);
-    transporte = await conCancelacion((o.conectar ?? conectarCdp)(urlWs));
-    return await esperarToken(transporte, temporizador, o.plazoMs ?? PLAZO_LOGIN_NAVEGADOR_MS, o.intervaloMs ?? INTERVALO_MS, conCancelacion, senal);
+    return await esperarToken(lanzado, temporizador, o.plazoMs ?? PLAZO_LOGIN_NAVEGADOR_MS, o.intervaloMs ?? INTERVALO_MS, conCancelacion, senal);
   } finally {
-    await cerrarNavegador(transporte, proceso, o.temporizador ?? temporizadorCierre);
-    procesoNode.off('SIGINT', alCtrlC);
-    // Si no se pudo borrar ahora (archivos tomados), se reintenta al salir de Node.
+    await cerrarNavegador(lanzado, o.temporizador ?? temporizadorCierre);
+    for (const s of SENALES) procesoNode.off(s, alInterrumpir);
+    // Si no se pudo borrar ahora (archivos tomados), se reintenta al salir de Node y en el próximo login.
     if (borrarCarpeta(carpeta)) procesoNode.off('exit', alSalir);
-  }
-}
-
-async function esperarDepuracion(
-  carpeta: string,
-  proceso: ProcesoNavegador,
-  temporizador: Temporizador,
-  plazoMs: number,
-  conCancelacion: <T>(p: Promise<T>) => Promise<T>,
-): Promise<string> {
-  const ruta = join(carpeta, ARCHIVO_PUERTO);
-  const limite = temporizador.ahoraMs() + plazoMs;
-  for (;;) {
-    if (existsSync(ruta)) {
-      const [puerto = '', camino = ''] = readFileSync(ruta, 'utf8').split(/\r?\n/).map((l) => l.trim());
-      if (puerto !== '' && camino !== '') {
-        const numero = Number(puerto);
-        if (!/^\d{1,5}$/.test(puerto) || numero < 1 || numero > 65_535 || !/^\/devtools\/browser\/[\w-]+$/.test(camino)) {
-          throw new ErrorImpuestocl('NAVEGADOR_NO_DISPONIBLE', 'El navegador informó una dirección de depuración inválida.');
-        }
-        return `ws://127.0.0.1:${numero}${camino}`;
-      }
-    }
-    if (!proceso.vivo()) throw new ErrorImpuestocl('NAVEGADOR_NO_DISPONIBLE', 'El navegador se cerró antes de abrir la depuración local.');
-    if (temporizador.ahoraMs() >= limite) throw new ErrorImpuestocl('NAVEGADOR_NO_DISPONIBLE', 'El navegador no abrió la depuración local a tiempo.');
-    await conCancelacion(temporizador.dormir(ESPERA_ARRANQUE_MS));
   }
 }
 
@@ -198,7 +235,7 @@ function cookiesDe(resultado: unknown): CookieNavegador[] {
 }
 
 async function esperarToken(
-  transporte: TransporteCdp,
+  { proceso, transporte }: NavegadorLanzado,
   temporizador: Temporizador,
   plazoMs: number,
   intervaloMs: number,
@@ -206,16 +243,21 @@ async function esperarToken(
   senal: AbortSignal,
 ): Promise<CookieNavegador[]> {
   const limite = temporizador.ahoraMs() + plazoMs;
+  let respondio = false;
   for (;;) {
     let resultado: unknown;
     try {
       resultado = await conCancelacion(transporte.enviar('Storage.getCookies'));
     } catch (e) {
       if (senal.aborted || e instanceof ErrorImpuestocl) throw e;
+      if (!respondio && !proceso.vivo()) {
+        throw new ErrorImpuestocl('NAVEGADOR_NO_DISPONIBLE', 'El navegador no se abrió o no respondió por la tubería de depuración.', { cause: e });
+      }
       throw sinTerminar('Se cerró el navegador antes de terminar el inicio de sesión en el SII.', e);
     }
+    respondio = true;
     const cookies = cookiesDe(resultado);
-    if (cookies.some((c) => c.nombre === 'TOKEN' && c.valor !== '')) return cookies;
+    if (cookies.some(esCookieTokenSii)) return cookies;
     if (temporizador.ahoraMs() >= limite) throw sinTerminar(`No se completó el inicio de sesión en el SII dentro del plazo (${Math.round(plazoMs / 60_000)} min).`);
     await conCancelacion(temporizador.dormir(intervaloMs));
   }
@@ -226,12 +268,11 @@ async function conPlazo(p: Promise<unknown>, temporizador: Temporizador, ms: num
 }
 
 /** Pide al navegador que se cierre; si no lo hace a tiempo, termina el proceso. */
-async function cerrarNavegador(transporte: TransporteCdp | null, proceso: ProcesoNavegador | null, temporizador: Temporizador): Promise<void> {
-  if (transporte) {
-    await conPlazo(transporte.enviar('Browser.close'), temporizador, PLAZO_CIERRE_MS);
-    transporte.cerrar();
-  }
-  if (!proceso) return;
+async function cerrarNavegador(lanzado: NavegadorLanzado | null, temporizador: Temporizador): Promise<void> {
+  if (!lanzado) return;
+  const { proceso, transporte } = lanzado;
+  await conPlazo(transporte.enviar('Browser.close'), temporizador, PLAZO_CIERRE_MS);
+  transporte.cerrar();
   await conPlazo(proceso.salida, temporizador, PLAZO_CIERRE_MS);
   if (proceso.vivo()) {
     proceso.terminar();

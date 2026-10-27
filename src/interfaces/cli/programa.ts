@@ -32,7 +32,7 @@ export interface SesionesCli {
 export interface ContenedorCli {
   readonly deps: DepsApp;
   readonly sesiones: SesionesCli;
-  readonly config: { readonly home: string; readonly rutaDb: string };
+  readonly config: { readonly home: string; readonly rutaDb: string; readonly plazoNavegadorMs: number };
   cerrar(): void;
 }
 
@@ -137,8 +137,9 @@ export function crearPrograma(
     .option('--rut <rut>', 'RUT con que esperas entrar; si entras con otro, no se guarda la sesión')
     .action(
       ejecutar(async (c, o: { rut?: string }) => {
+        const minutos = Math.round(c.config.plazoNavegadorMs / 60_000);
         io.escribir(
-          'Se abrirá una ventana del navegador en la página del SII. Entra ahí con tu ClaveÚnica o tu clave tributaria; impuestocl no ve ni guarda tu clave. Tienes 10 minutos por defecto; la ventana se cierra sola al terminar.',
+          `Se abrirá una ventana del navegador en la página del SII. Entra ahí con tu ClaveÚnica o tu clave tributaria; impuestocl no ve ni guarda tu clave. Tienes ${minutos} minutos; la ventana se cierra sola al terminar.`,
         );
         const identidad = await c.sesiones.loginNavegador(o.rut);
         registrarIdentidad(c.deps, identidad);

@@ -4,7 +4,7 @@ import { Cookie, CookieJar } from 'tough-cookie';
 import { ErrorImpuestocl } from '../../domain/errores.js';
 import { parseRut, type Rut } from '../../domain/rut.js';
 import type { ConsultaSesiones, EstadoSesion, IdentidadSii, ResultadoLogin, SecretStore } from '../../ports/index.js';
-import { capturarCookiesSii, esDominioSii, type CookieNavegador } from '../navegador/sesion-navegador.js';
+import { capturarCookiesSii, esCookieTokenSii, esDominioSii, type CookieNavegador } from '../navegador/sesion-navegador.js';
 import { ClienteHttp, type OpcionesHttp } from './http.js';
 import { cerrarSesion, iniciarSesion, leerIdentidad } from './login.js';
 
@@ -85,18 +85,19 @@ export class GestorSesiones implements ConsultaSesiones {
    */
   async importarSesion(cookies: readonly CookieNavegador[], rutEsperado?: string): Promise<IdentidadSii> {
     const esperado = rutEsperado === undefined ? null : parseRut(rutEsperado).canonico;
-    const jar = new CookieJar();
-    for (const c of cookies) {
-      if (!esDominioSii(c.dominio)) continue;
-      const { cookie, url } = cookieDeNavegador(c);
-      await jar.setCookie(cookie, url, { ignoreError: true });
-    }
-    const http = new ClienteHttp(jar, this.opcionesHttp);
-    if (!(await http.cookie('https://www4.sii.cl/', 'TOKEN'))) {
+    const delSii = cookies.filter((c) => esDominioSii(c.dominio));
+    // La misma regla que usa la captura en el navegador para dar por iniciada la sesión.
+    if (!delSii.some(esCookieTokenSii)) {
       throw new ErrorImpuestocl('SESION_REQUERIDA', 'El navegador no entregó la cookie TOKEN del SII: el inicio de sesión no terminó.', {
         accion: accionLoginNavegador(esperado ?? '<rut>'),
       });
     }
+    const jar = new CookieJar();
+    for (const c of delSii) {
+      const { cookie, url } = cookieDeNavegador(c);
+      await jar.setCookie(cookie, url, { ignoreError: true });
+    }
+    const http = new ClienteHttp(jar, this.opcionesHttp);
     const identidad = await leerIdentidad(http);
     if (esperado !== null && identidad.rut !== esperado) {
       await cerrarSesion(http);

@@ -75,6 +75,17 @@ describe('HTTP local', () => {
     expect(html).toContain("enviar('/conectar-navegador'");
   });
 
+  it('el aviso del login con navegador usa el plazo configurado', async () => {
+    const s = await crearServidorLocal({ puerto: 0, plazoNavegadorMs: 15 * 60_000 });
+    try {
+      const html = await (await fetch(s.url)).text();
+      expect(html).toContain('<meta name="plazo-navegador" content="15">');
+      expect(html).toContain('meta[name="plazo-navegador"]');
+    } finally {
+      await s.cerrar();
+    }
+  });
+
   it('mantiene el estado global visible fuera del acceso y no expone una acción automática de verificación', async () => {
     const { html } = await entorno();
     const acceso = /<section id="acceso"[\s\S]*?<\/section>/.exec(html)?.[0];
