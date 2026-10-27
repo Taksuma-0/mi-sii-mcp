@@ -1,0 +1,828 @@
+{
+ "data": [
+  {
+   "listAgenteRetenedor": {
+    "1879": {
+     "resumen": {
+      "tabla": {
+       "00": {
+        "fila": {
+         "00": {
+          "colspan": 1,
+          "rowspan": 3,
+          "value": "Cantidad de Informantes",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 150
+          },
+          "largoColumna": null,
+          "style": "fw-descripcionCampo",
+          "contactoRut": false
+         },
+         "01": {
+          "colspan": 3,
+          "rowspan": 1,
+          "value": "Monto Retenido Anual Actualizado",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 470
+          },
+          "largoColumna": null,
+          "style": "fw-descripcionCampoCenter",
+          "contactoRut": false
+         },
+         "02": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": null,
+          "conBordeSuperior": true,
+          "esParteDeSpan": true,
+          "ancho": null,
+          "largoColumna": null,
+          "style": null,
+          "contactoRut": false
+         },
+         "03": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": null,
+          "conBordeSuperior": true,
+          "esParteDeSpan": true,
+          "ancho": null,
+          "largoColumna": null,
+          "style": null,
+          "contactoRut": false
+         },
+         "04": {
+          "colspan": 1,
+          "rowspan": 3,
+          "value": "Monto pagado anual Actualizado  por Servicios prestados en Isla de Pascua",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 150
+          },
+          "largoColumna": 15,
+          "style": "fw-descripcionCampo",
+          "contactoRut": false
+         },
+         "05": {
+          "colspan": 1,
+          "rowspan": 3,
+          "value": "3% PRÉSTAMO TASA 0% AÑO 2021",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 150
+          },
+          "largoColumna": 18,
+          "style": "fw-descripcionCampo",
+          "contactoRut": false
+         }
+        },
+        "tipoCelda": "cabecera",
+        "ultimaCelda": 6
+       },
+       "01": {
+        "fila": {
+         "00": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": null,
+          "conBordeSuperior": false,
+          "esParteDeSpan": false,
+          "ancho": null,
+          "largoColumna": null,
+          "style": null,
+          "contactoRut": false
+         },
+         "01": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": "Honorarios Y Otros (Art.42 N° 2)",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 170
+          },
+          "largoColumna": null,
+          "style": "fw-descripcionCampoCenter",
+          "contactoRut": false
+         },
+         "02": {
+          "colspan": 2,
+          "rowspan": 1,
+          "value": "Remuneración De Directores (Art. 48)",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 300
+          },
+          "largoColumna": null,
+          "style": "fw-descripcionCampoCenter",
+          "contactoRut": false
+         },
+         "03": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": null,
+          "conBordeSuperior": true,
+          "esParteDeSpan": true,
+          "ancho": null,
+          "largoColumna": null,
+          "style": null,
+          "contactoRut": false
+         },
+         "04": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": null,
+          "conBordeSuperior": false,
+          "esParteDeSpan": false,
+          "ancho": null,
+          "largoColumna": null,
+          "style": null,
+          "contactoRut": false
+         },
+         "05": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": null,
+          "conBordeSuperior": false,
+          "esParteDeSpan": false,
+          "ancho": null,
+          "largoColumna": null,
+          "style": null,
+          "contactoRut": false
+         }
+        },
+        "tipoCelda": "cabecera",
+        "ultimaCelda": 4
+       },
+       "02": {
+        "fila": {
+         "00": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": null,
+          "conBordeSuperior": false,
+          "esParteDeSpan": false,
+          "ancho": null,
+          "largoColumna": null,
+          "style": null,
+          "contactoRut": false
+         },
+         "01": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": "Tasa 14.5%",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 170
+          },
+          "largoColumna": 15,
+          "style": "fw-descripcionCampo",
+          "contactoRut": false
+         },
+         "02": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": "Tasa 10%",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 150
+          },
+          "largoColumna": 15,
+          "style": "fw-descripcionCampo",
+          "contactoRut": false
+         },
+         "03": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": "Tasa 35%",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 150
+          },
+          "largoColumna": 15,
+          "style": "fw-descripcionCampo",
+          "contactoRut": false
+         },
+         "04": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": null,
+          "conBordeSuperior": false,
+          "esParteDeSpan": false,
+          "ancho": null,
+          "largoColumna": null,
+          "style": null,
+          "contactoRut": false
+         },
+         "05": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": null,
+          "conBordeSuperior": false,
+          "esParteDeSpan": false,
+          "ancho": null,
+          "largoColumna": null,
+          "style": null,
+          "contactoRut": false
+         }
+        },
+        "tipoCelda": "cabecera",
+        "ultimaCelda": 4
+       },
+       "03": {
+        "fila": {
+         "00": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": "2",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 154
+          },
+          "largoColumna": null,
+          "style": "fw-valorCampo",
+          "contactoRut": false
+         },
+         "01": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": "175.000",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 174
+          },
+          "largoColumna": null,
+          "style": "fw-valorCampo",
+          "contactoRut": false
+         },
+         "02": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": "0",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 154
+          },
+          "largoColumna": null,
+          "style": "fw-valorCampo",
+          "contactoRut": false
+         },
+         "03": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": "0",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 154
+          },
+          "largoColumna": null,
+          "style": "fw-valorCampo",
+          "contactoRut": false
+         },
+         "04": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": "0",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 154
+          },
+          "largoColumna": null,
+          "style": "fw-valorCampo",
+          "contactoRut": false
+         },
+         "05": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": "0",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 154
+          },
+          "largoColumna": null,
+          "style": "fw-valorCampo",
+          "contactoRut": false
+         }
+        },
+        "tipoCelda": "dato",
+        "ultimaCelda": 6
+       }
+      },
+      "cantRegistros": 0,
+      "cantidadColumnas": 6,
+      "cantidadFilas": 4
+     }
+    }
+   },
+   "title": "Sobre Retenciones Efectuadas Conforme A Los Arts. 42° N° 2 Y 48° De La L.I.R.",
+   "formKey": 0
+  },
+  {
+   "listAgenteRetenedor": {
+    "1945": {
+     "resumen": {
+      "tabla": {
+       "00": {
+        "fila": {
+         "00": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": "Total de Casos Informados",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 144
+          },
+          "largoColumna": 10,
+          "style": "fw-descripcionCampoCenter",
+          "contactoRut": false
+         },
+         "01": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": "Total Monto",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": null,
+          "largoColumna": 20,
+          "style": "fw-descripcionCampoCenter",
+          "contactoRut": false
+         }
+        },
+        "tipoCelda": "cabecera",
+        "ultimaCelda": 2
+       },
+       "01": {
+        "fila": {
+         "00": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": "0",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 144
+          },
+          "largoColumna": null,
+          "style": "fw-valorCampo",
+          "contactoRut": false
+         },
+         "01": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": "0",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 144
+          },
+          "largoColumna": null,
+          "style": "fw-valorCampo",
+          "contactoRut": false
+         }
+        },
+        "tipoCelda": "dato",
+        "ultimaCelda": 2
+       }
+      },
+      "cantRegistros": 0,
+      "cantidadColumnas": 2,
+      "cantidadFilas": 2
+     }
+    }
+   },
+   "title": "Declaración jurada 1945 Anual Sobre ingresos, desembolsos y otros antecedentes de las Organizaciones Sin Fines de Lucro",
+   "formKey": 0
+  },
+  {
+   "listAgenteRetenedor": {
+    "303": {
+     "resumen": {
+      "tabla": {
+       "00": {
+        "fila": {
+         "00": {
+          "colspan": 2,
+          "rowspan": 1,
+          "value": "Ingresos",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 150
+          },
+          "largoColumna": null,
+          "style": "fw-descripcionCampo",
+          "contactoRut": false
+         },
+         "01": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": null,
+          "conBordeSuperior": true,
+          "esParteDeSpan": true,
+          "ancho": null,
+          "largoColumna": null,
+          "style": null,
+          "contactoRut": false
+         },
+         "02": {
+          "colspan": 2,
+          "rowspan": 1,
+          "value": "Egresos",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 150
+          },
+          "largoColumna": null,
+          "style": "fw-descripcionCampo",
+          "contactoRut": false
+         },
+         "03": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": null,
+          "conBordeSuperior": true,
+          "esParteDeSpan": true,
+          "ancho": null,
+          "largoColumna": null,
+          "style": null,
+          "contactoRut": false
+         }
+        },
+        "tipoCelda": "cabecera",
+        "ultimaCelda": 4
+       },
+       "01": {
+        "fila": {
+         "00": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": "F29",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 150
+          },
+          "largoColumna": 18,
+          "style": "fw-descripcionCampo",
+          "contactoRut": false
+         },
+         "01": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": "Registro de compra y venta",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 150
+          },
+          "largoColumna": 18,
+          "style": "fw-descripcionCampo",
+          "contactoRut": false
+         },
+         "02": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": "F29",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 150
+          },
+          "largoColumna": 18,
+          "style": "fw-descripcionCampo",
+          "contactoRut": false
+         },
+         "03": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": "Registro de compra y venta",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 150
+          },
+          "largoColumna": 18,
+          "style": "fw-descripcionCampo",
+          "contactoRut": false
+         }
+        },
+        "tipoCelda": "cabecera",
+        "ultimaCelda": 4
+       },
+       "02": {
+        "fila": {
+         "00": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": "0",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 150
+          },
+          "largoColumna": null,
+          "style": "fw-descripcionCampo",
+          "contactoRut": false
+         },
+         "01": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": "0",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 150
+          },
+          "largoColumna": null,
+          "style": "fw-descripcionCampo",
+          "contactoRut": false
+         },
+         "02": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": "0",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 150
+          },
+          "largoColumna": null,
+          "style": "fw-descripcionCampo",
+          "contactoRut": false
+         },
+         "03": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": "0",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 150
+          },
+          "largoColumna": null,
+          "style": "fw-descripcionCampo",
+          "contactoRut": false
+         }
+        },
+        "tipoCelda": "dato",
+        "ultimaCelda": 4
+       }
+      },
+      "cantRegistros": 0,
+      "cantidadColumnas": 4,
+      "cantidadFilas": 3
+     }
+    }
+   },
+   "title": "Comparativo F29 y Registro de compra y venta",
+   "formKey": 0
+  },
+  {
+   "listAgenteRetenedor": {
+    "308": {
+     "resumen": {
+      "tabla": {
+       "00": {
+        "fila": {
+         "00": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": "Saldo Total Pendiente de Tributar",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 150
+          },
+          "largoColumna": 22,
+          "style": "fw-descripcionCampo",
+          "contactoRut": false
+         }
+        },
+        "tipoCelda": "cabecera",
+        "ultimaCelda": 1
+       },
+       "01": {
+        "fila": {
+         "00": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": "0",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 150
+          },
+          "largoColumna": null,
+          "style": "fw-descripcionCampo",
+          "contactoRut": false
+         }
+        },
+        "tipoCelda": "dato",
+        "ultimaCelda": 1
+       }
+      },
+      "cantRegistros": 0,
+      "cantidadColumnas": 1,
+      "cantidadFilas": 2
+     }
+    }
+   },
+   "title": "Rentas Pendiente De Tributar por EnajenaciÃ³n de BBRR (Recuadro NÂ°2 -  FORM. 22)",
+   "formKey": 0
+  },
+  {
+   "listAgenteRetenedor": {
+    "309": {
+     "resumen": {
+      "tabla": {
+       "00": {
+        "fila": {
+         "00": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": "Monto préstamo solicitado",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 150
+          },
+          "largoColumna": 22,
+          "style": "fw-descripcionCampo",
+          "contactoRut": false
+         },
+         "01": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": "Cuota a pagar en el AT en curso",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 150
+          },
+          "largoColumna": 22,
+          "style": "fw-descripcionCampo",
+          "contactoRut": false
+         }
+        },
+        "tipoCelda": "cabecera",
+        "ultimaCelda": 2
+       },
+       "01": {
+        "fila": {
+         "00": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": "0",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 150
+          },
+          "largoColumna": null,
+          "style": "fw-descripcionCampo",
+          "contactoRut": false
+         },
+         "01": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": "0",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 150
+          },
+          "largoColumna": null,
+          "style": "fw-descripcionCampo",
+          "contactoRut": false
+         }
+        },
+        "tipoCelda": "dato",
+        "ultimaCelda": 2
+       }
+      },
+      "cantRegistros": 0,
+      "cantidadColumnas": 2,
+      "cantidadFilas": 2
+     }
+    }
+   },
+   "title": "Préstamo para pago de cotizaciones MYPES 2021",
+   "formKey": 0
+  },
+  {
+   "listAgenteRetenedor": {
+    "310": {
+     "resumen": {
+      "tabla": {
+       "00": {
+        "fila": {
+         "00": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": "Monto solicitado",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 150
+          },
+          "largoColumna": 22,
+          "style": "fw-descripcionCampo",
+          "contactoRut": false
+         }
+        },
+        "tipoCelda": "cabecera",
+        "ultimaCelda": 1
+       },
+       "01": {
+        "fila": {
+         "00": {
+          "colspan": 1,
+          "rowspan": 1,
+          "value": "0",
+          "conBordeSuperior": true,
+          "esParteDeSpan": false,
+          "ancho": {
+           "tipoAncho": "px",
+           "valor": 150
+          },
+          "largoColumna": null,
+          "style": "fw-descripcionCampo",
+          "contactoRut": false
+         }
+        },
+        "tipoCelda": "dato",
+        "ultimaCelda": 1
+       }
+      },
+      "cantRegistros": 0,
+      "cantidadColumnas": 1,
+      "cantidadFilas": 2
+     }
+    }
+   },
+   "title": "Préstamo solidario para pensionados 2021",
+   "formKey": 0
+  }
+ ],
+ "metaData": {
+  "conversationId": "TOKENFICTICIO0000000000",
+  "transactionId": "00000000-0000-4000-8000-000000000000",
+  "namespace": "cl.sii.sdi.lob.renta.djconsultarenta.data.api.interfaces.FacadeService/getAgenteRetenedor",
+  "info": null,
+  "errors": null,
+  "page": null
+ }
+}

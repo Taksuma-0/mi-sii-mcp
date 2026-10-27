@@ -1,6 +1,6 @@
 import { ErrorImpuestocl } from '../../domain/errores.js';
 import type { Periodo } from '../../domain/periodo.js';
-import type { DocumentoRcv, EmpresaAutorizada, EstadoRcv, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBhe, InformeBheEmitidas, InformeBheEmitidasMes, Lado, PerfilTributario, PropuestaF29, RcvResumen } from '../../domain/tipos.js';
+import type { DjInformada, DjTercero, DocumentoRcv, EmpresaAutorizada, EstadoRcv, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBhe, InformeBheEmitidas, InformeBheEmitidasMes, Lado, PerfilTributario, PropuestaF29, RcvResumen } from '../../domain/tipos.js';
 import type { SiiReader } from '../../ports/index.js';
 
 /** Sin la prueba con una sesión real (T21) no se sabe si el SII entrega el RCV de la empresa a su representante. */
@@ -10,7 +10,7 @@ const ACCION_SESION_PROPIA = 'Inicia sesión con la identidad del contribuyente 
 /**
  * Lee un contribuyente con la sesión de otra identidad (`rutAcceso`, p. ej. la persona que representa a la empresa).
  * Solo el RCV se pide por representación (`rutEmisor` = el contribuyente), con aviso porque no está confirmado en vivo.
- * F29, propuesta, boletas, F22, perfil y empresas autorizadas exigen la sesión propia: SIN_PERMISO sin llamar al SII.
+ * F29, propuesta, boletas, F22, rentas informadas por terceros, perfil y empresas autorizadas exigen la sesión propia: SIN_PERMISO sin llamar al SII.
  * La sesión de quien accede (`abrir`) se abre recién en la primera consulta del RCV: lo demás no toca Mi SII ni el llavero.
  */
 export class LectorPorRepresentacion implements SiiReader {
@@ -76,6 +76,14 @@ export class LectorPorRepresentacion implements SiiReader {
 
   f22Detalle(rut: string, _anioTributario: number, _folio: number): Promise<F22Detalle> {
     return this.sinPermiso('la renta (F22)', rut);
+  }
+
+  djInformadas(rut: string, _anioTributario: number): Promise<DjInformada[]> {
+    return this.sinPermiso('las rentas informadas por terceros', rut);
+  }
+
+  djDetalle(rut: string, _anioTributario: number, _dj: number): Promise<DjTercero[]> {
+    return this.sinPermiso('las rentas informadas por terceros', rut);
   }
 
   private async sinPermiso(area: string, rut: string | null): Promise<never> {

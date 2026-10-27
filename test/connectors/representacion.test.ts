@@ -52,6 +52,8 @@ describe('LectorPorRepresentacion', () => {
     ['empresasAutorizadas', (l: LectorPorRepresentacion) => l.empresasAutorizadas()],
     ['f22Declaraciones', (l: LectorPorRepresentacion) => l.f22Declaraciones(EMPRESA, 2026)],
     ['f22Detalle', (l: LectorPorRepresentacion) => l.f22Detalle(EMPRESA, 2026, 1)],
+    ['djInformadas', (l: LectorPorRepresentacion) => l.djInformadas(EMPRESA, 2026)],
+    ['djDetalle', (l: LectorPorRepresentacion) => l.djDetalle(EMPRESA, 2026, 1879)],
   ] as const)('%s exige la sesión propia del contribuyente: SIN_PERMISO sin llamar al SII', async (_nombre, llamar) => {
     let aperturas = 0;
     const lector = new LectorPorRepresentacion(async () => {

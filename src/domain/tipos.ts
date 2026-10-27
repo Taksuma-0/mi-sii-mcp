@@ -375,3 +375,47 @@ export interface F22Detalle {
   readonly observaciones: readonly F22Observacion[];
   readonly eventos: readonly F22Evento[];
 }
+
+/**
+ * Declaración jurada (DJ) que terceros informaron al SII sobre el contribuyente en un año tributario, según el resumen de
+ * «rentas informadas por terceros». Solo las que traen datos: el SII lista también DJ ajenas con todo en 0.
+ */
+export interface DjInformada {
+  /** Número de la DJ (p. ej. 1879, retenciones de honorarios; 1887, sueldos que informa el empleador). */
+  readonly dj: number;
+  readonly titulo: string | null;
+  /** Cuántos registros (informantes) trae, si el SII lo dice; null si no. */
+  readonly registros: number | null;
+  /** Cabecera (resuelta, «nivel 1 / nivel 2 / …») → valor tal como lo muestra el SII. */
+  readonly resumen: Readonly<Record<string, string | null>>;
+}
+
+/**
+ * Una fila del detalle de una DJ informada por un tercero: lo que un informante (quien pagó y retuvo) declaró sobre el
+ * contribuyente. Los montos del SII vienen «actualizados» (reajustados por IPC, como en el F22). Sin datos de contacto.
+ */
+export interface DjTercero {
+  readonly dj: number;
+  /** RUT del informante, canónico (`33333333-3`). */
+  readonly informanteRut: string;
+  /** Nombre o razón social; null si el SII lo informa vacío o como «.». */
+  readonly informanteNombre: string | null;
+  /** Estado de la declaración del informante tal cual (p. ej. «Observada», «No Observada»). */
+  readonly estado: string | null;
+  /** El SII observó la declaración del informante. */
+  readonly observada: boolean;
+  readonly certificado: string | null;
+  readonly folio: number;
+  /** Fecha de presentación `AAAA-MM-DD`; null si no vino o no se entiende. */
+  readonly fechaPresentacion: string | null;
+  /** Meses (1 a 12) en que el informante declara rentas, en orden. */
+  readonly meses: readonly number[];
+  /** Columnas numéricas que no son de identificación: cabecera resuelta → monto (null si vino vacío). */
+  readonly montos: Readonly<Record<string, number | null>>;
+  /** Retención de honorarios (suma de las columnas «retenido … honorarios»), p. ej. en la DJ 1879. */
+  readonly retencionHonorarios?: number;
+  /** Renta del sueldo («renta total neta pagada» / remuneración), p. ej. en la DJ 1887. Columnas NO verificadas en vivo. */
+  readonly rentaSueldo?: number;
+  /** Impuesto único retenido, p. ej. en la DJ 1887. Columna NO verificada en vivo. */
+  readonly impuestoUnicoRetenido?: number;
+}

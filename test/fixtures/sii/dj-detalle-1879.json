@@ -1,0 +1,2036 @@
+{
+ "data": {
+  "listDetalle": {
+   "DETALLE": {
+    "detalle": {
+     "tabla": {
+      "00": {
+       "fila": {
+        "10": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "11": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "12": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "13": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "14": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "15": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "16": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "17": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "18": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "19": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "20": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "21": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "22": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "23": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "24": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "25": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "26": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "00": {
+         "colspan": 27,
+         "rowspan": 1,
+         "value": " DATOS DE LOS INFORMADOS ",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": null,
+         "style": "fw-tituloGrupoIzq",
+         "contactoRut": false
+        },
+        "01": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "02": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "03": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "04": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "05": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "06": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "07": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "08": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "09": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        }
+       },
+       "tipoCelda": "cabecera",
+       "ultimaCelda": 27
+      },
+      "01": {
+       "fila": {
+        "10": {
+         "colspan": 12,
+         "rowspan": 2,
+         "value": "Periodo Al Cual Corresponde Las Rentas",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 240
+         },
+         "largoColumna": null,
+         "style": "fw-descripcionCampoCenter",
+         "contactoRut": false
+        },
+        "11": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "12": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "13": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "14": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "15": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "16": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "17": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "18": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "19": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "20": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "21": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "22": {
+         "colspan": 1,
+         "rowspan": 3,
+         "value": "Monto pagado anual Actualizado  por Servicios prestados en Isla de Pascua",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 100
+         },
+         "largoColumna": 15,
+         "style": "fw-descripcionCampoCenter",
+         "contactoRut": false
+        },
+        "23": {
+         "colspan": 1,
+         "rowspan": 3,
+         "value": "3% PRÉSTAMO TASA 0% AÑO 2021",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 100
+         },
+         "largoColumna": 15,
+         "style": "fw-descripcionCampoCenter",
+         "contactoRut": false
+        },
+        "24": {
+         "colspan": 1,
+         "rowspan": 3,
+         "value": "Número Certificado",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": 7,
+         "style": "fw-descripcionCampoCenter",
+         "contactoRut": false
+        },
+        "25": {
+         "colspan": 1,
+         "rowspan": 3,
+         "value": "Estado",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 100
+         },
+         "largoColumna": 50,
+         "style": "fw-descripcionCampoCenter",
+         "contactoRut": false
+        },
+        "26": {
+         "colspan": 1,
+         "rowspan": 3,
+         "value": "Origen de la Información",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 100
+         },
+         "largoColumna": 50,
+         "style": "fw-descripcionCampoCenter",
+         "contactoRut": false
+        },
+        "00": {
+         "colspan": 1,
+         "rowspan": 3,
+         "value": "Tipo de Formulario",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 50
+         },
+         "largoColumna": 8,
+         "style": "fw-descripcionCampoCenter",
+         "contactoRut": false
+        },
+        "01": {
+         "colspan": 1,
+         "rowspan": 3,
+         "value": "Folio",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 60
+         },
+         "largoColumna": 12,
+         "style": "fw-descripcionCampoCenter",
+         "contactoRut": false
+        },
+        "02": {
+         "colspan": 3,
+         "rowspan": 3,
+         "value": "Rut Declarante",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 70
+         },
+         "largoColumna": 8,
+         "style": "fw-descripcionCampoCenter",
+         "contactoRut": false
+        },
+        "03": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "04": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "05": {
+         "colspan": 1,
+         "rowspan": 3,
+         "value": "Nombre o Razón Social Declarante",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 230
+         },
+         "largoColumna": 50,
+         "style": "fw-descripcionCampoCenter",
+         "contactoRut": false
+        },
+        "06": {
+         "colspan": 1,
+         "rowspan": 3,
+         "value": "Fecha presentacion",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 230
+         },
+         "largoColumna": 0,
+         "style": "fw-descripcionCampoCenter",
+         "contactoRut": false
+        },
+        "07": {
+         "colspan": 3,
+         "rowspan": 1,
+         "value": "Monto Retenido Anual Actualizado (Del 01/01 Al 31/12)",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 360
+         },
+         "largoColumna": null,
+         "style": "fw-descripcionCampoCenter",
+         "contactoRut": false
+        },
+        "08": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "09": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        }
+       },
+       "tipoCelda": "cabecera",
+       "ultimaCelda": 27
+      },
+      "02": {
+       "fila": {
+        "10": {
+         "colspan": 12,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "11": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "12": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "13": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "14": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "15": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "16": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "17": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "18": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "19": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "20": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "21": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "22": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "23": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "24": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "25": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "26": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "00": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "01": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "02": {
+         "colspan": 3,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "03": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "04": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "05": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "06": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "07": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "Honorarios Y Otros (Art.42 N° 2)",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": null,
+         "style": "fw-descripcionCampoCenter",
+         "contactoRut": false
+        },
+        "08": {
+         "colspan": 2,
+         "rowspan": 1,
+         "value": "Remuneracion de Directores (Art. 48)",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": null,
+         "style": "fw-descripcionCampoCenter",
+         "contactoRut": false
+        },
+        "09": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": true,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        }
+       },
+       "tipoCelda": "cabecera",
+       "ultimaCelda": 10
+      },
+      "03": {
+       "fila": {
+        "10": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "ENE",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": 1,
+         "style": "fw-descripcionCampoCenter",
+         "contactoRut": false
+        },
+        "11": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "FEB",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": 1,
+         "style": "fw-descripcionCampoCenter",
+         "contactoRut": false
+        },
+        "12": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "MAR",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": 1,
+         "style": "fw-descripcionCampoCenter",
+         "contactoRut": false
+        },
+        "13": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "ABR",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": 1,
+         "style": "fw-descripcionCampoCenter",
+         "contactoRut": false
+        },
+        "14": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "MAY",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": 1,
+         "style": "fw-descripcionCampoCenter",
+         "contactoRut": false
+        },
+        "15": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "JUN",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": 1,
+         "style": "fw-descripcionCampoCenter",
+         "contactoRut": false
+        },
+        "16": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "JUL",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": 1,
+         "style": "fw-descripcionCampoCenter",
+         "contactoRut": false
+        },
+        "17": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "AGO",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": 1,
+         "style": "fw-descripcionCampoCenter",
+         "contactoRut": false
+        },
+        "18": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "SEP",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": 1,
+         "style": "fw-descripcionCampoCenter",
+         "contactoRut": false
+        },
+        "19": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "OCT",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": 1,
+         "style": "fw-descripcionCampoCenter",
+         "contactoRut": false
+        },
+        "20": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "NOV",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": 1,
+         "style": "fw-descripcionCampoCenter",
+         "contactoRut": false
+        },
+        "21": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "DIC",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": 1,
+         "style": "fw-descripcionCampoCenter",
+         "contactoRut": false
+        },
+        "22": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "23": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "24": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "25": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "26": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "00": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "01": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "02": {
+         "colspan": 3,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "03": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "04": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": true,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "05": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "06": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": null,
+         "conBordeSuperior": false,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": null,
+         "style": null,
+         "contactoRut": false
+        },
+        "07": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "Tasa 14.5%",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": 12,
+         "style": "fw-descripcionCampoCenter",
+         "contactoRut": false
+        },
+        "08": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "Tasa 10%",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": 12,
+         "style": "fw-descripcionCampoCenter",
+         "contactoRut": false
+        },
+        "09": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "Tasa 35%",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": null,
+         "largoColumna": 12,
+         "style": "fw-descripcionCampoCenter",
+         "contactoRut": false
+        }
+       },
+       "tipoCelda": "cabecera",
+       "ultimaCelda": 22
+      },
+      "04": {
+       "fila": {
+        "10": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 20
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "11": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 20
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "12": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 20
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "13": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 20
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "14": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 20
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "15": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 20
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "16": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "X",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 20
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "17": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "X",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 20
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "18": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "X",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 20
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "19": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "X",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 20
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "20": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "X",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 20
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "21": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "X",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 20
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "22": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "0",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 120
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "23": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "0",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 70
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "24": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "101",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 120
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "25": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "Observada",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 100
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "26": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "Tercero",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 100
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "00": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "1879",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 50
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "01": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "1234567",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 60
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "02": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "33.333.333",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 70
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": true
+        },
+        "03": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "-",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 10
+         },
+         "largoColumna": null,
+         "style": "fw-descripcionCampoCenter",
+         "contactoRut": false
+        },
+        "04": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "3",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 20
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "05": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "EMPRESA FICTICIA UNO SPA",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 230
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "06": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "02-02-2026",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 100
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "07": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "45.000",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 120
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampoRight",
+         "contactoRut": false
+        },
+        "08": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "0",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 120
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampoRight",
+         "contactoRut": false
+        },
+        "09": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "0",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 120
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampoRight",
+         "contactoRut": false
+        }
+       },
+       "tipoCelda": "dato",
+       "ultimaCelda": 27
+      },
+      "05": {
+       "fila": {
+        "10": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 20
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "11": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 20
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "12": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 20
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "13": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 20
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "14": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 20
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "15": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 20
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "16": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "X",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 20
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "17": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 20
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "18": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "X",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 20
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "19": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 20
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "20": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "X",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 20
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "21": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "X",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 20
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "22": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "0",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 120
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "23": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "0",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 70
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "24": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "7",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 120
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "25": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "No Observada",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 100
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "26": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "Tercero",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 100
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "00": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "1879",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 50
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "01": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "76543",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 60
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "02": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "44.444.444",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 70
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": true
+        },
+        "03": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "-",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 10
+         },
+         "largoColumna": null,
+         "style": "fw-descripcionCampoCenter",
+         "contactoRut": false
+        },
+        "04": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "4",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 20
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "05": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": ".",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 230
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "06": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "03-02-2026",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 100
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampo",
+         "contactoRut": false
+        },
+        "07": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "130.000",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 120
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampoRight",
+         "contactoRut": false
+        },
+        "08": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "0",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 120
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampoRight",
+         "contactoRut": false
+        },
+        "09": {
+         "colspan": 1,
+         "rowspan": 1,
+         "value": "0",
+         "conBordeSuperior": true,
+         "esParteDeSpan": false,
+         "ancho": {
+          "tipoAncho": "px",
+          "valor": 120
+         },
+         "largoColumna": null,
+         "style": "fw-valorCampoRight",
+         "contactoRut": false
+        }
+       },
+       "tipoCelda": "dato",
+       "ultimaCelda": 27
+      }
+     },
+     "cantRegistros": 2,
+     "cantidadColumnas": 27,
+     "cantidadFilas": 6
+    }
+   }
+  }
+ },
+ "metaData": {
+  "conversationId": "TOKENFICTICIO0000000000",
+  "transactionId": "00000000-0000-4000-8000-000000000000",
+  "namespace": "cl.sii.sdi.lob.renta.djconsultarenta.data.api.interfaces.FacadeService/getDjDetalle",
+  "info": null,
+  "errors": null,
+  "page": null
+ }
+}

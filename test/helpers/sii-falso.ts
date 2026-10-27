@@ -1,6 +1,6 @@
 import { ErrorImpuestocl } from '../../src/domain/errores.js';
 import type { Periodo } from '../../src/domain/periodo.js';
-import type { DocumentoRcv, EmpresaAutorizada, EstadoRcv, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBhe, InformeBheEmitidas, InformeBheEmitidasMes, Lado, PerfilTributario, PropuestaF29, RcvResumen, RcvResumenFila } from '../../src/domain/tipos.js';
+import type { DjInformada, DjTercero, DocumentoRcv, EmpresaAutorizada, EstadoRcv, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBhe, InformeBheEmitidas, InformeBheEmitidasMes, Lado, PerfilTributario, PropuestaF29, RcvResumen, RcvResumenFila } from '../../src/domain/tipos.js';
 import type { SiiReader, SumideroRespuestas } from '../../src/ports/index.js';
 
 /**
@@ -15,6 +15,7 @@ import type { SiiReader, SumideroRespuestas } from '../../src/ports/index.js';
  * - bheEmitidasDetalle: `periodo` (null = vacío ambiguo; sin entrada = mes sin boletas); llamada `bheemitidasmes|periodo`
  * - perfil y empresas: una sola respuesta cada una (`perfil` null = Mi SII sin datos); las llamadas quedan como `perfil` y `empresas`
  * - f22: `anio` (sin entrada = sin declaraciones); f22Detalles: `anio|folio` (sin entrada = detalle vacío); llamadas `f22|anio` y `f22detalle|anio|folio`
+ * - terceros: `anio` (sin entrada = ninguna DJ con datos); tercerosDetalle: `anio|dj` (sin entrada = detalle vacío); llamadas `terceros|anio` y `tercerosdetalle|anio|dj`
  * Cada llamada queda en `llamadas` (p. ej. `resumen|2026-09|VENTA|REGISTRO`); `fallas` usa ese mismo texto.
  * `alLlamar` corre en cada llamada, antes de responder (por ejemplo, para cancelar a mitad de camino).
  * Un resumen sin filas llega con "sin movimientos" explícito (código 3), salvo con `vaciosAmbiguos`.
@@ -36,6 +37,8 @@ export class SiiFalso implements SiiReader {
   readonly fallas = new Map<string, Error>();
   readonly f22 = new Map<number, F22Declaracion[]>();
   readonly f22Detalles = new Map<string, F22Detalle>();
+  readonly terceros = new Map<number, DjInformada[]>();
+  readonly tercerosDetalle = new Map<string, DjTercero[]>();
   perfil: PerfilTributario | null = null;
   empresas: EmpresaAutorizada[] = [];
   alLlamar: (llamada: string) => void | Promise<void> = () => {};
@@ -117,5 +120,15 @@ export class SiiFalso implements SiiReader {
   async f22Detalle(_rut: string, anioTributario: number, folio: number): Promise<F22Detalle> {
     await this.registrar(`f22detalle|${anioTributario}|${folio}`);
     return this.f22Detalles.get(`${anioTributario}|${folio}`) ?? { valores: [], observaciones: [], eventos: [] };
+  }
+
+  async djInformadas(_rut: string, anioTributario: number): Promise<DjInformada[]> {
+    await this.registrar(`terceros|${anioTributario}`);
+    return this.terceros.get(anioTributario) ?? [];
+  }
+
+  async djDetalle(_rut: string, anioTributario: number, dj: number): Promise<DjTercero[]> {
+    await this.registrar(`tercerosdetalle|${anioTributario}|${dj}`);
+    return this.tercerosDetalle.get(`${anioTributario}|${dj}`) ?? [];
   }
 }

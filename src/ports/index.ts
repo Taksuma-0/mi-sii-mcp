@@ -4,6 +4,8 @@ import type {
   BoletaHonorarios,
   BoletaHonorariosEmitida,
   DisponibilidadFuentes,
+  DjInformada,
+  DjTercero,
   DocumentoRcv,
   EmpresaAutorizada,
   EstadoRcv,
@@ -56,6 +58,10 @@ export interface SiiReader {
   f22Declaraciones(rut: string, anioTributario: number): Promise<F22Declaracion[]>;
   /** Códigos (sin los de identificación), observaciones y eventos de un folio del F22. */
   f22Detalle(rut: string, anioTributario: number, folio: number): Promise<F22Detalle>;
+  /** DJ que terceros informaron sobre el contribuyente en el año tributario y que traen datos; vacía si no hay ninguna. */
+  djInformadas(rut: string, anioTributario: number): Promise<DjInformada[]>;
+  /** Detalle de una DJ informada por terceros: una fila por informante y folio (todas las páginas); vacía si el SII no trae detalle. */
+  djDetalle(rut: string, anioTributario: number, dj: number): Promise<DjTercero[]>;
 }
 
 /** Lee los códigos del PDF compacto del F29. La sincronización y la relectura usan el mismo, así su versión dice qué lector se usó. */

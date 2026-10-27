@@ -26,6 +26,12 @@ describe('fixtures sintéticas', () => {
         for (const m of texto.matchAll(/"(?:detRutDoc|rutDoc|rutEmisor|rut|rutContribuyente|usrEmpRut|rutemisor_\d+|rutreceptor_\d+|rut_arrastre)"\s*:\s*"?(\d{7,8})"?/g)) {
           if (!CUERPOS_PERMITIDOS.has(m[1]!)) extranos.push(`${archivo}: ${m[1]}`);
         }
+        // Tablas de las DJ informadas por terceros: el RUT del informante va en una celda con `contactoRut: true`, sin DV
+        // (`"value": "33.333.333"`); el DV viene en otra celda.
+        for (const m of texto.matchAll(/"value"\s*:\s*"(\d{1,2}\.?\d{3}\.?\d{3})(?:-[\dkK])?"(?:(?!"value")[\s\S])*?"contactoRut"\s*:\s*true/g)) {
+          const cuerpo = m[1]!.replace(/\./g, '');
+          if (!CUERPOS_PERMITIDOS.has(cuerpo)) extranos.push(`${archivo}: ${cuerpo}`);
+        }
         // Páginas HTML del SII: asignaciones JS (`arr_informe_mensual['rutemisor_1'] = "…"`, también `rutreceptor_N` de las emitidas) y parámetros de URL (`rut_arrastre=…`).
         for (const m of texto.matchAll(/(?:\[\s*['"](?:rutemisor_\d+|rutreceptor_\d+|rut_arrastre)['"]\s*\]\s*=\s*["']?|\brut_arrastre=)(\d{7,8})/g)) {
           if (!CUERPOS_PERMITIDOS.has(m[1]!)) extranos.push(`${archivo}: ${m[1]}`);

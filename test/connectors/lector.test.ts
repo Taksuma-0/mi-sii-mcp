@@ -64,6 +64,26 @@ describe('LectorPortalSii', () => {
     expect(crudas.map((c) => c.superficie)).toEqual(['f22', 'f22.compacto', 'f22.observaciones', 'f22.eventos']);
   });
 
+  it('lee las rentas informadas por terceros (resumen y detalle de una DJ) normalizando el RUT', async () => {
+    const base = 'POST https://www4.sii.cl/djconsultarentaui/services/data/facadeService';
+    const { fetchFalso, llamadas } = crearFetchFalso({
+      [`${base}/getAgenteRetenedor`]: { headers: JSON_CT, body: fixture('dj-agentes.json') },
+      [`${base}/getDjDetalle`]: { headers: JSON_CT, body: fixture('dj-detalle-1879.json') },
+    });
+    const crudas: RespuestaCruda[] = [];
+    const jar = new CookieJar();
+    await jar.setCookie('TOKEN=tok123; Domain=.sii.cl; Path=/', 'https://www4.sii.cl/');
+    const lector = new LectorPortalSii(new ClienteHttp(jar, { fetch: fetchFalso, temporizador: sinEsperas }), (r) => void crudas.push(r));
+
+    const informadas = await lector.djInformadas('11.111.111-1', 2026);
+    const filas = await lector.djDetalle('11.111.111-1', 2026, informadas[0]!.dj);
+
+    expect(informadas.map((d) => d.dj)).toEqual([1879]);
+    expect(filas.map((f) => f.informanteRut)).toEqual(['33333333-3', '44444444-4']);
+    expect(JSON.parse(llamadas[1]!.body!).data).toMatchObject({ rut: '11111111', dv: '1', dj: 1879, periodo: '202600' });
+    expect(crudas.map((c) => c.superficie)).toEqual(['terceros.resumen', 'terceros.detalle']);
+  });
+
   it('lee el informe anual de boletas de honorarios emitidas normalizando el RUT', async () => {
     const { fetchFalso, llamadas } = crearFetchFalso({
       'GET https://loa.sii.cl/cgi_IMT/TMBCOC_InformeAnualBhe.cgi': { headers: [['content-type', 'text/html']], body: new Uint8Array(readFileSync(join(import.meta.dirname, '..', 'fixtures', 'sii', 'bhe-emitidas-anual.html'))) },
