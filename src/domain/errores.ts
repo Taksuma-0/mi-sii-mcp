@@ -25,7 +25,7 @@ export const ACCION_POR_DEFECTO: Readonly<Record<CodigoError, string>> = {
   SESION_REQUERIDA: 'Ejecuta `impuestocl login <rut>` para iniciar sesión en el SII.',
   CLAVE_RECHAZADA: 'Revisa la clave tributaria y ejecuta `impuestocl login <rut>`. No se harán intentos automáticos.',
   RUT_BLOQUEADO_LOCAL: 'Hubo una clave rechazada. Ejecuta `impuestocl login <rut>` con la clave correcta para desbloquear.',
-  PORTAL_CAMBIO: 'El SII cambió su portal. Revisa la carpeta de diagnóstico y reporta el problema.',
+  PORTAL_CAMBIO: 'El SII cambió su portal. Se guardó un archivo en la carpeta de diagnóstico; si reportas el problema, revisa el archivo antes de compartirlo: puede contener datos tributarios y de sesión.',
   SII_NO_DISPONIBLE: 'El SII no responde. Intenta de nuevo en unos minutos.',
   SII_EN_ESPERA: 'El SII tiene sala de espera por alta demanda. Intenta más tarde.',
   SII_LIMITE: 'El SII está limitando las consultas (429). Se detuvo la sincronización para no empeorarlo; reintenta más tarde.',
@@ -40,7 +40,7 @@ export const ACCION_POR_DEFECTO: Readonly<Record<CodigoError, string>> = {
   SII_SESIONES_MAXIMAS: 'El SII tiene demasiadas sesiones abiertas para este RUT. Cierra la sesión del SII en el navegador u otros equipos y reintenta en unos minutos.',
   RESPUESTA_VACIA: 'El SII respondió sin datos; si había datos anteriores, se conservan. Reintenta más tarde.',
   DATOS_INCOMPLETOS: 'El SII entregó menos documentos que su propio resumen; se conserva el último conjunto completo. Reintenta más tarde.',
-  LECTURA_INCOHERENTE: 'El F29 leído no cuadra; se conserva la lectura anterior. Puede que el SII haya cambiado el formulario.',
+  LECTURA_INCOHERENTE: 'El F29 leído no cuadra; se conserva la lectura anterior. Puede que el SII haya cambiado el formulario. Se guardó un archivo en la carpeta de diagnóstico; si reportas el problema, revisa el archivo antes de compartirlo: puede contener datos tributarios y de sesión.',
   RESPALDO_FALLIDO: 'No se migró la base porque no se pudo respaldar; revisa espacio en disco o que OneDrive/antivirus no bloquee la carpeta.',
   NAVEGADOR_NO_DISPONIBLE: 'Instala Microsoft Edge o Google Chrome, o indica la ruta del navegador con la variable IMPUESTOCL_NAVEGADOR, y vuelve a ejecutar `impuestocl login-navegador`.',
 };

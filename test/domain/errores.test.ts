@@ -88,3 +88,9 @@ describe('RESPUESTA_VACIA', () => {
     expect(ACCION_POR_DEFECTO.RESPUESTA_VACIA).toBe('El SII respondió sin datos; si había datos anteriores, se conservan. Reintenta más tarde.');
   });
 });
+
+describe('acciones que invitan a reportar', () => {
+  it.each(['PORTAL_CAMBIO', 'LECTURA_INCOHERENTE'] as const)('%s avisa que el archivo de diagnóstico se revise antes de compartirlo', (codigo) => {
+    expect(ACCION_POR_DEFECTO[codigo]).toContain('revisa el archivo antes de compartirlo: puede contener datos tributarios y de sesión');
+  });
+});

@@ -82,12 +82,20 @@ export async function registrar<T>(
     }
     deps.store.terminarSincronizacion(id, deps.reloj.ahora().toISOString(), 'error', { codigo: e.codigo, detalle: e.message });
     if (e.codigo === 'PORTAL_CAMBIO' || e.codigo === 'LECTURA_INCOHERENTE') {
-      deps.diagnostico?.(`${rut}-${periodo}-${superficie}.json`, JSON.stringify({ error: e.toJSON(), detalle: e.detalle ?? null, respuestas: buffer }, null, 2));
+      deps.diagnostico?.(`${rut}-${periodo}-${superficie}.json`, redactarSesion(JSON.stringify({ error: e.toJSON(), detalle: e.detalle ?? null, respuestas: buffer }, null, 2)));
     }
     if (ERRORES_FATALES.has(e.codigo)) throw e;
     res.errores.push({ superficie, codigo: e.codigo, mensaje: e.message });
     return null;
   }
+}
+
+/**
+ * El `conversationId` de las respuestas del SII es el token de la sesión: no debe quedar en un archivo que la persona
+ * puede compartir. Sirve también con el JSON anidado como texto (comillas escapadas) y con un valor cortado a medias.
+ */
+export function redactarSesion(texto: string): string {
+  return texto.replace(/(\\*"conversationId\\*"\s*:\s*\\*")[^"\\]*/g, '$1[REDACTADO]');
 }
 
 export function volcar(deps: DepsApp, sincronizacionId: number, buffer: readonly RespuestaCruda[]): void {

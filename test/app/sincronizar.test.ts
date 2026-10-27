@@ -147,6 +147,25 @@ describe('sincronizar', () => {
     expect(diagnosticos[0]?.nombre).toBe('22222222-2-2026-09-f29.valores.json');
   });
 
+  it('el diagnóstico redacta el conversationId de las respuestas y conserva el resto', async () => {
+    const { deps, sii, diagnosticos } = mesCompleto();
+    sii.valores.clear();
+    const secreto = 'TOKEN-FICTICIO-DE-SESION-123';
+    const cuerpo = JSON.stringify({ metaData: { namespace: 'ns.ficticio', conversationId: secreto, transactionId: 'tx-1' }, data: { monto: 42 } });
+    sii.alLlamar = (llamada) => {
+      if (llamada.startsWith('f29valores')) sii.sumidero({ superficie: 'f29.valores', parametros: {}, cuerpo, obtenidoEn: '2026-10-21T12:00:00.000Z' });
+    };
+
+    await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT);
+
+    const contenido = diagnosticos[0]!.contenido;
+    expect(contenido).not.toContain(secreto);
+    const respuesta = JSON.parse(contenido).respuestas.find((r: { cuerpo: string }) => r.cuerpo.includes('ns.ficticio'));
+    const guardado = JSON.parse(respuesta.cuerpo);
+    expect(guardado.metaData).toEqual({ namespace: 'ns.ficticio', conversationId: '[REDACTADO]', transactionId: 'tx-1' });
+    expect(guardado.data).toEqual({ monto: 42 });
+  });
+
   it('si la sesión expira a mitad de camino conserva lo traído y reporta abortado', async () => {
     const { deps, store, sii } = mesCompleto();
     sii.fallas.set('resumen|2026-09|VENTA|REGISTRO', new ErrorImpuestocl('SESION_REQUERIDA', 'La sesión del SII expiró.'));
