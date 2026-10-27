@@ -22,10 +22,20 @@ const textoDe = (r: unknown): string => (r as { content: { type: string; text: s
 const esError = (r: unknown): boolean => (r as { isError?: boolean }).isError === true;
 
 describe('servidor MCP', () => {
-  it('expone exactamente las 14 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
+  it('fuentes_oficiales indica dónde consultar los datos públicos sin ir al SII', async () => {
+    const p = depsDePrueba();
+    const cliente = await conectar(p.deps);
+    const r = await cliente.callTool({ name: 'fuentes_oficiales', arguments: { buscar: 'AFP', regla: true } });
+    expect(esError(r)).toBe(false);
+    expect(textoDe(r)).toContain('https://www.spensiones.cl/');
+    expect(textoDe(r)).toContain('Regla para estimar el F22');
+    expect(p.sii.llamadas).toEqual([]);
+  });
+
+  it('expone exactamente las 15 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
     const cliente = await conectar(depsDePrueba().deps);
     const { tools } = await cliente.listTools();
-    expect(tools).toHaveLength(14);
+    expect(tools).toHaveLength(15);
     expect(tools.map((t) => t.name).sort()).toEqual([...HERRAMIENTAS].sort());
     expect(JSON.stringify(tools.map((t) => t.inputSchema)).toLowerCase()).not.toMatch(/clave|password|contrase/);
     expect(tools.find((t) => t.name === 'iva_resumen')?.annotations?.readOnlyHint).toBe(true);

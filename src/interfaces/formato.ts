@@ -1,5 +1,6 @@
 import type { FilaHistorialF29, PaginaDocumentos, ResumenIva } from '../app/consultas.js';
 import type { CuentaSii, ResultadoCuenta } from '../app/cuenta.js';
+import { REGLA_ESTIMACION_RENTA, type FuenteOficial } from '../app/fuentes.js';
 import type { PerfilConSesion } from '../app/perfiles.js';
 import type { ResultadoReleerF29, ResultadoRelectura } from '../app/releer-f29.js';
 import type { AnioRenta, HonorariosEmitidos, InformadoTerceros, InformanteTercero, ResultadoAnioRenta, ResultadoRenta, ResumenRenta } from '../app/renta.js';
@@ -399,4 +400,15 @@ export function textoDocumentos(p: PaginaDocumentos): string {
         `${d.lado} ${d.estado} ${nombreTipoDocumento(d.tipoDoc)} ${d.folio} · ${d.razonSocial ?? d.rutContraparte} · ${d.fechaEmision ?? 'sin fecha'} · neto ${formatearClp(d.montoNeto)} · IVA ${formatearClp(d.montoIva)} · total ${formatearClp(d.montoTotal)}`,
     ),
   ].join('\n');
+}
+
+/** Dónde consultar los datos públicos de la renta y, si se pidió, la regla para estimar el F22 de una persona. */
+export function textoFuentes(fuentes: readonly FuenteOficial[], conRegla: boolean): string {
+  const lineas = [
+    'Datos públicos: impuestocl no los guarda. Consúltalos en la página oficial del año que se calcula y cita la fuente.',
+    ...(fuentes.length === 0 ? ['Ninguna fuente calza con la búsqueda; pide la lista completa sin filtro.'] : []),
+    ...fuentes.flatMap((f) => [`- ${f.parametro}: ${f.urls.join(' · ')}`, `  Qué buscar: ${f.buscar}`]),
+  ];
+  if (conRegla) lineas.push('Regla para estimar el F22 de una persona (sueldo y honorarios):', ...REGLA_ESTIMACION_RENTA.map((p, i) => `${i + 1}. ${p}`));
+  return lineas.join('\n');
 }

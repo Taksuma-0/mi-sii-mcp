@@ -4,6 +4,7 @@ import { consultaSql, esquemaDatos, LIMITES_CONSULTA } from '../../app/consulta-
 import { documentos, f29Historial, hallazgos, plazos, resumenIva } from '../../app/consultas.js';
 import type { DepsApp } from '../../app/deps.js';
 import { sincronizarCuenta } from '../../app/cuenta.js';
+import { fuentesOficiales, REGLA_ESTIMACION_RENTA } from '../../app/fuentes.js';
 import { panorama } from '../../app/panorama.js';
 import { listarPerfilesConRenovacion } from '../../app/perfiles.js';
 import { releerF29 } from '../../app/releer-f29.js';
@@ -12,7 +13,7 @@ import { sincronizar } from '../../app/sincronizar.js';
 import { esErrorImpuestocl, type CodigoError } from '../../domain/errores.js';
 import { parsePeriodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
-import { lineaReintento, textoDocumentos, textoHallazgos, textoHistorialF29, textoCuenta, textoPerfiles, textoPlazos, textoReintentables, textoReintentablesCuenta, textoReintentablesRenta, textoReleerF29, textoRenta, textoResumenIva, textoResumenRenta, textoSync } from '../formato.js';
+import { lineaReintento, textoDocumentos, textoHallazgos, textoHistorialF29, textoCuenta, textoFuentes, textoPerfiles, textoPlazos, textoReintentables, textoReintentablesCuenta, textoReintentablesRenta, textoReleerF29, textoRenta, textoResumenIva, textoResumenRenta, textoSync } from '../formato.js';
 
 export const HERRAMIENTAS = [
   'perfiles_listar',
@@ -29,15 +30,16 @@ export const HERRAMIENTAS = [
   'perfil_sincronizar',
   'renta_sincronizar',
   'renta_resumen',
+  'fuentes_oficiales',
 ] as const;
 
 /** Lo que lee el asistente al conectarse: flujo de uso, regla de la clave y cobertura (máximo 1 500 caracteres). */
 export const INSTRUCCIONES_MCP = [
-  '1. Empieza con perfiles_listar (RUT y sesión) y sii_panorama (lo guardado); a una persona sin IVA, parte por renta_sincronizar y renta_resumen.',
+  '1. Empieza con perfiles_listar y sii_panorama; a una persona sin IVA, parte por renta_sincronizar y renta_resumen.',
   '2. Si falta o está viejo, usa sincronizar por tramos de hasta 12 meses e informa el avance por tramo. Trae rcv y f29 por defecto; propuesta y bhe (boletas de honorarios recibidas) son opcionales. renta_sincronizar trae el F22 por año tributario; perfil_sincronizar, el perfil y las empresas autorizadas.',
-  '3. Para IVA, retenciones y plazos prefiere iva_resumen, iva_hallazgos, f29_historial y plazos_proximos: aplican las reglas. Para la renta, renta_resumen. Si un F29 no cuadra o se actualizó impuestocl, f29_releer relee los PDF guardados sin ir al SII.',
+  '3. Para IVA, retenciones y plazos prefiere iva_resumen, iva_hallazgos, f29_historial y plazos_proximos: aplican las reglas. Para la renta, renta_resumen; para estimarla, fuentes_oficiales. Si un F29 no cuadra o se actualizó impuestocl, f29_releer relee los PDF guardados sin ir al SII.',
   '4. Para cruces y preguntas libres, llama una vez a datos_esquema y luego a consulta_sql (solo lectura).',
-  '5. Nunca pidas la clave tributaria ni intentes un login. Ante SESION_REQUERIDA (o CLAVE_RECHAZADA, RUT_BLOQUEADO_LOCAL), indica a la persona que abra «Abrir impuestocl.cmd» (doble clic en la carpeta impuestocl) y conecte su cuenta ahí; solo si prefiere la terminal, dale el comando del mensaje (login-navegador para ClaveÚnica). Después reintenta.',
+  '5. Nunca pidas la clave tributaria ni intentes un login. Ante SESION_REQUERIDA (o CLAVE_RECHAZADA, RUT_BLOQUEADO_LOCAL), indica a la persona que abra «Abrir impuestocl.cmd» (carpeta impuestocl) y conecte su cuenta ahí; solo si prefiere la terminal, dale el comando del mensaje (login-navegador para ClaveÚnica). Después reintenta.',
   '6. Reintenta solo si el mensaje dice «Reintentar: ahora mismo» o «más tarde» (o lista «Reintentables más tarde»); con «Reintentar: no», sigue la acción indicada.',
   '7. Cobertura: RCV (compras y ventas), F29, propuesta de F29, boletas de honorarios recibidas y emitidas, renta F22, perfil tributario y empresas autorizadas. No es asesoría tributaria.',
 ].join('\n');
@@ -250,6 +252,25 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
         const r = resumenRenta(deps, rut, anio);
         return respuesta(textoResumenRenta(r), r);
       }, rut),
+  );
+
+  servidor.registerTool(
+    'fuentes_oficiales',
+    {
+      title: 'Fuentes oficiales de datos públicos',
+      description:
+        'Datos públicos de la renta (UTM y UTA, tablas del Impuesto Global Complementario y del Impuesto Único, factores de actualización por IPC, gastos presuntos, tasa de retención de honorarios, obligación y cobertura de la cotización de honorarios, tasas de ATEP, SANNA y salud, comisiones de las AFP y tasa del SIS): impuestocl no los guarda. Esta herramienta dice en qué página oficial (SII, Superintendencia de Pensiones, Previsión Social, ChileAtiende) consultar cada uno y qué buscar ahí, y con regla=true la regla paso a paso para estimar el F22 de una persona con sueldo y honorarios. Úsala antes de estimar una renta: los datos privados salen de renta_resumen y los públicos de esas páginas, del año que se calcula. No va al SII.',
+      inputSchema: z.object({
+        buscar: z.string().max(100).optional().describe('Palabras para filtrar (p. ej. «UTM», «cotización», «AFP»); sin filtro, todas'),
+        regla: z.boolean().optional().describe('Incluir la regla para estimar el F22 de una persona'),
+      }),
+      annotations: SOLO_LECTURA,
+    },
+    async ({ buscar, regla }) =>
+      seguro(() => {
+        const fuentes = fuentesOficiales(buscar);
+        return respuesta(textoFuentes(fuentes, regla === true), { fuentes, ...(regla === true ? { regla: REGLA_ESTIMACION_RENTA } : {}) });
+      }),
   );
 
   servidor.registerTool(
