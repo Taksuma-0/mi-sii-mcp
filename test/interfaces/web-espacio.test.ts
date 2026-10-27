@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import * as syncApp from '../../src/app/sincronizar.js';
 import { crearEspacioLocal } from '../../src/interfaces/web/espacio.js';
 import { errorPublico, SecretosNulos, type FabricaContenedorWeb } from '../../src/interfaces/web/verificar.js';
 import { ErrorImpuestocl, type CodigoError } from '../../src/domain/errores.js';
@@ -126,7 +127,7 @@ describe('espacio local por contexto', () => {
     expect(e.sii.llamadas).toContain('f29|2026-09');
     expect(e.sii.llamadas).toContain('resumen|2026-09|COMPRA|REGISTRO');
     expect(r.panorama.periodos.map(p => p.ventas)).toEqual([0, 0]);
-    expect(r.panorama.periodos.map(p => p.disponibilidad)).toEqual(Array(2).fill({ ventasRcv: true, comprasRcv: true, f29: true }));
+    expect(r.panorama.periodos.map(p => p.disponibilidad)).toEqual(Array(2).fill({ ventasRcv: true, comprasRcv: true, f29: true, propuestaF29: false, bheRecibidas: false }));
     expect(e.loginInteractivo).toHaveBeenCalledOnce();
     expect(e.cerrar).toHaveBeenCalledTimes(2);
   });
@@ -135,7 +136,7 @@ describe('espacio local por contexto', () => {
     const e = entorno(); const { contexto } = await e.espacio.conectar(entrada);
     const r = await e.espacio.sincronizar(contexto, { ...rango, superficies: ['f29'] });
     expect(e.sii.llamadas).toEqual(['f29|2026-08', 'f29|2026-09']);
-    expect(r.panorama.periodos[0]).toMatchObject({ ventas: null, compras: null, disponibilidad: { ventasRcv: false, comprasRcv: false, f29: true } });
+    expect(r.panorama.periodos[0]).toMatchObject({ ventas: null, compras: null, disponibilidad: { ventasRcv: false, comprasRcv: false, f29: true, propuestaF29: false, bheRecibidas: false } });
   });
 
   it.each(['SII_NO_DISPONIBLE', 'SESION_REQUERIDA'] as const)('devuelve parcial y sanea %s sin reautenticar', async (codigo) => {
@@ -200,5 +201,15 @@ describe('espacio local por contexto', () => {
     const e = entorno(); const { contexto } = await e.espacio.conectar(entrada);
     await expect(e.espacio.documentos(contexto, valor as Parameters<typeof e.espacio.documentos>[1])).rejects.toThrow();
     expect(e.fabrica).toHaveBeenCalledOnce();
+  });
+});
+
+describe('fuentes pedidas por el espacio', () => {
+  it('pide solo rcv y f29, por defecto y por elección', async () => {
+    const e = entorno(); const { contexto } = await e.espacio.conectar(entrada);
+    const espia = vi.spyOn(syncApp, 'sincronizar');
+    await e.espacio.sincronizar(contexto, rango);
+    await e.espacio.sincronizar(contexto, { ...rango, superficies: ['f29'] });
+    expect(espia.mock.calls.map((c) => c[4])).toEqual([['rcv', 'f29'], ['f29']]);
   });
 });

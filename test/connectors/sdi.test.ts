@@ -78,3 +78,30 @@ describe('postSdi', () => {
     expect(await codigoDe(postSdi(http, sumidero, PEDIDO))).toBe('PORTAL_CAMBIO');
   });
 });
+
+describe('postSdi: saneo de la evidencia', () => {
+  const CUERPO = '{"data":{"rut":"11111111-1","valor":5}}';
+  const sanear = (c: unknown): unknown => ({ ...(c as { data: Record<string, unknown> }), data: { valor: (c as { data: { valor: number } }).data.valor } });
+
+  it('el sumidero recibe la evidencia saneada y el parseo ve el cuerpo completo', async () => {
+    const { http, crudas, sumidero } = await preparar({ headers: JSON_CT, body: CUERPO }, true);
+    const r = await postSdi(http, sumidero, { ...PEDIDO, sanear });
+    expect(r).toEqual({ data: { rut: '11111111-1', valor: 5 } });
+    expect(crudas).toHaveLength(1);
+    expect(crudas[0]!.cuerpo).toBe('{"data":{"valor":5}}');
+  });
+
+  it('sin sanear guarda el texto tal cual', async () => {
+    const { http, crudas, sumidero } = await preparar({ headers: JSON_CT, body: CUERPO }, true);
+    await postSdi(http, sumidero, PEDIDO);
+    expect(crudas[0]!.cuerpo).toBe(CUERPO);
+  });
+
+  it('un cuerpo que no es JSON llega al sumidero tal cual, sin llamar a sanear', async () => {
+    const { http, crudas, sumidero } = await preparar({ headers: HTML, body: '<html>otra cosa</html>' }, true);
+    let llamado = false;
+    await postSdi(http, sumidero, { ...PEDIDO, sanear: (c) => { llamado = true; return c; } }).catch(() => undefined);
+    expect(crudas[0]!.cuerpo).toBe('<html>otra cosa</html>');
+    expect(llamado).toBe(false);
+  });
+});

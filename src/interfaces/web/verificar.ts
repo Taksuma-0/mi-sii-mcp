@@ -76,7 +76,7 @@ export async function verificar(entrada: EntradaVerificacion, fabrica: FabricaCo
   try {
     const login = await contenedor.sesiones.loginInteractivo(rut, entrada.clave, false);
     registrarIdentidad(contenedor.deps, login.identidad);
-    const sync = await sincronizar(contenedor.deps, rut, anterior, mes);
+    const sync = await sincronizar(contenedor.deps, rut, anterior, mes, ['rcv', 'f29']);
     const resumen = resumenIva(contenedor.deps, rut, mes.texto);
     const seguro = { ...sync, abortado: sync.abortado ? { ...sync.abortado, mensaje: errorPublico(new ErrorImpuestocl(sync.abortado.codigo as CodigoError, '')).mensaje } : null };
     return {

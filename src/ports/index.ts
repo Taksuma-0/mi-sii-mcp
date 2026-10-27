@@ -104,6 +104,8 @@ export interface HallazgoGuardado extends Hallazgo {
 export interface Frescura {
   readonly rcv: string | null;
   readonly f29: string | null;
+  readonly propuesta: string | null;
+  readonly bhe: string | null;
 }
 
 /** Topes de una consulta libre: filas, caracteres del JSON compacto de las filas, largo de cada celda de texto y plazo. */

@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { documentos, resumenIva, type PaginaDocumentos, type ResumenIva } from '../../app/consultas.js';
 import { panorama, type PanoramaSii } from '../../app/panorama.js';
 import { registrarIdentidad } from '../../app/perfiles.js';
-import { sincronizar, type Superficie } from '../../app/sincronizar.js';
+import { sincronizar } from '../../app/sincronizar.js';
 import { ErrorImpuestocl, type CodigoError } from '../../domain/errores.js';
 import { parsePeriodo, rangoPeriodos } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
@@ -11,8 +11,11 @@ import { crearContenedor } from '../../main/contenedor.js';
 import { textoSync } from '../formato.js';
 import { errorPublico, SecretosNulos, type ContenedorWeb, type FabricaContenedorWeb } from './verificar.js';
 
+/** Lo que la página puede pedir al SII; las superficies nuevas no se activan aquí sin una decisión explícita. */
+export type SuperficieWeb = 'rcv' | 'f29';
+
 export interface RangoEspacio { readonly desde: string; readonly hasta: string }
-export interface EntradaSincronizacion extends RangoEspacio { readonly superficies?: readonly Superficie[] }
+export interface EntradaSincronizacion extends RangoEspacio { readonly superficies?: readonly SuperficieWeb[] }
 export interface EntradaDocumentos { readonly periodo: string; readonly lado?: Lado; readonly estado?: EstadoRcv; readonly pagina?: number }
 export interface ResultadoSincronizacion { readonly estado: 'completo' | 'parcial'; readonly sincronizacion: string; readonly panorama: PanoramaSii }
 export interface OperacionesEspacio {
@@ -62,7 +65,7 @@ export function crearEspacioLocal(fabrica: FabricaContenedorWeb = crearContenedo
     async sincronizar(contexto, entrada) {
       const rut = rutDeContexto(contexto);
       const periodos = periodosDe(entrada);
-      const superficies: readonly Superficie[] = entrada.superficies === undefined ? ['rcv', 'f29'] : entrada.superficies;
+      const superficies: readonly SuperficieWeb[] = entrada.superficies === undefined ? ['rcv', 'f29'] : entrada.superficies;
       if (!Array.isArray(superficies) || superficies.length < 1 || superficies.length > 2 || ![...superficies].every(s => s === 'rcv' || s === 'f29')) throw new Error('Selecciona una o dos fuentes válidas.');
       return conContenedor(async ({ deps }) => {
         const sync = await sincronizar(deps, rut, periodos[0]!, periodos[periodos.length - 1]!, superficies);

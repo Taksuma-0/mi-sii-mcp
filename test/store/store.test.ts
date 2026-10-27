@@ -198,7 +198,7 @@ describe('SqliteStore: F29, frescura y hallazgos', () => {
 
   it('informa frescura y períodos con datos', () => {
     syncRcv('VENTA', [], []);
-    expect(store.frescura(RUT_EMPRESA, '2026-09')).toEqual({ rcv: T, f29: null });
+    expect(store.frescura(RUT_EMPRESA, '2026-09')).toEqual({ rcv: T, f29: null, propuesta: null, bhe: null });
     expect(store.periodosConDatos(RUT_EMPRESA)).toEqual(['2026-09']);
   });
 
@@ -223,7 +223,7 @@ describe('SqliteStore: F29, frescura y hallazgos', () => {
   });
 
   it('calcula frescura por término correcto y lista períodos únicos en orden', () => {
-    expect(store.frescura(RUT_EMPRESA, '2026-09')).toEqual({ rcv: null, f29: null });
+    expect(store.frescura(RUT_EMPRESA, '2026-09')).toEqual({ rcv: null, f29: null, propuesta: null, bhe: null });
     expect(store.periodosConDatos(RUT_EMPRESA)).toEqual([]);
     for (const [superficie, inicio, fin, estado] of [
       ['rcv.COMPRA', '2026-10-16T10:00:00.000Z', '2026-10-20T10:00:00.000Z', 'ok'],
@@ -236,7 +236,7 @@ describe('SqliteStore: F29, frescura y hallazgos', () => {
     store.iniciarSincronizacion(RUT_EMPRESA, 'rcv.VENTA', '2026-10', T);
     const otroMes = store.iniciarSincronizacion(RUT_EMPRESA, 'f29', '2026-08', T);
     store.terminarSincronizacion(otroMes, T, 'ok');
-    expect(store.frescura(RUT_EMPRESA, '2026-09')).toEqual({ rcv: '2026-10-20T10:00:00.000Z', f29: T });
+    expect(store.frescura(RUT_EMPRESA, '2026-09')).toEqual({ rcv: '2026-10-20T10:00:00.000Z', f29: T, propuesta: null, bhe: null });
     expect(store.periodosConDatos(RUT_EMPRESA)).toEqual(['2026-08', '2026-09']);
   });
 
@@ -353,5 +353,34 @@ describe('SqliteStore: lecturas del F29 y PDF guardados', () => {
     expect(store.pdfsF29Guardados(RUT_EMPRESA, '2026-09').map((p) => p.folio)).toEqual([1, 2]);
     expect(store.pdfsF29Guardados(RUT_EMPRESA, undefined, '2026-08').map((p) => p.folio)).toEqual([3]);
     expect(store.pdfsF29Guardados(RUT_EMPRESA, '2026-10', '2026-12')).toEqual([]);
+  });
+});
+
+describe('SqliteStore: superficies anuales y no periódicas', () => {
+  function sincOk(superficie: string, periodo: string, fin = T): void {
+    const id = store.iniciarSincronizacion(RUT_EMPRESA, superficie, periodo, fin);
+    store.terminarSincronizacion(id, fin, 'ok');
+  }
+
+  it('periodosConDatos ignora los períodos anuales y no periódicos', () => {
+    sincOk('f29', '2026-09');
+    sincOk('f22', 'AT2026');
+    sincOk('cuenta.perfil', '');
+    expect(store.periodosConDatos(RUT_EMPRESA)).toEqual(['2026-09']);
+  });
+
+  it('lee propuesta F29 y boletas recibidas por nombre exacto en disponibilidad y frescura', () => {
+    expect(store.disponibilidadFuentes(RUT_EMPRESA, '2026-09')).toEqual({ ventasRcv: false, comprasRcv: false, f29: false, propuestaF29: false, bheRecibidas: false });
+    sincOk('f29.propuesta', '2026-09', '2026-10-22T10:00:00.000Z');
+    sincOk('bhe.recibidas', '2026-09', '2026-10-23T10:00:00.000Z');
+    sincOk('f29.propuesta.otra', '2026-09', '2026-10-24T10:00:00.000Z');
+    expect(store.disponibilidadFuentes(RUT_EMPRESA, '2026-09')).toEqual({ ventasRcv: false, comprasRcv: false, f29: false, propuestaF29: true, bheRecibidas: true });
+    expect(store.frescura(RUT_EMPRESA, '2026-09')).toEqual({ rcv: null, f29: null, propuesta: '2026-10-22T10:00:00.000Z', bhe: '2026-10-23T10:00:00.000Z' });
+  });
+
+  it('la propuesta no cuenta como F29 ni lo contrario', () => {
+    sincOk('f29', '2026-09');
+    expect(store.disponibilidadFuentes(RUT_EMPRESA, '2026-09')).toMatchObject({ f29: true, propuestaF29: false });
+    expect(store.frescura(RUT_EMPRESA, '2026-09')).toMatchObject({ f29: T, propuesta: null });
   });
 });

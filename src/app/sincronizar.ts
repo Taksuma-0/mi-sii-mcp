@@ -1,4 +1,4 @@
-import { ERRORES_FATALES, ErrorImpuestocl, esErrorImpuestocl, type CodigoError } from '../domain/errores.js';
+import { ERRORES_FATALES, ErrorImpuestocl, esErrorImpuestocl } from '../domain/errores.js';
 import { declaracionVigente, f29Presentada } from '../domain/f29.js';
 import { rangoPeriodos, type Periodo } from '../domain/periodo.js';
 import { parseRut } from '../domain/rut.js';
@@ -7,23 +7,12 @@ import { f29Leido } from '../reconciliation/mapeo-f29.js';
 import { ESTADOS_RCV, type DocumentoRcv, type EstadoRcv, type F29Declaracion, type F29Valores, type Lado, type RcvResumen, type RespuestaCruda } from '../domain/tipos.js';
 import type { SiiReader } from '../ports/index.js';
 import type { DepsApp } from './deps.js';
+import { Cancelada, DATOS_INCOMPLETOS_RCV, registrar, revisarCancelacion, SINCRONIZACION_CANCELADA, type ErrorSuperficie, type ResultadoPeriodo } from './registro.js';
 import { motivoParaConservar } from './releer-f29.js';
 
+export { SINCRONIZACION_CANCELADA, type ErrorSuperficie, type ResultadoPeriodo };
+
 export type Superficie = 'rcv' | 'f29';
-
-export interface ErrorSuperficie {
-  readonly superficie: string;
-  readonly codigo: string;
-  readonly mensaje: string;
-}
-
-export interface ResultadoPeriodo {
-  periodo: string;
-  errores: ErrorSuperficie[];
-  avisos: string[];
-  documentos: number;
-  f29Folio: number | null;
-}
 
 export interface ResultadoSync {
   readonly rut: string;
@@ -38,8 +27,6 @@ const LADOS: readonly Lado[] = ['VENTA', 'COMPRA'];
 const ESTADOS_POR_LADO: Readonly<Record<Lado, readonly EstadoRcv[]>> = { VENTA: ['REGISTRO'], COMPRA: ESTADOS_RCV };
 /** Boletas y comprobantes de venta: el RCV los entrega solo como resumen. */
 export const SOLO_RESUMEN_VENTA: ReadonlySet<number> = new Set([35, 38, 39, 41, 48]);
-const CODIGO_DATOS_INCOMPLETOS: CodigoError = 'DATOS_INCOMPLETOS';
-const DATOS_INCOMPLETOS_RCV = Symbol('DATOS_INCOMPLETOS');
 
 /**
  * Si un lado del RCV debe conservar lo guardado en vez de reemplazarlo: solo cuando todos sus estados vinieron vacíos,
@@ -61,27 +48,8 @@ export function conservarF29(nuevas: readonly F29Declaracion[], guardadas: reado
   return guardadas.some((d) => f29Presentada(d) && !folios.has(d.folio));
 }
 
-/** Motivo de término cuando quien pidió la sincronización la cancela (p. ej. Esc en el cliente MCP). */
-export const SINCRONIZACION_CANCELADA: ErrorSuperficie = {
-  superficie: 'cancelacion',
-  codigo: 'CANCELADO',
-  mensaje: 'Sincronización cancelada; se conservan los meses ya traídos.',
-};
-
-const DETALLE_SUPERFICIE_CANCELADA = 'La cancelación cortó la consulta al SII; esta superficie no escribió datos.';
-
 /** Aviso del mes que la cancelación dejó a medias: sus superficies guardadas están completas, pero faltan otras. */
 export const AVISO_MES_CANCELADO = 'incompleto: la sincronización se canceló antes de terminar este mes';
-
-/**
- * Se lanza entre superficies o cuando la cancelación corta una consulta en curso; en ese caso la superficie no escribe
- * nada: lo ya guardado queda completo.
- */
-class Cancelada extends Error {}
-
-const revisarCancelacion = (signal: AbortSignal | undefined): void => {
-  if (signal?.aborted) throw new Cancelada();
-};
 
 /**
  * `signal` se revisa antes de abrir la sesión del SII, de cada período y de cada superficie, y corta la consulta al SII en
@@ -224,56 +192,4 @@ async function traerRcv(sii: SiiReader, rut: string, periodo: Periodo, lado: Lad
     }
   }
   return { resumenes, documentos, avisos };
-}
-
-/**
- * Ejecuta una superficie dentro de su registro de sincronización. Devuelve null si falló de forma no fatal. Si la
- * superficie falla con `signal` cancelada, su registro queda como `CANCELADO` y se lanza `Cancelada`.
- */
-async function registrar<T>(
-  deps: DepsApp,
-  rut: string,
-  superficie: string,
-  periodo: string,
-  buffer: RespuestaCruda[],
-  res: ResultadoPeriodo,
-  signal: AbortSignal | undefined,
-  trabajo: (sincronizacionId: number, ahora: string) => Promise<T | typeof DATOS_INCOMPLETOS_RCV>,
-): Promise<T | null> {
-  const ahora = deps.reloj.ahora().toISOString();
-  const id = deps.store.iniciarSincronizacion(rut, superficie, periodo, ahora);
-  buffer.length = 0;
-  try {
-    const valor = await trabajo(id, ahora);
-    volcar(deps, id, buffer);
-    if (valor === DATOS_INCOMPLETOS_RCV) {
-      const mensaje = 'El detalle RCV está incompleto; se conserva el último conjunto completo de este lado, si existe.';
-      deps.store.terminarSincronizacion(id, deps.reloj.ahora().toISOString(), 'error', { codigo: CODIGO_DATOS_INCOMPLETOS, detalle: mensaje });
-      res.errores.push({ superficie, codigo: CODIGO_DATOS_INCOMPLETOS, mensaje });
-      return null;
-    }
-    deps.store.terminarSincronizacion(id, deps.reloj.ahora().toISOString(), 'ok');
-    return valor;
-  } catch (e) {
-    volcar(deps, id, buffer);
-    if (signal?.aborted) {
-      deps.store.terminarSincronizacion(id, deps.reloj.ahora().toISOString(), 'error', { codigo: SINCRONIZACION_CANCELADA.codigo, detalle: DETALLE_SUPERFICIE_CANCELADA });
-      throw new Cancelada();
-    }
-    if (!esErrorImpuestocl(e)) {
-      deps.store.terminarSincronizacion(id, deps.reloj.ahora().toISOString(), 'error', { codigo: 'ERROR_INTERNO', detalle: String(e) });
-      throw e;
-    }
-    deps.store.terminarSincronizacion(id, deps.reloj.ahora().toISOString(), 'error', { codigo: e.codigo, detalle: e.message });
-    if (e.codigo === 'PORTAL_CAMBIO' || e.codigo === 'LECTURA_INCOHERENTE') {
-      deps.diagnostico?.(`${rut}-${periodo}-${superficie}.json`, JSON.stringify({ error: e.toJSON(), detalle: e.detalle ?? null, respuestas: buffer }, null, 2));
-    }
-    if (ERRORES_FATALES.has(e.codigo)) throw e;
-    res.errores.push({ superficie, codigo: e.codigo, mensaje: e.message });
-    return null;
-  }
-}
-
-function volcar(deps: DepsApp, sincronizacionId: number, buffer: readonly RespuestaCruda[]): void {
-  for (const r of buffer) deps.store.guardarRespuestaCruda(sincronizacionId, r);
 }

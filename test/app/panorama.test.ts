@@ -70,13 +70,13 @@ describe('panorama local del SII', () => {
     const r = panorama(deps, RUT_EMPRESA);
 
     expect(r.periodos[0]).toEqual({
-      periodo: '2026-08', disponibilidad: { ventasRcv: true, comprasRcv: true, f29: true },
-      frescura: { rcv: T_SEMBRADO, f29: T_SEMBRADO }, ventas: 0, compras: 0, ivaDebito: 0, ivaCredito: 0,
+      periodo: '2026-08', disponibilidad: { ventasRcv: true, comprasRcv: true, f29: true, propuestaF29: false, bheRecibidas: false },
+      frescura: { rcv: T_SEMBRADO, f29: T_SEMBRADO, propuesta: null, bhe: null }, ventas: 0, compras: 0, ivaDebito: 0, ivaCredito: 0,
       f29: { consultado: true, presentado: false, folio: null, estado: null, totalAPagar: null, valores: {} },
     });
     expect(r.periodos[1]).toEqual({
-      periodo: '2026-09', disponibilidad: { ventasRcv: true, comprasRcv: false, f29: false },
-      frescura: { rcv: T_SEMBRADO, f29: null }, ventas: 0, compras: null, ivaDebito: 0, ivaCredito: null,
+      periodo: '2026-09', disponibilidad: { ventasRcv: true, comprasRcv: false, f29: false, propuestaF29: false, bheRecibidas: false },
+      frescura: { rcv: T_SEMBRADO, f29: null, propuesta: null, bhe: null }, ventas: 0, compras: null, ivaDebito: 0, ivaCredito: null,
       f29: { consultado: false, presentado: null, folio: null, estado: null, totalAPagar: null, valores: {} },
     });
     expect(r.totales).toEqual({

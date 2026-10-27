@@ -8,6 +8,10 @@ export interface DisponibilidadFuentes {
   readonly ventasRcv: boolean;
   readonly comprasRcv: boolean;
   readonly f29: boolean;
+  /** Propuesta de F29 (superficie `f29.propuesta`). */
+  readonly propuestaF29: boolean;
+  /** Boletas de honorarios recibidas (superficie `bhe.recibidas`). */
+  readonly bheRecibidas: boolean;
 }
 
 export interface Perfil {

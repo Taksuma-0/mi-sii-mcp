@@ -104,3 +104,13 @@ describe('verificación local', () => {
     expect(await secretos.obtener('22222222-2')).toBeNull();
   });
 });
+
+describe('fuentes pedidas por la web', () => {
+  it('verificar pide solo rcv y f29', async () => {
+    const e = entorno();
+    const espia = vi.spyOn(syncApp, 'sincronizar');
+    await verificar(entrada, e.fabrica);
+    expect(espia).toHaveBeenCalledOnce();
+    expect(espia.mock.calls[0]![4]).toEqual(['rcv', 'f29']);
+  });
+});

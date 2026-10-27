@@ -67,7 +67,7 @@ describe('sincronizar', () => {
     expect(store.resumenesRcv(RUT_EMPRESA, SEPT.texto)).toEqual([]);
     expect(store.documentosRcv(RUT_EMPRESA, SEPT.texto)).toEqual([]);
     expect(store.snapshotsRcv(RUT_EMPRESA, SEPT.texto)).toEqual([]);
-    expect(store.frescura(RUT_EMPRESA, SEPT.texto)).toEqual({ rcv: null, f29: null });
+    expect(store.frescura(RUT_EMPRESA, SEPT.texto)).toEqual({ rcv: null, f29: null, propuesta: null, bhe: null });
     expect(r.periodos[0]!.errores.map((e) => e.codigo)).toEqual(['DATOS_INCOMPLETOS', 'DATOS_INCOMPLETOS']);
   });
   it('guarda RCV y F29 del período y la evidencia cruda de cada llamada', async () => {

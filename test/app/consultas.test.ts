@@ -63,7 +63,7 @@ describe('resumenIva', () => {
     expect(r.comparaciones).toMatchObject({ debitoRcv: null, creditoRcv: null });
     expect(r.ventas.debito).toBeNull();
     expect(r.compras.credito).toBeNull();
-    expect(r.disponibilidad).toEqual({ ventasRcv: false, comprasRcv: false, f29: true });
+    expect(r.disponibilidad).toEqual({ ventasRcv: false, comprasRcv: false, f29: true, propuestaF29: false, bheRecibidas: false });
     expect(textoResumenIva(r)).toContain('Falta sincronizar: ventas RCV, compras RCV');
     expect(textoResumenIva(r)).toContain('sin dato');
   });
@@ -75,7 +75,7 @@ describe('resumenIva', () => {
     const r = resumenIva(deps, RUT_EMPRESA, sept.texto);
     expect(r.hallazgos).toEqual([]);
     expect(r.comparaciones).toMatchObject({ debitoRcv: 0, creditoRcv: 0 });
-    expect(r.disponibilidad).toEqual({ ventasRcv: true, comprasRcv: true, f29: false });
+    expect(r.disponibilidad).toEqual({ ventasRcv: true, comprasRcv: true, f29: false, propuestaF29: false, bheRecibidas: false });
     expect(textoResumenIva(r)).toContain('Falta sincronizar: F29');
     expect(textoResumenIva(r)).not.toContain('no presentado');
     await sincronizar(deps, RUT_EMPRESA, sept, sept, ['f29']);
@@ -90,7 +90,7 @@ describe('resumenIva', () => {
     sii.valores.set('2026-09|555001', valores({ '538': 19_000, '537': 19_000 }));
     await sincronizar(deps, RUT_EMPRESA, parsePeriodo('2026-09'), parsePeriodo('2026-09'));
     const r = resumenIva(deps, RUT_EMPRESA, '2026-09');
-    expect(r.disponibilidad).toEqual({ ventasRcv: true, comprasRcv: false, f29: true });
+    expect(r.disponibilidad).toEqual({ ventasRcv: true, comprasRcv: false, f29: true, propuestaF29: false, bheRecibidas: false });
     expect(r.comparaciones).toMatchObject({ debitoRcv: 0, creditoRcv: null });
     expect(r.hallazgos.map((h) => h.regla)).toEqual(['IVA-01']);
   });
@@ -114,7 +114,7 @@ describe('resumenIva', () => {
     expect(r.venceF29).toBe('2026-10-20');
     expect(r.comparaciones.creditoF29).toBe(19_000);
     expect(r.hallazgos).toEqual([]);
-    expect(r.frescura).toEqual({ rcv: T_SEMBRADO, f29: T_SEMBRADO });
+    expect(r.frescura).toEqual({ rcv: T_SEMBRADO, f29: T_SEMBRADO, propuesta: null, bhe: null });
   });
 
   it('guarda los hallazgos que encuentra', () => {
@@ -250,5 +250,19 @@ describe('historial y documentos', () => {
     const p = documentos(deps, RUT_EMPRESA, '2026-09', {}, 2, 2);
     expect(p.total).toBe(3);
     expect(p.documentos.map((d) => d.folio)).toEqual([3]);
+  });
+});
+
+describe('filas de períodos anuales y no periódicos', () => {
+  it('hallazgos() y plazos() no fallan con sincronizaciones AT2026 y sin período', () => {
+    const { deps, store } = conEmpresa();
+    sembrarMes(store, '2026-09', SEPT);
+    for (const [superficie, periodo] of [['f22', 'AT2026'], ['cuenta.perfil', '']] as const) {
+      const id = store.iniciarSincronizacion(RUT_EMPRESA, superficie, periodo, T_SEMBRADO);
+      store.terminarSincronizacion(id, T_SEMBRADO, 'ok');
+    }
+    expect(() => hallazgos(deps, RUT_EMPRESA)).not.toThrow();
+    expect(() => plazos(deps, RUT_EMPRESA)).not.toThrow();
+    expect(store.periodosConDatos(RUT_EMPRESA)).toEqual(['2026-09']);
   });
 });

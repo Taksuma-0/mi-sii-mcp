@@ -15,6 +15,8 @@ export interface PedidoSdi {
   readonly conPage?: boolean;
   /** Por defecto true: sin la cookie TOKEN no se pide. Solo las empresas autorizadas lo desactivan (se manda el TOKEN si existe). */
   readonly exigeToken?: boolean;
+  /** Quita datos personales de la evidencia guardada; el parseo sigue usando el cuerpo completo. */
+  readonly sanear?: (cuerpo: unknown) => unknown;
 }
 
 /** POST JSON a las fachadas SDI de www4 (RCV, F29). Guarda la respuesta cruda antes de interpretarla. */
@@ -35,11 +37,23 @@ export async function postSdi(http: Http, sumidero: SumideroRespuestas, pedido: 
   );
   if (r.status === 401) throw new ErrorImpuestocl('SESION_REQUERIDA', 'El SII no reconoció la sesión (401).');
   if (r.status === 429) throw new ErrorImpuestocl('SII_NO_DISPONIBLE', 'El SII limitó las consultas; reintenta más tarde.');
-  sumidero({ superficie: pedido.superficie, parametros: pedido.data, cuerpo: r.texto, obtenidoEn: new Date().toISOString() });
+  sumidero({ superficie: pedido.superficie, parametros: pedido.data, cuerpo: evidencia(r.texto, pedido.sanear), obtenidoEn: new Date().toISOString() });
   try {
     return JSON.parse(r.texto) as unknown;
   } catch {
     if (r.status === 403) throw new ErrorImpuestocl('SII_RECHAZO', `El SII rechazó la consulta de ${pedido.superficie} (403).`, { detalle: r.texto.slice(0, 500) });
     throw new ErrorImpuestocl('PORTAL_CAMBIO', `El SII no respondió JSON en ${pedido.superficie} (status ${r.status}).`, { detalle: r.texto.slice(0, 500) });
   }
+}
+
+/** El texto tal cual, o saneado si el pedido lo pide y el texto es JSON. Si `sanear` falla, falla la consulta: nunca se guarda el cuerpo sin sanear. */
+function evidencia(texto: string, sanear: PedidoSdi['sanear']): string {
+  if (!sanear) return texto;
+  let cuerpo: unknown;
+  try {
+    cuerpo = JSON.parse(texto);
+  } catch {
+    return texto;
+  }
+  return JSON.stringify(sanear(cuerpo));
 }

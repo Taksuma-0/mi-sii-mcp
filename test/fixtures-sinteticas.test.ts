@@ -23,7 +23,7 @@ describe('fixtures sintéticas', () => {
           const rut = `${m[1]!.replace(/\./g, '')}-${m[2]!.toUpperCase()}`;
           if (!PERMITIDOS.has(rut)) extranos.push(`${archivo}: ${rut}`);
         }
-        for (const m of texto.matchAll(/"(?:detRutDoc|rutDoc|rutEmisor|rut)"\s*:\s*"?(\d{7,8})"?/g)) {
+        for (const m of texto.matchAll(/"(?:detRutDoc|rutDoc|rutEmisor|rut|rutContribuyente|usrEmpRut|rutemisor_\d+|rut_arrastre)"\s*:\s*"?(\d{7,8})"?/g)) {
           if (!CUERPOS_PERMITIDOS.has(m[1]!)) extranos.push(`${archivo}: ${m[1]}`);
         }
       }

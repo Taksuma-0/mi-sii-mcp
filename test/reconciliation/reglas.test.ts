@@ -122,7 +122,7 @@ describe('IVA-07 IVA no recuperable o de uso común', () => {
 describe('conciliarPeriodo', () => {
   it('no compara el lado desconocido y mantiene las reglas de fuentes independientes', () => {
     const r = conciliarPeriodo(entrada({
-      disponibilidad: { ventasRcv: false, comprasRcv: true, f29: true },
+      disponibilidad: { ventasRcv: false, comprasRcv: true, f29: true, propuestaF29: false, bheRecibidas: false },
       resumenes: [],
       documentos: [documento({ montoIvaNoRecuperable: 3_000 })],
       valoresAnterior: null,
@@ -132,7 +132,7 @@ describe('conciliarPeriodo', () => {
   });
 
   it('no declara F29 ausente cuando esa fuente es desconocida', () => {
-    const r = conciliarPeriodo(entrada({ ...sinF29, disponibilidad: { ventasRcv: true, comprasRcv: true, f29: false } }));
+    const r = conciliarPeriodo(entrada({ ...sinF29, disponibilidad: { ventasRcv: true, comprasRcv: true, f29: false, propuestaF29: false, bheRecibidas: false } }));
     expect(r.hallazgos).toEqual([]);
   });
   it('un mes cuadrado no tiene hallazgos y expone las comparaciones', () => {

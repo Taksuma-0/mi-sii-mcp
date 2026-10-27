@@ -412,10 +412,16 @@ export class SqliteStore implements Store {
   disponibilidadFuentes(rut: string, periodo: string): DisponibilidadFuentes {
     const superficies = this.db.prepare(
       `SELECT DISTINCT superficie FROM sincronizacion WHERE rut = ? AND periodo = ? AND estado = 'ok'
-       AND superficie IN ('rcv.VENTA', 'rcv.COMPRA', 'f29')`,
+       AND superficie IN ('rcv.VENTA', 'rcv.COMPRA', 'f29', 'f29.propuesta', 'bhe.recibidas')`,
     ).all(rut, periodo) as { superficie: string }[];
     const conocidas = new Set(superficies.map((s) => s.superficie));
-    return { ventasRcv: conocidas.has('rcv.VENTA'), comprasRcv: conocidas.has('rcv.COMPRA'), f29: conocidas.has('f29') };
+    return {
+      ventasRcv: conocidas.has('rcv.VENTA'),
+      comprasRcv: conocidas.has('rcv.COMPRA'),
+      f29: conocidas.has('f29'),
+      propuestaF29: conocidas.has('f29.propuesta'),
+      bheRecibidas: conocidas.has('bhe.recibidas'),
+    };
   }
 
   frescura(rut: string, periodo: string): Frescura {
@@ -423,11 +429,13 @@ export class SqliteStore implements Store {
     return {
       rcv: (consulta.get(rut, periodo, 'rcv.%') as { t: string | null }).t,
       f29: (consulta.get(rut, periodo, 'f29') as { t: string | null }).t,
+      propuesta: (consulta.get(rut, periodo, 'f29.propuesta') as { t: string | null }).t,
+      bhe: (consulta.get(rut, periodo, 'bhe.recibidas') as { t: string | null }).t,
     };
   }
 
   periodosConDatos(rut: string): string[] {
-    return (this.db.prepare(`SELECT DISTINCT periodo FROM sincronizacion WHERE rut = ? AND estado = 'ok' ORDER BY periodo`).all(rut) as { periodo: string }[]).map((f) => f.periodo);
+    return (this.db.prepare(`SELECT DISTINCT periodo FROM sincronizacion WHERE rut = ? AND estado = 'ok' AND periodo GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]' ORDER BY periodo`).all(rut) as { periodo: string }[]).map((f) => f.periodo);
   }
 
   // --- hallazgos ----------------------------------------------------------------------------
