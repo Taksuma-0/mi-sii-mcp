@@ -183,9 +183,15 @@ describe('sincronizar', () => {
       const { deps, store, sii } = depsDePrueba({ fallaAlAbrir: new Error('No debe abrir el SII') });
       store.guardarContribuyente(perfilEmpresa());
       const r = await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT, undefined, AbortSignal.abort());
-      expect(r).toEqual({ rut: RUT_EMPRESA, periodos: [], abortado: CANCELADA });
+      expect(r).toEqual({ rut: RUT_EMPRESA, superficies: ['rcv', 'f29'], periodos: [], abortado: CANCELADA });
       expect(sii.llamadas).toEqual([]);
     });
+  });
+
+  it('informa las superficies pedidas, por defecto rcv y f29', async () => {
+    const { deps } = mesCompleto();
+    expect((await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT)).superficies).toEqual(['rcv', 'f29']);
+    expect((await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT, ['f29'])).superficies).toEqual(['f29']);
   });
 
   it('exige que el perfil exista', async () => {

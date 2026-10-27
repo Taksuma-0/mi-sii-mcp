@@ -24,6 +24,8 @@ export interface ResultadoPeriodo {
 
 export interface ResultadoSync {
   readonly rut: string;
+  /** Lo que se pidió traer: el texto de la sincronización solo habla de estas superficies. */
+  readonly superficies: readonly Superficie[];
   readonly periodos: readonly ResultadoPeriodo[];
   readonly abortado: ErrorSuperficie | null;
 }
@@ -117,14 +119,14 @@ export async function sincronizar(
       }
       enCurso = null;
     }
-    return { rut, periodos: resultados, abortado: null };
+    return { rut, superficies, periodos: resultados, abortado: null };
   } catch (e) {
     if (e instanceof Cancelada) {
       enCurso?.avisos.push(AVISO_MES_CANCELADO);
-      return { rut, periodos: resultados, abortado: SINCRONIZACION_CANCELADA };
+      return { rut, superficies, periodos: resultados, abortado: SINCRONIZACION_CANCELADA };
     }
     if (esErrorImpuestocl(e) && ERRORES_FATALES.has(e.codigo)) {
-      return { rut, periodos: resultados, abortado: { superficie: 'sesion', codigo: e.codigo, mensaje: e.message } };
+      return { rut, superficies, periodos: resultados, abortado: { superficie: 'sesion', codigo: e.codigo, mensaje: e.message } };
     }
     throw e;
   } finally {

@@ -102,8 +102,18 @@ describe('CLI', () => {
     e.store.guardarContribuyente(perfilEmpresa());
     sembrarMes(e.store, '2026-09', { declaraciones: [declaracion()] });
     expect(await e.correr('sync', RUT_EMPRESA, '--desde', '2026-09', '--solo', 'rcv')).toBe(0);
-    expect(e.salidaTexto.at(-1)).toContain('F29 sin folio informado');
+    expect(e.salidaTexto.at(-1)).not.toContain('F29');
     expect(e.salidaTexto.at(-1)).not.toContain('sin presentar');
+  });
+
+  it('sync --solo f29 no habla de documentos RCV', async () => {
+    const e = entorno();
+    e.store.guardarContribuyente(perfilEmpresa());
+    e.sii.declaraciones.set('2026-09', [declaracion()]);
+    e.sii.valores.set('2026-09|555001', valores({ '538': 190_000, '537': 0 }));
+    expect(await e.correr('sync', RUT_EMPRESA, '--desde', '2026-09', '--solo', 'f29')).toBe(0);
+    expect(e.salidaTexto.at(-1)).toContain('2026-09: F29 folio 555001');
+    expect(e.salidaTexto.at(-1)).not.toContain('documentos RCV');
   });
 
   it.each(['abc', 'Infinity', '-Infinity'].flatMap((valor) => [

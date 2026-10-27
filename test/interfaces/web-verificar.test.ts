@@ -25,7 +25,7 @@ describe('verificación local', () => {
   it('considera parcial un resultado con avisos aunque no traiga errores ni aborto', async () => {
     const e = entorno();
     vi.spyOn(syncApp, 'sincronizar').mockResolvedValue({
-      rut: '22222222-2', abortado: null,
+      rut: '22222222-2', abortado: null, superficies: ['rcv', 'f29'],
       periodos: [{ periodo: '2026-09', errores: [], avisos: ['RCV COMPRA REGISTRO tipo 33: el detalle trajo 0 de 2 documentos.'], documentos: 0, f29Folio: null }],
     });
     expect((await verificar(entrada, e.fabrica)).estado).toBe('parcial');
