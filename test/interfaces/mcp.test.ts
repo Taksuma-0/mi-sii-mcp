@@ -756,7 +756,7 @@ describe('servidor MCP: renta F22', () => {
     const r = await cliente.callTool({ name: 'renta_sincronizar', arguments: { rut: '22.222.222-2', desde: '2026' } });
 
     expect(esError(r)).toBe(false);
-    expect(sii.llamadas).toEqual(['f22|2026', 'f22detalle|2026|123456789']);
+    expect(sii.llamadas).toEqual(['f22|2026', 'f22detalle|2026|123456789', 'terceros|2026']);
     expect(textoDe(r).split('\n\n')[0]).toContain('AT2026: 1 declaración · folio vigente 123456789 · detalle leído');
     expect(datosDe(r)).toMatchObject({ rut: RUT_EMPRESA, anios: [{ anioTributario: 2026, detalle: 'leido' }], abortado: null });
     expect(store.declaracionesF22(RUT_EMPRESA)).toHaveLength(1);
@@ -833,6 +833,10 @@ describe('servidor MCP: renta F22', () => {
     expect(descripcion('renta_sincronizar')).toMatch(/boletas de honorarios emitidas/);
     expect(descripcion('renta_sincronizar')).toMatch(/año tributario siguiente/);
     expect(descripcion('renta_resumen')).toMatch(/boletas de honorarios emitidas.*547.*492/);
+    // Lo informado por terceros (DJ): qué trae la sincronización y qué cruza el resumen.
+    expect(descripcion('renta_sincronizar')).toMatch(/informad[ao]s? por terceros.*DJ/);
+    expect(descripcion('renta_resumen')).toMatch(/informado por terceros.*observada.*492/i);
+    expect(descripcion('renta_resumen')).toMatch(/dj_tercero/);
     expect(descripcion('renta_sincronizar')).toMatch(/boleta por boleta/);
     expect(descripcion('renta_resumen')).toMatch(/pagadores/);
     expect(descripcion('renta_resumen')).toMatch(/a quién le emití boletas.*consulta_sql.*bhe_emitida\b/);

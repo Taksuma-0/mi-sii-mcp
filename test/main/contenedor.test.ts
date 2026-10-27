@@ -170,7 +170,7 @@ describe('configuración y contenedor', () => {
       try {
         const obtener = vi.spyOn(secretos, 'obtener');
         const renta = await sincronizarRenta(c.deps, EMPRESA, '2026');
-        expect(renta.anios[0]!.errores.map((e) => e.codigo)).toEqual(['SIN_PERMISO']);
+        expect(renta.anios[0]!.errores.map((e) => [e.superficie, e.codigo])).toEqual([['f22', 'SIN_PERMISO'], ['terceros', 'SIN_PERMISO']]);
         const cuenta = await sincronizarCuenta(c.deps, EMPRESA);
         expect(cuenta.errores.map((e) => e.codigo)).toContain('SIN_PERMISO');
         expect(llamadas).toHaveLength(0);

@@ -3,6 +3,9 @@ import { crearPeriodo } from '../domain/periodo.js';
 import {
   CODIGOS_CLAVE_F22,
   cruzarHonorariosF22,
+  cruzarInformanteBoletas,
+  cruzarRetencionTerceros,
+  DJ_RETENCION_HONORARIOS,
   diferenciaConAnual,
   f22Vigente,
   hayBoletasEmitidas,
@@ -11,14 +14,18 @@ import {
   periodoRenta,
   rangoAnios,
   SUPERFICIE_DETALLE_BHE_EMITIDAS,
+  SUPERFICIE_TERCEROS,
+  superficieDetalleTerceros,
   totalesBheEmitidas,
   type CruceHonorariosF22,
+  type CruceInformanteBoletas,
+  type CruceRetencionTerceros,
   type PagadorBhe,
   type TotalesBheEmitidas,
 } from '../domain/renta.js';
 import { parseRut } from '../domain/rut.js';
-import type { BoletaHonorariosEmitida, F22Evento, F22Valor, InformeBheEmitidas, RespuestaCruda } from '../domain/tipos.js';
-import type { BheEmitidaMesGuardado, SiiReader } from '../ports/index.js';
+import type { BoletaHonorariosEmitida, DjTercero, F22Evento, F22Valor, InformeBheEmitidas, RespuestaCruda } from '../domain/tipos.js';
+import type { BheEmitidaMesGuardado, DjTerceroGuardado, SiiReader } from '../ports/index.js';
 import { perfilExistente } from './consultas.js';
 import type { DepsApp } from './deps.js';
 import { Cancelada, registrar, revisarCancelacion, SINCRONIZACION_CANCELADA, type ErrorSuperficie, type ResultadoPeriodo } from './registro.js';
@@ -35,7 +42,19 @@ export interface ResultadoAnioRenta {
   readonly boletasEmitidas: number | null;
   /** Detalle boleta por boleta de los meses con boletas emitidas; null si no se leyó el informe anual o el perfil no es una persona. */
   readonly detalleBoletas: DetalleBoletasAnio | null;
+  /** DJ informadas por terceros del año; null si no se pudo leer la lista (el error queda en `errores`). */
+  readonly terceros: TercerosAnio | null;
   readonly errores: readonly ErrorSuperficie[];
+}
+
+/** Cómo terminó la lectura de lo informado por terceros de un año tributario. */
+export interface TercerosAnio {
+  /** DJ con datos que el SII informa para el año. */
+  readonly informadas: number;
+  /** DJ cuyo detalle se leyó y guardó. */
+  readonly leidas: number;
+  /** Filas (informantes) guardadas de esas DJ. */
+  readonly filas: number;
 }
 
 /** Cómo terminó el detalle boleta por boleta de los meses en que el informe anual informa boletas emitidas. */
@@ -111,11 +130,59 @@ async function detalleBoletasEmitidas(
 }
 
 /**
+ * Lo informado por terceros de un año tributario: la lista de DJ con datos (superficie `terceros`) y el detalle de cada
+ * una (`terceros.<dj>`), todo con período AT<AAAA>. Una lista vacía con DJ guardadas del año no borra nada
+ * (RESPUESTA_VACIA); un detalle sin filas tampoco reemplaza el guardado. Una DJ que falla no impide las demás. Si una DJ
+ * guardada deja de venir en la lista, sus filas se conservan. La cancelación se revisa entre DJ.
+ */
+async function tercerosDelAnio(
+  deps: DepsApp,
+  sii: SiiReader,
+  rut: string,
+  anio: number,
+  buffer: RespuestaCruda[],
+  res: ResultadoPeriodo,
+  signal: AbortSignal | undefined,
+): Promise<TercerosAnio | null> {
+  const periodo = periodoRenta(anio);
+  const informadas = await registrar(deps, rut, SUPERFICIE_TERCEROS, periodo, buffer, res, signal, async () => {
+    const lista = await sii.djInformadas(rut, anio);
+    if (lista.length === 0 && deps.store.djTerceros(rut, anio).length > 0) {
+      throw new ErrorImpuestocl('RESPUESTA_VACIA', `Renta ${periodo}: el SII respondió sin declaraciones juradas informadas por terceros; se conservan las guardadas.`);
+    }
+    return lista;
+  });
+  if (informadas === null) return null;
+  let leidas = 0;
+  let filas = 0;
+  for (const { dj } of informadas) {
+    revisarCancelacion(signal);
+    const guardadas = await registrar(deps, rut, superficieDetalleTerceros(dj), periodo, buffer, res, signal, async (id, ahora) => {
+      const leidasDj = await sii.djDetalle(rut, anio, dj);
+      if (leidasDj.length === 0) {
+        const habia = deps.store.djTerceros(rut, anio).some((f) => f.dj === dj);
+        throw new ErrorImpuestocl(
+          'RESPUESTA_VACIA',
+          `Renta ${periodo}: el SII informa la DJ ${dj} pero respondió su detalle vacío; ${habia ? 'se conservan las filas guardadas' : 'no hay filas guardadas de esa DJ'}.`,
+        );
+      }
+      deps.store.reemplazarDjTerceros(id, rut, anio, dj, leidasDj, ahora);
+      return leidasDj.length;
+    });
+    if (guardadas === null) continue;
+    leidas++;
+    filas += guardadas;
+  }
+  return { informadas: informadas.length, leidas, filas };
+}
+
+/**
  * Trae del SII la renta anual (F22) de un rango de años tributarios (`AAAA`, máximo 10): las declaraciones del año y el
  * detalle del folio vigente (códigos, observaciones y eventos). A una persona le trae además el informe anual de boletas
  * de honorarios emitidas del año comercial (AT − 1) y, de los meses con boletas, su detalle boleta por boleta; un error
  * ahí no impide el F22 ni al revés. El año tributario
- * siguiente al actual sirve para ver las boletas del año en curso, aunque aún no haya F22. Si el SII responde sin
+ * siguiente al actual sirve para ver las boletas del año en curso, aunque aún no haya F22. A todo perfil le trae al final
+ * lo informado por terceros (DJ) del año tributario; un error ahí no impide lo demás. Si el SII responde sin
  * declaraciones, sin códigos o con las boletas todas en 0 y había datos guardados, se conservan (RESPUESTA_VACIA).
  * `signal` se revisa antes de abrir la sesión, de cada año y de cada lectura; al cancelarse devuelve lo traído y `abortado`.
  */
@@ -183,8 +250,10 @@ export async function sincronizarRenta(deps: DepsApp, rutTexto: string, desde: s
         // Sin el informe anual de esta lectura no se sabe qué meses pedir: no hay detalle.
         if (anual !== null) detalleBoletas = await detalleBoletasEmitidas(deps, sii, rut, anual, buffer, res, signal);
       }
+      revisarCancelacion(signal);
+      const terceros = await tercerosDelAnio(deps, sii, rut, anio, buffer, res, signal);
       const boletasEmitidas = anual === null ? null : totalesBheEmitidas(anual.meses).vigentes;
-      resultados.push({ anioTributario: anio, declaraciones: declaraciones?.length ?? null, folioVigente: vigente?.folio ?? null, detalle, boletasEmitidas, detalleBoletas, errores: res.errores });
+      resultados.push({ anioTributario: anio, declaraciones: declaraciones?.length ?? null, folioVigente: vigente?.folio ?? null, detalle, boletasEmitidas, detalleBoletas, terceros, errores: res.errores });
     }
     return { rut, anios: resultados, abortado: null };
   } catch (e) {
@@ -209,6 +278,22 @@ export interface HonorariosEmitidos extends TotalesBheEmitidas {
   /** Los 5 receptores con mayor bruto vigente según el detalle guardado, y cuántos más hay; null si no hay detalle guardado del año. */
   readonly pagadores: { readonly principales: readonly PagadorBhe[]; readonly otros: number } | null;
   /** Instante ISO UTC de la lectura del informe anual. */
+  readonly obtenidoEn: string;
+}
+
+/** Un informante de una DJ guardada; en la 1879, con su cruce con las boletas emitidas a su RUT. */
+export interface InformanteTercero extends DjTercero {
+  /** Meses y retención contra las boletas vigentes emitidas al informante ese año; null si no hay o la DJ no es la 1879. */
+  readonly cruceBoletas: CruceInformanteBoletas | null;
+}
+
+/** Lo informado por terceros guardado de un año tributario. */
+export interface InformadoTerceros {
+  /** Por DJ, informante y folio. */
+  readonly informantes: readonly InformanteTercero[];
+  /** La retención de la DJ 1879 contra las boletas emitidas del año y el 492 del F22; null si no hay filas de la 1879. */
+  readonly cruceRetencion: CruceRetencionTerceros | null;
+  /** Instante ISO UTC de la lectura más reciente de esas filas. */
   readonly obtenidoEn: string;
 }
 
@@ -239,7 +324,9 @@ export interface AnioRenta {
   readonly eventos: readonly F22Evento[];
   /** Boletas de honorarios emitidas del año comercial; null si no hay guardadas (solo se leen para personas). */
   readonly honorariosEmitidos: HonorariosEmitidos | null;
-  /** Instante ISO UTC de la lectura de las declaraciones del año; sin declaraciones, la del informe de boletas. */
+  /** DJ que terceros informaron sobre el contribuyente; null si no hay guardadas. */
+  readonly terceros: InformadoTerceros | null;
+  /** Instante ISO UTC de la lectura de las declaraciones del año; sin declaraciones, la del informe de boletas o, sin ellas, la de lo informado por terceros. */
   readonly obtenidoEn: string;
 }
 
@@ -256,7 +343,8 @@ export function resumenRenta(deps: DepsApp, rutTexto: string, anio?: string): Re
   const declaraciones = deps.store.declaracionesF22(perfil.rut, filtro);
   // Las boletas se guardan por año comercial: el del año tributario AT es AT − 1.
   const emitidas = deps.store.bheEmitidas(perfil.rut, filtro === undefined ? undefined : filtro - 1);
-  const anios = [...new Set([...declaraciones.map((d) => d.anioTributario), ...emitidas.map((m) => m.anioComercial + 1)])].sort((a, b) => b - a);
+  const informadas = deps.store.djTerceros(perfil.rut, filtro);
+  const anios = [...new Set([...declaraciones.map((d) => d.anioTributario), ...emitidas.map((m) => m.anioComercial + 1), ...informadas.map((f) => f.anioTributario)])].sort((a, b) => b - a);
   return {
     rut: perfil.rut,
     anios: anios.map((a): AnioRenta => {
@@ -265,7 +353,11 @@ export function resumenRenta(deps: DepsApp, rutTexto: string, anio?: string): Re
       const detalle = v === null ? null : deps.store.detalleF22(perfil.rut, a, v.folio);
       const porCodigo = new Map((detalle?.valores ?? []).map((x) => [x.codigo, x]));
       const meses = emitidas.filter((m) => m.anioComercial === a - 1);
-      const honorariosEmitidos = meses.length === 0 ? null : honorariosDe(a - 1, meses, detalle?.valores.length ? detalle.valores : null, deps.store.boletasEmitidasDelAnio(perfil.rut, a - 1));
+      const valoresF22 = detalle?.valores.length ? detalle.valores : null;
+      const boletas = deps.store.boletasEmitidasDelAnio(perfil.rut, a - 1);
+      const honorariosEmitidos = meses.length === 0 ? null : honorariosDe(a - 1, meses, valoresF22, boletas);
+      const delAnioTerceros = informadas.filter((f) => f.anioTributario === a);
+      const terceros = delAnioTerceros.length === 0 ? null : tercerosDe(delAnioTerceros, honorariosEmitidos?.retencionTerceros ?? null, valoresF22, boletas);
       return {
         anioTributario: a,
         folio: v?.folio ?? null,
@@ -285,7 +377,8 @@ export function resumenRenta(deps: DepsApp, rutTexto: string, anio?: string): Re
         observaciones: (detalle?.observaciones ?? []).map((o) => ({ codigo: o.codigo, descripcion: o.descripcion })),
         eventos: detalle?.eventos ?? [],
         honorariosEmitidos,
-        obtenidoEn: (v ?? delAnio[0])?.obtenidoEn ?? honorariosEmitidos!.obtenidoEn,
+        terceros,
+        obtenidoEn: (v ?? delAnio[0])?.obtenidoEn ?? honorariosEmitidos?.obtenidoEn ?? terceros!.obtenidoEn,
       };
     }),
   };
@@ -308,5 +401,26 @@ function honorariosDe(
     cruceF22: valoresF22 === null ? null : cruzarHonorariosF22({ bruto: totales.bruto, retencion: totales.retencionTerceros }, valoresF22),
     pagadores: boletas.length === 0 ? null : pagadoresBheEmitidas(boletas),
     obtenidoEn: meses[0]!.obtenidoEn,
+  };
+}
+
+/**
+ * Lo informado por terceros de un año: cada fila sin sus datos de guardado y, en la 1879, su cruce con las boletas
+ * emitidas a ese RUT; además la retención total de la 1879 contra las boletas del año y el F22.
+ */
+function tercerosDe(
+  filas: readonly DjTerceroGuardado[],
+  retencionBoletas: number | null,
+  valoresF22: readonly F22Valor[] | null,
+  boletas: readonly BoletaHonorariosEmitida[],
+): InformadoTerceros {
+  const informantes = filas.map(({ rut: _rut, anioTributario: _anio, obtenidoEn: _obtenido, ...fila }): InformanteTercero => ({
+    ...fila,
+    cruceBoletas: fila.dj === DJ_RETENCION_HONORARIOS ? cruzarInformanteBoletas(fila, boletas) : null,
+  }));
+  return {
+    informantes,
+    cruceRetencion: cruzarRetencionTerceros(filas, retencionBoletas, valoresF22),
+    obtenidoEn: filas.reduce((max, f) => (f.obtenidoEn > max ? f.obtenidoEn : max), filas[0]!.obtenidoEn),
   };
 }

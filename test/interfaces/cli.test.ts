@@ -408,7 +408,7 @@ describe('CLI: renta F22', () => {
 
     expect(await e.correr('renta', 'sync', '22.222.222-2', '--desde', '2025', '--hasta', '2026')).toBe(0);
 
-    expect(e.sii.llamadas).toEqual(['f22|2025', 'f22detalle|2025|55', 'f22|2026', 'f22detalle|2026|123456789']);
+    expect(e.sii.llamadas).toEqual(['f22|2025', 'f22detalle|2025|55', 'terceros|2025', 'f22|2026', 'f22detalle|2026|123456789', 'terceros|2026']);
     expect(e.salidaTexto.at(-1)).toContain('AT2026: 1 declaración · folio vigente 123456789 · detalle leído');
     expect(e.persistidos).toEqual([RUT_EMPRESA]);
 

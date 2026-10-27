@@ -2,11 +2,11 @@ import type { FilaHistorialF29, PaginaDocumentos, ResumenIva } from '../app/cons
 import type { CuentaSii, ResultadoCuenta } from '../app/cuenta.js';
 import type { PerfilConSesion } from '../app/perfiles.js';
 import type { ResultadoReleerF29, ResultadoRelectura } from '../app/releer-f29.js';
-import type { AnioRenta, HonorariosEmitidos, ResultadoAnioRenta, ResultadoRenta, ResumenRenta } from '../app/renta.js';
+import type { AnioRenta, HonorariosEmitidos, InformadoTerceros, InformanteTercero, ResultadoAnioRenta, ResultadoRenta, ResumenRenta } from '../app/renta.js';
 import { SINCRONIZACION_CANCELADA, type ResultadoPeriodo, type ResultadoSync } from '../app/sincronizar.js';
 import { reintentoDe, type Reintento } from '../domain/errores.js';
 import { formatearClp, nombreTipoDocumento } from '../domain/formato.js';
-import type { ParCruceHonorarios } from '../domain/renta.js';
+import type { ComparacionMonto, ParCruceHonorarios } from '../domain/renta.js';
 import type { Hallazgo, Plazo, Severidad } from '../domain/tipos.js';
 
 const ETIQUETA: Readonly<Record<Severidad, string>> = { critico: 'CRÍTICO', advertencia: 'ADVERTENCIA', info: 'INFO' };
@@ -103,8 +103,17 @@ function lineasAnioSincronizado(a: ResultadoAnioRenta): string[] {
   if (a.boletasEmitidas !== null) partes.push(`${plural(a.boletasEmitidas, 'boleta emitida', 'boletas emitidas')} en ${a.anioTributario - 1}`);
   const detalle = a.detalleBoletas === null ? null : textoDetalleBoletas(a.detalleBoletas);
   if (detalle !== null) partes.push(detalle);
+  // Sin lista de DJ el error ya va en «errores».
+  if (a.terceros !== null) partes.push(textoTercerosSync(a.terceros));
   if (a.errores.length > 0) partes.push(`errores: ${a.errores.map((e) => `${e.superficie} ${e.codigo}`).join(', ')}`);
   return [`AT${a.anioTributario}: ${partes.join(' · ')}`, ...(a.detalleBoletas?.avisos ?? []).map((aviso) => `  Aviso: ${aviso}`)];
+}
+
+/** «2 DJ de terceros, 1 sin leer (3 informantes)» o «sin DJ de terceros». */
+function textoTercerosSync(t: NonNullable<ResultadoAnioRenta['terceros']>): string {
+  if (t.informadas === 0) return 'sin DJ de terceros';
+  const sinLeer = t.informadas - t.leidas;
+  return `${t.informadas} DJ de terceros${sinLeer > 0 ? `, ${sinLeer} sin leer` : ''} (${plural(t.filas, 'informante', 'informantes')})`;
 }
 
 /** Resultado de traer la renta (F22) del SII, año tributario por año. */
@@ -154,8 +163,56 @@ function lineasHonorarios(h: HonorariosEmitidos): string[] {
   return lineas;
 }
 
+const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const textoMeses = (meses: readonly number[]): string => meses.map((m) => MESES[m - 1] ?? String(m)).join(', ');
+
+/** «cuadra (+1,1 %)» o «difiere $19.000 (la DJ trae menos)»; `explicar` agrega que la diferencia es el reajuste por IPC. */
+function textoComparacion(c: ComparacionMonto, explicar = false): string {
+  if (c.estado === 'cuadra') return c.reajustePct === null || c.reajustePct === 0 ? 'cuadra' : `cuadra (${explicar ? 'la DJ reajusta por IPC: ' : ''}${porcentaje(c.reajustePct)})`;
+  return `difiere ${monto(Math.abs(c.diferencia))} (la DJ trae ${c.diferencia > 0 ? 'más' : 'menos'})`;
+}
+
+/** Montos de un informante: los que se reconocen por su cabecera o, si ninguno, los distintos de 0 con su cabecera del SII. */
+function montosInformante(i: InformanteTercero): string[] {
+  const conocidos = [
+    ...(i.retencionHonorarios !== undefined ? [`retención ${monto(i.retencionHonorarios)}`] : []),
+    ...(i.rentaSueldo !== undefined ? [`renta ${monto(i.rentaSueldo)}`] : []),
+    ...(i.impuestoUnicoRetenido !== undefined ? [`impuesto único ${monto(i.impuestoUnicoRetenido)}`] : []),
+  ];
+  if (conocidos.length > 0) return conocidos;
+  return Object.entries(i.montos).flatMap(([c, v]) => (v === null || v === 0 ? [] : [`${c.split(' / ').at(-1)} ${monto(v)}`]));
+}
+
+/** Una línea por informante (y otra con su cruce con las boletas, si hay) y la retención de la 1879 contra boletas y F22. */
+function lineasTerceros(t: InformadoTerceros): string[] {
+  const lineas = [`  Informado por terceros (DJ): ${plural(t.informantes.length, 'informante', 'informantes')}`];
+  for (const i of t.informantes) {
+    const quien = i.informanteNombre === null ? i.informanteRut : `${i.informanteNombre} (${i.informanteRut})`;
+    // Observada: el SII observó la declaración del informante; es un aviso, nunca un hallazgo crítico.
+    const estado = i.observada ? [`Aviso: ${i.estado ?? 'Observada'} (el SII observó la declaración de este informante)`] : i.estado ? [i.estado] : [];
+    lineas.push(`    ${[`DJ ${i.dj}`, quien, i.meses.length === 0 ? 'sin meses' : textoMeses(i.meses), ...montosInformante(i), ...estado].join(' · ')}`);
+    const b = i.cruceBoletas;
+    if (b === null) continue;
+    const partes = [
+      `Boletas emitidas a ese RUT: ${b.boletas}`,
+      textoMeses(b.mesesBoletas),
+      ...(b.soloDj.length > 0 ? [`meses solo en la DJ: ${textoMeses(b.soloDj)}`] : []),
+      ...(b.soloBoletas.length > 0 ? [`solo en boletas: ${textoMeses(b.soloBoletas)}`] : []),
+      ...(b.retencion === null ? [] : [`retención ${textoComparacion(b.retencion)}`]),
+    ];
+    lineas.push(`      ${partes.join(' · ')}`);
+  }
+  const c = t.cruceRetencion;
+  if (c !== null) {
+    const f22 = c.f22 === null ? [] : [`vs F22 492: ${c.f22.otro === null ? 'el F22 no la declara' : textoComparacion(c.f22)}`];
+    const boletas = c.boletas === null ? [] : [`vs boletas emitidas: ${textoComparacion(c.boletas, true)}`];
+    lineas.push(`  ${[`Retención informada en la DJ ${c.dj}: ${monto(c.informada)}`, ...boletas, ...f22].join(' · ')}`);
+  }
+  return lineas;
+}
+
 function lineasAnioRenta(a: AnioRenta): string[] {
-  const honorarios = a.honorariosEmitidos === null ? [] : lineasHonorarios(a.honorariosEmitidos);
+  const honorarios = [...(a.honorariosEmitidos === null ? [] : lineasHonorarios(a.honorariosEmitidos)), ...(a.terceros === null ? [] : lineasTerceros(a.terceros))];
   // Un año solo con boletas emitidas guardadas (p. ej. el año en curso, que aún no tiene F22).
   if (a.declaraciones === 0) return [`AT${a.anioTributario} · sin F22 guardado`, ...honorarios];
   if (a.folio === null) return [`AT${a.anioTributario} · sin folio vigente (${plural(a.declaraciones, 'declaración', 'declaraciones')})`, ...honorarios];

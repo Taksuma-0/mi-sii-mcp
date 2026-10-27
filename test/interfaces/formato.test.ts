@@ -141,10 +141,10 @@ describe('formato: renta F22', () => {
       textoRenta({
         rut: '22222222-2',
         anios: [
-          { anioTributario: 2024, declaraciones: 0, folioVigente: null, detalle: 'sin_vigente', boletasEmitidas: null, detalleBoletas: null, errores: [] },
-          { anioTributario: 2025, declaraciones: 1, folioVigente: 7, detalle: 'sin_leer', boletasEmitidas: null, detalleBoletas: null, errores: [{ superficie: 'f22.folio', codigo: 'PORTAL_CAMBIO', mensaje: 'x' }] },
-          { anioTributario: 2026, declaraciones: 2, folioVigente: 123_456_789, detalle: 'leido', boletasEmitidas: null, detalleBoletas: null, errores: [] },
-          { anioTributario: 2023, declaraciones: null, folioVigente: null, detalle: 'sin_leer', boletasEmitidas: null, detalleBoletas: null, errores: [{ superficie: 'f22', codigo: 'RESPUESTA_VACIA', mensaje: 'x' }] },
+          { anioTributario: 2024, declaraciones: 0, folioVigente: null, detalle: 'sin_vigente', boletasEmitidas: null, detalleBoletas: null, terceros: null, errores: [] },
+          { anioTributario: 2025, declaraciones: 1, folioVigente: 7, detalle: 'sin_leer', boletasEmitidas: null, detalleBoletas: null, terceros: null, errores: [{ superficie: 'f22.folio', codigo: 'PORTAL_CAMBIO', mensaje: 'x' }] },
+          { anioTributario: 2026, declaraciones: 2, folioVigente: 123_456_789, detalle: 'leido', boletasEmitidas: null, detalleBoletas: null, terceros: null, errores: [] },
+          { anioTributario: 2023, declaraciones: null, folioVigente: null, detalle: 'sin_leer', boletasEmitidas: null, detalleBoletas: null, terceros: null, errores: [{ superficie: 'f22', codigo: 'RESPUESTA_VACIA', mensaje: 'x' }] },
         ],
         abortado: { superficie: 'sesion', codigo: 'SESION_REQUERIDA', mensaje: 'Inicia sesión.' },
       }),
@@ -182,7 +182,7 @@ describe('formato: renta F22', () => {
       ],
       observaciones: [{ codigo: 'A01', descripcion: 'Observación ficticia' }],
       eventos: [{ orden: 1, codigoEvento: 'E01', nombre: 'Declaración recibida', fecha: '2026-04-15', tipo: 'INFO', codigoCarta: null }],
-      honorariosEmitidos: null,
+      honorariosEmitidos: null, terceros: null,
       obtenidoEn: '2026-10-21T15:00:00.000Z',
     };
     const sinVigente = { ...anio, anioTributario: 2025, folio: null, vigente: null, declaraciones: 1, conclusion: null, codigoConclusion: null, codigos: 0, codigosClave: [], observaciones: [], eventos: [] };
@@ -208,7 +208,7 @@ describe('formato: renta F22', () => {
       anioTributario: 2026, folio: 1, vigente: true, declaraciones: 1, codigoConclusion: null, conclusion: 'Devolución ficticia', fechaIngreso: null, tipoImpugnado: '0',
       impuestoPagado: null, montoGiro: null, remanenteSolicitado: 100_000, remanenteDevuelto: 100_000, fechaVencimiento: null, codigos: 2,
       codigosClave: [{ codigo: '87', valor: 100_000, glosa: 'Devolución ficticia' }, { codigo: '91', valor: null, glosa: 'Total ficticio' }],
-      observaciones: [], eventos: [], honorariosEmitidos: null, obtenidoEn: '2026-10-21T15:00:00.000Z',
+      observaciones: [], eventos: [], honorariosEmitidos: null, terceros: null, obtenidoEn: '2026-10-21T15:00:00.000Z',
     };
     const texto = textoResumenRenta({ rut: '11111111-1', anios: [anio] });
     expect(texto).toContain('  remanente solicitado $100.000 · devuelto $100.000\n');
@@ -220,9 +220,9 @@ describe('formato: renta F22', () => {
     const texto = textoRenta({
       rut: '11111111-1',
       anios: [
-        { anioTributario: 2026, declaraciones: 1, folioVigente: 9, detalle: 'leido', boletasEmitidas: 11, detalleBoletas: null, errores: [] },
-        { anioTributario: 2027, declaraciones: 0, folioVigente: null, detalle: 'sin_vigente', boletasEmitidas: 1, detalleBoletas: null, errores: [] },
-        { anioTributario: 2025, declaraciones: 0, folioVigente: null, detalle: 'sin_vigente', boletasEmitidas: 0, detalleBoletas: null, errores: [] },
+        { anioTributario: 2026, declaraciones: 1, folioVigente: 9, detalle: 'leido', boletasEmitidas: 11, detalleBoletas: null, terceros: null, errores: [] },
+        { anioTributario: 2027, declaraciones: 0, folioVigente: null, detalle: 'sin_vigente', boletasEmitidas: 1, detalleBoletas: null, terceros: null, errores: [] },
+        { anioTributario: 2025, declaraciones: 0, folioVigente: null, detalle: 'sin_vigente', boletasEmitidas: 0, detalleBoletas: null, terceros: null, errores: [] },
       ],
       abortado: null,
     });
@@ -241,9 +241,9 @@ describe('formato: renta F22', () => {
     const texto = textoRenta({
       rut: '11111111-1',
       anios: [
-        { anioTributario: 2026, declaraciones: 1, folioVigente: 9, detalle: 'leido', boletasEmitidas: 11, detalleBoletas: { leidos: 3, omitidos: 1, fallidos: 1, avisos: [aviso] }, errores: [] },
-        { anioTributario: 2025, declaraciones: 0, folioVigente: null, detalle: 'sin_vigente', boletasEmitidas: 1, detalleBoletas: { leidos: 1, omitidos: 0, fallidos: 0, avisos: [] }, errores: [] },
-        { anioTributario: 2024, declaraciones: 0, folioVigente: null, detalle: 'sin_vigente', boletasEmitidas: 0, detalleBoletas: { leidos: 0, omitidos: 0, fallidos: 0, avisos: [] }, errores: [] },
+        { anioTributario: 2026, declaraciones: 1, folioVigente: 9, detalle: 'leido', boletasEmitidas: 11, detalleBoletas: { leidos: 3, omitidos: 1, fallidos: 1, avisos: [aviso] }, terceros: null, errores: [] },
+        { anioTributario: 2025, declaraciones: 0, folioVigente: null, detalle: 'sin_vigente', boletasEmitidas: 1, detalleBoletas: { leidos: 1, omitidos: 0, fallidos: 0, avisos: [] }, terceros: null, errores: [] },
+        { anioTributario: 2024, declaraciones: 0, folioVigente: null, detalle: 'sin_vigente', boletasEmitidas: 0, detalleBoletas: { leidos: 0, omitidos: 0, fallidos: 0, avisos: [] }, terceros: null, errores: [] },
       ],
       abortado: null,
     });
@@ -259,7 +259,7 @@ describe('formato: renta F22', () => {
     const base = {
       anioTributario: 2026, folio: 9, vigente: true, declaraciones: 1, codigoConclusion: null, conclusion: null, fechaIngreso: null, tipoImpugnado: null,
       impuestoPagado: null, montoGiro: null, remanenteSolicitado: null, remanenteDevuelto: null, fechaVencimiento: null, codigos: 40,
-      codigosClave: [], observaciones: [], eventos: [], obtenidoEn: '2026-10-21T15:00:00.000Z',
+      codigosClave: [], observaciones: [], eventos: [], terceros: null, obtenidoEn: '2026-10-21T15:00:00.000Z',
     };
     const honorarios = {
       anioComercial: 2025, vigentes: 3, anuladas: 1, bruto: 2_000_000, retencionTerceros: 290_000, retencionPropia: 0, obtenidoEn: '2026-10-21T15:00:00.000Z', pagadores: null,
@@ -321,5 +321,89 @@ describe('formato: renta F22', () => {
         '  Cruce con el F22: bruto vs 547 difiere (boletas $2.000.000, F22 $2.500.000) · retención vs 492: el F22 no la declara (boletas $290.000)',
       );
     });
+  });
+
+  it('textoRenta dice cuántas DJ informadas por terceros leyó y cuántos informantes', () => {
+    const base = { declaraciones: 0, folioVigente: null, detalle: 'sin_vigente' as const, boletasEmitidas: null, detalleBoletas: null, errores: [] };
+    const texto = textoRenta({
+      rut: '11111111-1',
+      anios: [
+        { ...base, anioTributario: 2026, terceros: { informadas: 2, leidas: 2, filas: 3 } },
+        { ...base, anioTributario: 2025, terceros: { informadas: 2, leidas: 1, filas: 1 } },
+        { ...base, anioTributario: 2024, terceros: { informadas: 0, leidas: 0, filas: 0 } },
+      ],
+      abortado: null,
+    });
+    expect(texto).toBe(
+      [
+        'Renta (F22) 11111111-1:',
+        'AT2026: sin declaraciones · 2 DJ de terceros (3 informantes)',
+        'AT2025: sin declaraciones · 2 DJ de terceros, 1 sin leer (1 informante)',
+        'AT2024: sin declaraciones · sin DJ de terceros',
+      ].join('\n'),
+    );
+  });
+
+  it('textoResumenRenta muestra cada informante, destaca la observada como aviso y cruza la retención de la 1879', () => {
+    const fila = {
+      dj: 1879,
+      informanteRut: '33333333-3',
+      informanteNombre: 'Cliente Ficticio SpA',
+      estado: 'No Observada',
+      observada: false,
+      certificado: '101',
+      folio: 1,
+      fechaPresentacion: '2026-02-02',
+      meses: [7],
+      montos: {},
+      retencionHonorarios: 44_000,
+    };
+    const anio = {
+      anioTributario: 2026, folio: null, vigente: null, declaraciones: 0, codigoConclusion: null, conclusion: null, fechaIngreso: null, tipoImpugnado: null,
+      impuestoPagado: null, montoGiro: null, remanenteSolicitado: null, remanenteDevuelto: null, fechaVencimiento: null, codigos: 0, codigosClave: [],
+      observaciones: [], eventos: [], honorariosEmitidos: null, obtenidoEn: '2026-10-21T15:00:00.000Z',
+      terceros: {
+        informantes: [
+          { ...fila, cruceBoletas: { boletas: 1, mesesBoletas: [7], soloDj: [], soloBoletas: [], retencionBoletas: 43_500, retencion: { otro: 43_500, estado: 'cuadra' as const, diferencia: 500, reajustePct: 1.15 } } },
+          {
+            ...fila,
+            informanteRut: '44444444-4',
+            informanteNombre: null,
+            estado: 'Observada',
+            observada: true,
+            meses: [8, 9],
+            retencionHonorarios: 131_000,
+            cruceBoletas: { boletas: 2, mesesBoletas: [8, 10], soloDj: [9], soloBoletas: [10], retencionBoletas: 150_000, retencion: { otro: 150_000, estado: 'difiere' as const, diferencia: -19_000, reajustePct: null } },
+          },
+          { ...fila, dj: 1887, informanteRut: '55555555-5', informanteNombre: 'Empleador Ficticio', estado: null, meses: [], retencionHonorarios: undefined, rentaSueldo: 9_000_000, impuestoUnicoRetenido: 120_000, cruceBoletas: null },
+          { ...fila, dj: 1899, informanteRut: '66666666-6', informanteNombre: null, estado: null, meses: [1, 2], retencionHonorarios: undefined, montos: { 'Montos / Otra renta': 5_000, 'Montos / Vacío': null, 'Montos / Cero': 0 }, cruceBoletas: null },
+        ],
+        cruceRetencion: {
+          dj: 1879,
+          informada: 175_000,
+          boletas: { otro: 174_000, estado: 'cuadra' as const, diferencia: 1_000, reajustePct: 0.57 },
+          f22: { otro: 170_000, estado: 'difiere' as const, diferencia: 5_000, reajustePct: null },
+        },
+        obtenidoEn: '2026-10-21T15:00:00.000Z',
+      },
+    };
+
+    expect(textoResumenRenta({ rut: '11111111-1', anios: [anio] })).toBe(
+      [
+        'Renta (F22) 11111111-1 — 1 año tributario guardado',
+        'AT2026 · sin F22 guardado',
+        '  Informado por terceros (DJ): 4 informantes',
+        '    DJ 1879 · Cliente Ficticio SpA (33333333-3) · jul · retención $44.000 · No Observada',
+        '      Boletas emitidas a ese RUT: 1 · jul · retención cuadra (+1,1 %)',
+        '    DJ 1879 · 44444444-4 · ago, sep · retención $131.000 · Aviso: Observada (el SII observó la declaración de este informante)',
+        '      Boletas emitidas a ese RUT: 2 · ago, oct · meses solo en la DJ: sep · solo en boletas: oct · retención difiere $19.000 (la DJ trae menos)',
+        '    DJ 1887 · Empleador Ficticio (55555555-5) · sin meses · renta $9.000.000 · impuesto único $120.000',
+        '    DJ 1899 · 66666666-6 · ene, feb · Otra renta $5.000',
+        '  Retención informada en la DJ 1879: $175.000 · vs boletas emitidas: cuadra (la DJ reajusta por IPC: +0,6 %) · vs F22 492: difiere $5.000 (la DJ trae más)',
+      ].join('\n'),
+    );
+
+    const sinCruces = { ...anio, terceros: { ...anio.terceros, informantes: [anio.terceros.informantes[0]!], cruceRetencion: { dj: 1879, informada: 44_000, boletas: null, f22: { otro: null, estado: 'difiere' as const, diferencia: 44_000, reajustePct: null } } } };
+    expect(textoResumenRenta({ rut: '11111111-1', anios: [sinCruces] })).toContain('  Retención informada en la DJ 1879: $44.000 · vs F22 492: el F22 no la declara');
   });
 });
