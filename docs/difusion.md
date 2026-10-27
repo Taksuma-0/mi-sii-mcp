@@ -16,8 +16,8 @@ Cómo se presenta **mi-sii-mcp** fuera del repositorio: sitio web, Google Search
 | MCP Market (cola gratuita) | Pendiente: formulario listo, falta enviarlo |
 | npm (`npm publish`) | Pendiente: npm suspendió temporalmente la cuenta para publicar tras activar el 2FA; reintentar con el código de 6 dígitos de la app |
 | MCP Registry oficial | Pendiente: requiere el paquete en npm |
-| Release `v0.1.0` en GitHub | Pendiente |
-| PR a awesome-mcp-servers | Pendiente, después del release en Glama |
+| Release `v0.1.0` en GitHub (https://github.com/Taksuma-0/mi-sii-mcp/releases/tag/v0.1.0) | ✅ Hecho |
+| PR a awesome-mcp-servers, sección Finance & Fintech (https://github.com/punkpeye/awesome-mcp-servers/pull/17810) | ✅ Abierto, en revisión |
 
 Nota sobre la instalación con npm: en Glama, `npm ci` intentó compilar `better-sqlite3` con `node-gyp` y falló por falta de compilador; con `--ignore-scripts` usa los binarios precompilados que trae el paquete (`prebuilds/`). Al publicar en npm, conviene probar `npx mi-sii-mcp --help` en un equipo limpio.
 
