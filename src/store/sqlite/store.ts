@@ -1,8 +1,10 @@
 import { createHash } from 'node:crypto';
+import { SUPERFICIE_DETALLE_BHE_EMITIDAS } from '../../domain/renta.js';
 import {
   claveDocumento,
   type BheEmitidaMes,
   type BoletaHonorarios,
+  type BoletaHonorariosEmitida,
   type DisponibilidadFuentes,
   type DocumentoRcv,
   type EmpresaAutorizada,
@@ -158,6 +160,40 @@ interface FilaDeclaracionF22 {
   fecha_vencimiento: string | null;
   obtenido_en: string;
 }
+
+interface FilaBoletaEmitida {
+  rut: string;
+  periodo: string;
+  folio: number;
+  rut_receptor: string;
+  nombre_receptor: string | null;
+  fecha: string | null;
+  fecha_emision: string | null;
+  bruto: number;
+  retencion_emisor: number;
+  retencion_receptor: number;
+  liquido: number;
+  sociedad_profesional: number;
+  anulada: number;
+  fecha_anulacion: string | null;
+}
+
+const aBoletaEmitida = (f: FilaBoletaEmitida): BoletaHonorariosEmitida => ({
+  rut: f.rut,
+  periodo: f.periodo,
+  folio: f.folio,
+  rutReceptor: f.rut_receptor,
+  nombreReceptor: f.nombre_receptor,
+  fecha: f.fecha,
+  fechaEmision: f.fecha_emision,
+  bruto: f.bruto,
+  retencionEmisor: f.retencion_emisor,
+  retencionReceptor: f.retencion_receptor,
+  liquido: f.liquido,
+  sociedadProfesional: f.sociedad_profesional === 1,
+  anulada: f.anulada === 1,
+  fechaAnulacion: f.fecha_anulacion,
+});
 
 interface FilaBheEmitida {
   anio: number;
@@ -788,6 +824,47 @@ export class SqliteStore implements Store {
     }));
   }
 
+  reemplazarBoletasEmitidas(sincronizacionId: number, rut: string, periodo: string, boletas: readonly BoletaHonorariosEmitida[], obtenidoEn: string): void {
+    const ins = this.db.prepare(
+      `INSERT INTO bhe_emitida (rut, periodo, folio, rut_receptor, nombre_receptor, fecha, fecha_emision, bruto, retencion_emisor, retencion_receptor, liquido,
+         sociedad_profesional, anulada, fecha_anulacion, sincronizacion_id, obtenido_en)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    this.db.transaction(() => {
+      this.db.prepare('DELETE FROM bhe_emitida WHERE rut = ? AND periodo = ?').run(rut, periodo);
+      for (const b of boletas) {
+        ins.run(
+          rut,
+          periodo,
+          b.folio,
+          b.rutReceptor,
+          b.nombreReceptor,
+          b.fecha,
+          b.fechaEmision,
+          b.bruto,
+          b.retencionEmisor,
+          b.retencionReceptor,
+          b.liquido,
+          b.sociedadProfesional ? 1 : 0,
+          b.anulada ? 1 : 0,
+          b.fechaAnulacion,
+          sincronizacionId,
+          obtenidoEn,
+        );
+      }
+    })();
+  }
+
+  boletasEmitidas(rut: string, periodo: string): BoletaHonorariosEmitida[] {
+    return (this.db.prepare('SELECT * FROM bhe_emitida WHERE rut = ? AND periodo = ? ORDER BY folio').all(rut, periodo) as FilaBoletaEmitida[]).map(aBoletaEmitida);
+  }
+
+  boletasEmitidasDelAnio(rut: string, anioComercial: number): BoletaHonorariosEmitida[] {
+    return (this.db.prepare("SELECT * FROM bhe_emitida WHERE rut = ? AND periodo LIKE ? ORDER BY periodo, folio").all(rut, `${anioComercial}-%`) as FilaBoletaEmitida[]).map(
+      aBoletaEmitida,
+    );
+  }
+
   // --- frescura ---------------------------------------------------------------------------
   disponibilidadFuentes(rut: string, periodo: string): DisponibilidadFuentes {
     const superficies = this.db.prepare(
@@ -815,7 +892,14 @@ export class SqliteStore implements Store {
   }
 
   periodosConDatos(rut: string): string[] {
-    return (this.db.prepare(`SELECT DISTINCT periodo FROM sincronizacion WHERE rut = ? AND estado = 'ok' AND periodo GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]' ORDER BY periodo`).all(rut) as { periodo: string }[]).map((f) => f.periodo);
+    // El detalle de las boletas emitidas se registra por mes pero es parte de la renta: no hace de un mes un período de IVA.
+    return (
+      this.db
+        .prepare(
+          `SELECT DISTINCT periodo FROM sincronizacion WHERE rut = ? AND estado = 'ok' AND periodo GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]' AND superficie <> '${SUPERFICIE_DETALLE_BHE_EMITIDAS}' ORDER BY periodo`,
+        )
+        .all(rut) as { periodo: string }[]
+    ).map((f) => f.periodo);
   }
 
   // --- hallazgos ----------------------------------------------------------------------------

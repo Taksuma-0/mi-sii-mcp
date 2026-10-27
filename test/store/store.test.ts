@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { BoletaHonorarios, DocumentoRcv, Hallazgo, Lado, PropuestaF29, RcvResumen } from '../../src/domain/tipos.js';
 import { abrirDb, type Db } from '../../src/store/sqlite/db.js';
 import { huellaDocumento, SqliteStore } from '../../src/store/sqlite/store.js';
-import { boleta, declaracion, declaracionF22, detalleF22, documento, empresaAutorizada, fila, informeBheEmitidas, propuesta, perfilEmpresa, perfilTributario, perfilPersona, resumen, RUT_EMPRESA, RUT_PERSONA, valores } from '../helpers/fabricas.js';
+import { boleta, declaracion, declaracionF22, detalleF22, boletaEmitida, documento, empresaAutorizada, fila, informeBheEmitidas, propuesta, perfilEmpresa, perfilTributario, perfilPersona, resumen, RUT_EMPRESA, RUT_PERSONA, valores } from '../helpers/fabricas.js';
 import { guardarPdfF29, pdfFalso } from '../helpers/lector-falso.js';
 import { medirLecturas } from '../helpers/lecturas-sqlite.js';
 
@@ -695,6 +695,30 @@ describe('SqliteStore: boletas de honorarios emitidas', () => {
     const repetido = informeBheEmitidas(2025).meses.map((m) => ({ ...m, mes: 1 }));
     expect(() => store.reemplazarBheEmitidas(1, RUT_PERSONA, 2025, repetido, T)).toThrow();
     expect(store.bheEmitidas(RUT_PERSONA, 2025).filter((m) => m.vigentes > 0).map((m) => m.mes)).toEqual([1]);
+  });
+
+  it('guarda las boletas emitidas de un mes y las lee por mes o por año, reemplazando solo ese mes', () => {
+    const id = store.iniciarSincronizacion(RUT_PERSONA, 'bhe.emitidas.detalle', '2025-03', T);
+    const anulada = boletaEmitida({ folio: 3, rutReceptor: '55555555-5', nombreReceptor: null, fechaEmision: null, retencionEmisor: 27_500, retencionReceptor: 0, sociedadProfesional: true, anulada: true, fechaAnulacion: '2025-03-20' });
+    store.reemplazarBoletasEmitidas(id, RUT_PERSONA, '2025-03', [anulada, boletaEmitida()], T);
+    store.reemplazarBoletasEmitidas(id, RUT_PERSONA, '2025-04', [boletaEmitida({ periodo: '2025-04', folio: 4 })], T);
+    store.reemplazarBoletasEmitidas(id, RUT_PERSONA, '2024-12', [boletaEmitida({ periodo: '2024-12', folio: 9 })], T);
+
+    expect(store.boletasEmitidas(RUT_PERSONA, '2025-03')).toEqual([boletaEmitida(), anulada]);
+    expect(store.boletasEmitidasDelAnio(RUT_PERSONA, 2025).map((b) => [b.periodo, b.folio])).toEqual([['2025-03', 1], ['2025-03', 3], ['2025-04', 4]]);
+
+    store.reemplazarBoletasEmitidas(id, RUT_PERSONA, '2025-03', [boletaEmitida({ folio: 2 })], T);
+    expect(store.boletasEmitidas(RUT_PERSONA, '2025-03').map((b) => b.folio)).toEqual([2]);
+    expect(store.boletasEmitidas(RUT_PERSONA, '2025-04')).toHaveLength(1);
+    expect(() => store.reemplazarBoletasEmitidas(id, RUT_PERSONA, '2025-03', [boletaEmitida({ folio: 7 }), boletaEmitida({ folio: 7 })], T)).toThrow();
+    expect(store.boletasEmitidas(RUT_PERSONA, '2025-03').map((b) => b.folio)).toEqual([2]);
+  });
+
+  it('el detalle mensual de las emitidas es de la renta: periodosConDatos no lo cuenta como mes de IVA', () => {
+    const id = store.iniciarSincronizacion(RUT_PERSONA, 'bhe.emitidas.detalle', '2025-03', T);
+    store.reemplazarBoletasEmitidas(id, RUT_PERSONA, '2025-03', [boletaEmitida()], T);
+    store.terminarSincronizacion(id, T, 'ok');
+    expect(store.periodosConDatos(RUT_PERSONA)).toEqual([]);
   });
 
   it('las boletas emitidas son anuales: periodosConDatos las ignora', () => {

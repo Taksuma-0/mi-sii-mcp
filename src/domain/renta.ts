@@ -21,6 +21,9 @@ export function rangoAnios(desde: number, hasta: number, maximo = MAX_ANIOS_RENT
   return Array.from({ length: hasta - desde + 1 }, (_, i) => desde + i);
 }
 
+/** Superficie del detalle mensual de las boletas de honorarios emitidas: se registra con período AAAA-MM, pero es de la renta. */
+export const SUPERFICIE_DETALLE_BHE_EMITIDAS = 'bhe.emitidas.detalle';
+
 /** Período de la bitácora de sincronización de un año tributario: `AT<AAAA>`, que nunca calza con un mes `AAAA-MM`. */
 export const periodoRenta = (anioTributario: number): string => `AT${anioTributario}`;
 

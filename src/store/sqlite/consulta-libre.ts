@@ -30,6 +30,7 @@ const tablasCopia = (signo: string): readonly string[] => [
   'f29_propuesta_valor AS SELECT * FROM main.f29_propuesta_valor',
   'bhe_recibida AS SELECT * FROM main.bhe_recibida',
   'bhe_emitida_mes AS SELECT * FROM main.bhe_emitida_mes',
+  'bhe_emitida AS SELECT * FROM main.bhe_emitida',
   'hallazgo AS SELECT * FROM main.hallazgo',
   'sincronizacion AS SELECT id, rut, superficie, periodo, iniciado_en, terminado_en, estado, error_codigo FROM main.sincronizacion',
 ];

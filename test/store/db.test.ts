@@ -136,6 +136,24 @@ describe('db', () => {
     expect(() => mes(2, 99)).toThrow();
   });
 
+  it('la migración 10 crea las boletas de honorarios emitidas por RUT, mes y folio', () => {
+    const db = nuevaDb();
+    expect(MIGRACIONES.find((m) => m.version === 10)?.sql).toContain('bhe_emitida');
+    db.prepare("INSERT INTO sincronizacion (rut, superficie, periodo, iniciado_en) VALUES ('1', 'bhe.emitidas.detalle', '2025-03', 't')").run();
+    const insertar = (folio: number, anulada = 0, sociedad = 0, sincronizacion = 1) =>
+      db
+        .prepare(
+          `INSERT INTO bhe_emitida (rut, periodo, folio, rut_receptor, nombre_receptor, fecha, fecha_emision, bruto, retencion_emisor, retencion_receptor, liquido, sociedad_profesional, anulada, fecha_anulacion, sincronizacion_id, obtenido_en)
+           VALUES ('1', '2025-03', ?, '33333333-3', NULL, NULL, NULL, 100, 0, 14, 86, ?, ?, NULL, ?, 't')`,
+        )
+        .run(folio, sociedad, anulada, sincronizacion);
+    insertar(1);
+    expect(() => insertar(1)).toThrow();
+    expect(() => insertar(2, 2)).toThrow();
+    expect(() => insertar(3, 0, 2)).toThrow();
+    expect(() => insertar(4, 0, 0, 99)).toThrow();
+  });
+
   it('migra una base v1 con datos a la v2 agregando estado_id', () => {
     const db = new Database(':memory:');
     aplicarMigraciones(db, [MIGRACIONES[0]!]);

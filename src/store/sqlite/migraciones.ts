@@ -316,6 +316,33 @@ CREATE TABLE bhe_emitida_mes (
 );
 `;
 
+/**
+ * Boletas de honorarios emitidas por el contribuyente, boleta por boleta, del informe mensual del SII: una fila por mes
+ * (periodo AAAA-MM) y folio. Sin la identidad del emisor (es el propio contribuyente), el correo del receptor ni el
+ * código de barras. Se reemplaza el mes completo en cada lectura.
+ */
+const V10 = `
+CREATE TABLE bhe_emitida (
+  rut TEXT NOT NULL,
+  periodo TEXT NOT NULL,
+  folio INTEGER NOT NULL,
+  rut_receptor TEXT NOT NULL,
+  nombre_receptor TEXT,
+  fecha TEXT,
+  fecha_emision TEXT,
+  bruto INTEGER NOT NULL,
+  retencion_emisor INTEGER NOT NULL,
+  retencion_receptor INTEGER NOT NULL,
+  liquido INTEGER NOT NULL,
+  sociedad_profesional INTEGER NOT NULL CHECK (sociedad_profesional IN (0, 1)),
+  anulada INTEGER NOT NULL CHECK (anulada IN (0, 1)),
+  fecha_anulacion TEXT,
+  sincronizacion_id INTEGER NOT NULL REFERENCES sincronizacion (id),
+  obtenido_en TEXT NOT NULL,
+  PRIMARY KEY (rut, periodo, folio)
+);
+`;
+
 export const MIGRACIONES: readonly Migracion[] = [
   { version: 1, sql: V1 },
   { version: 2, sql: V2 },
@@ -326,4 +353,5 @@ export const MIGRACIONES: readonly Migracion[] = [
   { version: 7, sql: V7 },
   { version: 8, sql: V8 },
   { version: 9, sql: V9 },
+  { version: 10, sql: V10 },
 ];

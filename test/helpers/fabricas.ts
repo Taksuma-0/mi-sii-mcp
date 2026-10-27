@@ -1,4 +1,4 @@
-import type { BheEmitidaMes, BoletaHonorarios, DocumentoRcv, EmpresaAutorizada, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBheEmitidas, Perfil, PerfilTributario, PropuestaF29, RcvResumen, RcvResumenFila } from '../../src/domain/tipos.js';
+import type { BheEmitidaMes, BoletaHonorarios, BoletaHonorariosEmitida, DocumentoRcv, EmpresaAutorizada, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBheEmitidas, Perfil, PerfilTributario, PropuestaF29, RcvResumen, RcvResumenFila } from '../../src/domain/tipos.js';
 
 export const RUT_EMPRESA = '22222222-2';
 export const RUT_PERSONA = '11111111-1';
@@ -188,4 +188,23 @@ export const informeBheEmitidas = (anioComercial: number, meses: Readonly<Record
   anioComercial,
   sociedadProfesional: false,
   meses: Array.from({ length: 12 }, (_, i) => mesBheEmitida(i + 1, meses[i + 1])),
+});
+
+/** Boleta emitida vigente por la persona sintética a un cliente sintético. */
+export const boletaEmitida = (o: Partial<BoletaHonorariosEmitida> = {}): BoletaHonorariosEmitida => ({
+  rut: RUT_PERSONA,
+  periodo: '2025-03',
+  folio: 1,
+  rutReceptor: RUT_PROVEEDOR,
+  nombreReceptor: 'Cliente Ficticio SpA',
+  fecha: '2025-03-05',
+  fechaEmision: '2025-03-05',
+  bruto: 500_000,
+  retencionEmisor: 0,
+  retencionReceptor: 68_750,
+  liquido: 431_250,
+  sociedadProfesional: false,
+  anulada: false,
+  fechaAnulacion: null,
+  ...o,
 });

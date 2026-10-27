@@ -124,6 +124,21 @@ describe('esquemaDatos', () => {
     expect(regla).toMatch(/IPC/);
   });
 
+  it('documenta las boletas emitidas una por una: anuladas, qué retención es cuál, la superficie y cómo ver a quién se emitieron', () => {
+    const { tablas, reglas } = esquemaDatos();
+    expect(tablas.map((t) => t.nombre)).toContain('bhe_emitida');
+    const columna = (tabla: string, nombre: string) => tablas.find((t) => t.nombre === tabla)?.columnas.find((c) => c.nombre === nombre)?.significado ?? '';
+    expect(columna('bhe_emitida', 'anulada')).toMatch(/1.*anulada/);
+    expect(columna('bhe_emitida', 'retencion_receptor')).toMatch(/terceros/);
+    expect(columna('bhe_emitida', 'retencion_emisor')).toMatch(/propio emisor/);
+    expect(columna('sincronizacion', 'superficie')).toContain('bhe.emitidas.detalle');
+    const regla = reglas.find((r) => r.includes('(bhe_emitida,'));
+    expect(regla).toBeDefined();
+    expect(regla).toContain('anulada = 0');
+    expect(regla).toContain('rut_receptor');
+    expect(regla).toContain('renta_sincronizar');
+  });
+
   it('documenta la cuenta del SII: perfil tributario, atributos sin datos personales y empresas autorizadas', () => {
     const { tablas, reglas } = esquemaDatos();
     expect(tablas.map((t) => t.nombre)).toEqual(expect.arrayContaining(['contribuyente_tributario', 'sii_empresa_autorizada']));

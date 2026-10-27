@@ -2,6 +2,7 @@ import type { Periodo } from '../domain/periodo.js';
 import type {
   BheEmitidaMes,
   BoletaHonorarios,
+  BoletaHonorariosEmitida,
   DisponibilidadFuentes,
   DocumentoRcv,
   EmpresaAutorizada,
@@ -242,6 +243,12 @@ export interface Store {
   reemplazarBheEmitidas(sincronizacionId: number, rut: string, anioComercial: number, meses: readonly BheEmitidaMes[], obtenidoEn: string): void;
   /** Meses guardados de boletas de honorarios emitidas (de un año comercial o de todos), del año más nuevo al más antiguo y por mes. */
   bheEmitidas(rut: string, anioComercial?: number): BheEmitidaMesGuardado[];
+  /** Reemplaza las boletas de honorarios emitidas guardadas de un mes en una transacción. */
+  reemplazarBoletasEmitidas(sincronizacionId: number, rut: string, periodo: string, boletas: readonly BoletaHonorariosEmitida[], obtenidoEn: string): void;
+  /** Boletas de honorarios emitidas guardadas del mes (con anuladas), por folio. */
+  boletasEmitidas(rut: string, periodo: string): BoletaHonorariosEmitida[];
+  /** Boletas de honorarios emitidas guardadas de un año comercial (con anuladas), por mes y folio. */
+  boletasEmitidasDelAnio(rut: string, anioComercial: number): BoletaHonorariosEmitida[];
   /** Cantidad de boletas guardadas del mes (con anuladas) y montos de las no anuladas. */
   totalesBhe(rut: string, periodo: string): TotalesBheMes;
   /** Estado y código de error del intento más reciente de una superficie en un mes; null si nunca se intentó. */
