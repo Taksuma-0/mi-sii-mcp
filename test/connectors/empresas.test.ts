@@ -53,6 +53,23 @@ describe('empresasAutorizadas', () => {
     expect((await empresasAutorizadas(http, sumidero))[0]!.fechaDesautorizacion).toBe('2026-01-15');
   });
 
+  it('deduplica por RUT de empresa: la fila vigente gana a la desautorizada y, a igualdad, la primera', async () => {
+    const fila = (rut: string, extra: Record<string, unknown> = {}) => ({ usrEmpRut: rut, usrEmpDv: rut === '22222222' ? '2' : '3', razonSocONombreEmp: `EMPRESA ${rut}`, usrPrivilegios: 'ADMIN', ...extra });
+    const data = [
+      fila('22222222', { usrFechaDesautorizacion: '2025-01-01' }),
+      fila('33333333', { usrPrivilegios: 'PRIMERA' }),
+      fila('22222222'),
+      fila('33333333', { usrPrivilegios: 'SEGUNDA' }),
+    ];
+    const { http, sumidero } = await preparar(JSON.stringify({ data, respEstado: { codRespuesta: 0 } }));
+
+    const r = await empresasAutorizadas(http, sumidero);
+
+    expect(r.map((e) => e.rutEmpresa)).toEqual(['22222222-2', '33333333-3']);
+    expect(r[0]).toMatchObject({ fechaDesautorizacion: null });
+    expect(r[1]).toMatchObject({ privilegios: 'PRIMERA' });
+  });
+
   it('una respuesta sin filas es una lista vacía', async () => {
     const { http, sumidero } = await preparar(JSON.stringify({ data: [], respEstado: { codRespuesta: 0 } }));
     expect(await empresasAutorizadas(http, sumidero)).toEqual([]);

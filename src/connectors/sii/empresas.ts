@@ -75,5 +75,15 @@ export async function empresasAutorizadas(http: Http, sumidero: SumideroRespuest
     throw new ErrorImpuestocl(/autoriza/i.test(mensaje) ? 'SIN_PERMISO' : 'SII_RECHAZO', `Empresas autorizadas: ${mensaje}`);
   }
   if (!Array.isArray(sobre.data.data)) throw new ErrorImpuestocl('PORTAL_CAMBIO', 'La respuesta de las empresas autorizadas no trae la lista de empresas.');
-  return sobre.data.data.map(empresaDe);
+  return sinDuplicados(sobre.data.data.map(empresaDe));
+}
+
+/** Una fila por RUT de empresa (es la clave de lo guardado): la vigente gana a la desautorizada; a igualdad, la primera. */
+function sinDuplicados(empresas: readonly EmpresaAutorizada[]): EmpresaAutorizada[] {
+  const porRut = new Map<string, EmpresaAutorizada>();
+  for (const e of empresas) {
+    const previa = porRut.get(e.rutEmpresa);
+    if (!previa || (previa.fechaDesautorizacion !== null && e.fechaDesautorizacion === null)) porRut.set(e.rutEmpresa, e);
+  }
+  return [...porRut.values()];
 }
