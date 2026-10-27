@@ -1,6 +1,6 @@
 # 0004 — Vencimientos oficiales del F29
 
-Fecha: 27 de octubre de 2026. Estado: verificado contra fuentes del SII; pendiente de implementación (Tarea T17 del plan el plan de trabajo).
+Fecha: 27 de octubre de 2026. Estado: verificado contra fuentes del SII; implementado en la Tarea T17 (`src/calendar/plazos.ts`, IVA-04 y `plazos_proximos`; plan el plan de trabajo).
 
 ## Fuente principal
 

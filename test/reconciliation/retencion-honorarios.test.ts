@@ -17,7 +17,7 @@ const conRetencion = (r151: number | null) =>
 describe('RET-01 retención de honorarios vs código 151 del F29', () => {
   it('el código 151 es la retención de honorarios y las reglas subieron de versión', () => {
     expect(CODIGO_F29.RETENCION_HONORARIOS).toBe('151');
-    expect(VERSION_REGLAS).toBe('iva-2026.10.4');
+    expect(VERSION_REGLAS).toBe('iva-2026.10.5');
   });
 
   it('151 menor que la retención de las boletas: advertencia con los montos', () => {
@@ -67,6 +67,6 @@ describe('RET-01 retención de honorarios vs código 151 del F29', () => {
     const r = conciliarPeriodo(entrada({ valores: conRetencion(100_000), bhe: { consultado: true, retencion: 152_500 } }));
 
     expect(r.hallazgos.map((h) => [h.regla, h.severidad])).toEqual([['RET-01', 'advertencia']]);
-    expect(r.versionReglas).toBe('iva-2026.10.4');
+    expect(r.versionReglas).toBe('iva-2026.10.5');
   });
 });

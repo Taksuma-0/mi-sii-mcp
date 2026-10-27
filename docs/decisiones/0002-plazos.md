@@ -13,3 +13,7 @@
   Fuera de ese intervalo la tabla no cubre festivos: los cálculos solo excluyen fines de semana.
   Para un año nuevo: `node scripts/actualizar-feriados.mjs <año>` y revisar la salida antes de
   incorporarla a la tabla y ampliar `ANIOS_CUBIERTOS`.
+
+## Actualización del 27 de octubre de 2026 (T17)
+
+La regla del F29 de esta decisión quedó **superada por `docs/decisiones/0004-plazos-f29.md`**, verificada contra las fuentes del SII. `vencimientosF29(periodo, { autorizadoDia20 })` en `src/calendar/plazos.ts` entrega dos fechas: `conPago` (día 20 si Mi SII dice que el contribuyente está autorizado, o si se desconoce; día 12 si no) y `sinPago` (día 28, sin traslado). El traslado al primer día hábil siguiente ahora incluye el 31 de diciembre. IVA-04 y `plazos_proximos` se gradúan con ambas fechas cuando no hay F29 ni dato de pago. Los reclamos de facturas y los feriados no cambian.

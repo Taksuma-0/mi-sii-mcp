@@ -4,7 +4,7 @@ import { sincronizar } from '../../src/app/sincronizar.js';
 import { parsePeriodo } from '../../src/domain/periodo.js';
 import { textoResumenIva } from '../../src/interfaces/formato.js';
 import { codigoDe } from '../helpers/errores.js';
-import { declaracion, documento, fila, perfilEmpresa, resumen, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
+import { declaracion, documento, fila, perfilEmpresa, perfilTributario, resumen, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
 import { depsDePrueba } from '../helpers/deps.js';
 import { sembrarMes, T_SEMBRADO, type DatosMes } from '../helpers/sembrar.js';
 import { medirLecturas } from '../helpers/lecturas-sqlite.js';
@@ -112,9 +112,22 @@ describe('resumenIva', () => {
     expect(r.compras).toMatchObject({ credito: 19_000, pendientes: 1, reclamados: 0 });
     expect(r.f29).toMatchObject({ folio: 555_001, estado: 'Vigente', totalAPagar: 171_000 });
     expect(r.venceF29).toBe('2026-10-20');
+    expect(r.venceF29SinPago).toBe('2026-10-28');
     expect(r.comparaciones.creditoF29).toBe(19_000);
     expect(r.hallazgos).toEqual([]);
     expect(r.frescura).toEqual({ rcv: T_SEMBRADO, f29: T_SEMBRADO, propuesta: null, bhe: null });
+  });
+
+  it('el vencimiento del F29 usa la autorización del día 20 guardada de la cuenta, y cita el pago y el sin pago', () => {
+    const { deps, store } = conEmpresa();
+    sembrarMes(store, '2026-09', { declaraciones: [] });
+    store.guardarPerfilTributario(RUT_EMPRESA, perfilTributario({ autorizadoDia20: false }), T_SEMBRADO);
+    const r = resumenIva(deps, RUT_EMPRESA, '2026-09');
+    expect(r.venceF29).toBe('2026-10-13');
+    expect(r.venceF29SinPago).toBe('2026-10-28');
+    expect(textoResumenIva(r)).toContain('vence 2026-10-13 con pago (2026-10-28 sin pago)');
+    expect(r.hallazgos).toMatchObject([{ regla: 'IVA-04', titulo: 'F29 posiblemente vencido' }]);
+    expect(r.hallazgos[0]!.detalle).toContain('venció el 2026-10-13');
   });
 
   it('guarda los hallazgos que encuentra', () => {
@@ -174,12 +187,21 @@ describe('hallazgos', () => {
 });
 
 describe('plazos', () => {
-  it('lista el F29 vencido y las facturas por reclamar, ordenados por fecha', () => {
+  const F29_SEPT = (extra: Partial<{ vence: string; diasRestantes: number; descripcion: string }>) => ({
+    rut: RUT_EMPRESA,
+    tipo: 'F29',
+    vence: '2026-10-28',
+    diasRestantes: 7,
+    descripcion: 'F29 de 2026-09 posiblemente vencido: si el F29 lleva pago, venció el 2026-10-20; sin pago vence el 2026-10-28',
+    referencia: '2026-09',
+    ...extra,
+  });
+
+  it('lista el F29 posiblemente vencido y las facturas por reclamar, ordenados por fecha', () => {
     const { deps, store } = conEmpresa();
     sembrarMes(store, '2026-09', { resumenes: [resumen()], declaraciones: [] });
     sembrarMes(store, '2026-10', { documentos: [documento({ periodo: '2026-10', estado: 'PENDIENTE', folio: 77, fechaRecepcion: '2026-10-19 08:00:00' })], sinF29: true });
     expect(plazos(deps, RUT_EMPRESA)).toEqual([
-      { rut: RUT_EMPRESA, tipo: 'F29', vence: '2026-10-20', diasRestantes: -1, descripcion: 'F29 de 2026-09 no presentado (vencido)', referencia: '2026-09' },
       {
         rut: RUT_EMPRESA,
         tipo: 'RECLAMO_FACTURA',
@@ -188,8 +210,50 @@ describe('plazos', () => {
         descripcion: 'Aceptar o reclamar Factura folio 77 de PROVEEDOR DEMO LTDA ($119.000)',
         referencia: 'COMPRA:33:33333333-3:77',
       },
+      F29_SEPT({}),
     ]);
-    expect(plazos(deps, RUT_EMPRESA, 3).map((p) => p.tipo)).toEqual(['F29']);
+    expect(plazos(deps, RUT_EMPRESA, 7).map((p) => p.tipo)).toEqual(['RECLAMO_FACTURA', 'F29']);
+    expect(plazos(deps, RUT_EMPRESA, 6).map((p) => p.tipo)).toEqual(['RECLAMO_FACTURA']);
+  });
+
+  it('antes del día de pago es un F29 por presentar, con ambas fechas', () => {
+    const { deps, store } = depsDePrueba({ ahora: '2026-10-15T15:00:00.000Z' });
+    store.guardarContribuyente(perfilEmpresa());
+    sembrarMes(store, '2026-09', { resumenes: [resumen()], declaraciones: [] });
+    expect(plazos(deps, RUT_EMPRESA)).toEqual([
+      F29_SEPT({ vence: '2026-10-20', diasRestantes: 5, descripcion: 'Presentar el F29 de 2026-09 (con pago hasta el 2026-10-20; sin pago hasta el 2026-10-28)' }),
+    ]);
+  });
+
+  it('el mismo día de pago sigue por presentar', () => {
+    const { deps, store } = depsDePrueba({ ahora: '2026-10-20T15:00:00.000Z' });
+    store.guardarContribuyente(perfilEmpresa());
+    sembrarMes(store, '2026-09', { resumenes: [resumen()], declaraciones: [] });
+    expect(plazos(deps, RUT_EMPRESA)[0]).toMatchObject({ vence: '2026-10-20', diasRestantes: 0, descripcion: expect.stringContaining('Presentar el F29 de 2026-09') });
+  });
+
+  it('después del día 28 sin pago está vencido, con ambas fechas', () => {
+    const { deps, store } = depsDePrueba({ ahora: '2026-10-30T15:00:00.000Z' });
+    store.guardarContribuyente(perfilEmpresa());
+    sembrarMes(store, '2026-09', { resumenes: [resumen()], declaraciones: [] });
+    expect(plazos(deps, RUT_EMPRESA)).toEqual([
+      F29_SEPT({ vence: '2026-10-28', diasRestantes: -2, descripcion: 'F29 de 2026-09 no presentado (vencido el 2026-10-28; con pago venció el 2026-10-20)' }),
+    ]);
+  });
+
+  it('un F29 presentado no genera plazo en ninguna ventana', () => {
+    const { deps, store } = depsDePrueba({ ahora: '2026-10-30T15:00:00.000Z' });
+    store.guardarContribuyente(perfilEmpresa());
+    sembrarMes(store, '2026-09', SEPT);
+    expect(plazos(deps, RUT_EMPRESA).filter((p) => p.tipo === 'F29' && p.referencia === '2026-09')).toEqual([]);
+  });
+
+  it('sin autorización del día 20 el pago vence el 12 (13 por el feriado)', () => {
+    const { deps, store } = depsDePrueba({ ahora: '2026-10-10T15:00:00.000Z' });
+    store.guardarContribuyente(perfilEmpresa());
+    store.guardarPerfilTributario(RUT_EMPRESA, perfilTributario({ autorizadoDia20: false }), T_SEMBRADO);
+    sembrarMes(store, '2026-09', { resumenes: [resumen()], declaraciones: [] });
+    expect(plazos(deps, RUT_EMPRESA)[0]).toMatchObject({ vence: '2026-10-13', diasRestantes: 3, descripcion: 'Presentar el F29 de 2026-09 (con pago hasta el 2026-10-13; sin pago hasta el 2026-10-28)' });
   });
 
   it('si el mes anterior no se sincronizó lo dice sin nombrar un comando (sirve en la CLI y en MCP)', () => {

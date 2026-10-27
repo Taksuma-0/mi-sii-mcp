@@ -1,4 +1,4 @@
-import { vencimientoF29, vencimientoReclamo } from '../calendar/plazos.js';
+import { vencimientoReclamo, vencimientosF29 } from '../calendar/plazos.js';
 import { declaracionVigente, f29Guardada, f29Rechazada } from '../domain/f29.js';
 import { diasEntre, fechaEnSantiago } from '../domain/fechas.js';
 import { formatearClp, nombreTipoDocumento } from '../domain/formato.js';
@@ -29,6 +29,8 @@ export interface EntradaConciliacion {
    * equivale a no consultadas.
    */
   readonly bhe?: { readonly consultado: boolean; readonly retencion: number };
+  /** El SII autoriza declarar y pagar el F29 hasta el día 20 (Mi SII); null u omitido = se desconoce y se mantiene el día 20. */
+  readonly autorizadoDia20?: boolean | null;
 }
 
 type DatosHallazgo = Omit<Hallazgo, 'rut' | 'periodo'>;
@@ -186,28 +188,46 @@ function explicacionesNoPresentadas(declaraciones: readonly F29Declaracion[]): s
   return out;
 }
 
-/** IVA-04: período cerrado sin F29 presentado. Las empresas declaran aunque no tengan movimiento. */
+/**
+ * IVA-04: período cerrado sin F29 presentado. Las empresas declaran aunque no tengan movimiento. Sin F29 ni dato de pago el
+ * monto es desconocido, así que se gradúa por los vencimientos oficiales (docs/decisiones/0004-plazos-f29.md): hasta el día
+ * de pago, pendiente; después y hasta el 28 (sin pago), posiblemente vencido; después del 28, vencido.
+ */
 export function reglaF29Faltante(e: EntradaConciliacion): Hallazgo[] {
   if (e.disponibilidad?.f29 === false) return [];
   if (declaracionVigente(e.declaraciones)) return [];
   if (compararPeriodos(e.periodo, periodoDeFecha(e.hoy)) >= 0) return [];
   const hayMovimiento = e.resumenes.some((r) => r.estado === 'REGISTRO' && r.filas.some((f) => f.cantidad > 0));
   if (e.tipo !== 'empresa' && !hayMovimiento) return [];
-  const vence = vencimientoF29(e.periodo);
-  const dias = diasEntre(e.hoy, vence);
+  const { conPago, sinPago } = vencimientosF29(e.periodo, { autorizadoDia20: e.autorizadoDia20 ?? null });
   const motivo = [
     hayMovimiento ? 'El período tiene movimiento en el RCV.' : 'Aunque no haya movimiento, el F29 se declara igual.',
     ...explicacionesNoPresentadas(e.declaraciones),
   ].join(' ');
   const evidencia = [`F29:${e.periodo.texto}`];
-  if (dias < 0) {
+  const diasConPago = diasEntre(e.hoy, conPago);
+  const diasSinPago = diasEntre(e.hoy, sinPago);
+  if (diasSinPago < 0) {
     return [
       hallazgo(e, {
         regla: 'IVA-04',
         severidad: 'critico',
         naturaleza: 'DERIVADO',
         titulo: 'F29 no presentado y vencido',
-        detalle: `El F29 de ${e.periodo.texto} venció el ${vence} (hace ${-dias} día(s)). ${motivo}`,
+        detalle: `El F29 de ${e.periodo.texto} venció el ${sinPago} (hace ${-diasSinPago} día(s)) aun sin pago; con pago venció el ${conPago}. ${motivo}`,
+        montos: null,
+        evidencia,
+      }),
+    ];
+  }
+  if (diasConPago < 0) {
+    return [
+      hallazgo(e, {
+        regla: 'IVA-04',
+        severidad: 'advertencia',
+        naturaleza: 'DERIVADO',
+        titulo: 'F29 posiblemente vencido',
+        detalle: `El F29 de ${e.periodo.texto} no figura presentado y está posiblemente vencido: si el F29 lleva pago, venció el ${conPago}; sin pago vence el ${sinPago} (en ${diasSinPago} día(s)). Sin F29 ni dato de pago no se sabe si lleva pago. ${motivo}`,
         montos: null,
         evidencia,
       }),
@@ -219,7 +239,7 @@ export function reglaF29Faltante(e: EntradaConciliacion): Hallazgo[] {
       severidad: 'advertencia',
       naturaleza: 'DERIVADO',
       titulo: 'F29 pendiente de presentar',
-      detalle: `El F29 de ${e.periodo.texto} vence el ${vence} (en ${dias} día(s)). ${motivo}`,
+      detalle: `El F29 de ${e.periodo.texto} vence el ${conPago} con pago (en ${diasConPago} día(s)); sin pago, el ${sinPago}. ${motivo}`,
       montos: null,
       evidencia,
     }),

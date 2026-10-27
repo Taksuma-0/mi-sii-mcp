@@ -38,7 +38,7 @@ export function textoResumenIva(r: ResumenIva): string {
     `Remanente: mes anterior (77) ${monto(c.remanenteAnterior77)} → este mes (504) ${monto(c.remanenteActual504)}`,
     r.f29
       ? `F29: folio ${r.f29.folio} (${r.f29.estado}), presentado ${r.f29.fechaPresentacion ?? 'sin fecha'}, total a pagar ${monto(r.f29.totalAPagar)}`
-      : `F29: ${r.disponibilidad.f29 ? 'no presentado' : 'sin sincronizar'} — vence ${r.venceF29}`,
+      : `F29: ${r.disponibilidad.f29 ? 'no presentado' : 'sin sincronizar'} — vence ${r.venceF29} con pago (${r.venceF29SinPago} sin pago)`,
     ...(r.disponibilidad.propuestaF29 ? [lineaPropuesta(r.propuesta)] : []),
     ...(r.honorarios ? [lineaHonorarios(r.honorarios)] : []),
     `Compras pendientes de aceptar o reclamar: ${r.compras.pendientes ?? 'sin dato'} · reclamadas: ${r.compras.reclamados ?? 'sin dato'}`,

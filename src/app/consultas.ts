@@ -1,4 +1,4 @@
-import { vencimientoF29, vencimientoReclamo } from '../calendar/plazos.js';
+import { vencimientoReclamo, vencimientosF29 } from '../calendar/plazos.js';
 import { ErrorImpuestocl } from '../domain/errores.js';
 import { declaracionVigente, montosPropuesta } from '../domain/f29.js';
 import { diasEntre, fechaEnSantiago } from '../domain/fechas.js';
@@ -47,7 +47,10 @@ export interface ResumenIva {
   } | null;
   /** Boletas de honorarios recibidas del mes (ver `honorariosDelMes`). */
   readonly honorarios: HonorariosMes;
+  /** Vencimiento del F29 con pago, según la autorización del día 20 de la cuenta (el día 20 si se desconoce). */
   readonly venceF29: string;
+  /** Vencimiento de la declaración sin pago por Internet. */
+  readonly venceF29SinPago: string;
   readonly comparaciones: Comparaciones;
   readonly hallazgos: readonly Hallazgo[];
   readonly frescura: Frescura;
@@ -103,6 +106,11 @@ function valoresVigentes(deps: DepsApp, rut: string, periodo: string): F29Valore
   return vigente ? deps.store.valoresF29(rut, periodo, vigente.folio) : null;
 }
 
+/** Si el SII autoriza al contribuyente a declarar y pagar hasta el día 20, según su cuenta guardada; null si no se sabe. */
+function autorizadoDia20(deps: DepsApp, rut: string): boolean | null {
+  return deps.store.perfilTributario(rut)?.autorizadoDia20 ?? null;
+}
+
 function conciliarYGuardar(deps: DepsApp, perfil: Perfil, periodo: Periodo) {
   const declaraciones = deps.store.declaracionesF29(perfil.rut, periodo.texto);
   const vigente = declaracionVigente(declaraciones);
@@ -120,6 +128,7 @@ function conciliarYGuardar(deps: DepsApp, perfil: Perfil, periodo: Periodo) {
     snapshots: vigente?.fechaPresentacion ? deps.store.snapshotsRcv(perfil.rut, periodo.texto) : [],
     toleranciaPesos: deps.toleranciaPesos,
     disponibilidad,
+    autorizadoDia20: autorizadoDia20(deps, perfil.rut),
     bhe: { consultado: disponibilidad.bheRecibidas, retencion: disponibilidad.bheRecibidas ? deps.store.totalesBhe(perfil.rut, periodo.texto).retencion : 0 },
   } satisfies EntradaConciliacion;
   const resultado = conciliarPeriodo(entrada);
@@ -133,6 +142,7 @@ export function resumenIva(deps: DepsApp, rutTexto: string, periodoTexto: string
   const { entrada, resultado, vigente } = conciliarYGuardar(deps, perfil, periodo);
   const disponibilidad = entrada.disponibilidad;
   const propuesta = disponibilidad.propuestaF29 ? deps.store.propuestaF29(perfil.rut, periodo.texto) : null;
+  const vencimientos = vencimientosF29(periodo, { autorizadoDia20: entrada.autorizadoDia20 });
   const filas = (lado: Lado, estado: EstadoRcv): RcvResumenFila[] =>
     entrada.resumenes.filter((r) => r.lado === lado && r.estado === estado).flatMap((r) => [...r.filas]);
   const cantidad = (estado: EstadoRcv): number | null => disponibilidad.comprasRcv ? filas('COMPRA', estado).reduce((s, f) => s + f.cantidad, 0) : null;
@@ -147,7 +157,8 @@ export function resumenIva(deps: DepsApp, rutTexto: string, periodoTexto: string
       : null,
     propuesta: propuesta ? { tipo: propuesta.tipoPropuesta, sinPropuesta: propuesta.sinPropuesta, ...montosPropuesta(propuesta) } : null,
     honorarios: honorariosDelMes(deps, perfil.rut, periodo.texto, disponibilidad),
-    venceF29: vencimientoF29(periodo),
+    venceF29: vencimientos.conPago,
+    venceF29SinPago: vencimientos.sinPago,
     comparaciones: resultado.comparaciones,
     hallazgos: resultado.hallazgos,
     frescura: deps.store.frescura(perfil.rut, periodo.texto),
@@ -175,6 +186,7 @@ export function plazos(deps: DepsApp, rutTexto: string, dias = 30): Plazo[] {
   const actual = periodoDeFecha(fechaHoy);
   const limite = restarPeriodos(actual, 12);
   const out: Plazo[] = [];
+  const autorizado = autorizadoDia20(deps, perfil.rut);
 
   const candidatos = new Set<string>([periodoAnterior(actual).texto, ...deps.store.periodosConDatos(perfil.rut)]);
   for (const texto of [...candidatos].sort()) {
@@ -184,14 +196,19 @@ export function plazos(deps: DepsApp, rutTexto: string, dias = 30): Plazo[] {
     const sincronizado = deps.store.frescura(perfil.rut, texto).f29 !== null;
     const conMovimiento = deps.store.resumenesRcv(perfil.rut, texto).some((r) => r.estado === 'REGISTRO' && r.filas.some((f) => f.cantidad > 0));
     if (perfil.tipo !== 'empresa' && !conMovimiento) continue;
-    const vence = vencimientoF29(periodo);
+    // Sin F29 presentado ni dato de pago se desconoce si lleva pago: el plazo vigente es el del pago hasta su día y, después, el del 28.
+    const { conPago, sinPago } = vencimientosF29(periodo, { autorizadoDia20: autorizado });
+    const posiblementeVencido = fechaHoy > conPago;
+    const vence = posiblementeVencido ? sinPago : conPago;
     const restantes = diasEntre(fechaHoy, vence);
     if (restantes > dias) continue;
     const descripcion = !sincronizado
       ? `F29 de ${texto}: sin sincronizar; sincroniza ese mes para confirmar si está presentado`
       : restantes < 0
-        ? `F29 de ${texto} no presentado (vencido)`
-        : `Presentar el F29 de ${texto}`;
+        ? `F29 de ${texto} no presentado (vencido el ${sinPago}; con pago venció el ${conPago})`
+        : posiblementeVencido
+          ? `F29 de ${texto} posiblemente vencido: si el F29 lleva pago, venció el ${conPago}; sin pago vence el ${sinPago}`
+          : `Presentar el F29 de ${texto} (con pago hasta el ${conPago}; sin pago hasta el ${sinPago})`;
     out.push({ rut: perfil.rut, tipo: 'F29', vence, diasRestantes: restantes, descripcion, referencia: texto });
   }
 

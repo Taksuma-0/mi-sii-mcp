@@ -15,15 +15,39 @@ const snap = (sincronizacionId: number, obtenidoEn: string, filas: [string, stri
 });
 
 describe('IVA-04 F29 faltante', () => {
-  it('es crítico si ya venció', () => {
-    const [h] = reglaF29Faltante(entrada(sinF29));
+  // Período 2026-09, autorizado al día 20 (o desconocido): con pago vence el 2026-10-20 y sin pago el 2026-10-28.
+  it('es crítico después del día 28 sin pago, y cita ambas fechas', () => {
+    const [h] = reglaF29Faltante(entrada({ ...sinF29, hoy: '2026-10-29' }));
     expect(h).toMatchObject({ regla: 'IVA-04', severidad: 'critico', titulo: 'F29 no presentado y vencido' });
+    expect(h!.detalle).toContain('2026-10-28');
     expect(h!.detalle).toContain('2026-10-20');
+    expect(h!.detalle).toContain('hace 1 día(s)');
+  });
+
+  it('entre el día de pago y el 28 es solo una advertencia de posiblemente vencido, con ambas fechas', () => {
+    const [h] = reglaF29Faltante(entrada({ ...sinF29, hoy: '2026-10-21' }));
+    expect(h).toMatchObject({ regla: 'IVA-04', severidad: 'advertencia', titulo: 'F29 posiblemente vencido' });
+    expect(h!.detalle).toContain('posiblemente vencido: si el F29 lleva pago, venció el 2026-10-20; sin pago vence el 2026-10-28');
+  });
+
+  it.each([
+    ['2026-10-21', 'advertencia', 'F29 posiblemente vencido'],
+    ['2026-10-28', 'advertencia', 'F29 posiblemente vencido'],
+    ['2026-10-29', 'critico', 'F29 no presentado y vencido'],
+    ['2026-11-30', 'critico', 'F29 no presentado y vencido'],
+  ] as const)('el 28 es el último día de la advertencia: hoy %s es %s', (hoy, severidad, titulo) => {
+    expect(reglaF29Faltante(entrada({ ...sinF29, hoy }))[0]).toMatchObject({ severidad, titulo });
+  });
+
+  it('el mismo día de pago y antes sigue pendiente', () => {
+    for (const hoy of ['2026-10-01', '2026-10-20']) {
+      expect(reglaF29Faltante(entrada({ ...sinF29, hoy }))[0]).toMatchObject({ severidad: 'advertencia', titulo: 'F29 pendiente de presentar' });
+    }
   });
 
   it('si el SII rechazó el folio lo dice en el detalle', () => {
     const rechazada = declaracion({ folio: 555_009, estadoId: 70, estado: 'Rechazada por pago inconcluso' });
-    const [h] = reglaF29Faltante(entrada({ declaraciones: [rechazada], valores: null }));
+    const [h] = reglaF29Faltante(entrada({ declaraciones: [rechazada], valores: null, hoy: '2026-10-29' }));
     expect(h).toMatchObject({ regla: 'IVA-04', severidad: 'critico' });
     expect(h!.detalle).toContain('El SII rechazó el folio 555009 (Rechazada por pago inconcluso).');
   });
@@ -34,10 +58,31 @@ describe('IVA-04 F29 faltante', () => {
     expect(h!.detalle).toContain('Hay una declaración guardada sin presentar.');
   });
 
-  it('es advertencia si aún está en plazo', () => {
+  it('es advertencia si aún está en plazo, con ambas fechas', () => {
     const [h] = reglaF29Faltante(entrada({ ...sinF29, hoy: '2026-10-15' }));
     expect(h).toMatchObject({ severidad: 'advertencia', titulo: 'F29 pendiente de presentar' });
     expect(h!.detalle).toContain('en 5 día(s)');
+    expect(h!.detalle).toContain('2026-10-20');
+    expect(h!.detalle).toContain('2026-10-28');
+  });
+
+  it('sin autorización del día 20 el pago vence el 12 (13 por el feriado): después es posiblemente vencido', () => {
+    const [h] = reglaF29Faltante(entrada({ ...sinF29, hoy: '2026-10-15', autorizadoDia20: false }));
+    expect(h).toMatchObject({ severidad: 'advertencia', titulo: 'F29 posiblemente vencido' });
+    expect(h!.detalle).toContain('venció el 2026-10-13');
+    expect(h!.detalle).toContain('vence el 2026-10-28');
+    expect(reglaF29Faltante(entrada({ ...sinF29, hoy: '2026-10-13', autorizadoDia20: false }))[0]).toMatchObject({ titulo: 'F29 pendiente de presentar' });
+  });
+
+  it('con la autorización desconocida se mantiene el día 20', () => {
+    const a = reglaF29Faltante(entrada({ ...sinF29, hoy: '2026-10-15', autorizadoDia20: null }));
+    const b = reglaF29Faltante(entrada({ ...sinF29, hoy: '2026-10-15' }));
+    expect(a).toEqual(b);
+    expect(a[0]).toMatchObject({ titulo: 'F29 pendiente de presentar' });
+  });
+
+  it('un F29 presentado no genera IVA-04, en ninguna ventana', () => {
+    for (const hoy of ['2026-10-15', '2026-10-21', '2026-12-01']) expect(reglaF29Faltante(entrada({ hoy }))).toEqual([]);
   });
 
   it('una empresa sin movimiento igual debe declarar', () => {
@@ -138,7 +183,7 @@ describe('conciliarPeriodo', () => {
   it('un mes cuadrado no tiene hallazgos y expone las comparaciones', () => {
     const r = conciliarPeriodo(entrada());
     expect(r.hallazgos).toEqual([]);
-    expect(r.versionReglas).toBe('iva-2026.10.4');
+    expect(r.versionReglas).toBe('iva-2026.10.5');
     expect(r.comparaciones).toEqual({ debitoRcv: 190_000, debitoF29: 190_000, creditoRcv: 19_000, creditoF29: 19_000, remanenteAnterior77: 5_000, remanenteActual504: 5_000 });
   });
 
