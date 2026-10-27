@@ -174,6 +174,26 @@ describe('servidor MCP', () => {
       await cliente.close();
     });
 
+    it.each(['SII_EN_ESPERA', 'SII_SESIONES_MAXIMAS'] as const)('sincronizar detenida por %s dice que se reintente más tarde', async (codigo) => {
+      const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorImpuestocl(codigo, 'Hay que esperar.') });
+      store.guardarContribuyente(perfilEmpresa());
+      const cliente = await conectar(deps);
+      const r = await cliente.callTool({ name: 'sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026-09' } });
+      const texto = textoDe(r);
+      expect(texto).toContain(`Sincronización detenida: [${codigo}]`);
+      expect(texto).toContain('Reintentar: más tarde');
+      await cliente.close();
+    });
+
+    it('sincronizar detenida por una clave rechazada no sugiere reintentar', async () => {
+      const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorImpuestocl('CLAVE_RECHAZADA', 'Clave mala.') });
+      store.guardarContribuyente(perfilEmpresa());
+      const cliente = await conectar(deps);
+      const r = await cliente.callTool({ name: 'sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026-09' } });
+      expect(textoDe(r)).not.toContain('Reintentar');
+      await cliente.close();
+    });
+
     it('sincronizar sin errores reintentables no agrega la línea', async () => {
       const { deps, store, sii } = depsDePrueba();
       store.guardarContribuyente(perfilEmpresa());

@@ -95,5 +95,5 @@ export const REINTENTO: Readonly<Record<CodigoError, Reintento>> = {
 /** `codigo` es texto porque los errores de sincronización no lo tipan: CANCELADO se reintenta ya; ERROR_INTERNO y los desconocidos no. */
 export function reintentoDe(codigo: string): Reintento {
   if (codigo === 'CANCELADO') return 'inmediato';
-  return (REINTENTO as Readonly<Record<string, Reintento>>)[codigo] ?? 'no';
+  return Object.hasOwn(REINTENTO, codigo) ? REINTENTO[codigo as CodigoError] : 'no';
 }

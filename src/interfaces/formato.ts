@@ -58,10 +58,13 @@ const TEXTO_REINTENTO: Readonly<Record<Reintento, string>> = {
 /** Línea que dice si conviene volver a intentar un error; `codigo` es texto porque los errores de sincronización no lo tipan. */
 export const lineaReintento = (codigo: string): string => `Reintentar: ${TEXTO_REINTENTO[reintentoDe(codigo)]}`;
 
-/** Los meses con errores que se resuelven esperando, o `null` si no hay ninguno. */
+/** Qué se puede reintentar de una sincronización: los meses con errores que se resuelven esperando y, si se detuvo por algo reintentable, cuándo. `null` si nada. */
 export function textoReintentables(r: ResultadoSync): string | null {
   const items = r.periodos.flatMap((p) => p.errores.filter((e) => reintentoDe(e.codigo) === 'mas_tarde').map((e) => `${p.periodo} (${e.superficie} ${e.codigo})`));
-  return items.length === 0 ? null : `Reintentables más tarde: ${items.join(', ')}`;
+  // La cancelación la pidió la persona: no hace falta aconsejarle que reintente.
+  const detenida = r.abortado && r.abortado.codigo !== SINCRONIZACION_CANCELADA.codigo && reintentoDe(r.abortado.codigo) !== 'no' ? lineaReintento(r.abortado.codigo) : null;
+  const lineas = [...(items.length === 0 ? [] : [`Reintentables más tarde: ${items.join(', ')}`]), ...(detenida ? [detenida] : [])];
+  return lineas.length === 0 ? null : lineas.join('\n');
 }
 
 export function textoSync(r: ResultadoSync): string {

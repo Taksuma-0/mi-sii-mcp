@@ -74,5 +74,9 @@ describe('ErrorImpuestocl', () => {
       expect(reintentoDe('ERROR_INTERNO')).toBe('no');
       expect(reintentoDe('CODIGO_QUE_NO_EXISTE')).toBe('no');
     });
+
+    it.each(['constructor', 'toString', '__proto__', 'hasOwnProperty'])('el nombre heredado "%s" no es un código: no se reintenta', (nombre) => {
+      expect(reintentoDe(nombre)).toBe('no');
+    });
   });
 });
