@@ -8,6 +8,7 @@ Cómo se presenta **mi-sii-mcp** fuera del repositorio: sitio web, Google Search
 | --- | --- |
 | Sitio en GitHub Pages, About, enlace al sitio y topics del repo | ✅ Hecho |
 | Imagen social del repositorio (Settings → Social preview) | ✅ Hecho |
+| Bing Webmaster Tools: sitio importado desde Search Console (acceso de solo lectura), sitemap en proceso y URL principal enviada a indexación | ✅ Hecho |
 | Google Search Console: propiedad `https://taksuma-0.github.io/mi-sii-mcp/` verificada con `docs/google71cc82c95b49bdda.html` (no borrar ese archivo), sitemap enviado e indexación solicitada | ✅ Hecho |
 | Glama: ficha reclamada, descripción actualizada y build de prueba exitoso (Node 24, `npm ci --ignore-scripts`, `npm run build`, inicio `node dist/interfaces/cli/bin.js mcp`) | ✅ Hecho |
 | Glama: release 0.1.0 publicado (auto-release activo en cada release de GitHub); 15/15 herramientas inspeccionadas, calidad A; puntuación de descubrimiento 83 % (falta un release estable en GitHub y uso real) | ✅ Hecho |
