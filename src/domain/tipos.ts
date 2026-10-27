@@ -194,7 +194,7 @@ export interface BoletaHonorarios {
   readonly fechaAnulacion: string | null;
 }
 
-/** Totales que informa el SII junto a las boletas: cantidad de boletas y sumas de bruto, retención y líquido. */
+/** Totales del informe: cantidad de boletas que informa el SII y sumas de bruto, retención y líquido de las boletas vigentes leídas (los `suma_*` del SII vienen en 0). */
 export interface TotalesBhe {
   readonly total: number;
   readonly bruto: number;

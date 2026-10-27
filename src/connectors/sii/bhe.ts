@@ -174,7 +174,8 @@ const sumaRetencion = (boletas: readonly BoletaHonorarios[], conAnuladas: boolea
  */
 function revisarSumaRetencion(periodo: Periodo, xml: Readonly<Record<string, string>>, todas: readonly BoletaHonorarios[], primeraPagina: readonly BoletaHonorarios[]): void {
   const informada = entero(xml['suma_retencion_receptor']);
-  if (informada === null) return;
+  // El SII entrega 0 como valor vacío (la página calcula los totales en el cliente): 0, ausente o ilegible = no informada.
+  if (informada === null || informada <= 0) return;
   const aceptadas = [sumaRetencion(todas, false), sumaRetencion(todas, true), sumaRetencion(primeraPagina, false), sumaRetencion(primeraPagina, true)];
   if (aceptadas.includes(informada)) return;
   throw new ErrorImpuestocl(
@@ -230,9 +231,11 @@ export async function bheRecibidas(http: Http, sumidero: SumideroRespuestas, rut
   const xml = primera?.xml ?? {};
   const todas = [...boletas.values()];
   revisarSumaRetencion(periodo, xml, todas, primera?.boletas ?? []);
-  const suma = (clave: string): number => entero(xml[clave]) ?? 0;
+  // Los `suma_*` del SII son valores vacíos (0) en la página real: los montos salen de las boletas vigentes leídas.
+  const vigentes = todas.filter((b) => !b.anulada);
+  const sumar = (monto: (b: BoletaHonorarios) => number): number => vigentes.reduce((s, b) => s + monto(b), 0);
   return {
     boletas: todas,
-    totales: { total, bruto: suma('suma_honorarios'), retencion: suma('suma_retencion_receptor'), liquido: suma('suma_liquido') },
+    totales: { total, bruto: sumar((b) => b.bruto), retencion: sumar((b) => b.retencion), liquido: sumar((b) => b.liquido) },
   };
 }

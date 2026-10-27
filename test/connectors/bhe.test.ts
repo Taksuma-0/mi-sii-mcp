@@ -298,6 +298,21 @@ describe('bheRecibidas', () => {
       expect((await bheRecibidas(http, sumidero, EMPRESA, SEPT))?.boletas).toHaveLength(3);
     });
 
+    it('una suma informada en 0 es un valor vacío del SII (la página calcula los totales en el cliente): no se controla y los totales salen de las boletas', async () => {
+      const { http, sumidero } = preparar({ headers: HTML, body: pagina(3, filas, { sumaRetencion: '0' }) });
+
+      const r = await bheRecibidas(http, sumidero, EMPRESA, SEPT);
+
+      expect(r?.boletas).toHaveLength(3);
+      expect(r?.totales).toEqual({ total: 3, bruto: 200_000, retencion: 45_250, liquido: 169_500 });
+    });
+
+    it('una suma positiva que no cuadra sigue siendo PORTAL_CAMBIO aunque otras sumas vengan en 0', async () => {
+      const { http, sumidero } = preparar({ headers: HTML, body: pagina(3, filas, { sumaRetencion: '1' }) });
+
+      expect(await codigoDe(bheRecibidas(http, sumidero, EMPRESA, SEPT))).toBe('PORTAL_CAMBIO');
+    });
+
     it('una suma que no cuadra con las vigentes ni con todas es PORTAL_CAMBIO', async () => {
       const { http, sumidero } = preparar({ headers: HTML, body: pagina(3, filas, { sumaRetencion: '99999' }) });
 
