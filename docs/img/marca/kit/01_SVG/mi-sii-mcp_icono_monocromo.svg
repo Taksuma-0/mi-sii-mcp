@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="210" height="210" viewBox="0 0 210 210" role="img" aria-label="mi-sii-mcp: bot, boleta validada y conector">
+<title>mi-sii-mcp: bot, boleta validada y conector</title>
+<g stroke-linecap="round" stroke-linejoin="round">
+    <!-- antenna -->
+    <path d="M90 39V28" fill="none" stroke="#0f2a44" stroke-width="9"/>
+    <circle cx="90" cy="22" r="9" fill="#0f2a44"/>
+    <!-- Speech bubble/chatbot, with pronounced tail -->
+    <path d="M43 128V164L82 132" fill="#0f2a44" stroke="#0f2a44" stroke-width="7" />
+    <rect x="23" y="45" width="125" height="101" rx="38" fill="#ffffff" stroke="#0f2a44" stroke-width="11"/>
+    <!-- two matching rounded smiling-eye arches as in the original robot reference;
+         both sit on the same baseline, curved at the crown, never pointed -->
+    <path d="M59 90 C59 79 76 79 76 90" stroke="#0f2a44" stroke-width="9" fill="none"/>
+    <path d="M94 90 C94 79 111 79 111 90" stroke="#0f2a44" stroke-width="9" fill="none"/>
+    <!-- receipt/page in foreground -->
+    <path d="M116 100H149Q157 100 157 109V149Q157 157 149 157H118Q109 157 109 148V109Q109 100 116 100Z" fill="#ffffff" stroke="#0f2a44" stroke-width="9"/>
+    <!-- plug and prongs -->
+    <path d="M158 127H171" stroke="#0f2a44" stroke-width="8" fill="none"/>
+    <rect x="170" y="116" width="13" height="23" rx="5" fill="#0f2a44"/>
+    <path d="M182 120H191M182 134H191" stroke="#0f2a44" stroke-width="7" fill="none"/>
+    <!-- blue text lines -->
+    <path d="M119 117H142M119 130H133" stroke="#0f2a44" stroke-width="6.8" fill="none"/>
+    <!-- completed/check mark -->
+    <path d="M123 143L131 150L145 135" stroke="#0f2a44" stroke-width="8" fill="none"/>
+    </g>
+</svg>
