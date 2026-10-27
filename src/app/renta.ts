@@ -1,7 +1,19 @@
 import { ERRORES_FATALES, ErrorImpuestocl, esErrorImpuestocl } from '../domain/errores.js';
-import { CODIGOS_CLAVE_F22, f22Vigente, parseAnioTributario, periodoRenta, rangoAnios } from '../domain/renta.js';
+import {
+  CODIGOS_CLAVE_F22,
+  cruzarHonorariosF22,
+  f22Vigente,
+  hayBoletasEmitidas,
+  parseAnioTributario,
+  periodoRenta,
+  rangoAnios,
+  totalesBheEmitidas,
+  type CruceHonorariosF22,
+  type TotalesBheEmitidas,
+} from '../domain/renta.js';
 import { parseRut } from '../domain/rut.js';
 import type { F22Evento, F22Valor, RespuestaCruda } from '../domain/tipos.js';
+import type { BheEmitidaMesGuardado } from '../ports/index.js';
 import { perfilExistente } from './consultas.js';
 import type { DepsApp } from './deps.js';
 import { Cancelada, registrar, revisarCancelacion, SINCRONIZACION_CANCELADA, type ErrorSuperficie, type ResultadoPeriodo } from './registro.js';
@@ -14,6 +26,8 @@ export interface ResultadoAnioRenta {
   readonly folioVigente: number | null;
   /** Si se leyó y guardó el detalle del folio vigente; `sin_vigente` si el año no tiene uno. */
   readonly detalle: 'leido' | 'sin_leer' | 'sin_vigente';
+  /** Boletas de honorarios emitidas vigentes del año comercial (AT − 1); null si no se leyeron o el perfil no es una persona. */
+  readonly boletasEmitidas: number | null;
   readonly errores: readonly ErrorSuperficie[];
 }
 
@@ -26,13 +40,18 @@ export interface ResultadoRenta {
 
 /**
  * Trae del SII la renta anual (F22) de un rango de años tributarios (`AAAA`, máximo 10): las declaraciones del año y el
- * detalle del folio vigente (códigos, observaciones y eventos). Si el SII responde sin declaraciones o sin códigos y había
- * datos guardados, se conservan (RESPUESTA_VACIA). `signal` se revisa antes de abrir la sesión, de cada año y de cada
- * lectura; al cancelarse devuelve lo traído y `abortado`.
+ * detalle del folio vigente (códigos, observaciones y eventos). A una persona le trae además el informe anual de boletas
+ * de honorarios emitidas del año comercial (AT − 1); un error ahí no impide el F22 ni al revés. El año tributario
+ * siguiente al actual sirve para ver las boletas del año en curso, aunque aún no haya F22. Si el SII responde sin
+ * declaraciones, sin códigos o con las boletas todas en 0 y había datos guardados, se conservan (RESPUESTA_VACIA).
+ * `signal` se revisa antes de abrir la sesión, de cada año y de cada lectura; al cancelarse devuelve lo traído y `abortado`.
  */
 export async function sincronizarRenta(deps: DepsApp, rutTexto: string, desde: string, hasta?: string, signal?: AbortSignal): Promise<ResultadoRenta> {
   const rut = parseRut(rutTexto).canonico;
-  if (!deps.store.contribuyente(rut)) throw new ErrorImpuestocl('PERFIL_NO_EXISTE', `No existe el perfil ${rut}.`);
+  const perfil = deps.store.contribuyente(rut);
+  if (!perfil) throw new ErrorImpuestocl('PERFIL_NO_EXISTE', `No existe el perfil ${rut}.`);
+  // Solo una persona emite boletas de honorarios.
+  const conBoletas = perfil.tipo === 'persona';
   const anios = rangoAnios(parseAnioTributario(desde), parseAnioTributario(hasta ?? desde));
   const buffer: RespuestaCruda[] = [];
   const resultados: ResultadoAnioRenta[] = [];
@@ -75,7 +94,21 @@ export async function sincronizarRenta(deps: DepsApp, rutTexto: string, desde: s
         });
         if (leido) detalle = 'leido';
       }
-      resultados.push({ anioTributario: anio, declaraciones: declaraciones?.length ?? null, folioVigente: vigente?.folio ?? null, detalle, errores: res.errores });
+      let boletasEmitidas: number | null = null;
+      if (conBoletas) {
+        revisarCancelacion(signal);
+        const anioComercial = anio - 1;
+        boletasEmitidas = await registrar(deps, rut, 'bhe.emitidas', periodo, buffer, res, signal, async (id, ahora) => {
+          const informe = await sii.bheEmitidasAnual(rut, anioComercial);
+          const totales = totalesBheEmitidas(informe.meses);
+          if (!hayBoletasEmitidas(totales) && hayBoletasEmitidas(totalesBheEmitidas(deps.store.bheEmitidas(rut, anioComercial)))) {
+            throw new ErrorImpuestocl('RESPUESTA_VACIA', `Renta ${periodo}: el SII respondió las boletas de honorarios emitidas de ${anioComercial} en cero; se conservan las guardadas.`);
+          }
+          deps.store.reemplazarBheEmitidas(id, rut, anioComercial, informe.meses, ahora);
+          return totales.vigentes;
+        });
+      }
+      resultados.push({ anioTributario: anio, declaraciones: declaraciones?.length ?? null, folioVigente: vigente?.folio ?? null, detalle, boletasEmitidas, errores: res.errores });
     }
     return { rut, anios: resultados, abortado: null };
   } catch (e) {
@@ -92,7 +125,19 @@ export interface ObservacionRenta {
   readonly descripcion: string | null;
 }
 
-/** Lo guardado de la renta de un año tributario; los datos del folio son null si el año no tiene uno vigente. */
+/** Boletas de honorarios emitidas guardadas del año comercial de un año tributario (AT − 1), montos nominales. */
+export interface HonorariosEmitidos extends TotalesBheEmitidas {
+  readonly anioComercial: number;
+  /** Bruto con el 547 y retención de terceros con el 492 del folio vigente; null si el año no tiene folio vigente con detalle guardado. */
+  readonly cruceF22: CruceHonorariosF22 | null;
+  /** Instante ISO UTC de la lectura del informe anual. */
+  readonly obtenidoEn: string;
+}
+
+/**
+ * Lo guardado de la renta de un año tributario; los datos del folio son null si el año no tiene uno vigente (o solo
+ * tiene boletas emitidas guardadas: entonces `declaraciones` es 0).
+ */
 export interface AnioRenta {
   readonly anioTributario: number;
   readonly folio: number | null;
@@ -114,7 +159,9 @@ export interface AnioRenta {
   readonly codigosClave: readonly F22Valor[];
   readonly observaciones: readonly ObservacionRenta[];
   readonly eventos: readonly F22Evento[];
-  /** Instante ISO UTC de la lectura de las declaraciones del año. */
+  /** Boletas de honorarios emitidas del año comercial; null si no hay guardadas (solo se leen para personas). */
+  readonly honorariosEmitidos: HonorariosEmitidos | null;
+  /** Instante ISO UTC de la lectura de las declaraciones del año; sin declaraciones, la del informe de boletas. */
   readonly obtenidoEn: string;
 }
 
@@ -129,7 +176,9 @@ export function resumenRenta(deps: DepsApp, rutTexto: string, anio?: string): Re
   const perfil = perfilExistente(deps, rutTexto);
   const filtro = anio === undefined ? undefined : parseAnioTributario(anio);
   const declaraciones = deps.store.declaracionesF22(perfil.rut, filtro);
-  const anios = [...new Set(declaraciones.map((d) => d.anioTributario))].sort((a, b) => b - a);
+  // Las boletas se guardan por año comercial: el del año tributario AT es AT − 1.
+  const emitidas = deps.store.bheEmitidas(perfil.rut, filtro === undefined ? undefined : filtro - 1);
+  const anios = [...new Set([...declaraciones.map((d) => d.anioTributario), ...emitidas.map((m) => m.anioComercial + 1)])].sort((a, b) => b - a);
   return {
     rut: perfil.rut,
     anios: anios.map((a): AnioRenta => {
@@ -137,6 +186,8 @@ export function resumenRenta(deps: DepsApp, rutTexto: string, anio?: string): Re
       const v = f22Vigente(delAnio);
       const detalle = v === null ? null : deps.store.detalleF22(perfil.rut, a, v.folio);
       const porCodigo = new Map((detalle?.valores ?? []).map((x) => [x.codigo, x]));
+      const meses = emitidas.filter((m) => m.anioComercial === a - 1);
+      const honorariosEmitidos = meses.length === 0 ? null : honorariosDe(a - 1, meses, detalle?.valores.length ? detalle.valores : null);
       return {
         anioTributario: a,
         folio: v?.folio ?? null,
@@ -155,8 +206,20 @@ export function resumenRenta(deps: DepsApp, rutTexto: string, anio?: string): Re
         codigosClave: CODIGOS_CLAVE_F22.flatMap((c) => porCodigo.get(c) ?? []),
         observaciones: (detalle?.observaciones ?? []).map((o) => ({ codigo: o.codigo, descripcion: o.descripcion })),
         eventos: detalle?.eventos ?? [],
-        obtenidoEn: (v ?? delAnio[0]!).obtenidoEn,
+        honorariosEmitidos,
+        obtenidoEn: (v ?? delAnio[0])?.obtenidoEn ?? honorariosEmitidos!.obtenidoEn,
       };
     }),
+  };
+}
+
+/** Totales de las boletas emitidas de un año comercial y, si hay códigos del folio vigente, su cruce con el F22. */
+function honorariosDe(anioComercial: number, meses: readonly BheEmitidaMesGuardado[], valoresF22: readonly F22Valor[] | null): HonorariosEmitidos {
+  const totales = totalesBheEmitidas(meses);
+  return {
+    anioComercial,
+    ...totales,
+    cruceF22: valoresF22 === null ? null : cruzarHonorariosF22({ bruto: totales.bruto, retencion: totales.retencionTerceros }, valoresF22),
+    obtenidoEn: meses[0]!.obtenidoEn,
   };
 }

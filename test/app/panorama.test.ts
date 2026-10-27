@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { panorama } from '../../src/app/panorama.js';
 import { SqliteStore } from '../../src/store/sqlite/store.js';
 import { depsDePrueba } from '../helpers/deps.js';
-import { declaracion, declaracionF22, detalleF22, documento, empresaAutorizada, fila, perfilEmpresa, perfilPersona, perfilTributario, resumen, RUT_EMPRESA, RUT_PERSONA, valores } from '../helpers/fabricas.js';
+import { declaracion, declaracionF22, detalleF22, documento, empresaAutorizada, fila, informeBheEmitidas, perfilEmpresa, perfilPersona, perfilTributario, resumen, RUT_EMPRESA, RUT_PERSONA, valores } from '../helpers/fabricas.js';
 import { medirLecturas } from '../helpers/lecturas-sqlite.js';
 import { sembrarMes, T_SEMBRADO } from '../helpers/sembrar.js';
 
@@ -194,5 +194,15 @@ describe('panorama: renta F22', () => {
       { anioTributario: 2025, folio: 2025, vigente: true, conclusion: 'Conclusión ficticia: declaración sin observaciones', observaciones: [] },
     ]);
     expect(r.periodos).toEqual([]);
+  });
+
+  it('un año que solo tiene boletas de honorarios emitidas guardadas no aparece como renta (no hay F22)', () => {
+    const { deps, store } = depsDePrueba();
+    store.guardarContribuyente(perfilPersona());
+    const id = store.iniciarSincronizacion(RUT_PERSONA, 'bhe.emitidas', 'AT2027', T_SEMBRADO);
+    store.reemplazarBheEmitidas(id, RUT_PERSONA, 2026, informeBheEmitidas(2026, { 1: { bruto: 100_000, vigentes: 1 } }).meses, T_SEMBRADO);
+    store.terminarSincronizacion(id, T_SEMBRADO, 'ok');
+
+    expect('renta' in panorama(deps, RUT_PERSONA)).toBe(false);
   });
 });

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import {
   claveDocumento,
+  type BheEmitidaMes,
   type BoletaHonorarios,
   type DisponibilidadFuentes,
   type DocumentoRcv,
@@ -28,7 +29,7 @@ import {
   type TipoContribuyente,
   type TotalesBheMes,
 } from '../../domain/tipos.js';
-import type { DocumentosPaginados, F22DeclaracionGuardada, FiltroDocumentos, FiltroHallazgos, Frescura, HallazgoGuardado, LecturaF29Guardada, PdfF29Guardado, Store } from '../../ports/index.js';
+import type { BheEmitidaMesGuardado, DocumentosPaginados, F22DeclaracionGuardada, FiltroDocumentos, FiltroHallazgos, Frescura, HallazgoGuardado, LecturaF29Guardada, PdfF29Guardado, Store } from '../../ports/index.js';
 import type { Db } from './db.js';
 
 export const sha256 = (texto: string): string => createHash('sha256').update(texto).digest('hex');
@@ -155,6 +156,19 @@ interface FilaDeclaracionF22 {
   impuesto_pagado: number | null;
   monto_giro: number | null;
   fecha_vencimiento: string | null;
+  obtenido_en: string;
+}
+
+interface FilaBheEmitida {
+  anio: number;
+  mes: number;
+  bruto: number;
+  retencion_terceros: number;
+  retencion_propia: number;
+  vigentes: number;
+  anuladas: number;
+  folio_inicial: number | null;
+  folio_final: number | null;
   obtenido_en: string;
 }
 
@@ -738,6 +752,40 @@ export class SqliteStore implements Store {
       observaciones: observaciones.map((o) => ({ codigo: o.codigo, descripcion: o.descripcion, url: null })),
       eventos: eventos.map((e) => ({ orden: e.orden, codigoEvento: e.codigo_evento, nombre: e.nombre, fecha: e.fecha, tipo: e.tipo, codigoCarta: e.codigo_carta })),
     };
+  }
+
+  // --- boletas de honorarios emitidas ------------------------------------------------------
+  reemplazarBheEmitidas(sincronizacionId: number, rut: string, anioComercial: number, meses: readonly BheEmitidaMes[], obtenidoEn: string): void {
+    const ins = this.db.prepare(
+      `INSERT INTO bhe_emitida_mes (rut, anio, mes, bruto, retencion_terceros, retencion_propia, vigentes, anuladas, folio_inicial, folio_final, sincronizacion_id, obtenido_en)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    this.db.transaction(() => {
+      this.db.prepare('DELETE FROM bhe_emitida_mes WHERE rut = ? AND anio = ?').run(rut, anioComercial);
+      for (const m of meses) {
+        ins.run(rut, anioComercial, m.mes, m.bruto, m.retencionTerceros, m.retencionPropia, m.vigentes, m.anuladas, m.folioInicial, m.folioFinal, sincronizacionId, obtenidoEn);
+      }
+    })();
+  }
+
+  bheEmitidas(rut: string, anioComercial?: number): BheEmitidaMesGuardado[] {
+    const filas = (
+      anioComercial === undefined
+        ? this.db.prepare('SELECT * FROM bhe_emitida_mes WHERE rut = ? ORDER BY anio DESC, mes').all(rut)
+        : this.db.prepare('SELECT * FROM bhe_emitida_mes WHERE rut = ? AND anio = ? ORDER BY mes').all(rut, anioComercial)
+    ) as FilaBheEmitida[];
+    return filas.map((f) => ({
+      anioComercial: f.anio,
+      mes: f.mes,
+      bruto: f.bruto,
+      retencionTerceros: f.retencion_terceros,
+      retencionPropia: f.retencion_propia,
+      vigentes: f.vigentes,
+      anuladas: f.anuladas,
+      folioInicial: f.folio_inicial,
+      folioFinal: f.folio_final,
+      obtenidoEn: f.obtenido_en,
+    }));
   }
 
   // --- frescura ---------------------------------------------------------------------------

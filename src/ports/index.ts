@@ -1,5 +1,6 @@
 import type { Periodo } from '../domain/periodo.js';
 import type {
+  BheEmitidaMes,
   BoletaHonorarios,
   DisponibilidadFuentes,
   DocumentoRcv,
@@ -11,6 +12,7 @@ import type {
   F29Valores,
   Hallazgo,
   InformeBhe,
+  InformeBheEmitidas,
   Lado,
   LecturaF29,
   LecturaFolioF29,
@@ -40,6 +42,8 @@ export interface SiiReader {
   f29Propuesta(rut: string, periodo: Periodo): Promise<PropuestaF29 | null>;
   /** Boletas de honorarios recibidas del mes (todas las páginas), o null si el SII respondió vacío sin confirmar que no hay boletas. */
   bheRecibidas(rut: string, periodo: Periodo): Promise<InformeBhe | null>;
+  /** Informe anual de boletas de honorarios emitidas por el contribuyente en un año comercial (los 12 meses). */
+  bheEmitidasAnual(rut: string, anioComercial: number): Promise<InformeBheEmitidas>;
   /** Datos tributarios de Mi SII del contribuyente de la sesión (lista permitida, sin datos personales). */
   perfilTributario(rut: string): Promise<PerfilTributario>;
   /** Empresas que el contribuyente de la sesión puede consultar en el SII. */
@@ -66,6 +70,12 @@ export interface PdfF29Guardado {
 
 /** Declaración F22 guardada, con el instante en que se leyó del SII. */
 export interface F22DeclaracionGuardada extends F22Declaracion {
+  readonly obtenidoEn: string;
+}
+
+/** Mes guardado del informe anual de boletas de honorarios emitidas, con su año comercial y el instante de la lectura. */
+export interface BheEmitidaMesGuardado extends BheEmitidaMes {
+  readonly anioComercial: number;
   readonly obtenidoEn: string;
 }
 
@@ -225,6 +235,10 @@ export interface Store {
   declaracionesF22(rut: string, anioTributario?: number): F22DeclaracionGuardada[];
   /** Detalle guardado de un folio del F22 (listas vacías si no hay); las observaciones vuelven sin enlace. */
   detalleF22(rut: string, anioTributario: number, folio: number): F22Detalle;
+  /** Reemplaza los meses guardados de boletas de honorarios emitidas de un año comercial en una transacción. */
+  reemplazarBheEmitidas(sincronizacionId: number, rut: string, anioComercial: number, meses: readonly BheEmitidaMes[], obtenidoEn: string): void;
+  /** Meses guardados de boletas de honorarios emitidas (de un año comercial o de todos), del año más nuevo al más antiguo y por mes. */
+  bheEmitidas(rut: string, anioComercial?: number): BheEmitidaMesGuardado[];
   /** Cantidad de boletas guardadas del mes (con anuladas) y montos de las no anuladas. */
   totalesBhe(rut: string, periodo: string): TotalesBheMes;
   /** Estado y código de error del intento más reciente de una superficie en un mes; null si nunca se intentó. */

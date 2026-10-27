@@ -117,6 +117,25 @@ describe('db', () => {
     expect(db.prepare("SELECT valor FROM f22_valor WHERE codigo = '305'").get()).toEqual({ valor: -1.5 });
   });
 
+  it('la migración 9 crea las boletas de honorarios emitidas por RUT, año comercial y mes', () => {
+    const db = nuevaDb();
+    expect(MIGRACIONES.find((m) => m.version === 9)?.sql).toContain('bhe_emitida_mes');
+    db.prepare("INSERT INTO sincronizacion (rut, superficie, periodo, iniciado_en) VALUES ('1', 'bhe.emitidas', 'AT2026', 't')").run();
+    const mes = (m: number, sincronizacion = 1) =>
+      db
+        .prepare(
+          `INSERT INTO bhe_emitida_mes (rut, anio, mes, bruto, retencion_terceros, retencion_propia, vigentes, anuladas, folio_inicial, folio_final, sincronizacion_id, obtenido_en)
+           VALUES ('1', 2025, ?, 100, 10, 0, 1, 0, 1, 1, ?, 't')`,
+        )
+        .run(m, sincronizacion);
+    mes(1);
+    mes(12);
+    expect(() => mes(1)).toThrow();
+    expect(() => mes(0)).toThrow();
+    expect(() => mes(13)).toThrow();
+    expect(() => mes(2, 99)).toThrow();
+  });
+
   it('migra una base v1 con datos a la v2 agregando estado_id', () => {
     const db = new Database(':memory:');
     aplicarMigraciones(db, [MIGRACIONES[0]!]);

@@ -110,6 +110,20 @@ describe('esquemaDatos', () => {
     expect(regla).toContain('RET-01');
   });
 
+  it('documenta las boletas de honorarios emitidas: año comercial, superficie y el cruce con los códigos 547 y 492 del F22', () => {
+    const { tablas, reglas } = esquemaDatos();
+    expect(tablas.map((t) => t.nombre)).toContain('bhe_emitida_mes');
+    const columna = (tabla: string, nombre: string) => tablas.find((t) => t.nombre === tabla)?.columnas.find((c) => c.nombre === nombre)?.significado ?? '';
+    expect(columna('bhe_emitida_mes', 'anio')).toMatch(/año comercial/i);
+    expect(columna('bhe_emitida_mes', 'retencion_terceros')).toMatch(/492/);
+    expect(columna('sincronizacion', 'superficie')).toContain('bhe.emitidas');
+    const regla = reglas.find((r) => r.includes('bhe_emitida_mes'));
+    expect(regla).toBeDefined();
+    expect(regla).toContain('renta_sincronizar');
+    expect(regla).toMatch(/'547'.*'492'/);
+    expect(regla).toMatch(/IPC/);
+  });
+
   it('documenta la cuenta del SII: perfil tributario, atributos sin datos personales y empresas autorizadas', () => {
     const { tablas, reglas } = esquemaDatos();
     expect(tablas.map((t) => t.nombre)).toEqual(expect.arrayContaining(['contribuyente_tributario', 'sii_empresa_autorizada']));

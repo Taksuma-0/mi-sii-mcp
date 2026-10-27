@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { BoletaHonorarios, DocumentoRcv, Hallazgo, Lado, PropuestaF29, RcvResumen } from '../../src/domain/tipos.js';
 import { abrirDb, type Db } from '../../src/store/sqlite/db.js';
 import { huellaDocumento, SqliteStore } from '../../src/store/sqlite/store.js';
-import { boleta, declaracion, declaracionF22, detalleF22, documento, empresaAutorizada, fila, propuesta, perfilEmpresa, perfilTributario, perfilPersona, resumen, RUT_EMPRESA, RUT_PERSONA, valores } from '../helpers/fabricas.js';
+import { boleta, declaracion, declaracionF22, detalleF22, documento, empresaAutorizada, fila, informeBheEmitidas, propuesta, perfilEmpresa, perfilTributario, perfilPersona, resumen, RUT_EMPRESA, RUT_PERSONA, valores } from '../helpers/fabricas.js';
 import { guardarPdfF29, pdfFalso } from '../helpers/lector-falso.js';
 import { medirLecturas } from '../helpers/lecturas-sqlite.js';
 
@@ -654,6 +654,52 @@ describe('SqliteStore: renta F22', () => {
   it('la renta es anual: periodosConDatos ignora los períodos AT<AAAA>', () => {
     syncF22(2026);
     expect(store.periodosConDatos(RUT_EMPRESA)).toEqual([]);
+  });
+});
+
+describe('SqliteStore: boletas de honorarios emitidas', () => {
+  const syncEmitidas = (anio: number, informe = informeBheEmitidas(anio, { 3: { bruto: 300_000, retencionTerceros: 41_250, vigentes: 2, anuladas: 1, folioInicial: 3, folioFinal: 5 } }), obtenidoEn = T): number => {
+    const id = store.iniciarSincronizacion(RUT_PERSONA, 'bhe.emitidas', `AT${anio + 1}`, obtenidoEn);
+    store.reemplazarBheEmitidas(id, RUT_PERSONA, anio, informe.meses, obtenidoEn);
+    store.terminarSincronizacion(id, obtenidoEn, 'ok');
+    return id;
+  };
+
+  beforeEach(() => {
+    store.guardarContribuyente(perfilPersona());
+  });
+
+  it('sin datos no hay meses', () => {
+    expect(store.bheEmitidas(RUT_PERSONA)).toEqual([]);
+  });
+
+  it('guarda los 12 meses del año y los devuelve del año más nuevo al más antiguo, por mes', () => {
+    syncEmitidas(2024, informeBheEmitidas(2024, { 12: { bruto: 50_000, retencionPropia: 6_875, vigentes: 1, folioInicial: 9, folioFinal: 9 } }), '2026-10-20T10:00:00.000Z');
+    syncEmitidas(2025);
+
+    const todos = store.bheEmitidas(RUT_PERSONA);
+    expect(todos.map((m) => [m.anioComercial, m.mes])).toEqual([...Array.from({ length: 12 }, (_, i) => [2025, i + 1]), ...Array.from({ length: 12 }, (_, i) => [2024, i + 1])]);
+    expect(store.bheEmitidas(RUT_PERSONA, 2025)[2]).toEqual({ anioComercial: 2025, mes: 3, bruto: 300_000, retencionTerceros: 41_250, retencionPropia: 0, vigentes: 2, anuladas: 1, folioInicial: 3, folioFinal: 5, obtenidoEn: T });
+    expect(store.bheEmitidas(RUT_PERSONA, 2025)[0]).toMatchObject({ mes: 1, bruto: 0, folioInicial: null, folioFinal: null });
+    expect(store.bheEmitidas(RUT_PERSONA, 2024)[11]).toMatchObject({ retencionPropia: 6_875, obtenidoEn: '2026-10-20T10:00:00.000Z' });
+  });
+
+  it('reemplaza el año completo sin tocar los otros años y revierte si falla una inserción', () => {
+    syncEmitidas(2024);
+    syncEmitidas(2025);
+    syncEmitidas(2025, informeBheEmitidas(2025, { 1: { bruto: 10, vigentes: 1 } }));
+
+    expect(store.bheEmitidas(RUT_PERSONA, 2025).filter((m) => m.vigentes > 0).map((m) => m.mes)).toEqual([1]);
+    expect(store.bheEmitidas(RUT_PERSONA, 2024).filter((m) => m.vigentes > 0).map((m) => m.mes)).toEqual([3]);
+
+    const repetido = informeBheEmitidas(2025).meses.map((m) => ({ ...m, mes: 1 }));
+    expect(() => store.reemplazarBheEmitidas(1, RUT_PERSONA, 2025, repetido, T)).toThrow();
+    expect(store.bheEmitidas(RUT_PERSONA, 2025).filter((m) => m.vigentes > 0).map((m) => m.mes)).toEqual([1]);
+  });
+
+  it('las boletas emitidas son anuales: periodosConDatos las ignora', () => {
+    syncEmitidas(2025);
+    expect(store.periodosConDatos(RUT_PERSONA)).toEqual([]);
   });
 });
 

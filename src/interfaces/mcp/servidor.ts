@@ -33,13 +33,13 @@ export const HERRAMIENTAS = [
 
 /** Lo que lee el asistente al conectarse: flujo de uso, regla de la clave y cobertura (máximo 1 500 caracteres). */
 export const INSTRUCCIONES_MCP = [
-  '1. Empieza con perfiles_listar (RUT y estado de su sesión) y luego sii_panorama (qué hay guardado).',
-  '2. Si falta o está viejo, usa sincronizar por tramos de hasta 12 meses e informa el avance en cada tramo. Trae rcv y f29 por defecto; propuesta y bhe (boletas de honorarios recibidas) son opcionales. renta_sincronizar trae el F22 por año tributario; perfil_sincronizar, el perfil y las empresas autorizadas.',
-  '3. Para IVA, retenciones y plazos prefiere iva_resumen, iva_hallazgos, f29_historial y plazos_proximos: aplican las reglas del dominio. Para la renta, renta_resumen. Si un F29 no cuadra o se actualizó impuestocl, f29_releer relee los PDF ya guardados sin ir al SII.',
+  '1. Empieza con perfiles_listar (RUT y sesión) y sii_panorama (lo guardado); a una persona sin IVA, parte por renta_sincronizar y renta_resumen.',
+  '2. Si falta o está viejo, usa sincronizar por tramos de hasta 12 meses e informa el avance por tramo. Trae rcv y f29 por defecto; propuesta y bhe (boletas de honorarios recibidas) son opcionales. renta_sincronizar trae el F22 por año tributario; perfil_sincronizar, el perfil y las empresas autorizadas.',
+  '3. Para IVA, retenciones y plazos prefiere iva_resumen, iva_hallazgos, f29_historial y plazos_proximos: aplican las reglas. Para la renta, renta_resumen. Si un F29 no cuadra o se actualizó impuestocl, f29_releer relee los PDF guardados sin ir al SII.',
   '4. Para cruces y preguntas libres, llama una vez a datos_esquema y luego a consulta_sql (solo lectura).',
   '5. Nunca pidas la clave tributaria ni intentes un login. Ante SESION_REQUERIDA (o CLAVE_RECHAZADA, RUT_BLOQUEADO_LOCAL), indica a la persona que abra «Abrir impuestocl.cmd» (doble clic en la carpeta impuestocl) y conecte su cuenta ahí; solo si prefiere la terminal, dale el comando del mensaje (login-navegador para ClaveÚnica). Después reintenta.',
   '6. Reintenta solo si el mensaje dice «Reintentar: ahora mismo» o «más tarde» (o lista «Reintentables más tarde»); con «Reintentar: no», sigue la acción indicada.',
-  '7. Cobertura: RCV (compras y ventas), F29, propuesta de F29, boletas de honorarios recibidas, renta F22, perfil tributario y empresas autorizadas. No es asesoría tributaria.',
+  '7. Cobertura: RCV (compras y ventas), F29, propuesta de F29, boletas de honorarios recibidas y emitidas, renta F22, perfil tributario y empresas autorizadas. No es asesoría tributaria.',
 ].join('\n');
 
 export interface OpcionesMcp {
@@ -222,7 +222,7 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
     {
       title: 'Sincronizar la renta (F22)',
       description:
-        'Trae del SII la declaración anual de renta (F22) de un rango de años tributarios (AAAA; el año tributario es el año comercial + 1) y la guarda en la base local: las declaraciones del año, su conclusión y, del folio vigente, los códigos con su glosa, las observaciones y los eventos. Máximo 10 años por llamada. Solo lee el SII y no guarda nombres, domicilio, cuenta ni banco. Si el SII responde vacío donde había datos, se conservan los guardados. Si no hay sesión, la respuesta indica cómo conectar la cuenta en la página «Abrir impuestocl.cmd»; nunca pidas la clave en el chat.',
+        'Trae del SII la declaración anual de renta (F22) de un rango de años tributarios (AAAA; el año tributario es el año comercial + 1) y la guarda en la base local: las declaraciones del año, su conclusión y, del folio vigente, los códigos con su glosa, las observaciones y los eventos. A una persona (no a una empresa) le trae además el informe anual de boletas de honorarios emitidas del año comercial; con el año tributario siguiente al actual (p. ej. 2027 en 2026) ves las boletas del año en curso aunque aún no haya F22. Máximo 10 años por llamada. Solo lee el SII y no guarda nombres, domicilio, cuenta ni banco. Si el SII responde vacío donde había datos, se conservan los guardados. Si no hay sesión, la respuesta indica cómo conectar la cuenta en la página «Abrir impuestocl.cmd»; nunca pidas la clave en el chat.',
       inputSchema: z.object({ rut: RUT, desde: ANIO_TRIBUTARIO, hasta: ANIO_TRIBUTARIO.optional() }),
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
@@ -241,7 +241,7 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
     {
       title: 'Resumen de la renta (F22)',
       description:
-        'Muestra la renta (F22) guardada localmente por año tributario: folio vigente, conclusión del SII, impuesto pagado, giro y remanente, los códigos del resultado con su glosa del SII, observaciones y eventos. No va al SII: si no hay datos, usa renta_sincronizar. Los demás códigos están en f22_valor (consulta_sql).',
+        'Muestra la renta (F22) guardada localmente por año tributario: folio vigente, conclusión del SII, impuesto pagado, giro y remanente, los códigos del resultado con su glosa del SII, observaciones y eventos. De una persona muestra además sus boletas de honorarios emitidas del año comercial (vigentes, anuladas, bruto y retención) y su cruce con los códigos 547 (ingresos brutos) y 492 (retención) del F22, que vienen reajustados por IPC: cuadra si el F22 trae entre 0 % y 10 % más. No va al SII: si no hay datos, usa renta_sincronizar. Los demás códigos están en f22_valor y las boletas por mes en bhe_emitida_mes (consulta_sql).',
       inputSchema: z.object({ rut: RUT, anio: ANIO_TRIBUTARIO.optional() }),
       annotations: SOLO_LECTURA,
     },

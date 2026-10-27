@@ -179,7 +179,7 @@ export function crearPrograma(
 
   renta
     .command('sync')
-    .description('Trae del SII la renta (F22) de uno o varios años tributarios (máximo 10): declaraciones y detalle del folio vigente')
+    .description('Trae del SII la renta (F22) de uno o varios años tributarios (máximo 10): declaraciones, detalle del folio vigente y, de una persona, sus boletas de honorarios emitidas del año comercial')
     .argument('<rut>')
     .requiredOption('--desde <AAAA>', 'primer año tributario')
     .option('--hasta <AAAA>', 'último año tributario (por defecto, el mismo de --desde)')

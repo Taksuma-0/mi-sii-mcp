@@ -2,10 +2,11 @@ import type { FilaHistorialF29, PaginaDocumentos, ResumenIva } from '../app/cons
 import type { CuentaSii, ResultadoCuenta } from '../app/cuenta.js';
 import type { PerfilConSesion } from '../app/perfiles.js';
 import type { ResultadoReleerF29, ResultadoRelectura } from '../app/releer-f29.js';
-import type { AnioRenta, ResultadoAnioRenta, ResultadoRenta, ResumenRenta } from '../app/renta.js';
+import type { AnioRenta, HonorariosEmitidos, ResultadoAnioRenta, ResultadoRenta, ResumenRenta } from '../app/renta.js';
 import { SINCRONIZACION_CANCELADA, type ResultadoPeriodo, type ResultadoSync } from '../app/sincronizar.js';
 import { reintentoDe, type Reintento } from '../domain/errores.js';
 import { formatearClp, nombreTipoDocumento } from '../domain/formato.js';
+import type { ParCruceHonorarios } from '../domain/renta.js';
 import type { Hallazgo, Plazo, Severidad } from '../domain/tipos.js';
 
 const ETIQUETA: Readonly<Record<Severidad, string>> = { critico: 'CRÍTICO', advertencia: 'ADVERTENCIA', info: 'INFO' };
@@ -89,6 +90,7 @@ function lineaAnioRenta(a: ResultadoAnioRenta): string {
             a.folioVigente === null ? 'sin folio vigente' : `folio vigente ${a.folioVigente}`,
             ...(a.detalle === 'leido' ? ['detalle leído'] : a.detalle === 'sin_leer' ? ['detalle sin leer'] : []),
           ];
+  if (a.boletasEmitidas !== null) partes.push(`${plural(a.boletasEmitidas, 'boleta emitida', 'boletas emitidas')} en ${a.anioTributario - 1}`);
   if (a.errores.length > 0) partes.push(`errores: ${a.errores.map((e) => `${e.superficie} ${e.codigo}`).join(', ')}`);
   return `AT${a.anioTributario}: ${partes.join(' · ')}`;
 }
@@ -102,8 +104,45 @@ export function textoRenta(r: ResultadoRenta): string {
   return lineas.join('\n');
 }
 
+/** `+0,6 %`: el reajuste con un decimal y coma, como se escribe en Chile. */
+const porcentaje = (p: number): string => `${p < 0 ? '-' : '+'}${Math.abs(p).toFixed(1).replace('.', ',')} %`;
+
+const PARES_CRUCE = [
+  { clave: 'bruto', etiqueta: 'bruto', pronombre: 'lo' },
+  { clave: 'retencion', etiqueta: 'retención', pronombre: 'la' },
+] as const;
+
+/** Un par del cruce en palabras; null si no hay boletas ni F22 que comparar. Solo el primer `cuadra` explica el reajuste. */
+function textoPar(etiqueta: string, pronombre: string, p: ParCruceHonorarios, explicar: boolean): string | null {
+  const nombre = `${etiqueta} vs ${p.codigo}`;
+  if (p.estado === 'sin_datos') return null;
+  if (p.estado === 'sin_declarar') return `${nombre}: el F22 no ${pronombre} declara (boletas ${monto(p.boletas)})`;
+  if (p.estado === 'difiere') return `${nombre} difiere (boletas ${monto(p.boletas)}, F22 ${monto(p.f22)})`;
+  const reajuste = p.reajustePct === null ? '' : ` (${explicar ? 'el F22 reajusta por IPC: ' : ''}${porcentaje(p.reajustePct)})`;
+  return `${nombre} cuadra${reajuste}`;
+}
+
+/** Boletas de honorarios emitidas del año comercial y su cruce con el F22; la retención propia solo si la hubo. */
+function lineasHonorarios(h: HonorariosEmitidos): string[] {
+  const titulo = `  Boletas de honorarios emitidas en ${h.anioComercial}`;
+  if (h.vigentes + h.anuladas === 0 && h.bruto + h.retencionTerceros + h.retencionPropia === 0) return [`${titulo}: ninguna`];
+  const anuladas = h.anuladas === 0 ? '' : ` (${plural(h.anuladas, 'anulada', 'anuladas')})`;
+  const montos = [`bruto ${monto(h.bruto)}`, `retención ${monto(h.retencionTerceros)}`, ...(h.retencionPropia > 0 ? [`retención propia ${monto(h.retencionPropia)}`] : [])];
+  const lineas = [`${titulo}: ${plural(h.vigentes, 'vigente', 'vigentes')}${anuladas} · ${montos.join(' · ')}`];
+  if (h.cruceF22 !== null) {
+    const cruce = h.cruceF22;
+    const explicada = PARES_CRUCE.find(({ clave }) => cruce[clave].estado === 'cuadra')?.clave;
+    const pares = PARES_CRUCE.flatMap(({ clave, etiqueta, pronombre }) => textoPar(etiqueta, pronombre, cruce[clave], clave === explicada) ?? []);
+    if (pares.length > 0) lineas.push(`  Cruce con el F22: ${pares.join(' · ')}`);
+  }
+  return lineas;
+}
+
 function lineasAnioRenta(a: AnioRenta): string[] {
-  if (a.folio === null) return [`AT${a.anioTributario} · sin folio vigente (${plural(a.declaraciones, 'declaración', 'declaraciones')})`];
+  const honorarios = a.honorariosEmitidos === null ? [] : lineasHonorarios(a.honorariosEmitidos);
+  // Un año solo con boletas emitidas guardadas (p. ej. el año en curso, que aún no tiene F22).
+  if (a.declaraciones === 0) return [`AT${a.anioTributario} · sin F22 guardado`, ...honorarios];
+  if (a.folio === null) return [`AT${a.anioTributario} · sin folio vigente (${plural(a.declaraciones, 'declaración', 'declaraciones')})`, ...honorarios];
   const marca = a.vigente === true ? 'vigente' : 'la más reciente; el SII no la marcó vigente';
   const cabecera = [
     `AT${a.anioTributario} · folio ${a.folio} (${marca}) de ${plural(a.declaraciones, 'declaración', 'declaraciones')}`,
@@ -131,6 +170,7 @@ function lineasAnioRenta(a: AnioRenta): string[] {
     ...a.observaciones.map((o) => `  Observación ${o.codigo}: ${o.descripcion ?? 'sin descripción'}`),
     ...a.eventos.map((e) => `  Evento ${e.fecha ?? 'sin fecha'}: ${e.nombre ?? e.codigoEvento ?? 'sin nombre'}`),
     a.codigos === 0 ? '  Sin detalle guardado del folio' : `  ${plural(a.codigos, 'código guardado', 'códigos guardados')} (todos en f22_valor)`,
+    ...honorarios,
   ];
 }
 

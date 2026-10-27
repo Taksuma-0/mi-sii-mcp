@@ -294,6 +294,28 @@ const V8 = `
 ALTER TABLE contribuyente ADD COLUMN acceso_rut TEXT;
 `;
 
+/**
+ * Informe anual de boletas de honorarios emitidas por el contribuyente: una fila por año comercial (anio) y mes, con
+ * montos nominales. Se reemplaza el año completo en cada lectura; un mes sin boletas queda en 0 y sin folios.
+ */
+const V9 = `
+CREATE TABLE bhe_emitida_mes (
+  rut TEXT NOT NULL,
+  anio INTEGER NOT NULL,
+  mes INTEGER NOT NULL CHECK (mes BETWEEN 1 AND 12),
+  bruto INTEGER NOT NULL,
+  retencion_terceros INTEGER NOT NULL,
+  retencion_propia INTEGER NOT NULL,
+  vigentes INTEGER NOT NULL,
+  anuladas INTEGER NOT NULL,
+  folio_inicial INTEGER,
+  folio_final INTEGER,
+  sincronizacion_id INTEGER NOT NULL REFERENCES sincronizacion (id),
+  obtenido_en TEXT NOT NULL,
+  PRIMARY KEY (rut, anio, mes)
+);
+`;
+
 export const MIGRACIONES: readonly Migracion[] = [
   { version: 1, sql: V1 },
   { version: 2, sql: V2 },
@@ -303,4 +325,5 @@ export const MIGRACIONES: readonly Migracion[] = [
   { version: 6, sql: V6 },
   { version: 7, sql: V7 },
   { version: 8, sql: V8 },
+  { version: 9, sql: V9 },
 ];

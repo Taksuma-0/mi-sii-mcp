@@ -106,7 +106,8 @@ export function panorama(deps: DepsApp, rutTexto: string): PanoramaSii {
     };
   });
   const cuenta = cuentaDe(deps, perfil.rut);
-  const renta = resumenRenta(deps, perfil.rut).anios.map(
+  // Solo los años con F22: los que solo tienen boletas de honorarios emitidas se ven en renta_resumen.
+  const renta = resumenRenta(deps, perfil.rut).anios.filter((a) => a.declaraciones > 0).map(
     (a): RentaPanorama => ({ anioTributario: a.anioTributario, folio: a.folio, vigente: a.vigente, conclusion: a.conclusion, observaciones: a.observaciones }),
   );
   return {

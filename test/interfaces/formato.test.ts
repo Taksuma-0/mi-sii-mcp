@@ -141,10 +141,10 @@ describe('formato: renta F22', () => {
       textoRenta({
         rut: '22222222-2',
         anios: [
-          { anioTributario: 2024, declaraciones: 0, folioVigente: null, detalle: 'sin_vigente', errores: [] },
-          { anioTributario: 2025, declaraciones: 1, folioVigente: 7, detalle: 'sin_leer', errores: [{ superficie: 'f22.folio', codigo: 'PORTAL_CAMBIO', mensaje: 'x' }] },
-          { anioTributario: 2026, declaraciones: 2, folioVigente: 123_456_789, detalle: 'leido', errores: [] },
-          { anioTributario: 2023, declaraciones: null, folioVigente: null, detalle: 'sin_leer', errores: [{ superficie: 'f22', codigo: 'RESPUESTA_VACIA', mensaje: 'x' }] },
+          { anioTributario: 2024, declaraciones: 0, folioVigente: null, detalle: 'sin_vigente', boletasEmitidas: null, errores: [] },
+          { anioTributario: 2025, declaraciones: 1, folioVigente: 7, detalle: 'sin_leer', boletasEmitidas: null, errores: [{ superficie: 'f22.folio', codigo: 'PORTAL_CAMBIO', mensaje: 'x' }] },
+          { anioTributario: 2026, declaraciones: 2, folioVigente: 123_456_789, detalle: 'leido', boletasEmitidas: null, errores: [] },
+          { anioTributario: 2023, declaraciones: null, folioVigente: null, detalle: 'sin_leer', boletasEmitidas: null, errores: [{ superficie: 'f22', codigo: 'RESPUESTA_VACIA', mensaje: 'x' }] },
         ],
         abortado: { superficie: 'sesion', codigo: 'SESION_REQUERIDA', mensaje: 'Inicia sesión.' },
       }),
@@ -182,6 +182,7 @@ describe('formato: renta F22', () => {
       ],
       observaciones: [{ codigo: 'A01', descripcion: 'Observación ficticia' }],
       eventos: [{ orden: 1, codigoEvento: 'E01', nombre: 'Declaración recibida', fecha: '2026-04-15', tipo: 'INFO', codigoCarta: null }],
+      honorariosEmitidos: null,
       obtenidoEn: '2026-10-21T15:00:00.000Z',
     };
     const sinVigente = { ...anio, anioTributario: 2025, folio: null, vigente: null, declaraciones: 1, conclusion: null, codigoConclusion: null, codigos: 0, codigosClave: [], observaciones: [], eventos: [] };
@@ -207,11 +208,85 @@ describe('formato: renta F22', () => {
       anioTributario: 2026, folio: 1, vigente: true, declaraciones: 1, codigoConclusion: null, conclusion: 'Devolución ficticia', fechaIngreso: null, tipoImpugnado: '0',
       impuestoPagado: null, montoGiro: null, remanenteSolicitado: 100_000, remanenteDevuelto: 100_000, fechaVencimiento: null, codigos: 2,
       codigosClave: [{ codigo: '87', valor: 100_000, glosa: 'Devolución ficticia' }, { codigo: '91', valor: null, glosa: 'Total ficticio' }],
-      observaciones: [], eventos: [], obtenidoEn: '2026-10-21T15:00:00.000Z',
+      observaciones: [], eventos: [], honorariosEmitidos: null, obtenidoEn: '2026-10-21T15:00:00.000Z',
     };
     const texto = textoResumenRenta({ rut: '11111111-1', anios: [anio] });
     expect(texto).toContain('  remanente solicitado $100.000 · devuelto $100.000\n');
     expect(texto).not.toMatch(/Impuesto pagado|giro|tipo impugnado|sin dato/);
     expect(texto).toContain('  Sin monto en el folio: 91');
+  });
+
+  it('textoRenta dice cuántas boletas de honorarios emitidas trajo del año comercial', () => {
+    const texto = textoRenta({
+      rut: '11111111-1',
+      anios: [
+        { anioTributario: 2026, declaraciones: 1, folioVigente: 9, detalle: 'leido', boletasEmitidas: 11, errores: [] },
+        { anioTributario: 2027, declaraciones: 0, folioVigente: null, detalle: 'sin_vigente', boletasEmitidas: 1, errores: [] },
+        { anioTributario: 2025, declaraciones: 0, folioVigente: null, detalle: 'sin_vigente', boletasEmitidas: 0, errores: [] },
+      ],
+      abortado: null,
+    });
+    expect(texto).toBe(
+      [
+        'Renta (F22) 11111111-1:',
+        'AT2026: 1 declaración · folio vigente 9 · detalle leído · 11 boletas emitidas en 2025',
+        'AT2027: sin declaraciones · 1 boleta emitida en 2026',
+        'AT2025: sin declaraciones · 0 boletas emitidas en 2024',
+      ].join('\n'),
+    );
+  });
+
+  describe('textoResumenRenta: boletas de honorarios emitidas', () => {
+    const base = {
+      anioTributario: 2026, folio: 9, vigente: true, declaraciones: 1, codigoConclusion: null, conclusion: null, fechaIngreso: null, tipoImpugnado: null,
+      impuestoPagado: null, montoGiro: null, remanenteSolicitado: null, remanenteDevuelto: null, fechaVencimiento: null, codigos: 40,
+      codigosClave: [], observaciones: [], eventos: [], obtenidoEn: '2026-10-21T15:00:00.000Z',
+    };
+    const honorarios = {
+      anioComercial: 2025, vigentes: 3, anuladas: 1, bruto: 2_000_000, retencionTerceros: 290_000, retencionPropia: 0, obtenidoEn: '2026-10-21T15:00:00.000Z',
+      cruceF22: {
+        bruto: { codigo: '547', boletas: 2_000_000, f22: 2_012_600, estado: 'cuadra' as const, reajustePct: 0.63 },
+        retencion: { codigo: '492', boletas: 290_000, f22: 291_827, estado: 'cuadra' as const, reajustePct: 0.63 },
+      },
+    };
+
+    it('muestra el año comercial, vigentes, anuladas, bruto y retención, y el cruce que cuadra con el reajuste por IPC', () => {
+      const texto = textoResumenRenta({ rut: '11111111-1', anios: [{ ...base, honorariosEmitidos: honorarios }] });
+      expect(texto.split('\n').slice(-2)).toEqual([
+        '  Boletas de honorarios emitidas en 2025: 3 vigentes (1 anulada) · bruto $2.000.000 · retención $290.000',
+        '  Cruce con el F22: bruto vs 547 cuadra (el F22 reajusta por IPC: +0,6 %) · retención vs 492 cuadra (+0,6 %)',
+      ]);
+    });
+
+    it('un año solo con boletas: sin F22 guardado, la retención propia si la hay y sin cruce', () => {
+      const soloBoletas = { ...base, anioTributario: 2027, folio: null, vigente: null, declaraciones: 0, codigos: 0 };
+      const texto = textoResumenRenta({
+        rut: '11111111-1',
+        anios: [{ ...soloBoletas, honorariosEmitidos: { ...honorarios, anioComercial: 2026, vigentes: 1, anuladas: 0, bruto: 100_000, retencionTerceros: 0, retencionPropia: 14_500, cruceF22: null } }],
+      });
+      expect(texto).toBe(
+        [
+          'Renta (F22) 11111111-1 — 1 año tributario guardado',
+          'AT2027 · sin F22 guardado',
+          '  Boletas de honorarios emitidas en 2026: 1 vigente · bruto $100.000 · retención $0 · retención propia $14.500',
+        ].join('\n'),
+      );
+    });
+
+    it('sin boletas dice ninguna y no cruza; un cruce que no cuadra muestra ambos montos', () => {
+      const ninguna = { ...honorarios, vigentes: 0, anuladas: 0, bruto: 0, retencionTerceros: 0, cruceF22: { bruto: { ...honorarios.cruceF22.bruto, boletas: 0, f22: null, estado: 'sin_datos' as const, reajustePct: null }, retencion: { ...honorarios.cruceF22.retencion, boletas: 0, f22: null, estado: 'sin_datos' as const, reajustePct: null } } };
+      expect(textoResumenRenta({ rut: '11111111-1', anios: [{ ...base, honorariosEmitidos: ninguna }] }).split('\n').at(-1)).toBe('  Boletas de honorarios emitidas en 2025: ninguna');
+
+      const distinto = {
+        ...honorarios,
+        cruceF22: {
+          bruto: { ...honorarios.cruceF22.bruto, f22: 2_500_000, estado: 'difiere' as const, reajustePct: 25 },
+          retencion: { ...honorarios.cruceF22.retencion, f22: null, estado: 'sin_declarar' as const, reajustePct: null },
+        },
+      };
+      expect(textoResumenRenta({ rut: '11111111-1', anios: [{ ...base, honorariosEmitidos: distinto }] }).split('\n').at(-1)).toBe(
+        '  Cruce con el F22: bruto vs 547 difiere (boletas $2.000.000, F22 $2.500.000) · retención vs 492: el F22 no la declara (boletas $290.000)',
+      );
+    });
   });
 });
