@@ -1,6 +1,11 @@
+import Database from 'better-sqlite3';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { abrirDb, aplicarMigraciones, versionEsquema } from '../../src/store/sqlite/db.js';
 import type { Db } from '../../src/store/sqlite/db.js';
+import { MIGRACIONES, type Migracion } from '../../src/store/sqlite/migraciones.js';
 import { sha256, SqliteStore } from '../../src/store/sqlite/store.js';
 import { perfilEmpresa, perfilPersona, RUT_EMPRESA, RUT_PERSONA } from '../helpers/fabricas.js';
 
@@ -18,10 +23,11 @@ afterEach(() => {
 describe('db', () => {
   it('aplica las migraciones una sola vez y crea todas las tablas', () => {
     const db = nuevaDb();
-    expect(versionEsquema(db)).toBe(1);
+    const ultima = MIGRACIONES[MIGRACIONES.length - 1]!.version;
+    expect(versionEsquema(db)).toBe(ultima);
     aplicarMigraciones(db);
-    expect(versionEsquema(db)).toBe(1);
-    expect(db.prepare('SELECT COUNT(*) AS cantidad FROM migracion').get()).toEqual({ cantidad: 1 });
+    expect(versionEsquema(db)).toBe(ultima);
+    expect(db.prepare('SELECT COUNT(*) AS cantidad FROM migracion').get()).toEqual({ cantidad: MIGRACIONES.length });
     const tablas = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as { name: string }[]).map((t) => t.name);
     expect(tablas).toEqual(
       expect.arrayContaining([
@@ -48,6 +54,65 @@ describe('db', () => {
       cuerpo: '{}',
       obtenidoEn: '2026-10-21T10:00:00.000Z',
     })).toThrow(/FOREIGN KEY/);
+  });
+});
+
+describe('respaldo antes de migrar', () => {
+  const dirs: string[] = [];
+  const carpeta = (): string => {
+    const d = mkdtempSync(join(tmpdir(), 'impuestocl-db-'));
+    dirs.push(d);
+    return d;
+  };
+  afterEach(() => {
+    for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
+  });
+  const V2: Migracion = { version: 99, sql: 'ALTER TABLE contribuyente ADD COLUMN nota TEXT;' };
+  const conV1 = (ruta: string): void => {
+    const db = new Database(ruta);
+    aplicarMigraciones(db, [MIGRACIONES[0]!]);
+    db.prepare("INSERT INTO contribuyente (rut, alias, tipo) VALUES ('11111111-1', 'Demo', 'persona')").run();
+    db.close();
+  };
+
+  it('respalda una vez la base en archivo antes de aplicar una migración pendiente', () => {
+    const ruta = join(carpeta(), 'datos.db');
+    conV1(ruta);
+    const respaldo = join(dirs[0]!, 'datos-antes-v99.db');
+
+    const db = abrirDb(ruta, [...MIGRACIONES.slice(0, 1), V2]);
+    expect(versionEsquema(db)).toBe(99);
+    expect(existsSync(respaldo)).toBe(true);
+    const copia = new Database(respaldo, { readonly: true });
+    expect(versionEsquema(copia)).toBe(1);
+    expect(copia.prepare('SELECT COUNT(*) AS n FROM contribuyente').get()).toEqual({ n: 1 });
+    copia.close();
+    db.close();
+  });
+
+  it('no sobrescribe un respaldo que ya existe', () => {
+    const ruta = join(carpeta(), 'datos.db');
+    conV1(ruta);
+    const respaldo = join(dirs[0]!, 'datos-antes-v99.db');
+    const previo = new Database(respaldo);
+    previo.exec('CREATE TABLE marca (x INTEGER)');
+    previo.close();
+
+    abrirDb(ruta, [...MIGRACIONES.slice(0, 1), V2]).close();
+    const copia = new Database(respaldo, { readonly: true });
+    expect(copia.prepare("SELECT name FROM sqlite_master WHERE name = 'marca'").all()).toHaveLength(1);
+    copia.close();
+  });
+
+  it('no respalda una base nueva, una al día ni una en memoria', () => {
+    const ruta = join(carpeta(), 'nueva.db');
+    abrirDb(ruta, [...MIGRACIONES.slice(0, 1), V2]).close();
+    expect(existsSync(join(dirs[0]!, 'nueva-antes-v99.db'))).toBe(false);
+    abrirDb(ruta, [...MIGRACIONES.slice(0, 1), V2]).close();
+    expect(existsSync(join(dirs[0]!, 'nueva-antes-v99.db'))).toBe(false);
+    const memoria = abrirDb(':memory:', [...MIGRACIONES.slice(0, 1), V2]);
+    expect(versionEsquema(memoria)).toBe(99);
+    memoria.close();
   });
 });
 
