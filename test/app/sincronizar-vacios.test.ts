@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { conservarF29, conservarRcv, sincronizar } from '../../src/app/sincronizar.js';
 import { parsePeriodo } from '../../src/domain/periodo.js';
+import { ErrorImpuestocl } from '../../src/domain/errores.js';
 import { declaracion, documento, fila, perfilEmpresa, resumen, RUT_CLIENTE, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
 import { conLector, depsDePrueba } from '../helpers/deps.js';
 import { VERSION_LECTOR_PRUEBA } from '../helpers/lector-falso.js';
@@ -138,6 +139,25 @@ describe('sincronizar ante respuestas vacías del F29', () => {
     expect(r.periodos[0]!.errores.map((e) => e.codigo)).toEqual(['RESPUESTA_VACIA']);
     expect(store.declaracionesF29(RUT_EMPRESA, SEPT.texto)).toEqual([declaracion()]);
     expect(store.valoresF29(RUT_EMPRESA, SEPT.texto, 555_001)).toEqual(VALORES);
+  });
+
+  it('un F29 conservado por respuesta vacía informa el folio vigente guardado, no "sin folio"', async () => {
+    const { deps, sii } = await mesGuardado();
+    sii.declaraciones.set('2026-09', []);
+
+    const r = await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT, ['f29']);
+
+    expect(r.periodos[0]!.errores.map((e) => e.codigo)).toEqual(['RESPUESTA_VACIA']);
+    expect(r.periodos[0]!.f29Folio).toBe(555_001);
+  });
+
+  it('un F29 que falla por otra causa no inventa un folio', async () => {
+    const { deps, sii } = await mesGuardado();
+    sii.fallas.set('f29|2026-09', new ErrorImpuestocl('SII_NO_DISPONIBLE', 'caído'));
+
+    const r = await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT, ['f29']);
+
+    expect(r.periodos[0]!.f29Folio).toBeNull();
   });
 
   it('una rectificatoria con folio nuevo presentado reemplaza', async () => {

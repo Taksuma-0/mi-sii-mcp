@@ -130,7 +130,9 @@ export async function sincronizar(
           deps.store.guardarF29(id, rut, periodo.texto, declaraciones, valoresPrevios, ahora);
           return { declaraciones, valoresPrevios, vigente: declaracionVigente(declaraciones) };
         });
-        res.f29Folio = f29?.vigente?.folio ?? null;
+        // Si el SII respondió vacío y se conservó lo guardado, el folio que vale es el guardado.
+        const conservado = f29 === null && res.errores.some((e) => e.superficie === 'f29' && e.codigo === 'RESPUESTA_VACIA');
+        res.f29Folio = f29?.vigente?.folio ?? (conservado ? declaracionVigente(deps.store.declaracionesF29(rut, periodo.texto))?.folio ?? null : null);
         const vigente = f29?.vigente;
         if (f29 && vigente && vigente.codigoInterno !== null && !yaLeido(deps, rut, periodo.texto, vigente.folio, f29.valoresPrevios)) {
           revisarCancelacion(signal);
