@@ -37,7 +37,7 @@ export async function postSdi(http: Http, sumidero: SumideroRespuestas, pedido: 
   );
   if (r.status === 401) throw new ErrorImpuestocl('SESION_REQUERIDA', 'El SII no reconoció la sesión (401).');
   if (r.status === 429) throw new ErrorImpuestocl('SII_NO_DISPONIBLE', 'El SII limitó las consultas; reintenta más tarde.');
-  sumidero({ superficie: pedido.superficie, parametros: pedido.data, cuerpo: evidencia(r.texto, pedido.sanear), obtenidoEn: new Date().toISOString() });
+  sumidero({ superficie: pedido.superficie, parametros: pedido.data, cuerpo: evidencia(r.texto, pedido.sanear, pedido.superficie), obtenidoEn: new Date().toISOString() });
   try {
     return JSON.parse(r.texto) as unknown;
   } catch {
@@ -46,8 +46,11 @@ export async function postSdi(http: Http, sumidero: SumideroRespuestas, pedido: 
   }
 }
 
-/** El texto tal cual, o saneado si el pedido lo pide y el texto es JSON. Si `sanear` falla, falla la consulta: nunca se guarda el cuerpo sin sanear. */
-function evidencia(texto: string, sanear: PedidoSdi['sanear']): string {
+/**
+ * El texto tal cual, o saneado si el pedido lo pide y el texto es JSON. Si `sanear` falla, falla la consulta con
+ * PORTAL_CAMBIO: nunca se guarda el cuerpo sin sanear. Si devuelve `undefined`, se guarda `null` explícito.
+ */
+function evidencia(texto: string, sanear: PedidoSdi['sanear'], superficie: string): string {
   if (!sanear) return texto;
   let cuerpo: unknown;
   try {
@@ -55,5 +58,9 @@ function evidencia(texto: string, sanear: PedidoSdi['sanear']): string {
   } catch {
     return texto;
   }
-  return JSON.stringify(sanear(cuerpo));
+  try {
+    return JSON.stringify(sanear(cuerpo)) ?? 'null';
+  } catch (cause) {
+    throw new ErrorImpuestocl('PORTAL_CAMBIO', `No se pudo sanear la evidencia de ${superficie}.`, { cause });
+  }
 }

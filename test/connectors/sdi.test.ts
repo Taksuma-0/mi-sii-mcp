@@ -97,6 +97,21 @@ describe('postSdi: saneo de la evidencia', () => {
     expect(crudas[0]!.cuerpo).toBe(CUERPO);
   });
 
+  it('si sanear devuelve undefined se guarda el texto "null", nunca undefined', async () => {
+    const { http, crudas, sumidero } = await preparar({ headers: JSON_CT, body: CUERPO }, true);
+    const r = await postSdi(http, sumidero, { ...PEDIDO, sanear: () => undefined });
+    expect(r).toEqual({ data: { rut: '11111111-1', valor: 5 } });
+    expect(crudas).toHaveLength(1);
+    expect(crudas[0]!.cuerpo).toBe('null');
+  });
+
+  it('si sanear lanza falla como PORTAL_CAMBIO y el sumidero nunca recibe el cuerpo', async () => {
+    const { http, crudas, sumidero } = await preparar({ headers: JSON_CT, body: CUERPO }, true);
+    const error = await postSdi(http, sumidero, { ...PEDIDO, sanear: () => { throw new TypeError('forma inesperada'); } }).catch((e: unknown) => e);
+    expect(error).toMatchObject({ codigo: 'PORTAL_CAMBIO', message: `No se pudo sanear la evidencia de ${PEDIDO.superficie}.` });
+    expect(crudas).toHaveLength(0);
+  });
+
   it('un cuerpo que no es JSON llega al sumidero tal cual, sin llamar a sanear', async () => {
     const { http, crudas, sumidero } = await preparar({ headers: HTML, body: '<html>otra cosa</html>' }, true);
     let llamado = false;
