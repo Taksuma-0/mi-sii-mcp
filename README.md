@@ -18,6 +18,10 @@
 </p>
 
 <p align="center">
+  <a href="https://glama.ai/mcp/servers/Taksuma-0/mi-sii-mcp"><img alt="mi-sii-mcp en Glama: puntuación del servidor MCP" src="https://glama.ai/mcp/servers/Taksuma-0/mi-sii-mcp/badges/score.svg"></a>
+</p>
+
+<p align="center">
   <a href="https://taksuma-0.github.io/mi-sii-mcp/">Sitio web</a> ·
   <a href="#instalación">Instalación</a> ·
   <a href="#compatibilidad-con-agentes-de-ia">Compatibilidad</a> ·

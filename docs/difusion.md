@@ -10,8 +10,10 @@ Cómo se presenta **mi-sii-mcp** fuera del repositorio: sitio web, Google Search
 | Imagen social del repositorio (Settings → Social preview) | ✅ Hecho |
 | Google Search Console: propiedad `https://taksuma-0.github.io/mi-sii-mcp/` verificada con `docs/google71cc82c95b49bdda.html` (no borrar ese archivo), sitemap enviado e indexación solicitada | ✅ Hecho |
 | Glama: ficha reclamada, descripción actualizada y build de prueba exitoso (Node 24, `npm ci --ignore-scripts`, `npm run build`, inicio `node dist/interfaces/cli/bin.js mcp`) | ✅ Hecho |
-| Glama: **Create Release** desde el build exitoso | Pendiente (un clic en Admin → Dockerfile) |
-| MCP Market (cola gratuita) y mcpservers.org (gratis) | Pendiente: formularios listos, falta enviarlos |
+| Glama: release 0.1.0 publicado (auto-release activo en cada release de GitHub); 15/15 herramientas inspeccionadas, calidad A; puntuación de descubrimiento 83 % (falta un release estable en GitHub y uso real) | ✅ Hecho |
+| Insignia de Glama en el README | ✅ Hecho |
+| mcpservers.org (gratis, revisión hasta 2 semanas) | ✅ Enviado |
+| MCP Market (cola gratuita) | Pendiente: formulario listo, falta enviarlo |
 | npm (`npm publish`) | Pendiente: npm suspendió temporalmente la cuenta para publicar tras activar el 2FA; reintentar con el código de 6 dígitos de la app |
 | MCP Registry oficial | Pendiente: requiere el paquete en npm |
 | Release `v0.1.0` en GitHub | Pendiente |
