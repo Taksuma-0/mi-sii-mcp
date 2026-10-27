@@ -100,6 +100,20 @@ function mostrarPanorama(p) {
   $('vacio').hidden = p.periodos.length !== 0;
   $('tabla-panorama').hidden = p.periodos.length === 0;
 }
+/** Pone puntos y guion mientras se escribe: la K solo vale como dígito verificador. */
+function formatearRut(texto) {
+  const limpio = texto.replace(/[^0-9kK]/g, '').toUpperCase().replace(/K(?=.)/g, '').slice(0, 9);
+  if (limpio.length < 2) return limpio;
+  return limpio.slice(0, -1).replace(/\B(?=(\d{3})+(?!\d))/g, '.') + '-' + limpio.slice(-1);
+}
+$('rut').addEventListener('input', () => {
+  const campo = $('rut'), significativos = (t) => t.replace(/[^0-9kK]/g, '').length;
+  const antes = significativos(campo.value.slice(0, campo.selectionStart ?? campo.value.length));
+  campo.value = formatearRut(campo.value);
+  let pos = 0;
+  for (let vistos = 0; pos < campo.value.length && vistos < antes; pos++) if (/[0-9K]/.test(campo.value[pos])) vistos++;
+  campo.setSelectionRange(pos, pos);
+});
 function estadoCuenta(c) {
   if (c.bloqueada) return ['error', 'El SII rechazó la clave: vuelve a conectar'];
   if (!c.conectada) return ['error', 'Sin sesión: vuelve a conectar'];
@@ -112,8 +126,8 @@ async function cargarCuentas() {
     for (const c of r.cuentas) {
       const [tipo, texto] = estadoCuenta(c), li = nodo('li'), info = nodo('div'), boton = nodo('button', 'Usar este RUT', 'secundario');
       li.dataset.tipo = tipo; boton.type = 'button';
-      boton.addEventListener('click', () => { $('rut').value = c.rut; clave.focus(); });
-      info.append(nodo('strong', c.nombre), nodo('small', 'RUT ' + c.rut + ' · ' + texto));
+      boton.addEventListener('click', () => { $('rut').value = formatearRut(c.rut); clave.focus(); });
+      info.append(nodo('strong', c.nombre), nodo('small', 'RUT ' + formatearRut(c.rut) + ' · ' + texto));
       li.append(info, boton); $('cuentas').append(li);
     }
     $('bloque-cuentas').hidden = r.cuentas.length === 0;

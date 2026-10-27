@@ -88,6 +88,24 @@ describe('HTTP local', () => {
     for (const id of ['ver-datos', 'otra-cuenta', 'listo-identidad', 'listo-sesion']) expect(html).toContain(`id="${id}"`);
   });
 
+  it('formatea el RUT con puntos y guion mientras se escribe', async () => {
+    const { html } = await entorno();
+    const fuente = /function formatearRut\(texto\) \{[\s\S]*?\n\}/.exec(html)?.[0];
+    expect(fuente).toBeTruthy();
+    const formatearRut = new Function(`${fuente}; return formatearRut;`)() as (texto: string) => string;
+    expect(formatearRut('')).toBe('');
+    expect(formatearRut('2')).toBe('2');
+    expect(formatearRut('22')).toBe('2-2');
+    expect(formatearRut('222222222')).toBe('22.222.222-2');
+    expect(formatearRut('22.222.222-2')).toBe('22.222.222-2');
+    expect(formatearRut('11111111k')).toBe('11.111.111-K');
+    expect(formatearRut('1k1')).toBe('1-1');
+    expect(formatearRut('2.222.222-22')).toBe('22.222.222-2');
+    expect(formatearRut('1234567890')).toBe('12.345.678-9');
+    expect(formatearRut(' 9.999.999-9 ')).toBe('9.999.999-9');
+    expect(html).toContain("$('rut').addEventListener('input'");
+  });
+
   it('el aviso del login con navegador usa el plazo configurado', async () => {
     const s = await crearServidorLocal({ puerto: 0, plazoNavegadorMs: 15 * 60_000 });
     try {
