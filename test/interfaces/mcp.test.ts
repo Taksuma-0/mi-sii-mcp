@@ -259,6 +259,16 @@ describe('servidor MCP', () => {
       await cliente.close();
     });
 
+    it('sincronizar rechaza una lista vacía de superficies', async () => {
+      const { deps, store } = depsDePrueba();
+      store.guardarContribuyente(perfilEmpresa());
+      const cliente = await conectar(deps);
+      const r = await cliente.callTool({ name: 'sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026-09', superficies: [] } });
+      expect(esError(r)).toBe(true);
+      expect(textoDe(r)).toMatch(/superficies/);
+      await cliente.close();
+    });
+
     it('sincronizar lista los meses con errores reintentables más tarde', async () => {
       const { deps, store, sii } = depsDePrueba();
       store.guardarContribuyente(perfilEmpresa());
@@ -672,6 +682,21 @@ describe('servidor MCP: cuenta del SII', () => {
     await cliente.close();
   });
 
+  it('perfil_sincronizar lista lo reintentable más tarde y la línea de reintento si se detuvo', async () => {
+    const { deps, sii } = conCuenta();
+    sii.fallas.set('empresas', new ErrorImpuestocl('SII_NO_DISPONIBLE', 'No responde.'));
+    const cliente = await conectar(deps);
+    const r = await cliente.callTool({ name: 'perfil_sincronizar', arguments: { rut: RUT_EMPRESA } });
+    expect(textoDe(r)).toContain('Reintentables más tarde: cuenta.empresas SII_NO_DISPONIBLE');
+    await cliente.close();
+
+    const detenida = depsDePrueba({ fallaAlAbrir: new ErrorImpuestocl('SII_EN_ESPERA', 'Hay que esperar.') });
+    detenida.store.guardarContribuyente(perfilEmpresa());
+    const otro = await conectar(detenida.deps);
+    expect(textoDe(await otro.callTool({ name: 'perfil_sincronizar', arguments: { rut: RUT_EMPRESA } }))).toContain('Reintentar: más tarde');
+    await otro.close();
+  });
+
   it('perfil_sincronizar con un RUT sin perfil devuelve el error de dominio', async () => {
     const cliente = await conectar(depsDePrueba().deps);
     const r = await cliente.callTool({ name: 'perfil_sincronizar', arguments: { rut: RUT_EMPRESA } });
@@ -734,6 +759,21 @@ describe('servidor MCP: renta F22', () => {
     expect(datosDe(r)).toMatchObject({ rut: RUT_EMPRESA, anios: [{ anioTributario: 2026, detalle: 'leido' }], abortado: null });
     expect(store.declaracionesF22(RUT_EMPRESA)).toHaveLength(1);
     await cliente.close();
+  });
+
+  it('renta_sincronizar lista los años reintentables más tarde y la línea de reintento si se detuvo', async () => {
+    const { deps, sii } = conRenta();
+    sii.fallas.set('f22|2026', new ErrorImpuestocl('SII_NO_DISPONIBLE', 'No responde.'));
+    const cliente = await conectar(deps);
+    const r = await cliente.callTool({ name: 'renta_sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026' } });
+    expect(textoDe(r)).toContain('Reintentables más tarde: AT2026 (f22 SII_NO_DISPONIBLE)');
+    await cliente.close();
+
+    const detenida = depsDePrueba({ fallaAlAbrir: new ErrorImpuestocl('SII_LIMITE', 'Límite.') });
+    detenida.store.guardarContribuyente(perfilEmpresa());
+    const otro = await conectar(detenida.deps);
+    expect(textoDe(await otro.callTool({ name: 'renta_sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026' } }))).toContain('Reintentar: más tarde');
+    await otro.close();
   });
 
   it('renta_sincronizar rechaza un año con otro formato y muestra el login sin sesión', async () => {

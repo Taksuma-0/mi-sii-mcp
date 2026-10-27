@@ -12,7 +12,7 @@ import { sincronizar } from '../../app/sincronizar.js';
 import { esErrorImpuestocl, type CodigoError } from '../../domain/errores.js';
 import { parsePeriodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
-import { lineaReintento, textoDocumentos, textoHallazgos, textoHistorialF29, textoCuenta, textoPerfiles, textoPlazos, textoReintentables, textoReleerF29, textoRenta, textoResumenIva, textoResumenRenta, textoSync } from '../formato.js';
+import { lineaReintento, textoDocumentos, textoHallazgos, textoHistorialF29, textoCuenta, textoPerfiles, textoPlazos, textoReintentables, textoReintentablesCuenta, textoReintentablesRenta, textoReleerF29, textoRenta, textoResumenIva, textoResumenRenta, textoSync } from '../formato.js';
 
 export const HERRAMIENTAS = [
   'perfiles_listar',
@@ -182,7 +182,7 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
       title: 'Sincronizar con el SII',
       description:
         'Trae desde el portal del SII el RCV (compras y ventas) y el F29 de un rango de meses y los guarda en la base local. Solo lee el SII: nunca presenta ni modifica nada allí. Por defecto trae rcv y f29 (propuesta y bhe son opcionales); con superficies puedes elegir, y «propuesta» (opcional, no va por defecto) agrega la propuesta de F29 del SII: crédito, remanente y retención propuestos, sin débito ni total a pagar; «bhe» (opcional, no va por defecto) agrega las boletas de honorarios recibidas del mes, con su retención, que se cruza con el código 151 del F29. La renta (F22) no va aquí: usa renta_sincronizar, y el perfil y las empresas autorizadas, perfil_sincronizar. Admite hasta 120 meses por llamada; para historia larga llama por tramos de 12 meses, así avanzas por partes y evitas que el cliente agote el plazo de espera. Si no hay sesión, la respuesta trae el comando de login para que la persona lo ejecute en su terminal (o conecte desde «Abrir impuestocl.cmd»); nunca pidas la clave en el chat.',
-      inputSchema: z.object({ rut: RUT, desde: PERIODO, hasta: PERIODO.optional(), superficies: z.array(z.enum(['rcv', 'f29', 'propuesta', 'bhe'])).optional() }),
+      inputSchema: z.object({ rut: RUT, desde: PERIODO, hasta: PERIODO.optional(), superficies: z.array(z.enum(['rcv', 'f29', 'propuesta', 'bhe'])).min(1).optional() }),
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
     async ({ rut, desde, hasta, superficies }, ctx) =>
@@ -213,7 +213,7 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
         // Igual que sincronizar: los errores de sesión vienen en `abortado` o en los errores de cada lectura, y el comando de login se agrega una sola vez.
         const codigos = [...(r.abortado ? [r.abortado.codigo] : []), ...r.errores.map((e) => e.codigo)];
         const guia = codigos.map((c) => guiaDelCodigo(comandoLogin, c, r.rut)).find((g) => g !== null);
-        return respuesta([textoCuenta(r), guia].filter((t): t is string => typeof t === 'string').join('\n'), r);
+        return respuesta([textoCuenta(r), textoReintentablesCuenta(r), guia].filter((t): t is string => typeof t === 'string').join('\n'), r);
       }, rut),
   );
 
@@ -232,7 +232,7 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
         // Igual que sincronizar: los errores de sesión vienen en `abortado` o en los errores de cada año, y el comando de login se agrega una sola vez.
         const codigos = [...(r.abortado ? [r.abortado.codigo] : []), ...r.anios.flatMap((a) => a.errores.map((e) => e.codigo))];
         const guia = codigos.map((c) => guiaDelCodigo(comandoLogin, c, r.rut)).find((g) => g !== null);
-        return respuesta([textoRenta(r), guia].filter((t): t is string => typeof t === 'string').join('\n'), r);
+        return respuesta([textoRenta(r), textoReintentablesRenta(r), guia].filter((t): t is string => typeof t === 'string').join('\n'), r);
       }, rut),
   );
 

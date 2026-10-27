@@ -166,13 +166,36 @@ const TEXTO_REINTENTO: Readonly<Record<Reintento, string>> = {
 /** Línea que dice si conviene volver a intentar un error; `codigo` es texto porque los errores de sincronización no lo tipan. */
 export const lineaReintento = (codigo: string): string => `Reintentar: ${TEXTO_REINTENTO[reintentoDe(codigo)]}`;
 
-/** Qué se puede reintentar de una sincronización: los meses con errores que se resuelven esperando y, si se detuvo por algo reintentable, cuándo. `null` si nada. */
-export function textoReintentables(r: ResultadoSync): string | null {
-  const items = r.periodos.flatMap((p) => p.errores.filter((e) => reintentoDe(e.codigo) === 'mas_tarde').map((e) => `${p.periodo} (${e.superficie} ${e.codigo})`));
+/** Errores de una sincronización agrupados por lo que se sincronizó (un mes, un año tributario o la cuenta, que no tiene etiqueta). */
+interface GrupoErrores {
+  readonly etiqueta: string | null;
+  readonly errores: readonly { readonly superficie: string; readonly codigo: string }[];
+}
+
+/** Qué se puede reintentar: lo que falló con errores que se resuelven esperando y, si la sincronización se detuvo por algo reintentable, cuándo. `null` si nada. */
+function textoReintentablesDe(grupos: readonly GrupoErrores[], abortado: ResultadoSync['abortado']): string | null {
+  const items = grupos.flatMap((g) =>
+    g.errores.filter((e) => reintentoDe(e.codigo) === 'mas_tarde').map((e) => (g.etiqueta === null ? `${e.superficie} ${e.codigo}` : `${g.etiqueta} (${e.superficie} ${e.codigo})`)),
+  );
   // La cancelación la pidió la persona: no hace falta aconsejarle que reintente.
-  const detenida = r.abortado && r.abortado.codigo !== SINCRONIZACION_CANCELADA.codigo && reintentoDe(r.abortado.codigo) !== 'no' ? lineaReintento(r.abortado.codigo) : null;
+  const detenida = abortado && abortado.codigo !== SINCRONIZACION_CANCELADA.codigo && reintentoDe(abortado.codigo) !== 'no' ? lineaReintento(abortado.codigo) : null;
   const lineas = [...(items.length === 0 ? [] : [`Reintentables más tarde: ${items.join(', ')}`]), ...(detenida ? [detenida] : [])];
   return lineas.length === 0 ? null : lineas.join('\n');
+}
+
+/** Qué se puede reintentar de una sincronización: los meses con errores que se resuelven esperando y, si se detuvo por algo reintentable, cuándo. `null` si nada. */
+export function textoReintentables(r: ResultadoSync): string | null {
+  return textoReintentablesDe(r.periodos.map((p) => ({ etiqueta: p.periodo, errores: p.errores })), r.abortado);
+}
+
+/** Lo mismo para la sincronización de la renta: por año tributario. */
+export function textoReintentablesRenta(r: ResultadoRenta): string | null {
+  return textoReintentablesDe(r.anios.map((a) => ({ etiqueta: `AT${a.anioTributario}`, errores: a.errores })), r.abortado);
+}
+
+/** Lo mismo para la sincronización de la cuenta: sus lecturas no son de un mes. */
+export function textoReintentablesCuenta(r: ResultadoCuenta): string | null {
+  return textoReintentablesDe([{ etiqueta: null, errores: r.errores }], r.abortado);
 }
 
 const TEXTO_PROPUESTA: Readonly<Record<NonNullable<ResultadoPeriodo['propuesta']> | 'sin_traer', string>> = {
