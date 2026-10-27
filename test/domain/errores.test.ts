@@ -1,25 +1,25 @@
 import { describe, expect, it } from 'vitest';
-import { ACCION_POR_DEFECTO, ERRORES_FATALES, ErrorImpuestocl, esErrorImpuestocl, REINTENTO, reintentoDe, type CodigoError } from '../../src/domain/errores.js';
+import { ACCION_POR_DEFECTO, ERRORES_FATALES, ErrorMiSiiMcp, esErrorMiSiiMcp, REINTENTO, reintentoDe, type CodigoError } from '../../src/domain/errores.js';
 
-describe('ErrorImpuestocl', () => {
+describe('ErrorMiSiiMcp', () => {
   it('trae código, mensaje y acción por defecto', () => {
-    const e = new ErrorImpuestocl('SESION_REQUERIDA', 'Sin sesión');
+    const e = new ErrorMiSiiMcp('SESION_REQUERIDA', 'Sin sesión');
     expect(e).toBeInstanceOf(Error);
-    expect(esErrorImpuestocl(e)).toBe(true);
+    expect(esErrorMiSiiMcp(e)).toBe(true);
     expect(e.codigo).toBe('SESION_REQUERIDA');
     expect(e.accion).toContain('mi-sii-mcp login');
     expect(e.toJSON()).toEqual({ codigo: 'SESION_REQUERIDA', mensaje: 'Sin sesión', accion: e.accion });
   });
 
   it('permite reemplazar la acción y adjuntar detalle', () => {
-    const e = new ErrorImpuestocl('SII_RECHAZO', 'x', { accion: 'otra', detalle: { a: 1 } });
+    const e = new ErrorMiSiiMcp('SII_RECHAZO', 'x', { accion: 'otra', detalle: { a: 1 } });
     expect(e.accion).toBe('otra');
     expect(e.detalle).toEqual({ a: 1 });
   });
 
   it('conserva la causa sin incluirla ni incluir el detalle en JSON', () => {
     const cause = new Error('Fallo original');
-    const e = new ErrorImpuestocl('SII_RECHAZO', 'Consulta rechazada', { cause, detalle: { a: 1 } });
+    const e = new ErrorMiSiiMcp('SII_RECHAZO', 'Consulta rechazada', { cause, detalle: { a: 1 } });
     expect(e.cause).toBe(cause);
     expect(e.toJSON()).toEqual({ codigo: 'SII_RECHAZO', mensaje: 'Consulta rechazada', accion: e.accion });
   });
@@ -29,7 +29,7 @@ describe('ErrorImpuestocl', () => {
   });
 
   it.each<CodigoError>(['SII_LIMITE', 'SII_SESIONES_MAXIMAS', 'RESPUESTA_VACIA', 'DATOS_INCOMPLETOS', 'LECTURA_INCOHERENTE', 'RESPALDO_FALLIDO'])('%s trae una acción por defecto clara', (codigo) => {
-    expect(new ErrorImpuestocl(codigo, 'x').accion.length).toBeGreaterThan(20);
+    expect(new ErrorMiSiiMcp(codigo, 'x').accion.length).toBeGreaterThan(20);
   });
 
   it('solo las sesiones máximas son fatales entre los códigos nuevos', () => {
@@ -37,8 +37,8 @@ describe('ErrorImpuestocl', () => {
     for (const codigo of ['RESPUESTA_VACIA', 'DATOS_INCOMPLETOS', 'LECTURA_INCOHERENTE', 'RESPALDO_FALLIDO'] as const) expect(ERRORES_FATALES.has(codigo)).toBe(false);
   });
 
-  it('esErrorImpuestocl rechaza errores comunes', () => {
-    expect(esErrorImpuestocl(new Error('x'))).toBe(false);
+  it('esErrorMiSiiMcp rechaza errores comunes', () => {
+    expect(esErrorMiSiiMcp(new Error('x'))).toBe(false);
   });
 
   describe('reintento', () => {

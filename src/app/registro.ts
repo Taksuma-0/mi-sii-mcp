@@ -1,4 +1,4 @@
-import { ERRORES_FATALES, esErrorImpuestocl, type CodigoError } from '../domain/errores.js';
+import { ERRORES_FATALES, esErrorMiSiiMcp, type CodigoError } from '../domain/errores.js';
 import type { RespuestaCruda } from '../domain/tipos.js';
 import type { DepsApp } from './deps.js';
 
@@ -76,7 +76,7 @@ export async function registrar<T>(
       deps.store.terminarSincronizacion(id, deps.reloj.ahora().toISOString(), 'error', { codigo: SINCRONIZACION_CANCELADA.codigo, detalle: DETALLE_SUPERFICIE_CANCELADA });
       throw new Cancelada();
     }
-    if (!esErrorImpuestocl(e)) {
+    if (!esErrorMiSiiMcp(e)) {
       deps.store.terminarSincronizacion(id, deps.reloj.ahora().toISOString(), 'error', { codigo: 'ERROR_INTERNO', detalle: String(e) });
       throw e;
     }

@@ -1,4 +1,4 @@
-import { ErrorImpuestocl } from '../../domain/errores.js';
+import { ErrorMiSiiMcp } from '../../domain/errores.js';
 import type { Periodo } from '../../domain/periodo.js';
 import type { DjInformada, DjTercero, DocumentoRcv, EmpresaAutorizada, EstadoRcv, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBhe, InformeBheEmitidas, InformeBheEmitidasMes, Lado, PerfilTributario, PropuestaF29, RcvResumen } from '../../domain/tipos.js';
 import type { SiiReader } from '../../ports/index.js';
@@ -88,6 +88,6 @@ export class LectorPorRepresentacion implements SiiReader {
 
   private async sinPermiso(area: string, rut: string | null): Promise<never> {
     const de = rut === null ? 'del contribuyente' : `de ${rut}`;
-    throw new ErrorImpuestocl('SIN_PERMISO', `Para leer ${area} ${de} hace falta su propia sesión; la configurada es la de ${this.rutAcceso}.`, { accion: ACCION_SESION_PROPIA });
+    throw new ErrorMiSiiMcp('SIN_PERMISO', `Para leer ${area} ${de} hace falta su propia sesión; la configurada es la de ${this.rutAcceso}.`, { accion: ACCION_SESION_PROPIA });
   }
 }

@@ -167,7 +167,7 @@ export async function crearServidorLocal(opciones: OpcionesServidor = {}): Promi
         responder(res, 200, paginaLocal(token, nonce, mes, minutosNavegador), true);
         return;
       }
-      if (req.method === 'GET' && req.url === '/estado') { responder(res, 200, { aplicacion: 'impuestocl-local-v1', ocupado }); return; }
+      if (req.method === 'GET' && req.url === '/estado') { responder(res, 200, { aplicacion: 'mi-sii-mcp-local-v1', ocupado }); return; }
       if (req.method !== 'POST' || (req.url !== '/verificar' && req.url !== '/cerrar' && !RUTAS_ESPACIO.has(req.url ?? ''))) throw new ErrorHttp(404, 'NO_ENCONTRADO', 'Esta ruta no está disponible.');
       if (req.headers.origin !== url || req.headers['x-csrf-token'] !== token) throw new ErrorHttp(403, 'ORIGEN_INVALIDO', 'La solicitud no proviene de esta aplicación. Vuelve a abrir el lanzador local.');
       if (!/^application\/json(?:\s*;\s*charset=utf-8)?$/i.test(req.headers['content-type'] ?? '')) throw new ErrorHttp(415, 'FORMATO_INVALIDO', 'La solicitud debe usar JSON.');

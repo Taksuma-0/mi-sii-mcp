@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { ErrorImpuestocl } from '../../domain/errores.js';
+import { ErrorMiSiiMcp } from '../../domain/errores.js';
 
 /** Ejecutables relativos a cada carpeta de programas, en orden de preferencia: Edge viene con Windows. */
 const EJECUTABLES: readonly (readonly string[])[] = [
@@ -11,18 +11,18 @@ const EJECUTABLES: readonly (readonly string[])[] = [
 const CARPETAS = ['ProgramFiles', 'ProgramFiles(x86)', 'LOCALAPPDATA'] as const;
 
 /**
- * Ruta de Microsoft Edge o Google Chrome. `IMPUESTOCL_NAVEGADOR` fuerza una ruta; si no existe es un error (no se busca
+ * Ruta de Microsoft Edge o Google Chrome. `MI_SII_MCP_NAVEGADOR` fuerza una ruta; si no existe es un error (no se busca
  * otro navegador a escondidas).
  */
 export function buscarNavegador(
   env: Readonly<Record<string, string | undefined>> = process.env,
   existe: (ruta: string) => boolean = existsSync,
 ): string {
-  const forzado = env['IMPUESTOCL_NAVEGADOR']?.trim();
+  const forzado = env['MI_SII_MCP_NAVEGADOR']?.trim();
   if (forzado) {
     if (existe(forzado)) return forzado;
-    throw new ErrorImpuestocl('NAVEGADOR_NO_DISPONIBLE', `La ruta indicada en IMPUESTOCL_NAVEGADOR no existe: ${forzado}.`, {
-      accion: 'Corrige la ruta de IMPUESTOCL_NAVEGADOR (por ejemplo, la de msedge.exe o chrome.exe) o quítala para buscar Edge o Chrome.',
+    throw new ErrorMiSiiMcp('NAVEGADOR_NO_DISPONIBLE', `La ruta indicada en MI_SII_MCP_NAVEGADOR no existe: ${forzado}.`, {
+      accion: 'Corrige la ruta de MI_SII_MCP_NAVEGADOR (por ejemplo, la de msedge.exe o chrome.exe) o quítala para buscar Edge o Chrome.',
     });
   }
   for (const partes of EJECUTABLES) {
@@ -33,5 +33,5 @@ export function buscarNavegador(
       if (existe(ruta)) return ruta;
     }
   }
-  throw new ErrorImpuestocl('NAVEGADOR_NO_DISPONIBLE', 'No se encontró Microsoft Edge ni Google Chrome en las carpetas estándar de Windows.');
+  throw new ErrorMiSiiMcp('NAVEGADOR_NO_DISPONIBLE', 'No se encontró Microsoft Edge ni Google Chrome en las carpetas estándar de Windows.');
 }

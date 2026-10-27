@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { AVISO_MES_CANCELADO, sincronizar } from '../../src/app/sincronizar.js';
 import { textoSync } from '../../src/interfaces/formato.js';
 import { resumenIva } from '../../src/app/consultas.js';
-import { ErrorImpuestocl } from '../../src/domain/errores.js';
+import { ErrorMiSiiMcp } from '../../src/domain/errores.js';
 import { parsePeriodo } from '../../src/domain/periodo.js';
 import { codigoDe } from '../helpers/errores.js';
 import { declaracion, documento, fila, perfilEmpresa, RUT_CLIENTE, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
@@ -41,8 +41,8 @@ describe('sincronizar', () => {
   it('sin una consulta del RCV que haya respondido no deja el aviso de representación', async () => {
     const { deps, sii } = mesCompleto();
     sii.aviso = 'lectura por representación sin confirmar en vivo (sesión de 33333333-3)';
-    sii.fallas.set('resumen|2026-09|VENTA|REGISTRO', new ErrorImpuestocl('SII_NO_DISPONIBLE', 'caído'));
-    sii.fallas.set('resumen|2026-09|COMPRA|REGISTRO', new ErrorImpuestocl('SII_NO_DISPONIBLE', 'caído'));
+    sii.fallas.set('resumen|2026-09|VENTA|REGISTRO', new ErrorMiSiiMcp('SII_NO_DISPONIBLE', 'caído'));
+    sii.fallas.set('resumen|2026-09|COMPRA|REGISTRO', new ErrorMiSiiMcp('SII_NO_DISPONIBLE', 'caído'));
     const r = await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT);
     expect(r.periodos[0]!.errores.map((e) => e.codigo)).toEqual(['SII_NO_DISPONIBLE', 'SII_NO_DISPONIBLE']);
     expect(r.periodos[0]!.avisos.some((a) => a.includes('representación'))).toBe(false);
@@ -120,7 +120,7 @@ describe('sincronizar', () => {
     const docs = store.documentosRcv(RUT_EMPRESA, SEPT.texto, { lado: 'COMPRA' });
     const fotos = store.snapshotsRcv(RUT_EMPRESA, SEPT.texto).filter((s) => s.lado === 'COMPRA');
     sii.detalles.set('2026-09|COMPRA|REGISTRO|33', []);
-    sii.fallas.set('resumen|2026-09|COMPRA|PENDIENTE', new ErrorImpuestocl('SII_NO_DISPONIBLE', 'Consulta no disponible.'));
+    sii.fallas.set('resumen|2026-09|COMPRA|PENDIENTE', new ErrorMiSiiMcp('SII_NO_DISPONIBLE', 'Consulta no disponible.'));
 
     const r = await sincronizar(deps, RUT_EMPRESA, SEPT, parsePeriodo('2026-10'));
 
@@ -168,14 +168,14 @@ describe('sincronizar', () => {
 
   it('si la sesión expira a mitad de camino conserva lo traído y reporta abortado', async () => {
     const { deps, store, sii } = mesCompleto();
-    sii.fallas.set('resumen|2026-09|VENTA|REGISTRO', new ErrorImpuestocl('SESION_REQUERIDA', 'La sesión del SII expiró.'));
+    sii.fallas.set('resumen|2026-09|VENTA|REGISTRO', new ErrorMiSiiMcp('SESION_REQUERIDA', 'La sesión del SII expiró.'));
     const r = await sincronizar(deps, RUT_EMPRESA, parsePeriodo('2026-08'), SEPT);
     expect(r.abortado).toEqual({ superficie: 'sesion', codigo: 'SESION_REQUERIDA', mensaje: 'La sesión del SII expiró.' });
     expect(store.periodosConDatos(RUT_EMPRESA)).toEqual(['2026-08']);
   });
 
   it('si no se puede abrir la sesión reporta abortado sin lanzar', async () => {
-    const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorImpuestocl('SESION_REQUERIDA', 'Sin sesión.') });
+    const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorMiSiiMcp('SESION_REQUERIDA', 'Sin sesión.') });
     store.guardarContribuyente(perfilEmpresa());
     const r = await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT);
     expect(r.abortado?.codigo).toBe('SESION_REQUERIDA');
@@ -290,7 +290,7 @@ describe('sincronizar', () => {
       sii.valores.set('2026-09|555001', anteriores);
       await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT, ['f29']);
       expect(store.valoresF29(RUT_EMPRESA, '2026-09', 555_001)).toEqual(anteriores);
-      sii.fallas.set('f29valores|2026-09|555001', new ErrorImpuestocl(codigo, 'Falló la nueva descarga.'));
+      sii.fallas.set('f29valores|2026-09|555001', new ErrorMiSiiMcp(codigo, 'Falló la nueva descarga.'));
 
       const r = await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT, ['f29']);
 

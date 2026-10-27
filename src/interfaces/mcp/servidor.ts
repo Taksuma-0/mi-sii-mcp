@@ -10,7 +10,7 @@ import { listarPerfilesConRenovacion } from '../../app/perfiles.js';
 import { releerF29 } from '../../app/releer-f29.js';
 import { resumenRenta, sincronizarRenta } from '../../app/renta.js';
 import { sincronizar } from '../../app/sincronizar.js';
-import { esErrorImpuestocl, type CodigoError } from '../../domain/errores.js';
+import { esErrorMiSiiMcp, type CodigoError } from '../../domain/errores.js';
 import { parsePeriodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
 import { lineaReintento, textoDocumentos, textoHallazgos, textoHistorialF29, textoCuenta, textoFuentes, textoPerfiles, textoPlazos, textoReintentables, textoReintentablesCuenta, textoReintentablesRenta, textoReleerF29, textoRenta, textoResumenIva, textoResumenRenta, textoSync } from '../formato.js';
@@ -39,7 +39,7 @@ export const INSTRUCCIONES_MCP = [
   '2. Si falta o está viejo, usa sincronizar por tramos de hasta 12 meses, informando el avance. Trae rcv y f29 por defecto; propuesta y bhe (boletas de honorarios recibidas) son opcionales. renta_sincronizar trae el F22 por año tributario; perfil_sincronizar, el perfil y las empresas autorizadas.',
   '3. Para IVA, retenciones y plazos prefiere iva_resumen, iva_hallazgos, f29_historial y plazos_proximos: aplican las reglas. Para la renta, renta_resumen; para estimarla, fuentes_oficiales. Si un F29 no cuadra o se actualizó mi-sii-mcp, f29_releer relee los PDF guardados sin ir al SII.',
   '4. Para cruces y preguntas libres, llama una vez a datos_esquema y luego a consulta_sql (solo lectura).',
-  '5. Nunca pidas la clave tributaria ni intentes un login. Ante SESION_REQUERIDA (o CLAVE_RECHAZADA, RUT_BLOQUEADO_LOCAL), indica a la persona que abra «Abrir mi-sii-mcp.cmd» (carpeta impuestocl) y conecte su cuenta ahí; solo si prefiere la terminal, dale el comando del mensaje (login-navegador para ClaveÚnica). Después reintenta.',
+  '5. Nunca pidas la clave tributaria ni intentes un login. Ante SESION_REQUERIDA (o CLAVE_RECHAZADA, RUT_BLOQUEADO_LOCAL), indica a la persona que abra «Abrir mi-sii-mcp.cmd» (carpeta mi-sii-mcp) y conecte su cuenta ahí; solo si prefiere la terminal, dale el comando del mensaje (login-navegador para ClaveÚnica). Después reintenta.',
   '6. Reintenta solo si el mensaje dice «Reintentar: ahora mismo» o «más tarde» (o lista «Reintentables más tarde»); con «Reintentar: no», sigue la acción indicada.',
   '7. Cobertura: RCV (compras y ventas), F29, propuesta de F29, boletas de honorarios recibidas y emitidas, renta F22, perfil tributario y empresas autorizadas. No es oficial del SII ni asesoría tributaria.',
 ].join('\n');
@@ -100,7 +100,7 @@ function guiaLogin(comandos: ComandosLogin, rutTexto: string | undefined, explic
   const navegador = comandos.navegador
     ? ` Si entra con ClaveÚnica, que ejecute \`${comandos.navegador(rut)}\`: abre la página real del SII en su navegador y la sesión no se renueva sola.`
     : '';
-  return `${antes}Pide a la persona que abra «Abrir mi-sii-mcp.cmd» (doble clic en la carpeta impuestocl), escriba ${rut} y su clave tributaria en la página y deje marcado «Mantener conectada»; también puede entrar ahí con ClaveÚnica. Si prefiere su propia terminal: \`${comandos.clave(rut)}\` (con --guardar-clave la sesión se renueva sola).${navegador} Después reintenta. Nunca pidas la clave en el chat.`;
+  return `${antes}Pide a la persona que abra «Abrir mi-sii-mcp.cmd» (doble clic en la carpeta mi-sii-mcp), escriba ${rut} y su clave tributaria en la página y deje marcado «Mantener conectada»; también puede entrar ahí con ClaveÚnica. Si prefiere su propia terminal: \`${comandos.clave(rut)}\` (con --guardar-clave la sesión se renueva sola).${navegador} Después reintenta. Nunca pidas la clave en el chat.`;
 }
 
 /** La guía de login que corresponde a un código de error, o `null` si el error no se resuelve entrando. `codigo` es texto porque los errores de sincronización no lo tipan. */
@@ -116,7 +116,7 @@ function crearSeguro(comandos: ComandosLogin) {
     try {
       return await fn();
     } catch (e) {
-      if (!esErrorImpuestocl(e)) throw e;
+      if (!esErrorMiSiiMcp(e)) throw e;
       // La acción por defecto de estos errores nombra `mi-sii-mcp login` o `mi-sii-mcp perfil agregar`, que no están en el PATH del asistente.
       const accion = guiaDelCodigo(comandos, e.codigo, rut) ?? `Acción sugerida: ${e.accion}`;
       return { content: [{ type: 'text', text: `Error [${e.codigo}]: ${e.message}\n${accion}\n${lineaReintento(e.codigo)}` }], isError: true };

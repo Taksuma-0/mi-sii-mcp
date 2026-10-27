@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { ErrorImpuestocl } from '../../src/domain/errores.js';
+import { ErrorMiSiiMcp } from '../../src/domain/errores.js';
 import type { LimitesConsulta, OpcionesConsulta } from '../../src/ports/index.js';
 import { signoTipoDoc, TIPOS_DOC_NEGATIVOS } from '../../src/reconciliation/mapeo-f29.js';
 import { ConsultaLibreSqlite } from '../../src/store/sqlite/consulta-libre.js';
@@ -67,15 +67,15 @@ function sembrar(store: SqliteStore): void {
   }
 }
 
-/** El ErrorImpuestocl con que rechaza la promesa; falla la prueba si termina de otra forma. */
-async function falla(promesa: Promise<unknown>): Promise<ErrorImpuestocl> {
+/** El ErrorMiSiiMcp con que rechaza la promesa; falla la prueba si termina de otra forma. */
+async function falla(promesa: Promise<unknown>): Promise<ErrorMiSiiMcp> {
   try {
     await promesa;
   } catch (e) {
-    if (e instanceof ErrorImpuestocl) return e;
+    if (e instanceof ErrorMiSiiMcp) return e;
     throw e;
   }
-  throw new Error('La promesa debía rechazarse con un ErrorImpuestocl.');
+  throw new Error('La promesa debía rechazarse con un ErrorMiSiiMcp.');
 }
 
 const conPlazo = (milisegundos: number): OpcionesConsulta => ({ ...OPCIONES, limites: { ...LIMITES, milisegundos } });
@@ -199,7 +199,7 @@ describe('ConsultaLibreSqlite', () => {
 
       const error = await falla(consulta.consultar('SELECT 1', OPCIONES));
 
-      expect(error).toBeInstanceOf(ErrorImpuestocl);
+      expect(error).toBeInstanceOf(ErrorMiSiiMcp);
       expect(error.codigo).toBe('CONSULTA_INTERRUMPIDA');
       expect(error.message).toContain('código 7');
       expect(error.message).toContain(MARCA_STDERR);

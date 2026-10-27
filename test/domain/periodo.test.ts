@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ErrorImpuestocl } from '../../src/domain/errores.js';
+import { ErrorMiSiiMcp } from '../../src/domain/errores.js';
 import {
   compararPeriodos,
   parsePeriodo,
@@ -18,7 +18,7 @@ describe('periodo', () => {
   });
 
   it.each(['2026-13', '2026-00', '26-09', '1999-12', '2026/09', ''])('rechaza "%s"', (entrada) => {
-    expect(() => parsePeriodo(entrada)).toThrow(ErrorImpuestocl);
+    expect(() => parsePeriodo(entrada)).toThrow(ErrorMiSiiMcp);
   });
 
   it('formatea para el SII y navega meses', () => {
@@ -39,8 +39,8 @@ describe('periodo', () => {
   });
 
   it('rechaza rangos invertidos o demasiado largos', () => {
-    expect(() => rangoPeriodos(parsePeriodo('2026-05'), parsePeriodo('2026-04'))).toThrow(ErrorImpuestocl);
-    expect(() => rangoPeriodos(parsePeriodo('2000-01'), parsePeriodo('2026-01'))).toThrow(ErrorImpuestocl);
+    expect(() => rangoPeriodos(parsePeriodo('2026-05'), parsePeriodo('2026-04'))).toThrow(ErrorMiSiiMcp);
+    expect(() => rangoPeriodos(parsePeriodo('2000-01'), parsePeriodo('2026-01'))).toThrow(ErrorMiSiiMcp);
   });
 
   it('incluye el último período permitido sin avanzar fuera del dominio', () => {

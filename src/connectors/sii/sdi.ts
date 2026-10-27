@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { ErrorImpuestocl } from '../../domain/errores.js';
+import { ErrorMiSiiMcp } from '../../domain/errores.js';
 import type { SumideroRespuestas } from '../../ports/index.js';
 import { exigirSesion, type Http } from './http.js';
 
@@ -23,7 +23,7 @@ export interface PedidoSdi {
 export async function postSdi(http: Http, sumidero: SumideroRespuestas, pedido: PedidoSdi): Promise<unknown> {
   const token = await http.cookie(`${HOST_SDI}/`, 'TOKEN');
   if (!token && pedido.exigeToken !== false) {
-    throw new ErrorImpuestocl('SESION_REQUERIDA', 'La sesión del SII no tiene la cookie TOKEN; hay que iniciar sesión de nuevo.');
+    throw new ErrorMiSiiMcp('SESION_REQUERIDA', 'La sesión del SII no tiene la cookie TOKEN; hay que iniciar sesión de nuevo.');
   }
   const conversationId = token ?? '';
   const metaData: Record<string, unknown> = { namespace: pedido.namespace, conversationId, transactionId: randomUUID() };
@@ -35,14 +35,14 @@ export async function postSdi(http: Http, sumidero: SumideroRespuestas, pedido: 
       body: JSON.stringify({ metaData, data: pedido.data }),
     }),
   );
-  if (r.status === 401) throw new ErrorImpuestocl('SESION_REQUERIDA', 'El SII no reconoció la sesión (401).');
-  if (r.status === 429) throw new ErrorImpuestocl('SII_LIMITE', 'El SII limitó las consultas; reintenta más tarde.');
+  if (r.status === 401) throw new ErrorMiSiiMcp('SESION_REQUERIDA', 'El SII no reconoció la sesión (401).');
+  if (r.status === 429) throw new ErrorMiSiiMcp('SII_LIMITE', 'El SII limitó las consultas; reintenta más tarde.');
   sumidero({ superficie: pedido.superficie, parametros: pedido.data, cuerpo: evidencia(r.texto, pedido.sanear, pedido.superficie), obtenidoEn: new Date().toISOString() });
   try {
     return JSON.parse(r.texto) as unknown;
   } catch {
-    if (r.status === 403) throw new ErrorImpuestocl('SII_RECHAZO', `El SII rechazó la consulta de ${pedido.superficie} (403).`, { detalle: r.texto.slice(0, 500) });
-    throw new ErrorImpuestocl('PORTAL_CAMBIO', `El SII no respondió JSON en ${pedido.superficie} (status ${r.status}).`, { detalle: r.texto.slice(0, 500) });
+    if (r.status === 403) throw new ErrorMiSiiMcp('SII_RECHAZO', `El SII rechazó la consulta de ${pedido.superficie} (403).`, { detalle: r.texto.slice(0, 500) });
+    throw new ErrorMiSiiMcp('PORTAL_CAMBIO', `El SII no respondió JSON en ${pedido.superficie} (status ${r.status}).`, { detalle: r.texto.slice(0, 500) });
   }
 }
 
@@ -83,6 +83,6 @@ function evidencia(texto: string, sanear: PedidoSdi['sanear'], superficie: strin
     redactarToken(saneado);
     return JSON.stringify(saneado) ?? 'null';
   } catch (cause) {
-    throw new ErrorImpuestocl('PORTAL_CAMBIO', `No se pudo sanear la evidencia de ${superficie}.`, { cause });
+    throw new ErrorMiSiiMcp('PORTAL_CAMBIO', `No se pudo sanear la evidencia de ${superficie}.`, { cause });
   }
 }

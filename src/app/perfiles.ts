@@ -1,4 +1,4 @@
-import { ErrorImpuestocl } from '../domain/errores.js';
+import { ErrorMiSiiMcp } from '../domain/errores.js';
 import { parseRut } from '../domain/rut.js';
 import type { Perfil, TipoContribuyente } from '../domain/tipos.js';
 import type { EstadoSesion, IdentidadSii } from '../ports/index.js';
@@ -25,7 +25,7 @@ export function agregarPerfil(
   const rut = parseRut(entrada.rut).canonico;
   const accedeCon = entrada.accedeCon === undefined ? undefined : parseRut(entrada.accedeCon).canonico;
   if (accedeCon === rut) {
-    throw new ErrorImpuestocl('RUT_INVALIDO', `--accede-con debe ser otra identidad que ${rut}.`, { accion: 'Omite --accede-con: sin él, el contribuyente entra con su propia sesión.' });
+    throw new ErrorMiSiiMcp('RUT_INVALIDO', `--accede-con debe ser otra identidad que ${rut}.`, { accion: 'Omite --accede-con: sin él, el contribuyente entra con su propia sesión.' });
   }
   const perfil: Perfil = {
     rut,

@@ -15,16 +15,16 @@ import {
   totalesBheEmitidas,
 } from '../../src/domain/renta.js';
 import type { F22Valor } from '../../src/domain/tipos.js';
-import { ErrorImpuestocl } from '../../src/domain/errores.js';
+import { ErrorMiSiiMcp } from '../../src/domain/errores.js';
 import { boletaEmitida, declaracionF22, djTercero, informeBheEmitidas, mesBheEmitida } from '../helpers/fabricas.js';
 
-/** Código del ErrorImpuestocl que lanza la función, o una descripción si no lanza así. */
+/** Código del ErrorMiSiiMcp que lanza la función, o una descripción si no lanza así. */
 function codigoDe(fn: () => unknown): string {
   try {
     fn();
     return 'sin error';
   } catch (e) {
-    return e instanceof ErrorImpuestocl ? e.codigo : `otro error: ${String(e)}`;
+    return e instanceof ErrorMiSiiMcp ? e.codigo : `otro error: ${String(e)}`;
   }
 }
 

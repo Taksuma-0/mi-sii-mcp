@@ -1,4 +1,4 @@
-import { ErrorImpuestocl } from '../../domain/errores.js';
+import { ErrorMiSiiMcp } from '../../domain/errores.js';
 import type { Periodo } from '../../domain/periodo.js';
 import type { Rut } from '../../domain/rut.js';
 import type { BheEmitidaMes, BoletaHonorariosEmitida, InformeBheEmitidas, InformeBheEmitidasMes } from '../../domain/tipos.js';
@@ -23,8 +23,8 @@ const COLUMNA = { bruto: 1, retencionTerceros: 2, retencionPropia: 3, folioInici
 const ASIGNACION = new RegExp(String.raw`xml_values\s*\[\s*['"]([A-Za-z0-9_]+)['"]\s*\]${IGUAL}${VALOR}`, 'g');
 const CLAVE_MES = new RegExp(String.raw`^(?:${MESES.join('|')})[1-7]$`);
 
-function inesperado(detalle: string): ErrorImpuestocl {
-  return new ErrorImpuestocl('PORTAL_CAMBIO', `Informe anual de boletas de honorarios emitidas inesperado: ${detalle}.`);
+function inesperado(detalle: string): ErrorMiSiiMcp {
+  return new ErrorMiSiiMcp('PORTAL_CAMBIO', `Informe anual de boletas de honorarios emitidas inesperado: ${detalle}.`);
 }
 
 /** Entero no negativo con punto de miles opcional; ausente o vacío → null (el SII deja vacíos los meses sin boletas). Otra cosa es PORTAL_CAMBIO. */
@@ -80,10 +80,10 @@ export async function bheEmitidasAnual(http: Http, sumidero: SumideroRespuestas,
   const parametros = { rut_arrastre: String(rut.cuerpo), dv_arrastre: rut.dv, cbanoinformeanual: String(anioComercial) };
   const consulta = new URLSearchParams(parametros);
   const r = exigirSesion(await http.solicitar(`${URL_INFORME}?${consulta.toString()}`, { headers: { Accept: 'text/html,application/xhtml+xml,*/*' } }));
-  if (r.status === 401) throw new ErrorImpuestocl('SESION_REQUERIDA', 'El SII no reconoció la sesión (401).');
-  if (r.status === 429) throw new ErrorImpuestocl('SII_LIMITE', 'El SII limitó las consultas; reintenta más tarde.');
+  if (r.status === 401) throw new ErrorMiSiiMcp('SESION_REQUERIDA', 'El SII no reconoció la sesión (401).');
+  if (r.status === 429) throw new ErrorMiSiiMcp('SII_LIMITE', 'El SII limitó las consultas; reintenta más tarde.');
   sumidero({ superficie: SUPERFICIE, parametros, cuerpo: sanearBhe(r.texto, INFORME), obtenidoEn: new Date().toISOString() });
-  if (r.status === 403) throw new ErrorImpuestocl('SII_RECHAZO', `El SII rechazó la consulta de ${SUPERFICIE} (403).`);
+  if (r.status === 403) throw new ErrorMiSiiMcp('SII_RECHAZO', `El SII rechazó la consulta de ${SUPERFICIE} (403).`);
   return leerInforme(r.texto, rut, anioComercial);
 }
 

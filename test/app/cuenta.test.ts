@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { cuentaDe, sincronizarCuenta } from '../../src/app/cuenta.js';
-import { ErrorImpuestocl } from '../../src/domain/errores.js';
+import { ErrorMiSiiMcp } from '../../src/domain/errores.js';
 import { textoCuenta } from '../../src/interfaces/formato.js';
 import { codigoDe } from '../helpers/errores.js';
 import { depsDePrueba } from '../helpers/deps.js';
@@ -73,7 +73,7 @@ describe('sincronizarCuenta', () => {
 
   it('si el perfil falla igual lee las empresas, y deja el error en su superficie', async () => {
     const { deps, store, sii, db } = preparar();
-    sii.fallas.set('perfil', new ErrorImpuestocl('PORTAL_CAMBIO', 'Mi SII cambió.'));
+    sii.fallas.set('perfil', new ErrorMiSiiMcp('PORTAL_CAMBIO', 'Mi SII cambió.'));
 
     const r = await sincronizarCuenta(deps, RUT_EMPRESA);
 
@@ -93,7 +93,7 @@ describe('sincronizarCuenta', () => {
     const { deps, store, sii } = preparar();
     await sincronizarCuenta(deps, RUT_EMPRESA);
     sii.empresas = [];
-    sii.fallas.set('empresas', new ErrorImpuestocl('SII_RECHAZO', 'Servicio no disponible.'));
+    sii.fallas.set('empresas', new ErrorMiSiiMcp('SII_RECHAZO', 'Servicio no disponible.'));
 
     const r = await sincronizarCuenta(deps, RUT_EMPRESA);
 
@@ -121,7 +121,7 @@ describe('sincronizarCuenta', () => {
   });
 
   it('sin sesión devuelve el error como abortado y no guarda nada', async () => {
-    const { deps, store, db } = depsDePrueba({ fallaAlAbrir: new ErrorImpuestocl('SESION_REQUERIDA', 'Inicia sesión.') });
+    const { deps, store, db } = depsDePrueba({ fallaAlAbrir: new ErrorMiSiiMcp('SESION_REQUERIDA', 'Inicia sesión.') });
     store.guardarContribuyente(perfilEmpresa());
 
     const r = await sincronizarCuenta(deps, RUT_EMPRESA);
@@ -133,7 +133,7 @@ describe('sincronizarCuenta', () => {
 
   it('un error de sesión a mitad de camino detiene la cuenta', async () => {
     const { deps, sii } = preparar();
-    sii.fallas.set('perfil', new ErrorImpuestocl('SESION_REQUERIDA', 'La sesión expiró.'));
+    sii.fallas.set('perfil', new ErrorMiSiiMcp('SESION_REQUERIDA', 'La sesión expiró.'));
 
     const r = await sincronizarCuenta(deps, RUT_EMPRESA);
 
@@ -212,7 +212,7 @@ describe('cuentaDe', () => {
 
   it('solo cuenta las empresas si no hay perfil (y viceversa)', async () => {
     const { deps, sii } = preparar();
-    sii.fallas.set('perfil', new ErrorImpuestocl('PORTAL_CAMBIO', 'x'));
+    sii.fallas.set('perfil', new ErrorMiSiiMcp('PORTAL_CAMBIO', 'x'));
     await sincronizarCuenta(deps, RUT_EMPRESA);
     const cuenta = cuentaDe(deps, RUT_EMPRESA)!;
     expect(cuenta.autorizadoDia20).toBeNull();
@@ -230,7 +230,7 @@ describe('textoCuenta', () => {
     expect(texto).toContain('2 empresas activas');
     expect(texto).toContain('1 desautorizada');
 
-    sii.fallas.set('perfil', new ErrorImpuestocl('PORTAL_CAMBIO', 'Mi SII cambió.'));
+    sii.fallas.set('perfil', new ErrorMiSiiMcp('PORTAL_CAMBIO', 'Mi SII cambió.'));
     const mal = await sincronizarCuenta(deps, RUT_EMPRESA);
     expect(textoCuenta(mal)).toContain('perfil tributario sin leer');
     expect(textoCuenta(mal)).toContain('cuenta.perfil PORTAL_CAMBIO');

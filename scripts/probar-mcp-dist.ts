@@ -1,6 +1,6 @@
 // Prueba de humo del servidor MCP compilado: arranca `dist/interfaces/cli/bin.js mcp` como lo hará Claude Code
 // y llama a las herramientas de verdad, incluida `consulta_sql`, que corre en un proceso hijo compilado aparte.
-// Usa una carpeta temporal propia como IMPUESTOCL_HOME: no toca ~/.impuestocl ni llega al SII.
+// Usa una carpeta temporal propia como MI_SII_MCP_HOME: no toca ~/.mi-sii-mcp ni llega al SII.
 // Uso: npm run build && npm run probar:mcp   (termina con código 0 si todo está bien, 1 si algo falla)
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -27,7 +27,7 @@ async function probar(home: string): Promise<void> {
   const transporte = new StdioClientTransport({
     command: process.execPath,
     args: [BIN, 'mcp'],
-    env: { ...getDefaultEnvironment(), IMPUESTOCL_HOME: home },
+    env: { ...getDefaultEnvironment(), MI_SII_MCP_HOME: home },
   });
   const cliente = new Client({ name: 'probar-mcp-dist', version: '1.0.0' });
   try {

@@ -1,6 +1,6 @@
 # 0003 — Prueba de lectura de áreas nuevas del SII
 
-Fecha: 27 de octubre de 2026. Sesión: la guardada de la empresa del usuario (clave tributaria). Solo consultas de lectura, ritmo de 1,5 s, ~20 consultas. Las respuestas crudas quedaron fuera del repositorio (`%TEMP%\impuestocl-spike-20261027\`). Aquí solo hay estructura: sin RUT, nombres, montos, folios ni direcciones.
+Fecha: 27 de octubre de 2026. Sesión: la guardada de la empresa del usuario (clave tributaria). Solo consultas de lectura, ritmo de 1,5 s, ~20 consultas. Las respuestas crudas quedaron fuera del repositorio (`%TEMP%\mi-sii-mcp-spike-20261027\`). Aquí solo hay estructura: sin RUT, nombres, montos, folios ni direcciones.
 
 ## Mi SII (`misiir.sii.cl/cgi_misii/siihome.cgi`, `DatosCntrNow`)
 - Raíz: `contribuyente`, `direcciones[]`, `atributos[]`, `alertas[]`, más `codigoError`, `descripcionError`, `sysdate`.

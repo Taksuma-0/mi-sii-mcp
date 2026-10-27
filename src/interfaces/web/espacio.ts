@@ -3,7 +3,7 @@ import { documentos, resumenIva, type PaginaDocumentos, type ResumenIva } from '
 import { panorama, type PanoramaSii } from '../../app/panorama.js';
 import { listarPerfiles, registrarIdentidad } from '../../app/perfiles.js';
 import { sincronizar } from '../../app/sincronizar.js';
-import { ErrorImpuestocl, type CodigoError } from '../../domain/errores.js';
+import { ErrorMiSiiMcp, type CodigoError } from '../../domain/errores.js';
 import { parsePeriodo, rangoPeriodos } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
 import { ESTADOS_RCV, type EstadoRcv, type Lado } from '../../domain/tipos.js';
@@ -54,7 +54,7 @@ export function crearEspacioLocal(fabrica: FabricaContenedorWeb = crearContenedo
 
   function rutDeContexto(contexto: string): string {
     const rut = contextos.get(contexto);
-    if (!rut) throw new ErrorImpuestocl('SESION_REQUERIDA', 'Conecta tu espacio local.');
+    if (!rut) throw new ErrorMiSiiMcp('SESION_REQUERIDA', 'Conecta tu espacio local.');
     return rut;
   }
 
@@ -69,7 +69,7 @@ export function crearEspacioLocal(fabrica: FabricaContenedorWeb = crearContenedo
   return {
     async conectar(entrada) {
       const rut = parseRut(entrada.rut).canonico;
-      if (typeof entrada.clave !== 'string' || entrada.clave.length === 0) throw new ErrorImpuestocl('CLAVE_RECHAZADA', 'Ingresa tu clave tributaria.');
+      if (typeof entrada.clave !== 'string' || entrada.clave.length === 0) throw new ErrorMiSiiMcp('CLAVE_RECHAZADA', 'Ingresa tu clave tributaria.');
       const recordar = entrada.recordar === true;
       const { vista, recordada } = await conContenedor(async (contenedor) => {
         const login = await contenedor.sesiones.loginInteractivo(rut, entrada.clave, recordar);
@@ -113,7 +113,7 @@ export function crearEspacioLocal(fabrica: FabricaContenedorWeb = crearContenedo
       if (!Array.isArray(superficies) || superficies.length < 1 || superficies.length > 2 || ![...superficies].every(s => s === 'rcv' || s === 'f29')) throw new Error('Selecciona una o dos fuentes válidas.');
       return conContenedor(async ({ deps }) => {
         const sync = await sincronizar(deps, rut, periodos[0]!, periodos[periodos.length - 1]!, superficies);
-        const seguro = { ...sync, abortado: sync.abortado ? { ...sync.abortado, mensaje: errorPublico(new ErrorImpuestocl(sync.abortado.codigo as CodigoError, '')).mensaje } : null };
+        const seguro = { ...sync, abortado: sync.abortado ? { ...sync.abortado, mensaje: errorPublico(new ErrorMiSiiMcp(sync.abortado.codigo as CodigoError, '')).mensaje } : null };
         return {
           estado: sync.abortado || sync.periodos.some(p => p.errores.length > 0 || p.avisos.length > 0) ? 'parcial' : 'completo',
           sincronizacion: textoSync(seguro),

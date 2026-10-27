@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { hallazgos, plazos } from '../../src/app/consultas.js';
 import { panorama } from '../../src/app/panorama.js';
 import { resumenRenta, sincronizarRenta } from '../../src/app/renta.js';
-import { ErrorImpuestocl } from '../../src/domain/errores.js';
+import { ErrorMiSiiMcp } from '../../src/domain/errores.js';
 import { codigoDe } from '../helpers/errores.js';
 import { depsDePrueba } from '../helpers/deps.js';
 import { boletaEmitida, declaracionF22, detalleF22, djTercero, informeBheEmitidas, perfilEmpresa, perfilPersona, RUT_EMPRESA, RUT_PERSONA } from '../helpers/fabricas.js';
@@ -89,7 +89,7 @@ describe('sincronizarRenta', () => {
   it('si falla el detalle, las declaraciones quedan guardadas y el error en su superficie; sigue con el año siguiente', async () => {
     const { deps, store, sii } = preparar();
     sii.f22.set(2025, [declaracionF22({ anioTributario: 2025, folio: 7 })]);
-    sii.fallas.set('f22detalle|2025|7', new ErrorImpuestocl('PORTAL_CAMBIO', 'El F22 cambió.'));
+    sii.fallas.set('f22detalle|2025|7', new ErrorMiSiiMcp('PORTAL_CAMBIO', 'El F22 cambió.'));
 
     const r = await sincronizarRenta(deps, RUT_EMPRESA, '2025', '2026');
 
@@ -100,7 +100,7 @@ describe('sincronizarRenta', () => {
 
   it('un error de sesión detiene la renta; cancelada conserva lo traído', async () => {
     const sesion = preparar();
-    sesion.sii.fallas.set('f22|2025', new ErrorImpuestocl('SESION_REQUERIDA', 'La sesión expiró.'));
+    sesion.sii.fallas.set('f22|2025', new ErrorMiSiiMcp('SESION_REQUERIDA', 'La sesión expiró.'));
     const r1 = await sincronizarRenta(sesion.deps, RUT_EMPRESA, '2024', '2026');
     expect(r1.abortado).toEqual({ superficie: 'sesion', codigo: 'SESION_REQUERIDA', mensaje: 'La sesión expiró.' });
     expect(sesion.sii.llamadas).toEqual(['f22|2024', 'terceros|2024', 'f22|2025']);
@@ -237,7 +237,7 @@ describe('sincronizarRenta: boletas de honorarios emitidas (personas)', () => {
 
   it('un mes que falla no impide los demás; el error dice de qué mes es', async () => {
     const { deps, sii } = prepararPersona();
-    sii.fallas.set('bheemitidasmes|2025-03', new ErrorImpuestocl('SII_NO_DISPONIBLE', 'No responde.'));
+    sii.fallas.set('bheemitidasmes|2025-03', new ErrorMiSiiMcp('SII_NO_DISPONIBLE', 'No responde.'));
 
     const r = await sincronizarRenta(deps, RUT_PERSONA, '2026');
 
@@ -270,7 +270,7 @@ describe('sincronizarRenta: boletas de honorarios emitidas (personas)', () => {
 
   it('un error en las boletas no impide el F22, y un error del F22 no impide las boletas', async () => {
     const boletas = prepararPersona();
-    boletas.sii.fallas.set('bheemitidas|2025', new ErrorImpuestocl('PORTAL_CAMBIO', 'El informe cambió.'));
+    boletas.sii.fallas.set('bheemitidas|2025', new ErrorMiSiiMcp('PORTAL_CAMBIO', 'El informe cambió.'));
     const r1 = await sincronizarRenta(boletas.deps, RUT_PERSONA, '2026');
     expect(r1.anios[0]).toMatchObject({ declaraciones: 1, detalle: 'leido', boletasEmitidas: null, detalleBoletas: null, errores: [{ superficie: 'bhe.emitidas', codigo: 'PORTAL_CAMBIO' }] });
     // Sin informe anual no se sabe qué meses pedir: no hay detalle.
@@ -278,7 +278,7 @@ describe('sincronizarRenta: boletas de honorarios emitidas (personas)', () => {
     expect(boletas.store.declaracionesF22(RUT_PERSONA, 2026)).toHaveLength(1);
 
     const f22 = prepararPersona();
-    f22.sii.fallas.set('f22|2026', new ErrorImpuestocl('SII_RECHAZO', 'F22: sin datos del período.'));
+    f22.sii.fallas.set('f22|2026', new ErrorMiSiiMcp('SII_RECHAZO', 'F22: sin datos del período.'));
     const r2 = await sincronizarRenta(f22.deps, RUT_PERSONA, '2026');
     expect(r2.anios[0]).toMatchObject({ declaraciones: null, boletasEmitidas: 3, errores: [{ superficie: 'f22', codigo: 'SII_RECHAZO' }] });
   });
@@ -376,7 +376,7 @@ describe('sincronizarRenta: rentas informadas por terceros', () => {
     sii.tercerosDetalle.set('2027|1879', [djTercero()]);
     await sincronizarRenta(deps, RUT_EMPRESA, '2026');
     sii.tercerosDetalle.delete('2026|1879');
-    sii.fallas.set('tercerosdetalle|2026|1887', new ErrorImpuestocl('PORTAL_CAMBIO', 'Tabla inesperada.'));
+    sii.fallas.set('tercerosdetalle|2026|1887', new ErrorMiSiiMcp('PORTAL_CAMBIO', 'Tabla inesperada.'));
 
     const r = await sincronizarRenta(deps, RUT_EMPRESA, '2026', '2027');
 
@@ -391,7 +391,7 @@ describe('sincronizarRenta: rentas informadas por terceros', () => {
 
   it('un error de la lista no impide el F22 ni el año siguiente; se puede cancelar entre DJ', async () => {
     const falla = prepararTerceros();
-    falla.sii.fallas.set('terceros|2025', new ErrorImpuestocl('SII_RECHAZO', 'Servicio no disponible.'));
+    falla.sii.fallas.set('terceros|2025', new ErrorMiSiiMcp('SII_RECHAZO', 'Servicio no disponible.'));
     const r1 = await sincronizarRenta(falla.deps, RUT_EMPRESA, '2025', '2026');
     expect(r1.anios[0]).toMatchObject({ terceros: null, errores: [{ superficie: 'terceros', codigo: 'SII_RECHAZO' }] });
     expect(r1.anios[1]?.terceros).toEqual({ informadas: 2, leidas: 2, filas: 3 });
@@ -521,7 +521,7 @@ describe('resumenRenta', () => {
     store.guardarContribuyente(perfilPersona());
     sii.f22.set(2026, [declaracionF22({ rut: RUT_PERSONA })]);
     sii.bheEmitidas.set(2025, informeBheEmitidas(2025, { 1: { bruto: 100_000, retencionTerceros: 14_500, vigentes: 1 } }));
-    sii.fallas.set(`f22detalle|2026|${FOLIO}`, new ErrorImpuestocl('PORTAL_CAMBIO', 'El F22 cambió.'));
+    sii.fallas.set(`f22detalle|2026|${FOLIO}`, new ErrorMiSiiMcp('PORTAL_CAMBIO', 'El F22 cambió.'));
     await sincronizarRenta(deps, RUT_PERSONA, '2026');
     expect(resumenRenta(deps, RUT_PERSONA).anios[0]?.honorariosEmitidos?.cruceF22).toBeNull();
 
@@ -611,7 +611,7 @@ describe('resumenRenta', () => {
 
   it('valida el año y el perfil', () => {
     const { deps, store } = depsDePrueba();
-    expect(() => resumenRenta(deps, RUT_EMPRESA)).toThrow(ErrorImpuestocl);
+    expect(() => resumenRenta(deps, RUT_EMPRESA)).toThrow(ErrorMiSiiMcp);
     store.guardarContribuyente(perfilEmpresa());
     expect(() => resumenRenta(deps, RUT_EMPRESA, '26')).toThrow(/Año tributario inválido/);
   });

@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import { existsSync, renameSync, rmSync } from 'node:fs';
-import { ErrorImpuestocl } from '../../domain/errores.js';
+import { ErrorMiSiiMcp } from '../../domain/errores.js';
 import { MIGRACIONES, type Migracion } from './migraciones.js';
 
 export type Db = Database.Database;
@@ -53,7 +53,7 @@ function respaldarAntesDeMigrar(db: Db, ruta: string, migraciones: readonly Migr
     } catch {
       // Sin permiso para borrar el temporal: el error original es el que importa.
     }
-    throw new ErrorImpuestocl('RESPALDO_FALLIDO', `No se pudo respaldar la base antes de migrar: ${e instanceof Error ? e.message : String(e)}`, { cause: e });
+    throw new ErrorMiSiiMcp('RESPALDO_FALLIDO', `No se pudo respaldar la base antes de migrar: ${e instanceof Error ? e.message : String(e)}`, { cause: e });
   }
 }
 

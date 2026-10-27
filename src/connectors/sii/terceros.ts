@@ -1,4 +1,4 @@
-import { ErrorImpuestocl, esErrorImpuestocl } from '../../domain/errores.js';
+import { ErrorMiSiiMcp, esErrorMiSiiMcp } from '../../domain/errores.js';
 import { parseRut, type Rut } from '../../domain/rut.js';
 import type { DjInformada, DjTercero } from '../../domain/tipos.js';
 import type { SumideroRespuestas } from '../../ports/index.js';
@@ -21,14 +21,14 @@ const periodoDj = (anioTributario: number): string => `${anioTributario}00`;
 /** Llama a una operación de la fachada y devuelve su `data` (null si no vino), o lanza el error del SII. */
 async function consultar(http: Http, sumidero: SumideroRespuestas, op: string, superficie: string, data: Record<string, unknown>): Promise<unknown> {
   const crudo = await postSdi(http, sumidero, { superficie, url: `${BASE}/${op}`, namespace: `${NAMESPACE}/${op}`, referer: REFERER, data, conPage: true });
-  if (!esObjeto(crudo)) throw new ErrorImpuestocl('PORTAL_CAMBIO', `Respuesta inesperada de las rentas informadas por terceros (${op}).`);
+  if (!esObjeto(crudo)) throw new ErrorMiSiiMcp('PORTAL_CAMBIO', `Respuesta inesperada de las rentas informadas por terceros (${op}).`);
   const metaData = esObjeto(crudo['metaData']) ? crudo['metaData'] : {};
   const error = mensajeDeError(metaData['errors']) ?? mensajeDeError(crudo['errorMsg']);
-  if (error) throw new ErrorImpuestocl(/autoriza/i.test(error) ? 'SIN_PERMISO' : 'SII_RECHAZO', `Rentas informadas por terceros: ${error}`);
+  if (error) throw new ErrorMiSiiMcp(/autoriza/i.test(error) ? 'SIN_PERMISO' : 'SII_RECHAZO', `Rentas informadas por terceros: ${error}`);
   return crudo['data'] ?? null;
 }
 
-const cambio = (detalle: string): ErrorImpuestocl => new ErrorImpuestocl('PORTAL_CAMBIO', `Tabla inesperada de las rentas informadas por terceros: ${detalle}.`);
+const cambio = (detalle: string): ErrorMiSiiMcp => new ErrorMiSiiMcp('PORTAL_CAMBIO', `Tabla inesperada de las rentas informadas por terceros: ${detalle}.`);
 
 /** Una celda de dato: su texto (null si vacía) y si el SII la marca como RUT de contacto. */
 interface CeldaDato {
@@ -274,7 +274,7 @@ function filaDe(dj: number, mapa: Mapa, fila: readonly CeldaDato[]): DjTercero {
   try {
     informanteRut = parseRut(mapa.rut.map((j) => fila[j]!.valor ?? '').join('')).canonico;
   } catch (e) {
-    if (esErrorImpuestocl(e)) throw cambio(`la DJ ${dj} trae un RUT de informante inválido`);
+    if (esErrorMiSiiMcp(e)) throw cambio(`la DJ ${dj} trae un RUT de informante inválido`);
     throw e;
   }
   const folio = numeroChileno(valor(mapa.folio));

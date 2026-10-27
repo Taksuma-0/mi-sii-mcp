@@ -2,7 +2,7 @@ import { CookieJar } from 'tough-cookie';
 import { describe, expect, it } from 'vitest';
 import { ClienteHttp } from '../../src/connectors/sii/http.js';
 import { clasificarErrorLogin, CODIGO_CLAVE_INCORRECTA, CODIGO_SESIONES_MAXIMAS, extraerDatosCntrNow, extraerErrorLogin, iniciarSesion, leerIdentidad } from '../../src/connectors/sii/login.js';
-import { ErrorImpuestocl } from '../../src/domain/errores.js';
+import { ErrorMiSiiMcp } from '../../src/domain/errores.js';
 import { parseRut } from '../../src/domain/rut.js';
 import { codigoDe } from '../helpers/errores.js';
 import { crearFetchFalso, HTML, sinEsperas } from '../helpers/http-falso.js';
@@ -39,19 +39,19 @@ describe('iniciarSesion', () => {
     } catch (e) {
       error = e;
     }
-    expect(error).toBeInstanceOf(ErrorImpuestocl);
-    expect((error as ErrorImpuestocl).codigo).toBe('CLAVE_RECHAZADA');
-    expect((error as ErrorImpuestocl).message).toContain('no es correcta');
-    expect((error as ErrorImpuestocl).detalle).toEqual({ codigo: '01.01.203.500.720.20' });
+    expect(error).toBeInstanceOf(ErrorMiSiiMcp);
+    expect((error as ErrorMiSiiMcp).codigo).toBe('CLAVE_RECHAZADA');
+    expect((error as ErrorMiSiiMcp).message).toContain('no es correcta');
+    expect((error as ErrorMiSiiMcp).detalle).toEqual({ codigo: '01.01.203.500.720.20' });
     expect(llamadas.filter((l) => l.method === 'POST')).toHaveLength(1);
   });
 
   it('el código de sesiones máximas es SII_SESIONES_MAXIMAS con su código, sin reintento', async () => {
     const { fetchFalso, llamadas } = crearFetchFalso({ ...rutasLoginOk(), [RUTA_POST]: paginaErrorLogin(CODIGO_SESIONES_MAXIMAS, 'Ha superado el máximo de sesiones simultáneas permitidas.') });
     const error = await iniciarSesion(cliente(fetchFalso), parseRut('22222222-2'), 'buena').catch((e: unknown) => e);
-    expect(error).toBeInstanceOf(ErrorImpuestocl);
-    expect((error as ErrorImpuestocl).codigo).toBe('SII_SESIONES_MAXIMAS');
-    expect((error as ErrorImpuestocl).detalle).toEqual({ codigo: CODIGO_SESIONES_MAXIMAS });
+    expect(error).toBeInstanceOf(ErrorMiSiiMcp);
+    expect((error as ErrorMiSiiMcp).codigo).toBe('SII_SESIONES_MAXIMAS');
+    expect((error as ErrorMiSiiMcp).detalle).toEqual({ codigo: CODIGO_SESIONES_MAXIMAS });
     expect(llamadas.filter((l) => l.method === 'POST')).toHaveLength(1);
   });
 
@@ -63,9 +63,9 @@ describe('iniciarSesion', () => {
   it('un código desconocido es CLAVE_RECHAZADA y lleva el código en el mensaje', async () => {
     const { fetchFalso } = crearFetchFalso({ ...rutasLoginOk(), [RUTA_POST]: paginaErrorLogin('99.99.999.999.999.99', 'Algo falló.') });
     const error = await iniciarSesion(cliente(fetchFalso), parseRut('22222222-2'), 'x').catch((e: unknown) => e);
-    expect((error as ErrorImpuestocl).codigo).toBe('CLAVE_RECHAZADA');
-    expect((error as ErrorImpuestocl).message).toContain('99.99.999.999.999.99');
-    expect((error as ErrorImpuestocl).detalle).toEqual({ codigo: '99.99.999.999.999.99' });
+    expect((error as ErrorMiSiiMcp).codigo).toBe('CLAVE_RECHAZADA');
+    expect((error as ErrorMiSiiMcp).message).toContain('99.99.999.999.999.99');
+    expect((error as ErrorMiSiiMcp).detalle).toEqual({ codigo: '99.99.999.999.999.99' });
   });
 
   it('un login colgado vence el plazo una sola vez: SII_NO_DISPONIBLE sin reenviar la clave', async () => {
@@ -156,7 +156,7 @@ describe('leerIdentidad y extractores', () => {
     const { fetchFalso } = crearFetchFalso({
       [RUTA_MI_SII]: { headers: HTML, body: '<script>var DatosCntrNow = {"codigoError":1};</script>' },
     });
-    await expect(leerIdentidad(cliente(fetchFalso))).rejects.toMatchObject({ name: 'ErrorImpuestocl', codigo: 'PORTAL_CAMBIO' });
+    await expect(leerIdentidad(cliente(fetchFalso))).rejects.toMatchObject({ name: 'ErrorMiSiiMcp', codigo: 'PORTAL_CAMBIO' });
   });
 
   it.each([
@@ -167,7 +167,7 @@ describe('leerIdentidad y extractores', () => {
     const { fetchFalso } = crearFetchFalso({
       [RUTA_MI_SII]: { headers: HTML, body: `<script>var DatosCntrNow = ${JSON.stringify({ contribuyente })};</script>` },
     });
-    await expect(leerIdentidad(cliente(fetchFalso))).rejects.toMatchObject({ name: 'ErrorImpuestocl', codigo: 'PORTAL_CAMBIO' });
+    await expect(leerIdentidad(cliente(fetchFalso))).rejects.toMatchObject({ name: 'ErrorMiSiiMcp', codigo: 'PORTAL_CAMBIO' });
   });
 
   it.each([
@@ -178,7 +178,7 @@ describe('leerIdentidad y extractores', () => {
     const { fetchFalso } = crearFetchFalso({
       [RUTA_MI_SII]: { headers: HTML, body: paginaDatosCntr(rut, dv, 'EMPRESA DEMO SPA') },
     });
-    await expect(leerIdentidad(cliente(fetchFalso))).rejects.toMatchObject({ name: 'ErrorImpuestocl', codigo: 'PORTAL_CAMBIO' });
+    await expect(leerIdentidad(cliente(fetchFalso))).rejects.toMatchObject({ name: 'ErrorMiSiiMcp', codigo: 'PORTAL_CAMBIO' });
   });
 
   it('extrae DatosCntrNow aunque haya llaves dentro de strings', () => {

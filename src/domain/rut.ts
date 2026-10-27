@@ -1,4 +1,4 @@
-import { ErrorImpuestocl } from './errores.js';
+import { ErrorMiSiiMcp } from './errores.js';
 
 export interface Rut {
   readonly cuerpo: number;
@@ -26,12 +26,12 @@ export function calcularDv(cuerpo: number): string {
 export function parseRut(entrada: string): Rut {
   const limpio = entrada.replace(/[.\s-]/g, '').toUpperCase();
   if (!/^\d{1,9}[0-9K]$/.test(limpio)) {
-    throw new ErrorImpuestocl('RUT_INVALIDO', `RUT inválido: "${entrada}"`);
+    throw new ErrorMiSiiMcp('RUT_INVALIDO', `RUT inválido: "${entrada}"`);
   }
   const cuerpo = Number(limpio.slice(0, -1));
   const dv = limpio.slice(-1);
   if (cuerpo === 0 || calcularDv(cuerpo) !== dv) {
-    throw new ErrorImpuestocl('RUT_INVALIDO', `Dígito verificador incorrecto: "${entrada}"`);
+    throw new ErrorMiSiiMcp('RUT_INVALIDO', `Dígito verificador incorrecto: "${entrada}"`);
   }
   return { cuerpo, dv, canonico: `${cuerpo}-${dv}` };
 }

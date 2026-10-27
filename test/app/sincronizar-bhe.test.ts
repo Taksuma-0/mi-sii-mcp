@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { sincronizar } from '../../src/app/sincronizar.js';
-import { ErrorImpuestocl } from '../../src/domain/errores.js';
+import { ErrorMiSiiMcp } from '../../src/domain/errores.js';
 import { parsePeriodo } from '../../src/domain/periodo.js';
 import type { BoletaHonorarios, InformeBhe } from '../../src/domain/tipos.js';
 import { textoSync } from '../../src/interfaces/formato.js';
@@ -107,7 +107,7 @@ describe('sincronizar las boletas de honorarios recibidas', () => {
     const { deps, store, sii } = preparar();
     sii.bhe.set('2026-09', informe([boleta({ folio: 1 }), boleta({ folio: 2 })]));
     await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT, ['bhe']);
-    sii.fallas.set('bhe|2026-09', new ErrorImpuestocl('DATOS_INCOMPLETOS', 'Boletas de honorarios 2026-09: el SII entregó 1 de 2 boletas.'));
+    sii.fallas.set('bhe|2026-09', new ErrorMiSiiMcp('DATOS_INCOMPLETOS', 'Boletas de honorarios 2026-09: el SII entregó 1 de 2 boletas.'));
     sii.bhe.set('2026-10', informe([boleta({ periodo: '2026-10', folio: 3 })]));
 
     const r = await sincronizar(deps, RUT_EMPRESA, SEPT, parsePeriodo('2026-10'), ['bhe']);

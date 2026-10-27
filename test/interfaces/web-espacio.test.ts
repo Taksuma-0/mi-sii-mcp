@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as syncApp from '../../src/app/sincronizar.js';
 import { crearEspacioLocal } from '../../src/interfaces/web/espacio.js';
 import { errorPublico, SecretosNulos, type FabricaContenedorWeb } from '../../src/interfaces/web/verificar.js';
-import { ErrorImpuestocl, type CodigoError } from '../../src/domain/errores.js';
+import { ErrorMiSiiMcp, type CodigoError } from '../../src/domain/errores.js';
 import { resumenIva } from '../../src/app/consultas.js';
 import type { SecretStore } from '../../src/ports/index.js';
 import { depsDePrueba } from '../helpers/deps.js';
@@ -37,10 +37,10 @@ function entorno() {
 
 describe('espacio local por contexto', () => {
   it('explica períodos inválidos sin excluir enero de 2000 del espacio', () => {
-    expect(errorPublico(new ErrorImpuestocl('PERIODO_INVALIDO', '')).mensaje).not.toContain('posterior a enero de 2000');
+    expect(errorPublico(new ErrorMiSiiMcp('PERIODO_INVALIDO', '')).mensaje).not.toContain('posterior a enero de 2000');
   });
   it.each<CodigoError>(['SII_LIMITE', 'SII_SESIONES_MAXIMAS', 'RESPUESTA_VACIA', 'DATOS_INCOMPLETOS', 'LECTURA_INCOHERENTE', 'RESPALDO_FALLIDO'])('%s tiene un mensaje público propio sin texto del SII', (codigo) => {
-    const r = errorPublico(new ErrorImpuestocl(codigo, 'Texto interno del SII que no debe salir.'));
+    const r = errorPublico(new ErrorMiSiiMcp(codigo, 'Texto interno del SII que no debe salir.'));
     expect(r.codigo).toBe(codigo);
     expect(r.mensaje.length).toBeGreaterThan(20);
     expect(r.mensaje).not.toContain('Texto interno');
@@ -128,7 +128,7 @@ describe('espacio local por contexto', () => {
 
   it('cierra el contenedor tras fallar login o lectura sin entregar un contexto', async () => {
     const e = entorno();
-    e.loginInteractivo.mockRejectedValueOnce(new ErrorImpuestocl('CLAVE_RECHAZADA', entrada.clave));
+    e.loginInteractivo.mockRejectedValueOnce(new ErrorMiSiiMcp('CLAVE_RECHAZADA', entrada.clave));
     await expect(e.espacio.conectar(entrada)).rejects.toMatchObject({ codigo: 'CLAVE_RECHAZADA' });
     expect(e.store.contribuyentes()).toEqual([]);
     expect(e.cerrar).toHaveBeenCalledOnce();
@@ -205,7 +205,7 @@ describe('espacio local por contexto', () => {
 
   it.each(['SII_NO_DISPONIBLE', 'SESION_REQUERIDA'] as const)('devuelve parcial y sanea %s sin reautenticar', async (codigo) => {
     const e = entorno(); const { contexto } = await e.espacio.conectar(entrada);
-    e.sii.fallas.set('resumen|2026-08|VENTA|REGISTRO', new ErrorImpuestocl(codigo, entrada.clave));
+    e.sii.fallas.set('resumen|2026-08|VENTA|REGISTRO', new ErrorMiSiiMcp(codigo, entrada.clave));
     const r = await e.espacio.sincronizar(contexto, rango);
     expect(r.estado).toBe('parcial');
     expect(r.sincronizacion).toContain(codigo);

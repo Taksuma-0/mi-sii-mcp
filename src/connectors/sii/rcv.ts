@@ -1,5 +1,5 @@
 import * as z from 'zod';
-import { ErrorImpuestocl } from '../../domain/errores.js';
+import { ErrorMiSiiMcp } from '../../domain/errores.js';
 import { ddmmaaaaAIso } from '../../domain/fechas.js';
 import { periodoSii, type Periodo } from '../../domain/periodo.js';
 import { parseRut, type Rut } from '../../domain/rut.js';
@@ -53,11 +53,11 @@ interface Filas {
 
 function filasDelSobre(crudo: unknown, superficie: string): Filas {
   const sobre = Sobre.safeParse(crudo);
-  if (!sobre.success) throw new ErrorImpuestocl('PORTAL_CAMBIO', `Respuesta inesperada del RCV (${superficie}).`, { detalle: sobre.error.message });
+  if (!sobre.success) throw new ErrorMiSiiMcp('PORTAL_CAMBIO', `Respuesta inesperada del RCV (${superficie}).`, { detalle: sobre.error.message });
   const codigo = sobre.data.respEstado?.codRespuesta;
   if (codigo !== undefined && codigo !== null && !CODIGOS_OK.has(String(codigo))) {
     const mensaje = sobre.data.respEstado?.msgeRespuesta ?? `código ${String(codigo)}`;
-    throw new ErrorImpuestocl(/autoriza/i.test(mensaje) ? 'SIN_PERMISO' : 'SII_RECHAZO', `RCV: ${mensaje}`);
+    throw new ErrorMiSiiMcp(/autoriza/i.test(mensaje) ? 'SIN_PERMISO' : 'SII_RECHAZO', `RCV: ${mensaje}`);
   }
   const filas = sobre.data.data ?? sobre.data.datos ?? [];
   return { filas, sinMovimientos: filas.length === 0 && String(codigo) === CODIGO_SIN_MOVIMIENTOS };

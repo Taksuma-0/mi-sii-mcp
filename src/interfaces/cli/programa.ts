@@ -6,7 +6,7 @@ import { agregarPerfil, listarPerfiles, listarPerfilesConRenovacion, registrarId
 import { releerF29 } from '../../app/releer-f29.js';
 import { resumenRenta, sincronizarRenta } from '../../app/renta.js';
 import { sincronizar, type Superficie } from '../../app/sincronizar.js';
-import { esErrorImpuestocl } from '../../domain/errores.js';
+import { esErrorMiSiiMcp } from '../../domain/errores.js';
 import { parsePeriodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
 import type { EstadoRcv, Lado, Severidad, TipoContribuyente } from '../../domain/tipos.js';
@@ -61,7 +61,7 @@ export function crearPrograma(
       try {
         await accion(c, ...args);
       } catch (e) {
-        if (!esErrorImpuestocl(e)) throw e;
+        if (!esErrorMiSiiMcp(e)) throw e;
         io.error(`Error [${e.codigo}]: ${e.message}\n→ ${e.accion}\n${lineaReintento(e.codigo)}`);
         salida.codigo = 1;
       } finally {

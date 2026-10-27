@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { conservarF29, conservarRcv, sincronizar } from '../../src/app/sincronizar.js';
 import { parsePeriodo } from '../../src/domain/periodo.js';
-import { ErrorImpuestocl } from '../../src/domain/errores.js';
+import { ErrorMiSiiMcp } from '../../src/domain/errores.js';
 import { declaracion, documento, fila, perfilEmpresa, resumen, RUT_CLIENTE, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
 import { conLector, depsDePrueba } from '../helpers/deps.js';
 import { VERSION_LECTOR_PRUEBA } from '../helpers/lector-falso.js';
@@ -153,7 +153,7 @@ describe('sincronizar ante respuestas vacías del F29', () => {
 
   it('un F29 que falla por otra causa no inventa un folio', async () => {
     const { deps, sii } = await mesGuardado();
-    sii.fallas.set('f29|2026-09', new ErrorImpuestocl('SII_NO_DISPONIBLE', 'caído'));
+    sii.fallas.set('f29|2026-09', new ErrorMiSiiMcp('SII_NO_DISPONIBLE', 'caído'));
 
     const r = await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT, ['f29']);
 

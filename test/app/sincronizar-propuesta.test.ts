@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { sincronizar } from '../../src/app/sincronizar.js';
-import { ErrorImpuestocl } from '../../src/domain/errores.js';
+import { ErrorMiSiiMcp } from '../../src/domain/errores.js';
 import { parsePeriodo } from '../../src/domain/periodo.js';
 import { textoSync } from '../../src/interfaces/formato.js';
 import { depsDePrueba } from '../helpers/deps.js';
@@ -98,7 +98,7 @@ describe('sincronizar la propuesta de F29', () => {
   it('un error de la propuesta (sin permiso) queda en los errores del mes y no detiene los demás meses ni conserva datos nuevos', async () => {
     const { deps, store, sii } = preparar();
     sii.propuestas.set('2026-10', propuesta({ periodo: '2026-10' }));
-    sii.fallas.set('propuesta|2026-09', new ErrorImpuestocl('SIN_PERMISO', 'Propuesta F29: no autorizado'));
+    sii.fallas.set('propuesta|2026-09', new ErrorMiSiiMcp('SIN_PERMISO', 'Propuesta F29: no autorizado'));
 
     const r = await sincronizar(deps, RUT_EMPRESA, SEPT, parsePeriodo('2026-10'), ['propuesta']);
 

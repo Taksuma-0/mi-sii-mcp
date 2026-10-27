@@ -1,4 +1,4 @@
-import { ERRORES_FATALES, ErrorImpuestocl, esErrorImpuestocl } from '../domain/errores.js';
+import { ERRORES_FATALES, ErrorMiSiiMcp, esErrorMiSiiMcp } from '../domain/errores.js';
 import { crearPeriodo } from '../domain/periodo.js';
 import {
   CODIGOS_CLAVE_F22,
@@ -108,7 +108,7 @@ async function detalleBoletasEmitidas(
       const informe = await sii.bheEmitidasMes(rut, periodo);
       if (informe === null || informe.boletas.length === 0) {
         const guardadas = deps.store.boletasEmitidas(rut, periodo.texto).length > 0;
-        throw new ErrorImpuestocl(
+        throw new ErrorMiSiiMcp(
           'RESPUESTA_VACIA',
           `Boletas emitidas ${periodo.texto}: el SII respondió el detalle sin boletas y el informe anual informa ${mes.vigentes + mes.anuladas}; ${guardadas ? 'se conservan las guardadas' : 'no hay boletas guardadas de ese mes'}.`,
         );
@@ -148,7 +148,7 @@ async function tercerosDelAnio(
   const informadas = await registrar(deps, rut, SUPERFICIE_TERCEROS, periodo, buffer, res, signal, async () => {
     const lista = await sii.djInformadas(rut, anio);
     if (lista.length === 0 && deps.store.djTerceros(rut, anio).length > 0) {
-      throw new ErrorImpuestocl('RESPUESTA_VACIA', `Renta ${periodo}: el SII respondió sin declaraciones juradas informadas por terceros; se conservan las guardadas.`);
+      throw new ErrorMiSiiMcp('RESPUESTA_VACIA', `Renta ${periodo}: el SII respondió sin declaraciones juradas informadas por terceros; se conservan las guardadas.`);
     }
     return lista;
   });
@@ -161,7 +161,7 @@ async function tercerosDelAnio(
       const leidasDj = await sii.djDetalle(rut, anio, dj);
       if (leidasDj.length === 0) {
         const habia = deps.store.djTerceros(rut, anio).some((f) => f.dj === dj);
-        throw new ErrorImpuestocl(
+        throw new ErrorMiSiiMcp(
           'RESPUESTA_VACIA',
           `Renta ${periodo}: el SII informa la DJ ${dj} pero respondió su detalle vacío; ${habia ? 'se conservan las filas guardadas' : 'no hay filas guardadas de esa DJ'}.`,
         );
@@ -189,7 +189,7 @@ async function tercerosDelAnio(
 export async function sincronizarRenta(deps: DepsApp, rutTexto: string, desde: string, hasta?: string, signal?: AbortSignal): Promise<ResultadoRenta> {
   const rut = parseRut(rutTexto).canonico;
   const perfil = deps.store.contribuyente(rut);
-  if (!perfil) throw new ErrorImpuestocl('PERFIL_NO_EXISTE', `No existe el perfil ${rut}.`);
+  if (!perfil) throw new ErrorMiSiiMcp('PERFIL_NO_EXISTE', `No existe el perfil ${rut}.`);
   // Solo una persona emite boletas de honorarios.
   const conBoletas = perfil.tipo === 'persona';
   const anios = rangoAnios(parseAnioTributario(desde), parseAnioTributario(hasta ?? desde));
@@ -211,7 +211,7 @@ export async function sincronizarRenta(deps: DepsApp, rutTexto: string, desde: s
       const declaraciones = await registrar(deps, rut, 'f22', periodo, buffer, res, signal, async (id, ahora) => {
         const leidas = await sii.f22Declaraciones(rut, anio);
         if (leidas.length === 0 && deps.store.declaracionesF22(rut, anio).length > 0) {
-          throw new ErrorImpuestocl('RESPUESTA_VACIA', `Renta ${periodo}: el SII respondió sin declaraciones; se conservan las declaraciones guardadas.`);
+          throw new ErrorMiSiiMcp('RESPUESTA_VACIA', `Renta ${periodo}: el SII respondió sin declaraciones; se conservan las declaraciones guardadas.`);
         }
         deps.store.reemplazarF22Declaraciones(id, rut, anio, leidas, ahora);
         return leidas;
@@ -224,7 +224,7 @@ export async function sincronizarRenta(deps: DepsApp, rutTexto: string, desde: s
           const d = await sii.f22Detalle(rut, anio, vigente.folio);
           if (d.valores.length === 0) {
             const guardado = deps.store.detalleF22(rut, anio, vigente.folio).valores.length > 0;
-            throw new ErrorImpuestocl(
+            throw new ErrorMiSiiMcp(
               'RESPUESTA_VACIA',
               `Renta ${periodo}: el SII respondió sin códigos del folio ${vigente.folio}; ${guardado ? 'se conserva el detalle guardado' : 'no hay detalle guardado de ese folio'}.`,
             );
@@ -242,7 +242,7 @@ export async function sincronizarRenta(deps: DepsApp, rutTexto: string, desde: s
         anual = await registrar(deps, rut, 'bhe.emitidas', periodo, buffer, res, signal, async (id, ahora) => {
           const informe = await sii.bheEmitidasAnual(rut, anioComercial);
           if (!hayBoletasEmitidas(totalesBheEmitidas(informe.meses)) && hayBoletasEmitidas(totalesBheEmitidas(deps.store.bheEmitidas(rut, anioComercial)))) {
-            throw new ErrorImpuestocl('RESPUESTA_VACIA', `Renta ${periodo}: el SII respondió las boletas de honorarios emitidas de ${anioComercial} en cero; se conservan las guardadas.`);
+            throw new ErrorMiSiiMcp('RESPUESTA_VACIA', `Renta ${periodo}: el SII respondió las boletas de honorarios emitidas de ${anioComercial} en cero; se conservan las guardadas.`);
           }
           deps.store.reemplazarBheEmitidas(id, rut, anioComercial, informe.meses, ahora);
           return informe;
@@ -258,7 +258,7 @@ export async function sincronizarRenta(deps: DepsApp, rutTexto: string, desde: s
     return { rut, anios: resultados, abortado: null };
   } catch (e) {
     if (e instanceof Cancelada) return { rut, anios: resultados, abortado: SINCRONIZACION_CANCELADA };
-    if (esErrorImpuestocl(e) && ERRORES_FATALES.has(e.codigo)) return { rut, anios: resultados, abortado: { superficie: 'sesion', codigo: e.codigo, mensaje: e.message } };
+    if (esErrorMiSiiMcp(e) && ERRORES_FATALES.has(e.codigo)) return { rut, anios: resultados, abortado: { superficie: 'sesion', codigo: e.codigo, mensaje: e.message } };
     throw e;
   } finally {
     deps.alTerminarSync?.(rut);

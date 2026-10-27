@@ -12,15 +12,15 @@ import { temporizadorFalso } from '../helpers/http-falso.js';
 describe('buscarNavegador', () => {
   const env = { ProgramFiles: 'C:\\PF', 'ProgramFiles(x86)': 'C:\\PF86', LOCALAPPDATA: 'C:\\Usuario\\AppData\\Local' };
 
-  it('usa la ruta de IMPUESTOCL_NAVEGADOR si existe', () => {
+  it('usa la ruta de MI_SII_MCP_NAVEGADOR si existe', () => {
     const ruta = 'D:\\Portables\\chrome.exe';
-    expect(buscarNavegador({ ...env, IMPUESTOCL_NAVEGADOR: ruta }, (r) => r === ruta)).toBe(ruta);
+    expect(buscarNavegador({ ...env, MI_SII_MCP_NAVEGADOR: ruta }, (r) => r === ruta)).toBe(ruta);
   });
 
-  it('falla claro si IMPUESTOCL_NAVEGADOR apunta a una ruta que no existe, sin buscar otro', () => {
+  it('falla claro si MI_SII_MCP_NAVEGADOR apunta a una ruta que no existe, sin buscar otro', () => {
     const edge = join(env.ProgramFiles, 'Microsoft', 'Edge', 'Application', 'msedge.exe');
-    expect(() => buscarNavegador({ ...env, IMPUESTOCL_NAVEGADOR: 'D:\\no\\esta.exe' }, (r) => r === edge)).toThrowError(
-      expect.objectContaining({ codigo: 'NAVEGADOR_NO_DISPONIBLE', message: expect.stringContaining('IMPUESTOCL_NAVEGADOR') }),
+    expect(() => buscarNavegador({ ...env, MI_SII_MCP_NAVEGADOR: 'D:\\no\\esta.exe' }, (r) => r === edge)).toThrowError(
+      expect.objectContaining({ codigo: 'NAVEGADOR_NO_DISPONIBLE', message: expect.stringContaining('MI_SII_MCP_NAVEGADOR') }),
     );
   });
 
@@ -158,7 +158,7 @@ describe('capturarCookiesSii', () => {
     expect(n.registro.ejecutable).toBe('C:\\falso\\msedge.exe');
     const args = n.registro.argumentos!;
     const carpeta = args[0]!.slice('--user-data-dir='.length);
-    expect(carpeta.startsWith(join(base, 'impuestocl-navegador-'))).toBe(true);
+    expect(carpeta.startsWith(join(base, 'mi-sii-mcp-navegador-'))).toBe(true);
     expect(args).toEqual([
       `--user-data-dir=${carpeta}`,
       '--remote-debugging-pipe',
@@ -281,7 +281,7 @@ describe('capturarCookiesSii', () => {
   });
 
   it('al empezar borra perfiles temporales viejos de intentos anteriores, sin tocar otras carpetas', async () => {
-    const viejo = join(base, 'impuestocl-navegador-viejo1');
+    const viejo = join(base, 'mi-sii-mcp-navegador-viejo1');
     mkdirSync(join(viejo, 'Default'), { recursive: true });
     writeFileSync(join(viejo, 'Default', 'Cookies'), 'x');
     const horasAtras = new Date(Date.now() - 2 * 60 * 60 * 1000);
@@ -311,12 +311,12 @@ describe('limpiarPerfilesViejos', () => {
     return ruta;
   };
 
-  it('borra solo los perfiles impuestocl-navegador-* de más de una hora (uno reciente puede estar en uso) e ignora los que no se pueden borrar', () => {
-    const viejo = crear('impuestocl-navegador-aaa', 2 * 60 * 60 * 1000);
-    const tomado = crear('impuestocl-navegador-bbb', 3 * 60 * 60 * 1000);
-    crear('impuestocl-navegador-reciente', 5 * 60 * 1000);
+  it('borra solo los perfiles mi-sii-mcp-navegador-* de más de una hora (uno reciente puede estar en uso) e ignora los que no se pueden borrar', () => {
+    const viejo = crear('mi-sii-mcp-navegador-aaa', 2 * 60 * 60 * 1000);
+    const tomado = crear('mi-sii-mcp-navegador-bbb', 3 * 60 * 60 * 1000);
+    crear('mi-sii-mcp-navegador-reciente', 5 * 60 * 1000);
     crear('otra-viejisima', 10 * 60 * 60 * 1000);
-    writeFileSync(join(base, 'impuestocl-navegador-archivo'), 'no es carpeta');
+    writeFileSync(join(base, 'mi-sii-mcp-navegador-archivo'), 'no es carpeta');
     const intentos: string[] = [];
     limpiarPerfilesViejos(base, (ruta) => {
       intentos.push(ruta);
@@ -324,7 +324,14 @@ describe('limpiarPerfilesViejos', () => {
       rmSync(ruta, { recursive: true, force: true });
     });
     expect(intentos.sort()).toEqual([viejo, tomado].sort());
-    expect(readdirSync(base).sort()).toEqual(['impuestocl-navegador-archivo', 'impuestocl-navegador-bbb', 'impuestocl-navegador-reciente', 'otra-viejisima']);
+    expect(readdirSync(base).sort()).toEqual(['mi-sii-mcp-navegador-archivo', 'mi-sii-mcp-navegador-bbb', 'mi-sii-mcp-navegador-reciente', 'otra-viejisima']);
+  });
+
+  it('también borra los perfiles viejos con el nombre anterior (impuestocl-navegador-*)', () => {
+    const anterior = crear('impuestocl-navegador-ccc', 2 * 60 * 60 * 1000);
+    const intentos: string[] = [];
+    limpiarPerfilesViejos(base, (ruta) => void intentos.push(ruta));
+    expect(intentos).toEqual([anterior]);
   });
 
   it('una carpeta base inexistente no es un error', () => {

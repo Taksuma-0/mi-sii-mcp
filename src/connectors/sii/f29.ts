@@ -1,5 +1,5 @@
 import * as z from 'zod';
-import { ErrorImpuestocl } from '../../domain/errores.js';
+import { ErrorMiSiiMcp } from '../../domain/errores.js';
 import { ddmmaaaaAIso } from '../../domain/fechas.js';
 import type { Periodo } from '../../domain/periodo.js';
 import type { Rut } from '../../domain/rut.js';
@@ -28,9 +28,9 @@ export async function f29Declaraciones(http: Http, sumidero: SumideroRespuestas,
   });
   // Los errores se leen antes de validar `data`: un sobre de error puede venir sin esa clave.
   const error = errorDeSobre(crudo);
-  if (error) throw new ErrorImpuestocl(/autoriza/i.test(error) ? 'SIN_PERMISO' : 'SII_RECHAZO', `F29: ${error}`);
+  if (error) throw new ErrorMiSiiMcp(/autoriza/i.test(error) ? 'SIN_PERMISO' : 'SII_RECHAZO', `F29: ${error}`);
   const sobre = Sobre.safeParse(crudo);
-  if (!sobre.success) throw new ErrorImpuestocl('PORTAL_CAMBIO', 'Respuesta inesperada del F29 (estados).', { detalle: sobre.error.message });
+  if (!sobre.success) throw new ErrorMiSiiMcp('PORTAL_CAMBIO', 'Respuesta inesperada del F29 (estados).', { detalle: sobre.error.message });
   const filas = sobre.data.data ?? [];
   return filas.map((f) => ({
     rut: rut.canonico,
@@ -52,7 +52,7 @@ export function urlFormCompacto(rut: Rut, folio: number, codigoInterno: number):
 /** Valores por código del F29 presentado, leídos del PDF compacto que entrega el SII. */
 export async function f29Valores(http: Http, sumidero: SumideroRespuestas, rut: Rut, d: F29Declaracion, lector: LectorPdfF29 = lectorPdfF29): Promise<F29Valores> {
   if (d.folio <= 0 || d.codigoInterno === null) {
-    throw new ErrorImpuestocl('SII_RECHAZO', `El F29 de ${d.periodo} no tiene un folio presentado.`);
+    throw new ErrorMiSiiMcp('SII_RECHAZO', `El F29 de ${d.periodo} no tiene un folio presentado.`);
   }
   const r = exigirSesion(await http.solicitar(urlFormCompacto(rut, d.folio, d.codigoInterno), { headers: { Referer: REFERER, Accept: 'application/pdf,*/*' } }));
   sumidero({
@@ -62,14 +62,14 @@ export async function f29Valores(http: Http, sumidero: SumideroRespuestas, rut: 
     obtenidoEn: new Date().toISOString(),
   });
   const esPdf = r.bytes.length > 5 && new TextDecoder('latin1').decode(r.bytes.slice(0, 5)) === '%PDF-';
-  if (!esPdf) throw new ErrorImpuestocl('PORTAL_CAMBIO', `El SII no entregó el PDF del F29 de ${d.periodo} (content-type ${r.contentType}).`);
+  if (!esPdf) throw new ErrorMiSiiMcp('PORTAL_CAMBIO', `El SII no entregó el PDF del F29 de ${d.periodo} (content-type ${r.contentType}).`);
   let valores: Record<string, number>;
   try {
     valores = await lector.extraer(r.bytes);
   } catch (cause) {
-    throw new ErrorImpuestocl('PORTAL_CAMBIO', `No se pudo leer el PDF del F29 de ${d.periodo}.`, { cause });
+    throw new ErrorMiSiiMcp('PORTAL_CAMBIO', `No se pudo leer el PDF del F29 de ${d.periodo}.`, { cause });
   }
   // Un PDF en blanco o con otra maqueta da {}: reemplazar con eso borraría los valores guardados del folio.
-  if (Object.keys(valores).length === 0) throw new ErrorImpuestocl('PORTAL_CAMBIO', `El PDF del F29 de ${d.periodo} no trajo códigos legibles.`);
+  if (Object.keys(valores).length === 0) throw new ErrorMiSiiMcp('PORTAL_CAMBIO', `El PDF del F29 de ${d.periodo} no trajo códigos legibles.`);
   return { rut: rut.canonico, periodo: d.periodo, folio: d.folio, valores, versionLector: lector.version };
 }

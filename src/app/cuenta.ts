@@ -1,4 +1,4 @@
-import { ERRORES_FATALES, ErrorImpuestocl, esErrorImpuestocl } from '../domain/errores.js';
+import { ERRORES_FATALES, ErrorMiSiiMcp, esErrorMiSiiMcp } from '../domain/errores.js';
 import { parseRut } from '../domain/rut.js';
 import type { EmpresaAutorizada, PerfilTributario, RespuestaCruda } from '../domain/tipos.js';
 import type { DepsApp } from './deps.js';
@@ -31,7 +31,7 @@ export interface ResultadoCuenta {
 export async function sincronizarCuenta(deps: DepsApp, rutTexto: string, signal?: AbortSignal): Promise<ResultadoCuenta> {
   const rut = parseRut(rutTexto).canonico;
   const existente = deps.store.contribuyente(rut);
-  if (!existente) throw new ErrorImpuestocl('PERFIL_NO_EXISTE', `No existe el perfil ${rut}.`);
+  if (!existente) throw new ErrorMiSiiMcp('PERFIL_NO_EXISTE', `No existe el perfil ${rut}.`);
   const buffer: RespuestaCruda[] = [];
   const res: ResultadoPeriodo = { periodo: PERIODO_CUENTA, errores: [], avisos: [], documentos: 0, f29Folio: null };
   let perfil: PerfilTributario | null = null;
@@ -55,7 +55,7 @@ export async function sincronizarCuenta(deps: DepsApp, rutTexto: string, signal?
     empresas = await registrar(deps, rut, 'cuenta.empresas', PERIODO_CUENTA, buffer, res, signal, async (id, ahora) => {
       const lista = await sii.empresasAutorizadas();
       if (lista.length === 0 && deps.store.empresasAutorizadas(rut).length > 0) {
-        throw new ErrorImpuestocl('RESPUESTA_VACIA', 'Empresas autorizadas: el SII respondió sin empresas; se conservan las guardadas.');
+        throw new ErrorMiSiiMcp('RESPUESTA_VACIA', 'Empresas autorizadas: el SII respondió sin empresas; se conservan las guardadas.');
       }
       deps.store.reemplazarEmpresasAutorizadas(id, rut, lista, ahora);
       const representa = lista.filter((e) => e.fechaDesautorizacion === null && e.rutEmpresa !== rut).map((e) => e.rutEmpresa);
@@ -64,7 +64,7 @@ export async function sincronizarCuenta(deps: DepsApp, rutTexto: string, signal?
     });
   } catch (e) {
     if (e instanceof Cancelada) abortado = SINCRONIZACION_CANCELADA;
-    else if (esErrorImpuestocl(e) && ERRORES_FATALES.has(e.codigo)) abortado = { superficie: 'sesion', codigo: e.codigo, mensaje: e.message };
+    else if (esErrorMiSiiMcp(e) && ERRORES_FATALES.has(e.codigo)) abortado = { superficie: 'sesion', codigo: e.codigo, mensaje: e.message };
     else throw e;
   } finally {
     deps.alTerminarSync?.(rut);

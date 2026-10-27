@@ -1,4 +1,4 @@
-import { ErrorImpuestocl } from '../../domain/errores.js';
+import { ErrorMiSiiMcp } from '../../domain/errores.js';
 import type { Periodo } from '../../domain/periodo.js';
 import { parseRut, type Rut } from '../../domain/rut.js';
 import type { BoletaHonorarios, InformeBhe } from '../../domain/tipos.js';
@@ -48,7 +48,7 @@ export const valorDe = (m: RegExpExecArray, desde: number): string => (m[desde] 
 export function sanearBhe(html: string, informe = 'las boletas de honorarios recibidas'): string {
   const saneado = html.replace(ASIGNACIONES_PRIVADAS, '');
   if (ASIGNACION_PRIVADA_RESTANTE.test(saneado)) {
-    throw new ErrorImpuestocl('PORTAL_CAMBIO', `No se pudo sanear la evidencia de ${informe}.`);
+    throw new ErrorMiSiiMcp('PORTAL_CAMBIO', `No se pudo sanear la evidencia de ${informe}.`);
   }
   return saneado;
 }
@@ -71,7 +71,7 @@ function leerPagina(html: string, nombre: string): PaginaBhe {
   const xml: Record<string, string> = {};
   for (const m of html.matchAll(ASIGNACION_XML)) xml[m[1]!] = valorDe(m, 2);
   if (filas.size === 0 && Object.keys(xml).length === 0) {
-    throw new ErrorImpuestocl('PORTAL_CAMBIO', `El informe de ${nombre} no trae los datos esperados (arr_informe_mensual ni xml_values).`);
+    throw new ErrorMiSiiMcp('PORTAL_CAMBIO', `El informe de ${nombre} no trae los datos esperados (arr_informe_mensual ni xml_values).`);
   }
   return { filas, xml };
 }
@@ -91,8 +91,8 @@ function fecha(v: string | undefined): string | null {
   return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
 }
 
-function inesperado(detalle: string): ErrorImpuestocl {
-  return new ErrorImpuestocl('PORTAL_CAMBIO', `Boleta de honorarios inesperada en el informe del SII: ${detalle}.`);
+function inesperado(detalle: string): ErrorMiSiiMcp {
+  return new ErrorMiSiiMcp('PORTAL_CAMBIO', `Boleta de honorarios inesperada en el informe del SII: ${detalle}.`);
 }
 
 /** Lo común de una fila ya revisada: folio, estado y lectores de montos, RUT, fechas y textos. */
@@ -181,10 +181,10 @@ async function pedirPagina(http: Http, sumidero: SumideroRespuestas, informe: De
   };
   const consulta = new URLSearchParams(Object.entries(parametros).map(([k, v]) => [k, String(v)]));
   const r = exigirSesion(await http.solicitar(`${informe.url}?${consulta.toString()}`, { headers: { Accept: 'text/html,application/xhtml+xml,*/*' } }));
-  if (r.status === 401) throw new ErrorImpuestocl('SESION_REQUERIDA', 'El SII no reconoció la sesión (401).');
-  if (r.status === 429) throw new ErrorImpuestocl('SII_LIMITE', 'El SII limitó las consultas; reintenta más tarde.');
+  if (r.status === 401) throw new ErrorMiSiiMcp('SESION_REQUERIDA', 'El SII no reconoció la sesión (401).');
+  if (r.status === 429) throw new ErrorMiSiiMcp('SII_LIMITE', 'El SII limitó las consultas; reintenta más tarde.');
   sumidero({ superficie: informe.superficie, parametros, cuerpo: sanearBhe(r.texto, `las ${informe.nombre}`), obtenidoEn: new Date().toISOString() });
-  if (r.status === 403) throw new ErrorImpuestocl('SII_RECHAZO', `El SII rechazó la consulta de ${informe.superficie} (403).`);
+  if (r.status === 403) throw new ErrorMiSiiMcp('SII_RECHAZO', `El SII rechazó la consulta de ${informe.superficie} (403).`);
   return leerPagina(r.texto, informe.nombre);
 }
 
@@ -193,7 +193,7 @@ function totalInformado(xml: Campos): number | null {
   const informado = xml['total_boletas'];
   if (informado === undefined || informado.trim() === '') return null;
   const total = entero(informado);
-  if (total === null) throw new ErrorImpuestocl('PORTAL_CAMBIO', `El SII informó un total de boletas ilegible: "${informado}".`);
+  if (total === null) throw new ErrorMiSiiMcp('PORTAL_CAMBIO', `El SII informó un total de boletas ilegible: "${informado}".`);
   return total;
 }
 
@@ -223,7 +223,7 @@ function revisarSumas<B extends { readonly anulada: boolean }>(titulo: string, c
     if (informada === null || informada <= 0) continue;
     const aceptadas = [todas, primeraPagina].flatMap((boletas) => [sumaDe(boletas, control.monto, false), sumaDe(boletas, control.monto, true)]);
     if (aceptadas.includes(informada)) continue;
-    throw new ErrorImpuestocl(
+    throw new ErrorMiSiiMcp(
       'PORTAL_CAMBIO',
       `${titulo}: el SII informa ${control.descripcion} ${informada} y las boletas leídas suman ${aceptadas[0]} (vigentes) o ${aceptadas[1]} (con anuladas).`,
     );
@@ -277,10 +277,10 @@ export async function leerInformeMensualBhe<B extends { readonly anulada: boolea
   }
   if (total === null) {
     if (boletas.size === 0) return null;
-    throw new ErrorImpuestocl('PORTAL_CAMBIO', `${titulo}: el SII no informó total_boletas; no se puede saber si están todas.`);
+    throw new ErrorMiSiiMcp('PORTAL_CAMBIO', `${titulo}: el SII no informó total_boletas; no se puede saber si están todas.`);
   }
   if (boletas.size < total) {
-    throw new ErrorImpuestocl('DATOS_INCOMPLETOS', `${titulo}: el SII entregó ${boletas.size} de ${total} boletas.`);
+    throw new ErrorMiSiiMcp('DATOS_INCOMPLETOS', `${titulo}: el SII entregó ${boletas.size} de ${total} boletas.`);
   }
   const todas = [...boletas.values()];
   revisarSumas(titulo, informe.controles, primera?.xml ?? {}, todas, primera?.boletas ?? []);

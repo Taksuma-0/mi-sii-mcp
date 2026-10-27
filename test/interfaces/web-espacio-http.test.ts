@@ -2,7 +2,7 @@ import { request } from 'node:http';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { crearServidorLocal } from '../../src/interfaces/web/servidor.js';
 import type { OperacionesEspacio } from '../../src/interfaces/web/espacio.js';
-import { ErrorImpuestocl } from '../../src/domain/errores.js';
+import { ErrorMiSiiMcp } from '../../src/domain/errores.js';
 import { perfilEmpresa } from '../helpers/fabricas.js';
 
 const contexto = 'contexto ficticio de una pestaña';
@@ -130,13 +130,13 @@ describe('rutas HTTP del espacio', () => {
     req.write('{');
     const estado = async () => (await (await fetch(e.s.url + '/estado')).json()) as { ocupado: boolean };
     for (let i = 0; i < 40 && !(await estado()).ocupado; i++) await new Promise(resolve => setTimeout(resolve, 5));
-    expect(await estado()).toEqual({ aplicacion: 'impuestocl-local-v1', ocupado: true });
+    expect(await estado()).toEqual({ aplicacion: 'mi-sii-mcp-local-v1', ocupado: true });
     for (const caso of casos) expect((await e.post(caso.ruta, caso.datos)).status).toBe(409);
     expect((await e.post('/cerrar', {})).status).toBe(409);
     e.expectSinServicio();
     req.destroy();
     for (let i = 0; i < 40 && (await estado()).ocupado; i++) await new Promise(resolve => setTimeout(resolve, 5));
-    expect(await estado()).toEqual({ aplicacion: 'impuestocl-local-v1', ocupado: false });
+    expect(await estado()).toEqual({ aplicacion: 'mi-sii-mcp-local-v1', ocupado: false });
     expect((await e.post('/conectar', casos[0].datos)).status).toBe(200);
   });
 
@@ -150,7 +150,7 @@ describe('rutas HTTP del espacio', () => {
     await inicio;
     for (const caso of casos) expect((await e.post(caso.ruta, caso.datos)).status).toBe(409);
     expect((await e.post('/cerrar', {})).status).toBe(409);
-    rechazar(new ErrorImpuestocl('SESION_REQUERIDA', 'clave ficticia'));
+    rechazar(new ErrorMiSiiMcp('SESION_REQUERIDA', 'clave ficticia'));
     const r = await primera;
     expect(r.status).toBe(400);
     expect(await r.text()).not.toContain('clave ficticia');
@@ -164,7 +164,7 @@ describe('rutas HTTP del espacio', () => {
     expect(r.status).toBe(400);
     expect(await r.json()).toMatchObject({ codigo: 'ERROR_INTERNO', mensaje: expect.any(String) });
     expect((await fetch(e.s.url + caso.ruta)).status).toBe(404);
-    expect(await (await fetch(e.s.url + '/estado')).json()).toEqual({ aplicacion: 'impuestocl-local-v1', ocupado: false });
+    expect(await (await fetch(e.s.url + '/estado')).json()).toEqual({ aplicacion: 'mi-sii-mcp-local-v1', ocupado: false });
   });
 
   it.each([true, false])('despacha /conectar con recordar=%s', async (recordar) => {

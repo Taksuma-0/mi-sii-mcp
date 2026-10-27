@@ -2,7 +2,7 @@ import type { DepsApp } from '../../app/deps.js';
 import { plazos, resumenIva } from '../../app/consultas.js';
 import { registrarIdentidad } from '../../app/perfiles.js';
 import { sincronizar } from '../../app/sincronizar.js';
-import { ErrorImpuestocl, esErrorImpuestocl, type CodigoError } from '../../domain/errores.js';
+import { ErrorMiSiiMcp, esErrorMiSiiMcp, type CodigoError } from '../../domain/errores.js';
 import { parsePeriodo, periodoAnterior } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
 import { crearContenedor } from '../../main/contenedor.js';
@@ -68,7 +68,7 @@ const MENSAJES: Readonly<Record<CodigoError, string>> = {
 
 /** Nunca expone mensajes, causas o cuerpos recibidos del SII. */
 export function errorPublico(error: unknown): { codigo: string; mensaje: string } {
-  return esErrorImpuestocl(error)
+  return esErrorMiSiiMcp(error)
     ? { codigo: error.codigo, mensaje: MENSAJES[error.codigo] }
     : { codigo: 'ERROR_INTERNO', mensaje: 'No se pudo completar la consulta. Puedes volver a intentarlo. Si persiste, cierra y vuelve a abrir la aplicación.' };
 }
@@ -77,14 +77,14 @@ export async function verificar(entrada: EntradaVerificacion, fabrica: FabricaCo
   const rut = parseRut(entrada.rut).canonico;
   const mes = parsePeriodo(entrada.mes);
   const anterior = periodoAnterior(mes);
-  if (typeof entrada.clave !== 'string' || entrada.clave.length === 0) throw new ErrorImpuestocl('CLAVE_RECHAZADA', 'Ingresa tu clave tributaria.');
+  if (typeof entrada.clave !== 'string' || entrada.clave.length === 0) throw new ErrorMiSiiMcp('CLAVE_RECHAZADA', 'Ingresa tu clave tributaria.');
   const contenedor = fabrica({ secretos: new SecretosNulos() });
   try {
     const login = await contenedor.sesiones.loginInteractivo(rut, entrada.clave, false);
     registrarIdentidad(contenedor.deps, login.identidad);
     const sync = await sincronizar(contenedor.deps, rut, anterior, mes, ['rcv', 'f29']);
     const resumen = resumenIva(contenedor.deps, rut, mes.texto);
-    const seguro = { ...sync, abortado: sync.abortado ? { ...sync.abortado, mensaje: errorPublico(new ErrorImpuestocl(sync.abortado.codigo as CodigoError, '')).mensaje } : null };
+    const seguro = { ...sync, abortado: sync.abortado ? { ...sync.abortado, mensaje: errorPublico(new ErrorMiSiiMcp(sync.abortado.codigo as CodigoError, '')).mensaje } : null };
     return {
       estado: sync.abortado || sync.periodos.some((p) => p.errores.length > 0 || p.avisos.length > 0) ? 'parcial' : 'completo',
       sincronizacion: textoSync(seguro),

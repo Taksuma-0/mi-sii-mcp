@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Readable, Writable } from 'node:stream';
-import { ErrorImpuestocl } from '../../domain/errores.js';
+import { ErrorMiSiiMcp } from '../../domain/errores.js';
 import { temporizadorReal, type Temporizador } from '../sii/http.js';
 import { URL_LOGIN_PAGINA } from '../sii/login.js';
 import { buscarNavegador } from './buscar.js';
@@ -66,7 +66,9 @@ export const PLAZO_LOGIN_NAVEGADOR_MS = 10 * 60 * 1000;
 export const PLAZO_MAXIMO_LOGIN_NAVEGADOR_MS = 30 * 60 * 1000;
 const INTERVALO_MS = 2000;
 const PLAZO_CIERRE_MS = 5000;
-const PREFIJO_PERFIL = 'impuestocl-navegador-';
+const PREFIJO_PERFIL = 'mi-sii-mcp-navegador-';
+/** Perfiles que dejó la herramienta con su nombre anterior: también se limpian. */
+const PREFIJO_PERFIL_ANTERIOR = 'impuestocl-navegador-';
 /** Un perfil temporal más antiguo que esto ya no está en uso: el plazo de login tiene un máximo de 30 minutos. */
 const ANTIGUEDAD_PERFIL_VIEJO_MS = 2 * PLAZO_MAXIMO_LOGIN_NAVEGADOR_MS;
 /** El perfil temporal no ofrece guardar contraseñas. */
@@ -99,7 +101,7 @@ const temporizadorCierre: Temporizador = {
 /** Lanza el navegador con el CDP por los descriptores 3 (órdenes) y 4 (respuestas). Nunca durante las pruebas. */
 function lanzarNavegador(ejecutable: string, argumentos: readonly string[]): NavegadorLanzado {
   if (process.env['VITEST']) {
-    throw new ErrorImpuestocl('NAVEGADOR_NO_DISPONIBLE', 'mi-sii-mcp no lanza un navegador real durante las pruebas.');
+    throw new ErrorMiSiiMcp('NAVEGADOR_NO_DISPONIBLE', 'mi-sii-mcp no lanza un navegador real durante las pruebas.');
   }
   const hijo = spawn(ejecutable, argumentos, { stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe'] });
   let vivo = true;
@@ -116,7 +118,7 @@ function lanzarNavegador(ejecutable: string, argumentos: readonly string[]): Nav
   const lectura = hijo.stdio[4] as Readable | null | undefined;
   if (!escritura || !lectura) {
     proceso.terminar();
-    throw new ErrorImpuestocl('NAVEGADOR_NO_DISPONIBLE', 'No se pudo abrir la tubería de depuración del navegador.');
+    throw new ErrorMiSiiMcp('NAVEGADOR_NO_DISPONIBLE', 'No se pudo abrir la tubería de depuración del navegador.');
   }
   return { proceso, transporte: transportePipe(escritura, lectura) };
 }
@@ -146,7 +148,7 @@ export function limpiarPerfilesViejos(
     return;
   }
   for (const entrada of entradas) {
-    if (!entrada.isDirectory() || !entrada.name.startsWith(PREFIJO_PERFIL)) continue;
+    if (!entrada.isDirectory() || !(entrada.name.startsWith(PREFIJO_PERFIL) || entrada.name.startsWith(PREFIJO_PERFIL_ANTERIOR))) continue;
     const ruta = join(base, entrada.name);
     try {
       if (ahoraMs - statSync(ruta).mtimeMs < ANTIGUEDAD_PERFIL_VIEJO_MS) continue;
@@ -157,7 +159,7 @@ export function limpiarPerfilesViejos(
   }
 }
 
-const sinTerminar = (texto: string, cause?: unknown) => new ErrorImpuestocl('SESION_REQUERIDA', texto, { accion: ACCION_REINTENTO, cause });
+const sinTerminar = (texto: string, cause?: unknown) => new ErrorMiSiiMcp('SESION_REQUERIDA', texto, { accion: ACCION_REINTENTO, cause });
 
 /**
  * Abre el navegador instalado en la página de login del SII con un perfil temporal (sin gestor de contraseñas ni
@@ -249,9 +251,9 @@ async function esperarToken(
     try {
       resultado = await conCancelacion(transporte.enviar('Storage.getCookies'));
     } catch (e) {
-      if (senal.aborted || e instanceof ErrorImpuestocl) throw e;
+      if (senal.aborted || e instanceof ErrorMiSiiMcp) throw e;
       if (!respondio && !proceso.vivo()) {
-        throw new ErrorImpuestocl('NAVEGADOR_NO_DISPONIBLE', 'El navegador no se abrió o no respondió por la tubería de depuración.', { cause: e });
+        throw new ErrorMiSiiMcp('NAVEGADOR_NO_DISPONIBLE', 'El navegador no se abrió o no respondió por la tubería de depuración.', { cause: e });
       }
       throw sinTerminar('Se cerró el navegador antes de terminar el inicio de sesión en el SII.', e);
     }

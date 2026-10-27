@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { AVISO_REPRESENTACION, LectorPorRepresentacion } from '../../src/connectors/sii/representacion.js';
-import { ErrorImpuestocl } from '../../src/domain/errores.js';
+import { ErrorMiSiiMcp } from '../../src/domain/errores.js';
 import { parsePeriodo } from '../../src/domain/periodo.js';
 import { codigoDe } from '../helpers/errores.js';
 import { declaracion } from '../helpers/fabricas.js';
@@ -32,7 +32,7 @@ describe('LectorPorRepresentacion', () => {
     let aperturas = 0;
     const lector = new LectorPorRepresentacion(async () => {
       aperturas++;
-      throw new ErrorImpuestocl('PORTAL_CAMBIO', 'el portal cambió');
+      throw new ErrorMiSiiMcp('PORTAL_CAMBIO', 'el portal cambió');
     }, PERSONA);
     expect(await codigoDe(lector.rcvResumen(EMPRESA, SEPT, 'VENTA', 'REGISTRO'))).toBe('PORTAL_CAMBIO');
     expect(await codigoDe(lector.rcvResumen(EMPRESA, SEPT, 'COMPRA', 'REGISTRO'))).toBe('PORTAL_CAMBIO');

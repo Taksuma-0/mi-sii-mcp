@@ -1,6 +1,6 @@
 import { request, createServer } from 'node:http';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ErrorImpuestocl } from '../../src/domain/errores.js';
+import { ErrorMiSiiMcp } from '../../src/domain/errores.js';
 import { crearServidorLocal, type ServidorLocal } from '../../src/interfaces/web/servidor.js';
 import type { ResultadoVerificacion } from '../../src/interfaces/web/verificar.js';
 import { iniciarLocal } from '../../scripts/abrir-local.js';
@@ -173,7 +173,7 @@ describe('HTTP local', () => {
     const e = await entorno({ verificar });
     const primera = e.post();
     await inicio;
-    expect(await (await fetch(e.s.url + '/estado')).json()).toEqual({ aplicacion: 'impuestocl-local-v1', ocupado: true });
+    expect(await (await fetch(e.s.url + '/estado')).json()).toEqual({ aplicacion: 'mi-sii-mcp-local-v1', ocupado: true });
     expect((await e.post()).status).toBe(409);
     expect((await e.post('/cerrar', '{}')).status).toBe(409);
     terminar(resultado);
@@ -182,7 +182,7 @@ describe('HTTP local', () => {
     expect((await e.post()).status).toBe(200);
   });
 
-  it.each([new Error('clave ficticia'), new ErrorImpuestocl('CLAVE_RECHAZADA', 'clave ficticia', { accion: 'clave ficticia', cause: 'clave ficticia' })])('explica fallos sin reflejar secreto, stack ni error crudo (%#)', async (error) => {
+  it.each([new Error('clave ficticia'), new ErrorMiSiiMcp('CLAVE_RECHAZADA', 'clave ficticia', { accion: 'clave ficticia', cause: 'clave ficticia' })])('explica fallos sin reflejar secreto, stack ni error crudo (%#)', async (error) => {
     const e = await entorno({ verificar: async () => { throw error; } });
     const r = await e.post();
     const texto = await r.text();
@@ -194,7 +194,7 @@ describe('HTTP local', () => {
 
   it('el estado no contiene datos y el cierre exige protección', async () => {
     const e = await entorno();
-    expect(await (await fetch(e.s.url + '/estado')).json()).toEqual({ aplicacion: 'impuestocl-local-v1', ocupado: false });
+    expect(await (await fetch(e.s.url + '/estado')).json()).toEqual({ aplicacion: 'mi-sii-mcp-local-v1', ocupado: false });
     expect((await fetch(e.s.url + '/cerrar', { method: 'POST' })).status).toBe(403);
     expect((await e.post('/cerrar', '{}')).status).toBe(200);
     await e.s.cerrado;
@@ -263,7 +263,7 @@ describe('lanzador local', () => {
     if (r.servidor) cierres.push(r.servidor.cerrar);
     expect(r.url).not.toBe(`http://127.0.0.1:${direccion.port}`);
     expect(abrir).not.toHaveBeenCalled();
-    expect(await (await fetch(r.url + '/estado')).json()).toMatchObject({ aplicacion: 'impuestocl-local-v1' });
+    expect(await (await fetch(r.url + '/estado')).json()).toMatchObject({ aplicacion: 'mi-sii-mcp-local-v1' });
   });
 
   it('cierra la instancia nueva si no logra abrir el navegador', async () => {

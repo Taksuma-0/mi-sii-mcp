@@ -1,4 +1,4 @@
-import { ErrorImpuestocl } from '../../domain/errores.js';
+import { ErrorMiSiiMcp } from '../../domain/errores.js';
 import { formatearRut, parseRut, type Rut } from '../../domain/rut.js';
 import type { AtributoTributario, PerfilTributario } from '../../domain/tipos.js';
 import type { IdentidadSii } from '../../ports/index.js';
@@ -29,16 +29,16 @@ export function extraerErrorLogin(html: string): { codigo: string | null; mensaj
  * Convierte la página de error del login en el error que corresponde. Solo la clave incorrecta, o un código que no conocemos,
  * es CLAVE_RECHAZADA (bloquea el RUT y borra la clave guardada); las sesiones máximas no tienen nada que ver con la clave.
  */
-export function clasificarErrorLogin(error: { codigo: string | null; mensaje: string }): ErrorImpuestocl {
+export function clasificarErrorLogin(error: { codigo: string | null; mensaje: string }): ErrorMiSiiMcp {
   const detalle = { codigo: error.codigo };
   if (error.codigo === CODIGO_SESIONES_MAXIMAS && /sesi/i.test(error.mensaje)) {
-    return new ErrorImpuestocl('SII_SESIONES_MAXIMAS', error.mensaje, { detalle });
+    return new ErrorMiSiiMcp('SII_SESIONES_MAXIMAS', error.mensaje, { detalle });
   }
   if (error.codigo === CODIGO_CLAVE_INCORRECTA) {
-    return new ErrorImpuestocl('CLAVE_RECHAZADA', error.mensaje || 'El SII rechazó el inicio de sesión.', { detalle });
+    return new ErrorMiSiiMcp('CLAVE_RECHAZADA', error.mensaje || 'El SII rechazó el inicio de sesión.', { detalle });
   }
   const base = error.mensaje || 'El SII rechazó el inicio de sesión.';
-  return new ErrorImpuestocl('CLAVE_RECHAZADA', error.codigo ? `${base} (código ${error.codigo})` : base, { detalle });
+  return new ErrorMiSiiMcp('CLAVE_RECHAZADA', error.codigo ? `${base} (código ${error.codigo})` : base, { detalle });
 }
 
 /** Extrae el literal JSON asignado a `DatosCntrNow`, respetando llaves dentro de strings. */
@@ -81,19 +81,19 @@ const textoNoVacio = (v: unknown): string | null => (typeof v === 'string' && v.
 export function identidadDesde(datos: Record<string, unknown>): IdentidadSii {
   const contribuyente = datos['contribuyente'];
   if (typeof contribuyente !== 'object' || contribuyente === null || Array.isArray(contribuyente)) {
-    throw new ErrorImpuestocl('PORTAL_CAMBIO', 'El SII entregó datos del contribuyente con una estructura inválida.');
+    throw new ErrorMiSiiMcp('PORTAL_CAMBIO', 'El SII entregó datos del contribuyente con una estructura inválida.');
   }
   const c = contribuyente as Record<string, unknown>;
   const cuerpo = c['rut'];
   const dv = c['dv'];
   if ((typeof cuerpo !== 'string' && typeof cuerpo !== 'number') || (typeof dv !== 'string' && typeof dv !== 'number') || String(dv).length !== 1) {
-    throw new ErrorImpuestocl('PORTAL_CAMBIO', 'El SII entregó un RUT o dígito verificador inválido.');
+    throw new ErrorMiSiiMcp('PORTAL_CAMBIO', 'El SII entregó un RUT o dígito verificador inválido.');
   }
   let rut: string;
   try {
     rut = parseRut(`${cuerpo}-${dv}`).canonico;
   } catch (cause) {
-    throw new ErrorImpuestocl('PORTAL_CAMBIO', 'El SII entregó un RUT o dígito verificador inválido.', { cause });
+    throw new ErrorMiSiiMcp('PORTAL_CAMBIO', 'El SII entregó un RUT o dígito verificador inválido.', { cause });
   }
   const razonSocial = textoNoVacio(c['razonSocial']);
   const nombre =
@@ -135,7 +135,7 @@ function atributoDesde(v: unknown): AtributoTributario | null {
  */
 export function perfilTributarioDesde(datos: Record<string, unknown>): PerfilTributario {
   const c = datos['contribuyente'];
-  if (!esObjeto(c)) throw new ErrorImpuestocl('PORTAL_CAMBIO', 'El SII entregó datos del contribuyente con una estructura inválida.');
+  if (!esObjeto(c)) throw new ErrorMiSiiMcp('PORTAL_CAMBIO', 'El SII entregó datos del contribuyente con una estructura inválida.');
   const dia20 = typeof c['autorizadoDeclararDia20'] === 'string' ? c['autorizadoDeclararDia20'].trim().toUpperCase() : '';
   const atributos = Array.isArray(datos['atributos']) ? datos['atributos'] : [];
   return {
@@ -161,16 +161,16 @@ export function perfilTributarioDesde(datos: Record<string, unknown>): PerfilTri
 export async function leerPerfilTributario(http: Http, rut: string): Promise<PerfilTributario> {
   const r = exigirSesion(await http.solicitar(URL_MI_SII));
   const datos = extraerDatosCntrNow(r.texto);
-  if (!datos) throw new ErrorImpuestocl('SESION_REQUERIDA', 'El SII no entregó los datos del contribuyente; la sesión no está activa.');
+  if (!datos) throw new ErrorMiSiiMcp('SESION_REQUERIDA', 'El SII no entregó los datos del contribuyente; la sesión no está activa.');
   const identidad = identidadDesde(datos);
-  if (identidad.rut !== rut) throw new ErrorImpuestocl('PORTAL_CAMBIO', `Mi SII entregó los datos de ${identidad.rut} en vez de ${rut}.`);
+  if (identidad.rut !== rut) throw new ErrorMiSiiMcp('PORTAL_CAMBIO', `Mi SII entregó los datos de ${identidad.rut} en vez de ${rut}.`);
   return perfilTributarioDesde(datos);
 }
 
 export async function leerIdentidad(http: ClienteHttp): Promise<IdentidadSii> {
   const r = exigirSesion(await http.solicitar(URL_MI_SII));
   const datos = extraerDatosCntrNow(r.texto);
-  if (!datos) throw new ErrorImpuestocl('SESION_REQUERIDA', 'El SII no entregó los datos del contribuyente; la sesión no está activa.');
+  if (!datos) throw new ErrorMiSiiMcp('SESION_REQUERIDA', 'El SII no entregó los datos del contribuyente; la sesión no está activa.');
   return identidadDesde(datos);
 }
 
@@ -195,11 +195,11 @@ export async function iniciarSesion(http: ClienteHttp, rut: Rut, clave: string):
   const error = extraerErrorLogin(r.texto);
   if (error) throw clasificarErrorLogin(error);
   if (!(await http.cookie('https://www4.sii.cl/', 'TOKEN'))) {
-    throw new ErrorImpuestocl('PORTAL_CAMBIO', 'El SII no entregó la cookie de sesión TOKEN después del login.');
+    throw new ErrorMiSiiMcp('PORTAL_CAMBIO', 'El SII no entregó la cookie de sesión TOKEN después del login.');
   }
   const identidad = await leerIdentidad(http);
   if (identidad.rut !== rut.canonico) {
-    throw new ErrorImpuestocl('PORTAL_CAMBIO', `El SII devolvió la identidad ${identidad.rut} en vez de ${rut.canonico}.`);
+    throw new ErrorMiSiiMcp('PORTAL_CAMBIO', `El SII devolvió la identidad ${identidad.rut} en vez de ${rut.canonico}.`);
   }
   return identidad;
 }

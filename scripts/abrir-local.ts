@@ -21,7 +21,7 @@ export async function iniciarLocal(opciones: { puerto?: number; sinAbrir?: boole
   try {
     const respuesta = await fetch(url + '/estado', { signal: AbortSignal.timeout(1000), redirect: 'error' });
     const estado: unknown = await respuesta.json();
-    propia = respuesta.ok && !!estado && typeof estado === 'object' && 'aplicacion' in estado && estado.aplicacion === 'impuestocl-local-v1';
+    propia = respuesta.ok && !!estado && typeof estado === 'object' && 'aplicacion' in estado && estado.aplicacion === 'mi-sii-mcp-local-v1';
   } catch { /* No hay una instancia propia disponible. */ }
   if (!propia) {
     try { servidor = await crearServidorLocal({ puerto }); }

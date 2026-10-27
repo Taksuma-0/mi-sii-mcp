@@ -1,4 +1,4 @@
-import { ErrorImpuestocl } from '../../src/domain/errores.js';
+import { ErrorMiSiiMcp } from '../../src/domain/errores.js';
 import type { Periodo } from '../../src/domain/periodo.js';
 import type { DjInformada, DjTercero, DocumentoRcv, EmpresaAutorizada, EstadoRcv, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBhe, InformeBheEmitidas, InformeBheEmitidasMes, Lado, PerfilTributario, PropuestaF29, RcvResumen, RcvResumenFila } from '../../src/domain/tipos.js';
 import type { SiiReader, SumideroRespuestas } from '../../src/ports/index.js';
@@ -73,8 +73,8 @@ export class SiiFalso implements SiiReader {
   async f29Valores(_rut: string, d: F29Declaracion): Promise<F29Valores> {
     await this.registrar(`f29valores|${d.periodo}|${d.folio}`);
     const v = this.valores.get(`${d.periodo}|${d.folio}`);
-    if (!v) throw new ErrorImpuestocl('PORTAL_CAMBIO', 'El PDF del F29 no trajo valores.');
-    if (Object.keys(v.valores).length === 0) throw new ErrorImpuestocl('PORTAL_CAMBIO', `El PDF del F29 de ${d.periodo} no trajo códigos legibles.`);
+    if (!v) throw new ErrorMiSiiMcp('PORTAL_CAMBIO', 'El PDF del F29 no trajo valores.');
+    if (Object.keys(v.valores).length === 0) throw new ErrorMiSiiMcp('PORTAL_CAMBIO', `El PDF del F29 de ${d.periodo} no trajo códigos legibles.`);
     return v;
   }
 
@@ -103,7 +103,7 @@ export class SiiFalso implements SiiReader {
 
   async perfilTributario(_rut: string): Promise<PerfilTributario> {
     await this.registrar('perfil');
-    if (!this.perfil) throw new ErrorImpuestocl('PORTAL_CAMBIO', 'Mi SII no entregó datos del contribuyente.');
+    if (!this.perfil) throw new ErrorMiSiiMcp('PORTAL_CAMBIO', 'Mi SII no entregó datos del contribuyente.');
     return this.perfil;
   }
 

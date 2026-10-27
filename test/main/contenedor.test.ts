@@ -28,51 +28,51 @@ describe('configuración y contenedor', () => {
     rmSync(home, { recursive: true, force: true });
   });
 
-  it('cargarConfig usa IMPUESTOCL_HOME y valores numéricos seguros', () => {
-    const c = cargarConfig({ IMPUESTOCL_HOME: home, IMPUESTOCL_TOLERANCIA: '100', IMPUESTOCL_INTERVALO_MS: 'abc' });
+  it('cargarConfig usa MI_SII_MCP_HOME y valores numéricos seguros', () => {
+    const c = cargarConfig({ MI_SII_MCP_HOME: home, MI_SII_MCP_TOLERANCIA: '100', MI_SII_MCP_INTERVALO_MS: 'abc' });
     expect(c.home).toBe(home);
-    expect(c.rutaDb).toBe(join(home, 'impuestocl.db'));
+    expect(c.rutaDb).toBe(join(home, 'mi-sii-mcp.db'));
     expect(c.dirSesiones).toBe(join(home, 'sesiones'));
     expect(c.toleranciaPesos).toBe(100);
     expect(c.intervaloMinMs).toBe(1000);
   });
 
-  it.each(['0', '1'])('cargarConfig exige al menos 1000 ms si IMPUESTOCL_INTERVALO_MS es %s', (intervalo) => {
-    const c = cargarConfig({ IMPUESTOCL_HOME: home, IMPUESTOCL_INTERVALO_MS: intervalo });
+  it.each(['0', '1'])('cargarConfig exige al menos 1000 ms si MI_SII_MCP_INTERVALO_MS es %s', (intervalo) => {
+    const c = cargarConfig({ MI_SII_MCP_HOME: home, MI_SII_MCP_INTERVALO_MS: intervalo });
     expect(c.intervaloMinMs).toBeGreaterThanOrEqual(1000);
   });
 
   it('cargarConfig conserva intervalos mayores a 1000 ms', () => {
-    const c = cargarConfig({ IMPUESTOCL_HOME: home, IMPUESTOCL_INTERVALO_MS: '2500' });
+    const c = cargarConfig({ MI_SII_MCP_HOME: home, MI_SII_MCP_INTERVALO_MS: '2500' });
     expect(c.intervaloMinMs).toBe(2500);
   });
 
-  it('cargarConfig usa 60 s de plazo HTTP por defecto y respeta IMPUESTOCL_PLAZO_HTTP_MS', () => {
-    expect(cargarConfig({ IMPUESTOCL_HOME: home }).plazoHttpMs).toBe(60_000);
-    expect(cargarConfig({ IMPUESTOCL_HOME: home, IMPUESTOCL_PLAZO_HTTP_MS: '90000' }).plazoHttpMs).toBe(90_000);
-    expect(cargarConfig({ IMPUESTOCL_HOME: home, IMPUESTOCL_PLAZO_HTTP_MS: 'abc' }).plazoHttpMs).toBe(60_000);
+  it('cargarConfig usa 60 s de plazo HTTP por defecto y respeta MI_SII_MCP_PLAZO_HTTP_MS', () => {
+    expect(cargarConfig({ MI_SII_MCP_HOME: home }).plazoHttpMs).toBe(60_000);
+    expect(cargarConfig({ MI_SII_MCP_HOME: home, MI_SII_MCP_PLAZO_HTTP_MS: '90000' }).plazoHttpMs).toBe(90_000);
+    expect(cargarConfig({ MI_SII_MCP_HOME: home, MI_SII_MCP_PLAZO_HTTP_MS: 'abc' }).plazoHttpMs).toBe(60_000);
   });
 
   it('cargarConfig acota el plazo HTTP a lo que admite un temporizador (2^31-1 ms)', () => {
-    expect(cargarConfig({ IMPUESTOCL_HOME: home, IMPUESTOCL_PLAZO_HTTP_MS: '99999999999999' }).plazoHttpMs).toBe(2_147_483_647);
+    expect(cargarConfig({ MI_SII_MCP_HOME: home, MI_SII_MCP_PLAZO_HTTP_MS: '99999999999999' }).plazoHttpMs).toBe(2_147_483_647);
   });
 
-  it.each(['0', '500', '9999'])('cargarConfig exige al menos 10000 ms de plazo HTTP si IMPUESTOCL_PLAZO_HTTP_MS es %s', (plazo) => {
-    expect(cargarConfig({ IMPUESTOCL_HOME: home, IMPUESTOCL_PLAZO_HTTP_MS: plazo }).plazoHttpMs).toBe(10_000);
+  it.each(['0', '500', '9999'])('cargarConfig exige al menos 10000 ms de plazo HTTP si MI_SII_MCP_PLAZO_HTTP_MS es %s', (plazo) => {
+    expect(cargarConfig({ MI_SII_MCP_HOME: home, MI_SII_MCP_PLAZO_HTTP_MS: plazo }).plazoHttpMs).toBe(10_000);
   });
 
-  it('cargarConfig usa 10 minutos para el login con navegador y respeta IMPUESTOCL_PLAZO_NAVEGADOR_MS (mínimo 1 minuto)', () => {
-    expect(cargarConfig({ IMPUESTOCL_HOME: home }).plazoNavegadorMs).toBe(600_000);
-    expect(cargarConfig({ IMPUESTOCL_HOME: home, IMPUESTOCL_PLAZO_NAVEGADOR_MS: '120000' }).plazoNavegadorMs).toBe(120_000);
-    expect(cargarConfig({ IMPUESTOCL_HOME: home, IMPUESTOCL_PLAZO_NAVEGADOR_MS: '5' }).plazoNavegadorMs).toBe(60_000);
+  it('cargarConfig usa 10 minutos para el login con navegador y respeta MI_SII_MCP_PLAZO_NAVEGADOR_MS (mínimo 1 minuto)', () => {
+    expect(cargarConfig({ MI_SII_MCP_HOME: home }).plazoNavegadorMs).toBe(600_000);
+    expect(cargarConfig({ MI_SII_MCP_HOME: home, MI_SII_MCP_PLAZO_NAVEGADOR_MS: '120000' }).plazoNavegadorMs).toBe(120_000);
+    expect(cargarConfig({ MI_SII_MCP_HOME: home, MI_SII_MCP_PLAZO_NAVEGADOR_MS: '5' }).plazoNavegadorMs).toBe(60_000);
   });
 
   it('cargarConfig acota el plazo del login con navegador a 30 minutos', () => {
-    expect(cargarConfig({ IMPUESTOCL_HOME: home, IMPUESTOCL_PLAZO_NAVEGADOR_MS: '99999999999' }).plazoNavegadorMs).toBe(1_800_000);
+    expect(cargarConfig({ MI_SII_MCP_HOME: home, MI_SII_MCP_PLAZO_NAVEGADOR_MS: '99999999999' }).plazoNavegadorMs).toBe(1_800_000);
   });
 
   it('crearContenedor conecta el login con navegador con el plazo configurado y no devuelve cookies', async () => {
-    const config = cargarConfig({ IMPUESTOCL_HOME: home, IMPUESTOCL_PLAZO_NAVEGADOR_MS: '90000' });
+    const config = cargarConfig({ MI_SII_MCP_HOME: home, MI_SII_MCP_PLAZO_NAVEGADOR_MS: '90000' });
     const { fetchFalso } = crearFetchFalso({ [RUTA_MI_SII]: { headers: HTML, body: paginaDatosCntr('22222222', '2', 'EMPRESA DEMO SPA') } });
     const capturas: unknown[] = [];
     const c = crearContenedor({
@@ -115,7 +115,7 @@ describe('configuración y contenedor', () => {
       const capturas: string[] = [];
       const secretos = new SecretosEnMemoria();
       const c = crearContenedor({
-        config: cargarConfig({ IMPUESTOCL_HOME: home }),
+        config: cargarConfig({ MI_SII_MCP_HOME: home }),
         secretos,
         opcionesHttp: { fetch: fetchFalso, temporizador: sinEsperas },
         capturarNavegador: async () => cookies(capturas.shift() ?? 'tok-persona'),
@@ -200,9 +200,9 @@ describe('configuración y contenedor', () => {
   });
 
   it('crearContenedor arma la base, las sesiones y el diagnóstico sin tocar la red', () => {
-    const c = crearContenedor({ config: cargarConfig({ IMPUESTOCL_HOME: home }), secretos: new SecretosEnMemoria() });
+    const c = crearContenedor({ config: cargarConfig({ MI_SII_MCP_HOME: home }), secretos: new SecretosEnMemoria() });
     try {
-      expect(existsSync(join(home, 'impuestocl.db'))).toBe(true);
+      expect(existsSync(join(home, 'mi-sii-mcp.db'))).toBe(true);
       expect(c.deps.store.contribuyentes()).toEqual([]);
       expect(c.sesiones.estado('22222222-2')).toEqual({ tieneSesion: false, guardadaEn: null, bloqueado: false });
       expect(c.deps.lectorPdfF29.version).toBe(VERSION_LECTOR_F29);
@@ -214,7 +214,7 @@ describe('configuración y contenedor', () => {
   });
 
   it('crearContenedor conecta las consultas libres a la base local', async () => {
-    const c = crearContenedor({ config: cargarConfig({ IMPUESTOCL_HOME: home }), secretos: new SecretosEnMemoria() });
+    const c = crearContenedor({ config: cargarConfig({ MI_SII_MCP_HOME: home }), secretos: new SecretosEnMemoria() });
     try {
       const limites = { filas: 200, caracteres: 40_000, caracteresCelda: 1_000, milisegundos: 15_000 };
       const vacia = await c.deps.consultaLibre.consultar('SELECT COUNT(*) AS n FROM contribuyente', { limites, tiposNegativos: [60, 61, 112] });
@@ -229,7 +229,7 @@ describe('configuración y contenedor', () => {
   });
 
   it('crearContenedor cierra la base y conserva el error si no puede crear el directorio de sesiones', () => {
-    const config = cargarConfig({ IMPUESTOCL_HOME: home });
+    const config = cargarConfig({ MI_SII_MCP_HOME: home });
     writeFileSync(config.dirSesiones, 'archivo que impide crear el directorio');
     const db = sqlite.abrirDb(config.rutaDb);
     const abrirDb = vi.spyOn(sqlite, 'abrirDb').mockReturnValue(db);

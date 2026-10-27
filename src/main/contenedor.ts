@@ -14,6 +14,7 @@ import { abrirDb } from '../store/sqlite/db.js';
 import { SqliteStore } from '../store/sqlite/store.js';
 import { parseRut } from '../domain/rut.js';
 import { cargarConfig, type Config } from './config.js';
+import { conNombreAnterior } from './nombre-anterior.js';
 
 export interface Contenedor {
   readonly config: Config;
@@ -34,7 +35,7 @@ export interface OpcionesContenedor {
 export const crearLlavero = (): SecretStore => new LlaveroSistema();
 
 export function crearContenedor(o: OpcionesContenedor = {}): Contenedor {
-  const config = o.config ?? cargarConfig();
+  const config = conNombreAnterior(o.config ?? cargarConfig());
   mkdirSync(config.home, { recursive: true });
   const db = abrirDb(config.rutaDb);
   try {

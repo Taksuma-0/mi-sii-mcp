@@ -1,5 +1,5 @@
 import * as z from 'zod';
-import { ErrorImpuestocl } from '../../domain/errores.js';
+import { ErrorMiSiiMcp } from '../../domain/errores.js';
 import { parseRut } from '../../domain/rut.js';
 import type { EmpresaAutorizada } from '../../domain/tipos.js';
 import type { SumideroRespuestas } from '../../ports/index.js';
@@ -36,12 +36,12 @@ export function sanearEmpresas(cuerpo: unknown): unknown {
 }
 
 function empresaDe(fila: unknown): EmpresaAutorizada {
-  if (!esObjeto(fila)) throw new ErrorImpuestocl('PORTAL_CAMBIO', 'Empresa autorizada inesperada en la respuesta del SII (la fila no es un objeto).');
+  if (!esObjeto(fila)) throw new ErrorMiSiiMcp('PORTAL_CAMBIO', 'Empresa autorizada inesperada en la respuesta del SII (la fila no es un objeto).');
   let rutEmpresa: string;
   try {
     rutEmpresa = parseRut(`${texto(fila['usrEmpRut']) ?? ''}-${texto(fila['usrEmpDv']) ?? ''}`).canonico;
   } catch (cause) {
-    throw new ErrorImpuestocl('PORTAL_CAMBIO', 'Empresa autorizada inesperada en la respuesta del SII (RUT o dígito verificador inválido).', { cause });
+    throw new ErrorMiSiiMcp('PORTAL_CAMBIO', 'Empresa autorizada inesperada en la respuesta del SII (RUT o dígito verificador inválido).', { cause });
   }
   return {
     rutEmpresa,
@@ -67,14 +67,14 @@ export async function empresasAutorizadas(http: Http, sumidero: SumideroRespuest
     sanear: sanearEmpresas,
   });
   const sobre = Sobre.safeParse(crudo);
-  if (!sobre.success) throw new ErrorImpuestocl('PORTAL_CAMBIO', 'Respuesta inesperada de las empresas autorizadas.', { detalle: sobre.error.message });
+  if (!sobre.success) throw new ErrorMiSiiMcp('PORTAL_CAMBIO', 'Respuesta inesperada de las empresas autorizadas.', { detalle: sobre.error.message });
   const codigo = sobre.data.respEstado.codRespuesta;
-  if (codigo === undefined || codigo === null) throw new ErrorImpuestocl('PORTAL_CAMBIO', 'La respuesta de las empresas autorizadas no trae código de respuesta.');
+  if (codigo === undefined || codigo === null) throw new ErrorMiSiiMcp('PORTAL_CAMBIO', 'La respuesta de las empresas autorizadas no trae código de respuesta.');
   if (String(codigo) !== '0') {
     const mensaje = sobre.data.respEstado.msgeRespuesta?.trim() || `código ${String(codigo)}`;
-    throw new ErrorImpuestocl(/autoriza/i.test(mensaje) ? 'SIN_PERMISO' : 'SII_RECHAZO', `Empresas autorizadas: ${mensaje}`);
+    throw new ErrorMiSiiMcp(/autoriza/i.test(mensaje) ? 'SIN_PERMISO' : 'SII_RECHAZO', `Empresas autorizadas: ${mensaje}`);
   }
-  if (!Array.isArray(sobre.data.data)) throw new ErrorImpuestocl('PORTAL_CAMBIO', 'La respuesta de las empresas autorizadas no trae la lista de empresas.');
+  if (!Array.isArray(sobre.data.data)) throw new ErrorMiSiiMcp('PORTAL_CAMBIO', 'La respuesta de las empresas autorizadas no trae la lista de empresas.');
   return sinDuplicados(sobre.data.data.map(empresaDe));
 }
 

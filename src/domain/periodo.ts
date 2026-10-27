@@ -1,4 +1,4 @@
-import { ErrorImpuestocl } from './errores.js';
+import { ErrorMiSiiMcp } from './errores.js';
 
 export interface Periodo {
   readonly anio: number;
@@ -9,14 +9,14 @@ export interface Periodo {
 
 export function crearPeriodo(anio: number, mes: number): Periodo {
   if (!Number.isInteger(anio) || anio < 2000 || anio > 2100 || !Number.isInteger(mes) || mes < 1 || mes > 12) {
-    throw new ErrorImpuestocl('PERIODO_INVALIDO', `Período inválido: ${anio}-${mes}`);
+    throw new ErrorMiSiiMcp('PERIODO_INVALIDO', `Período inválido: ${anio}-${mes}`);
   }
   return { anio, mes, texto: `${anio}-${String(mes).padStart(2, '0')}` };
 }
 
 export function parsePeriodo(entrada: string): Periodo {
   const m = /^(\d{4})-?(\d{2})$/.exec(entrada.trim());
-  if (!m) throw new ErrorImpuestocl('PERIODO_INVALIDO', `Período inválido: "${entrada}"`);
+  if (!m) throw new ErrorMiSiiMcp('PERIODO_INVALIDO', `Período inválido: "${entrada}"`);
   return crearPeriodo(Number(m[1]), Number(m[2]));
 }
 
@@ -37,12 +37,12 @@ export const compararPeriodos = (a: Periodo, b: Periodo): number => a.anio - b.a
 
 export function rangoPeriodos(desde: Periodo, hasta: Periodo, maximo = 120): Periodo[] {
   if (compararPeriodos(desde, hasta) > 0) {
-    throw new ErrorImpuestocl('PERIODO_INVALIDO', `El inicio ${desde.texto} es posterior al fin ${hasta.texto}`);
+    throw new ErrorMiSiiMcp('PERIODO_INVALIDO', `El inicio ${desde.texto} es posterior al fin ${hasta.texto}`);
   }
   const out: Periodo[] = [];
   for (let p = desde; compararPeriodos(p, hasta) <= 0; p = periodoSiguiente(p)) {
     out.push(p);
-    if (out.length > maximo) throw new ErrorImpuestocl('PERIODO_INVALIDO', `El rango supera ${maximo} meses`);
+    if (out.length > maximo) throw new ErrorMiSiiMcp('PERIODO_INVALIDO', `El rango supera ${maximo} meses`);
     if (compararPeriodos(p, hasta) === 0) break;
   }
   return out;

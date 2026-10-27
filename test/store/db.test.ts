@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { abrirDb, aplicarMigraciones, versionEsquema } from '../../src/store/sqlite/db.js';
 import type { Db } from '../../src/store/sqlite/db.js';
-import { ErrorImpuestocl } from '../../src/domain/errores.js';
+import { ErrorMiSiiMcp } from '../../src/domain/errores.js';
 import { MIGRACIONES, type Migracion } from '../../src/store/sqlite/migraciones.js';
 import { sha256, SqliteStore } from '../../src/store/sqlite/store.js';
 import { perfilEmpresa, perfilPersona, RUT_EMPRESA, RUT_PERSONA } from '../helpers/fabricas.js';
@@ -274,9 +274,9 @@ describe('respaldo antes de migrar', () => {
     } catch (e) {
       error = e;
     }
-    expect(error).toBeInstanceOf(ErrorImpuestocl);
-    expect((error as ErrorImpuestocl).codigo).toBe('RESPALDO_FALLIDO');
-    expect((error as ErrorImpuestocl).accion).toContain('no se pudo respaldar');
+    expect(error).toBeInstanceOf(ErrorMiSiiMcp);
+    expect((error as ErrorMiSiiMcp).codigo).toBe('RESPALDO_FALLIDO');
+    expect((error as ErrorMiSiiMcp).accion).toContain('no se pudo respaldar');
     expect(readdirSync(dirs[0]!).filter((f) => f.includes('antes-v99'))).toEqual([]);
     // La conexión se cerró (se puede borrar el archivo) y la base quedó sin migrar.
     const intacta = new Database(ruta, { readonly: true });

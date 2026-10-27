@@ -1,4 +1,4 @@
-import { ErrorImpuestocl } from './errores.js';
+import { ErrorMiSiiMcp } from './errores.js';
 import { formatearClp } from './formato.js';
 import type { BheEmitidaMes, BoletaHonorariosEmitida, DjTercero, F22Declaracion, F22Valor } from './tipos.js';
 
@@ -10,15 +10,15 @@ export function parseAnioTributario(entrada: string): number {
   const m = /^(\d{4})$/.exec(entrada.trim());
   const anio = m ? Number(m[1]) : Number.NaN;
   if (!Number.isInteger(anio) || anio < 2000 || anio > 2100) {
-    throw new ErrorImpuestocl('PERIODO_INVALIDO', `Año tributario inválido: "${entrada}"`, { accion: 'Usa el año tributario AAAA, por ejemplo 2026 (renta del año comercial 2025).' });
+    throw new ErrorMiSiiMcp('PERIODO_INVALIDO', `Año tributario inválido: "${entrada}"`, { accion: 'Usa el año tributario AAAA, por ejemplo 2026 (renta del año comercial 2025).' });
   }
   return anio;
 }
 
 /** Años tributarios de `desde` a `hasta`, ambos incluidos; como máximo `maximo`. */
 export function rangoAnios(desde: number, hasta: number, maximo = MAX_ANIOS_RENTA): number[] {
-  if (desde > hasta) throw new ErrorImpuestocl('PERIODO_INVALIDO', `El año tributario inicial ${desde} es posterior al final ${hasta}`);
-  if (hasta - desde + 1 > maximo) throw new ErrorImpuestocl('PERIODO_INVALIDO', `El rango supera ${maximo} años tributarios`);
+  if (desde > hasta) throw new ErrorMiSiiMcp('PERIODO_INVALIDO', `El año tributario inicial ${desde} es posterior al final ${hasta}`);
+  if (hasta - desde + 1 > maximo) throw new ErrorMiSiiMcp('PERIODO_INVALIDO', `El rango supera ${maximo} años tributarios`);
   return Array.from({ length: hasta - desde + 1 }, (_, i) => desde + i);
 }
 

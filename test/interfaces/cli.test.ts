@@ -1,6 +1,6 @@
 import { PassThrough, Readable } from 'node:stream';
 import { describe, expect, it } from 'vitest';
-import { ErrorImpuestocl } from '../../src/domain/errores.js';
+import { ErrorMiSiiMcp } from '../../src/domain/errores.js';
 import { leerLineaStdin, pedirClaveOculta } from '../../src/interfaces/cli/clave.js';
 import { crearPrograma, type ContenedorCli, type IoCli, type SesionesCli } from '../../src/interfaces/cli/programa.js';
 import { boleta, declaracion, declaracionF22, detalleF22, documento, empresaAutorizada, fila, perfilEmpresa, perfilTributario, propuesta, resumen, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
@@ -31,7 +31,7 @@ function entorno(o: { claveStdin?: string; fallaAlAbrir?: Error; falloNavegador?
   const contenedor: ContenedorCli = {
     deps: p.deps,
     sesiones,
-    config: { home: '/tmp/impuestocl', rutaDb: '/tmp/impuestocl/impuestocl.db', plazoNavegadorMs: 25 * 60_000 },
+    config: { home: '/tmp/mi-sii-mcp', rutaDb: '/tmp/mi-sii-mcp/mi-sii-mcp.db', plazoNavegadorMs: 25 * 60_000 },
     cerrar: () => {
       contadores.cerrado++;
     },
@@ -90,7 +90,7 @@ describe('CLI', () => {
   });
 
   it('un error del SII que conviene reintentar más tarde lo indica', async () => {
-    const e = entorno({ fallaAlAbrir: new ErrorImpuestocl('SII_NO_DISPONIBLE', 'El SII no responde.') });
+    const e = entorno({ fallaAlAbrir: new ErrorMiSiiMcp('SII_NO_DISPONIBLE', 'El SII no responde.') });
     e.store.guardarContribuyente(perfilEmpresa());
     expect(await e.correr('sync', RUT_EMPRESA, '--desde', '2026-09')).toBe(1);
     expect(e.errores[0]).toContain('Error [SII_NO_DISPONIBLE]');
@@ -117,7 +117,7 @@ describe('CLI', () => {
   });
 
   it('login-navegador --rut pasa el RUT esperado y un rechazo sale con 1', async () => {
-    const e = entorno({ falloNavegador: new ErrorImpuestocl('SIN_PERMISO', 'En el navegador se inició sesión como 33333333-3, no como 22222222-2.') });
+    const e = entorno({ falloNavegador: new ErrorMiSiiMcp('SIN_PERMISO', 'En el navegador se inició sesión como 33333333-3, no como 22222222-2.') });
     expect(await e.correr('login-navegador', '--rut', '22.222.222-2')).toBe(1);
     expect(e.navegador).toEqual(['22.222.222-2']);
     expect(e.errores[0]).toContain('Error [SIN_PERMISO]');
@@ -127,7 +127,7 @@ describe('CLI', () => {
   it('sync sale con 1 si alguna superficie falló', async () => {
     const e = entorno();
     e.store.guardarContribuyente(perfilEmpresa());
-    e.sii.fallas.set('f29|2026-09', new ErrorImpuestocl('PORTAL_CAMBIO', 'cambió'));
+    e.sii.fallas.set('f29|2026-09', new ErrorMiSiiMcp('PORTAL_CAMBIO', 'cambió'));
     expect(await e.correr('sync', RUT_EMPRESA, '--desde', '2026-09')).toBe(1);
     expect(e.salidaTexto.at(-1)).toContain('f29 PORTAL_CAMBIO');
   });
@@ -420,7 +420,7 @@ describe('CLI: renta F22', () => {
 
   it('un error de un año deja el código de salida en 1; un año inválido es un error de dominio', async () => {
     const e = conRenta();
-    e.sii.fallas.set('f22|2026', new ErrorImpuestocl('SII_RECHAZO', 'Servicio no disponible.'));
+    e.sii.fallas.set('f22|2026', new ErrorMiSiiMcp('SII_RECHAZO', 'Servicio no disponible.'));
     expect(await e.correr('renta', 'sync', RUT_EMPRESA, '--desde', '2026', '--json')).toBe(1);
     expect(JSON.parse(e.salidaTexto.at(-1)!)).toMatchObject({ anios: [{ anioTributario: 2026, errores: [{ superficie: 'f22', codigo: 'SII_RECHAZO' }] }] });
 

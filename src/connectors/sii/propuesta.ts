@@ -1,5 +1,5 @@
 import * as z from 'zod';
-import { ErrorImpuestocl } from '../../domain/errores.js';
+import { ErrorMiSiiMcp } from '../../domain/errores.js';
 import type { Periodo } from '../../domain/periodo.js';
 import type { Rut } from '../../domain/rut.js';
 import type { PropuestaF29 } from '../../domain/tipos.js';
@@ -35,7 +35,7 @@ function normalizarCodigo(v: unknown): string | null {
 /** Pares `{codigo, valor}` legibles de una lista del portal, sin los códigos de identificación; lo ilegible se descarta. */
 function leerLista(lista: unknown, nombre: string): Record<string, number> {
   if (lista === undefined || lista === null) return {};
-  if (!Array.isArray(lista)) throw new ErrorImpuestocl('PORTAL_CAMBIO', `Respuesta inesperada de la propuesta del F29 (${nombre} no es una lista).`);
+  if (!Array.isArray(lista)) throw new ErrorMiSiiMcp('PORTAL_CAMBIO', `Respuesta inesperada de la propuesta del F29 (${nombre} no es una lista).`);
   const out: Record<string, number> = {};
   for (const fila of lista) {
     if (!esObjeto(fila)) continue;
@@ -92,9 +92,9 @@ export async function f29Propuesta(http: Http, sumidero: SumideroRespuestas, rut
   });
   // Los errores se leen antes de validar `data`: un sobre de error puede venir sin esa clave.
   const error = errorDeSobre(crudo);
-  if (error) throw new ErrorImpuestocl(/autoriza/i.test(error) ? 'SIN_PERMISO' : 'SII_RECHAZO', `Propuesta F29: ${error}`);
+  if (error) throw new ErrorMiSiiMcp(/autoriza/i.test(error) ? 'SIN_PERMISO' : 'SII_RECHAZO', `Propuesta F29: ${error}`);
   const sobre = Sobre.safeParse(crudo);
-  if (!sobre.success) throw new ErrorImpuestocl('PORTAL_CAMBIO', 'Respuesta inesperada de la propuesta del F29.', { detalle: sobre.error.message });
+  if (!sobre.success) throw new ErrorMiSiiMcp('PORTAL_CAMBIO', 'Respuesta inesperada de la propuesta del F29.', { detalle: sobre.error.message });
   const data = sobre.data.data;
   if (data === null) return null;
   const propuestos = leerLista(data['listCodPropuestos'], 'listCodPropuestos');

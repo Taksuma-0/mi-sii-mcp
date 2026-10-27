@@ -1,5 +1,5 @@
 import { vencimientoReclamo, vencimientosF29 } from '../calendar/plazos.js';
-import { ErrorImpuestocl } from '../domain/errores.js';
+import { ErrorMiSiiMcp } from '../domain/errores.js';
 import { declaracionVigente, montosPropuesta } from '../domain/f29.js';
 import { diasEntre, fechaEnSantiago } from '../domain/fechas.js';
 import { formatearClp, nombreTipoDocumento } from '../domain/formato.js';
@@ -84,7 +84,7 @@ export interface PaginaDocumentos {
 export function perfilExistente(deps: DepsApp, rutTexto: string): Perfil {
   const rut = parseRut(rutTexto).canonico;
   const perfil = deps.store.contribuyente(rut);
-  if (!perfil) throw new ErrorImpuestocl('PERFIL_NO_EXISTE', `No existe el perfil ${rut}.`);
+  if (!perfil) throw new ErrorMiSiiMcp('PERFIL_NO_EXISTE', `No existe el perfil ${rut}.`);
   return perfil;
 }
 
@@ -170,7 +170,7 @@ export function hallazgos(deps: DepsApp, rutTexto: string, filtro: FiltroHallazg
   const desde = filtro.desde === undefined ? undefined : parsePeriodo(filtro.desde);
   const hasta = filtro.hasta === undefined ? undefined : parsePeriodo(filtro.hasta);
   if (desde && hasta && compararPeriodos(desde, hasta) > 0) {
-    throw new ErrorImpuestocl('PERIODO_INVALIDO', `El inicio ${desde.texto} es posterior al fin ${hasta.texto}`);
+    throw new ErrorMiSiiMcp('PERIODO_INVALIDO', `El inicio ${desde.texto} es posterior al fin ${hasta.texto}`);
   }
   const normalizado: FiltroHallazgos = { ...filtro, desde: desde?.texto, hasta: hasta?.texto };
   const perfil = perfilExistente(deps, rutTexto);

@@ -1,4 +1,4 @@
-import { ErrorImpuestocl } from '../../domain/errores.js';
+import { ErrorMiSiiMcp } from '../../domain/errores.js';
 import { ddmmaaaaAIso } from '../../domain/fechas.js';
 import type { Rut } from '../../domain/rut.js';
 import type { F22Declaracion, F22Detalle, F22Evento, F22Observacion, F22Valor } from '../../domain/tipos.js';
@@ -171,17 +171,17 @@ const EVENTOS: Operacion = { nombre: 'buscaEventos', superficie: 'f22.eventos', 
 /** Llama a una operación de la fachada del F22 y devuelve su `data` (null si no vino), o lanza el error del SII. */
 async function consultar(http: Http, sumidero: SumideroRespuestas, op: Operacion, data: Record<string, unknown>): Promise<unknown> {
   const crudo = await postSdi(http, sumidero, { superficie: op.superficie, url: `${BASE}/${op.nombre}`, namespace: `${NAMESPACE}/${op.nombre}`, referer: REFERER, data, sanear: op.sanear });
-  if (!esObjeto(crudo)) throw new ErrorImpuestocl('PORTAL_CAMBIO', `Respuesta inesperada del F22 (${op.nombre}).`);
+  if (!esObjeto(crudo)) throw new ErrorMiSiiMcp('PORTAL_CAMBIO', `Respuesta inesperada del F22 (${op.nombre}).`);
   const metaData = esObjeto(crudo['metaData']) ? crudo['metaData'] : {};
   const error = mensajeDeError(metaData['errors']) ?? mensajeDeError(crudo['errorMsg']);
-  if (error) throw new ErrorImpuestocl(/autoriza/i.test(error) ? 'SIN_PERMISO' : 'SII_RECHAZO', `F22: ${error}`);
+  if (error) throw new ErrorMiSiiMcp(/autoriza/i.test(error) ? 'SIN_PERMISO' : 'SII_RECHAZO', `F22: ${error}`);
   return crudo['data'] ?? null;
 }
 
 /** Lista de la respuesta: null es vacía; otra cosa que no sea lista es un cambio del portal. */
 function lista(data: unknown, op: Operacion): unknown[] {
   if (data === null || data === undefined) return [];
-  if (!Array.isArray(data)) throw new ErrorImpuestocl('PORTAL_CAMBIO', `Respuesta inesperada del F22 (${op.nombre}: no es una lista).`);
+  if (!Array.isArray(data)) throw new ErrorMiSiiMcp('PORTAL_CAMBIO', `Respuesta inesperada del F22 (${op.nombre}: no es una lista).`);
   return data;
 }
 
@@ -194,9 +194,9 @@ function vigenteDe(v: unknown): boolean | null {
 }
 
 function declaracionDe(fila: unknown, rut: Rut, anio: number, glosas: ReadonlyMap<string, string | null>): F22Declaracion {
-  if (!esObjeto(fila)) throw new ErrorImpuestocl('PORTAL_CAMBIO', 'Declaración F22 inesperada (no es un objeto).');
+  if (!esObjeto(fila)) throw new ErrorMiSiiMcp('PORTAL_CAMBIO', 'Declaración F22 inesperada (no es un objeto).');
   const folio = numeroChileno(fila['folio']);
-  if (folio === null || !Number.isInteger(folio) || folio <= 0) throw new ErrorImpuestocl('PORTAL_CAMBIO', 'Declaración F22 sin un folio válido.');
+  if (folio === null || !Number.isInteger(folio) || folio <= 0) throw new ErrorMiSiiMcp('PORTAL_CAMBIO', 'Declaración F22 sin un folio válido.');
   const codigoConclusion = texto(fila['codConc']);
   return {
     rut: rut.canonico,
@@ -219,7 +219,7 @@ function declaracionDe(fila: unknown, rut: Rut, anio: number, glosas: ReadonlyMa
 export async function f22Declaraciones(http: Http, sumidero: SumideroRespuestas, rut: Rut, anioTributario: number): Promise<F22Declaracion[]> {
   const data = await consultar(http, sumidero, BUSCA_DECL, { periodo: String(anioTributario), rut: String(rut.cuerpo), dv: rut.dv });
   if (data === null) return [];
-  if (!esObjeto(data)) throw new ErrorImpuestocl('PORTAL_CAMBIO', 'Respuesta inesperada del F22 (buscaDeclVgte).');
+  if (!esObjeto(data)) throw new ErrorMiSiiMcp('PORTAL_CAMBIO', 'Respuesta inesperada del F22 (buscaDeclVgte).');
   const glosas = new Map<string, string | null>();
   for (const g of Array.isArray(data['glosas']) ? data['glosas'] : []) {
     if (!esObjeto(g)) continue;

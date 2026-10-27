@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ErrorImpuestocl } from '../../src/domain/errores.js';
+import { ErrorMiSiiMcp } from '../../src/domain/errores.js';
 import { calcularDv, formatearRut, parseRut } from '../../src/domain/rut.js';
 
 describe('rut', () => {
@@ -33,8 +33,8 @@ describe('rut', () => {
     } catch (e) {
       error = e;
     }
-    expect(error).toBeInstanceOf(ErrorImpuestocl);
-    expect((error as ErrorImpuestocl).codigo).toBe('RUT_INVALIDO');
+    expect(error).toBeInstanceOf(ErrorMiSiiMcp);
+    expect((error as ErrorMiSiiMcp).codigo).toBe('RUT_INVALIDO');
   });
 
   it('formatea con puntos', () => {

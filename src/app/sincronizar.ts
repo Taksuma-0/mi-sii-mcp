@@ -1,4 +1,4 @@
-import { ERRORES_FATALES, ErrorImpuestocl, esErrorImpuestocl } from '../domain/errores.js';
+import { ERRORES_FATALES, ErrorMiSiiMcp, esErrorMiSiiMcp } from '../domain/errores.js';
 import { declaracionVigente, f29Presentada } from '../domain/f29.js';
 import { rangoPeriodos, type Periodo } from '../domain/periodo.js';
 import { parseRut } from '../domain/rut.js';
@@ -67,7 +67,7 @@ export async function sincronizar(
   signal?: AbortSignal,
 ): Promise<ResultadoSync> {
   const rut = parseRut(rutTexto).canonico;
-  if (!deps.store.contribuyente(rut)) throw new ErrorImpuestocl('PERFIL_NO_EXISTE', `No existe el perfil ${rut}.`);
+  if (!deps.store.contribuyente(rut)) throw new ErrorMiSiiMcp('PERFIL_NO_EXISTE', `No existe el perfil ${rut}.`);
   const periodos = rangoPeriodos(desde, hasta);
   const buffer: RespuestaCruda[] = [];
   const resultados: ResultadoPeriodo[] = [];
@@ -98,7 +98,7 @@ export async function sincronizar(
             if (avisos.length > 0) return DATOS_INCOMPLETOS_RCV;
             const guardadoTieneDatos = deps.store.resumenesRcv(rut, periodo.texto).some((r) => r.lado === lado && r.filas.length > 0);
             if (conservarRcv(resumenes, guardadoTieneDatos)) {
-              throw new ErrorImpuestocl(
+              throw new ErrorMiSiiMcp(
                 'RESPUESTA_VACIA',
                 `RCV ${lado} ${periodo.texto}: el SII respondió vacío sin confirmar que no hay movimientos; se conservan los datos guardados.`,
               );
@@ -118,7 +118,7 @@ export async function sincronizar(
             const listados = new Set(declaraciones.map((d) => d.folio));
             const faltan = guardadas.filter((d) => f29Presentada(d) && !listados.has(d.folio)).map((d) => d.folio);
             const cuales = faltan.length === 1 ? 'el folio presentado' : 'los folios presentados';
-            throw new ErrorImpuestocl(
+            throw new ErrorMiSiiMcp(
               'RESPUESTA_VACIA',
               `F29 ${periodo.texto}: el SII no listó ${cuales} ${faltan.join(', ')}; se conservan las declaraciones guardadas.`,
             );
@@ -142,7 +142,7 @@ export async function sincronizar(
             const incoherencias = verificarCoherenciaF29(v);
             const conservar = motivoParaConservar(v, guardados);
             if (conservar !== null) {
-              throw new ErrorImpuestocl(
+              throw new ErrorMiSiiMcp(
                 'LECTURA_INCOHERENTE',
                 `F29 ${periodo.texto}: la lectura del folio ${vigente.folio} ${conservar}; se conserva la lectura guardada.`,
                 { detalle: { folio: vigente.folio, incoherencias, valoresNuevos: v.valores } },
@@ -163,7 +163,7 @@ export async function sincronizar(
           const propuesta = await sii.f29Propuesta(rut, periodo);
           if (propuesta === null) {
             if (deps.store.propuestaF29(rut, periodo.texto) !== null) {
-              throw new ErrorImpuestocl('RESPUESTA_VACIA', `Propuesta F29 ${periodo.texto}: el SII respondió sin datos; se conservan los datos guardados.`);
+              throw new ErrorMiSiiMcp('RESPUESTA_VACIA', `Propuesta F29 ${periodo.texto}: el SII respondió sin datos; se conservan los datos guardados.`);
             }
             res.propuesta = 'sin_respuesta';
             return;
@@ -178,11 +178,11 @@ export async function sincronizar(
           const informe = await sii.bheRecibidas(rut, periodo);
           if (informe === null) {
             if (deps.store.boletasHonorarios(rut, periodo.texto).length > 0) {
-              throw new ErrorImpuestocl('RESPUESTA_VACIA', `Boletas de honorarios ${periodo.texto}: el SII respondió sin boletas ni total; se conservan las boletas guardadas.`);
+              throw new ErrorMiSiiMcp('RESPUESTA_VACIA', `Boletas de honorarios ${periodo.texto}: el SII respondió sin boletas ni total; se conservan las boletas guardadas.`);
             }
             // Sin nada guardado tampoco se sabe si el mes no tiene boletas: no cuenta como consultado.
             res.boletasHonorarios = null;
-            throw new ErrorImpuestocl('RESPUESTA_VACIA', `Boletas de honorarios ${periodo.texto}: el SII respondió sin boletas ni total; no hay boletas guardadas de este mes.`);
+            throw new ErrorMiSiiMcp('RESPUESTA_VACIA', `Boletas de honorarios ${periodo.texto}: el SII respondió sin boletas ni total; no hay boletas guardadas de este mes.`);
           }
           deps.store.reemplazarBhe(id, rut, periodo.texto, informe.boletas, ahora);
           res.boletasHonorarios = informe.boletas.length;
@@ -196,7 +196,7 @@ export async function sincronizar(
       enCurso?.avisos.push(AVISO_MES_CANCELADO);
       return { rut, superficies, periodos: resultados, abortado: SINCRONIZACION_CANCELADA };
     }
-    if (esErrorImpuestocl(e) && ERRORES_FATALES.has(e.codigo)) {
+    if (esErrorMiSiiMcp(e) && ERRORES_FATALES.has(e.codigo)) {
       return { rut, superficies, periodos: resultados, abortado: { superficie: 'sesion', codigo: e.codigo, mensaje: e.message } };
     }
     throw e;

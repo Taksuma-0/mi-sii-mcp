@@ -1,5 +1,5 @@
 import { CookieJar } from 'tough-cookie';
-import { ErrorImpuestocl } from '../../domain/errores.js';
+import { ErrorMiSiiMcp } from '../../domain/errores.js';
 
 export const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36';
 export const HOST_LOGIN = 'zeusr.sii.cl';
@@ -132,13 +132,13 @@ export class ClienteHttp implements Http {
             await this.temporizador.dormir(2000 * intento);
             continue;
           }
-          throw new ErrorImpuestocl('SII_NO_DISPONIBLE', `El SII respondió ${r.status} en ${new URL(url).pathname}.`);
+          throw new ErrorMiSiiMcp('SII_NO_DISPONIBLE', `El SII respondió ${r.status} en ${new URL(url).pathname}.`);
         }
         return r;
       } catch (e) {
         // La cancelación de quien pidió la consulta no es un error de red: se relanza tal cual, sin reintentar.
         solicitud.signal?.throwIfAborted();
-        if (e instanceof ErrorImpuestocl) throw e;
+        if (e instanceof ErrorMiSiiMcp) throw e;
         ultimoError = e;
         if (intento < intentos) await this.temporizador.dormir(2000 * intento);
       }
@@ -147,7 +147,7 @@ export class ClienteHttp implements Http {
     const mensaje = esPlazoVencido(ultimoError)
       ? `El SII no respondió en ${this.plazoMs / 1000} s (${host}).`
       : `No se pudo conectar con el SII (${host}).`;
-    throw new ErrorImpuestocl('SII_NO_DISPONIBLE', mensaje, { cause: ultimoError });
+    throw new ErrorMiSiiMcp('SII_NO_DISPONIBLE', mensaje, { cause: ultimoError });
   }
 
   private esperarTurno(): Promise<void> {
@@ -180,11 +180,11 @@ export class ClienteHttp implements Http {
       if (res.status >= 300 && res.status < 400 && location) {
         await res.body?.cancel();
         if (method === 'POST' && solicitud.reenviarPostEnRedireccion === false && ![301, 302, 303].includes(res.status)) {
-          throw new ErrorImpuestocl('PORTAL_CAMBIO', 'El SII pidió reenviar el formulario de inicio de sesión.');
+          throw new ErrorMiSiiMcp('PORTAL_CAMBIO', 'El SII pidió reenviar el formulario de inicio de sesión.');
         }
         actual = new URL(location, actual).toString();
         if (new URL(actual).hostname === HOST_SALA_ESPERA) {
-          throw new ErrorImpuestocl('SII_EN_ESPERA', 'El SII tiene sala de espera por alta demanda.');
+          throw new ErrorMiSiiMcp('SII_EN_ESPERA', 'El SII tiene sala de espera por alta demanda.');
         }
         if (res.status === 301 || res.status === 302 || res.status === 303) {
           method = 'GET';
@@ -196,7 +196,7 @@ export class ClienteHttp implements Http {
       const contentType = res.headers.get('content-type') ?? '';
       return { status: res.status, url: actual, contentType, bytes, texto: decodificar(bytes, contentType) };
     }
-    throw new ErrorImpuestocl('PORTAL_CAMBIO', 'Demasiadas redirecciones del SII.');
+    throw new ErrorMiSiiMcp('PORTAL_CAMBIO', 'Demasiadas redirecciones del SII.');
   }
 }
 
@@ -207,6 +207,6 @@ export function esMuroLogin(r: RespuestaHttp): boolean {
 }
 
 export function exigirSesion(r: RespuestaHttp): RespuestaHttp {
-  if (esMuroLogin(r)) throw new ErrorImpuestocl('SESION_REQUERIDA', 'La sesión del SII expiró o no existe.');
+  if (esMuroLogin(r)) throw new ErrorMiSiiMcp('SESION_REQUERIDA', 'La sesión del SII expiró o no existe.');
   return r;
 }

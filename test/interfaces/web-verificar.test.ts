@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ErrorImpuestocl } from '../../src/domain/errores.js';
+import { ErrorMiSiiMcp } from '../../src/domain/errores.js';
 import * as syncApp from '../../src/app/sincronizar.js';
 import { errorPublico, verificar, SecretosNulos, type FabricaContenedorWeb } from '../../src/interfaces/web/verificar.js';
 import { depsDePrueba } from '../helpers/deps.js';
@@ -72,7 +72,7 @@ describe('verificación local', () => {
   });
 
   it('cierra tras fallo de login sin sincronizar ni registrar identidad', async () => {
-    const e = entorno(new ErrorImpuestocl('CLAVE_RECHAZADA', 'error ficticio'));
+    const e = entorno(new ErrorMiSiiMcp('CLAVE_RECHAZADA', 'error ficticio'));
     await expect(verificar(entrada, e.fabrica)).rejects.toMatchObject({ codigo: 'CLAVE_RECHAZADA' });
     expect(e.loginInteractivo).toHaveBeenCalledOnce();
     expect(e.sii.llamadas).toEqual([]);
@@ -82,7 +82,7 @@ describe('verificación local', () => {
 
   it.each(['SII_NO_DISPONIBLE', 'SESION_REQUERIDA'] as const)('marca parcial ante %s sin reflejar mensajes crudos', async (codigo) => {
     const e = entorno();
-    e.sii.fallas.set('resumen|2026-08|VENTA|REGISTRO', new ErrorImpuestocl(codigo, entrada.clave));
+    e.sii.fallas.set('resumen|2026-08|VENTA|REGISTRO', new ErrorMiSiiMcp(codigo, entrada.clave));
     const r = await verificar(entrada, e.fabrica);
     expect(r.estado).toBe('parcial');
     expect(JSON.stringify(r)).not.toContain(entrada.clave);
@@ -117,7 +117,7 @@ describe('fuentes pedidas por la web', () => {
 
 describe('mensaje público de RESPUESTA_VACIA', () => {
   it('no supone que antes hubiera datos', () => {
-    expect(errorPublico(new ErrorImpuestocl('RESPUESTA_VACIA', 'detalle interno'))).toEqual({
+    expect(errorPublico(new ErrorMiSiiMcp('RESPUESTA_VACIA', 'detalle interno'))).toEqual({
       codigo: 'RESPUESTA_VACIA',
       mensaje: 'El SII respondió sin datos; si había datos anteriores, se conservan. Puedes volver a intentarlo más tarde.',
     });

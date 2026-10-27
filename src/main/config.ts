@@ -14,7 +14,17 @@ export interface Config {
   readonly plazoHttpMs: number;
   /** Plazo para entrar en el navegador con `login-navegador` (por defecto 10 minutos, entre 1 y 30). */
   readonly plazoNavegadorMs: number;
+  /** Carpeta de datos con el nombre anterior (`~/.impuestocl`), solo si no se eligió una con MI_SII_MCP_HOME: se muda al abrir. */
+  readonly homeAnterior?: string;
 }
+
+/** Rutas de la base, sesiones y diagnóstico dentro de una carpeta de datos. */
+export const rutasDe = (home: string): Pick<Config, 'home' | 'rutaDb' | 'dirSesiones' | 'dirDiagnostico'> => ({
+  home,
+  rutaDb: join(home, 'mi-sii-mcp.db'),
+  dirSesiones: join(home, 'sesiones'),
+  dirDiagnostico: join(home, 'diagnostico'),
+});
 
 const numeroNoNegativo = (valor: string | undefined, porDefecto: number): number => {
   if (valor === undefined || valor.trim() === '') return porDefecto;
@@ -23,15 +33,13 @@ const numeroNoNegativo = (valor: string | undefined, porDefecto: number): number
 };
 
 export function cargarConfig(env: Readonly<Record<string, string | undefined>> = process.env): Config {
-  const home = env['IMPUESTOCL_HOME'] ?? join(homedir(), '.impuestocl');
+  const elegida = env['MI_SII_MCP_HOME'];
   return {
-    home,
-    rutaDb: join(home, 'impuestocl.db'),
-    dirSesiones: join(home, 'sesiones'),
-    dirDiagnostico: join(home, 'diagnostico'),
-    toleranciaPesos: numeroNoNegativo(env['IMPUESTOCL_TOLERANCIA'], 0),
-    intervaloMinMs: Math.max(1000, numeroNoNegativo(env['IMPUESTOCL_INTERVALO_MS'], 1000)),
-    plazoHttpMs: Math.min(PLAZO_MAXIMO_MS, Math.max(10_000, numeroNoNegativo(env['IMPUESTOCL_PLAZO_HTTP_MS'], 60_000))),
-    plazoNavegadorMs: Math.min(PLAZO_MAXIMO_LOGIN_NAVEGADOR_MS, Math.max(60_000, numeroNoNegativo(env['IMPUESTOCL_PLAZO_NAVEGADOR_MS'], PLAZO_LOGIN_NAVEGADOR_MS))),
+    ...rutasDe(elegida ?? join(homedir(), '.mi-sii-mcp')),
+    ...(elegida === undefined ? { homeAnterior: join(homedir(), '.impuestocl') } : {}),
+    toleranciaPesos: numeroNoNegativo(env['MI_SII_MCP_TOLERANCIA'], 0),
+    intervaloMinMs: Math.max(1000, numeroNoNegativo(env['MI_SII_MCP_INTERVALO_MS'], 1000)),
+    plazoHttpMs: Math.min(PLAZO_MAXIMO_MS, Math.max(10_000, numeroNoNegativo(env['MI_SII_MCP_PLAZO_HTTP_MS'], 60_000))),
+    plazoNavegadorMs: Math.min(PLAZO_MAXIMO_LOGIN_NAVEGADOR_MS, Math.max(60_000, numeroNoNegativo(env['MI_SII_MCP_PLAZO_NAVEGADOR_MS'], PLAZO_LOGIN_NAVEGADOR_MS))),
   };
 }

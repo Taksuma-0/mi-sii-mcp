@@ -1,4 +1,4 @@
-import { ErrorImpuestocl } from '../domain/errores.js';
+import { ErrorMiSiiMcp } from '../domain/errores.js';
 import { NOMBRES_TIPO_DOCUMENTO } from '../domain/formato.js';
 import { CODIGO_F22_HONORARIOS_BRUTO, CODIGO_F22_RETENCION_HONORARIOS, REAJUSTE_MAXIMO_HONORARIOS_PCT } from '../domain/renta.js';
 import type { LimitesConsulta, ResultadoConsulta } from '../ports/index.js';
@@ -13,10 +13,10 @@ export const MAX_CARACTERES_SQL = 20_000;
 /** Valida el texto y delega en el puerto; la copia curada, la sentencia de solo lectura y el plazo son del adaptador. */
 export async function consultaSql(deps: DepsApp, sql: string, limites: LimitesConsulta = LIMITES_CONSULTA): Promise<ResultadoConsulta> {
   if (sql.trim() === '') {
-    throw new ErrorImpuestocl('CONSULTA_RECHAZADA', 'La consulta está vacía: escribe una sentencia SELECT o WITH.');
+    throw new ErrorMiSiiMcp('CONSULTA_RECHAZADA', 'La consulta está vacía: escribe una sentencia SELECT o WITH.');
   }
   if (sql.length > MAX_CARACTERES_SQL) {
-    throw new ErrorImpuestocl('CONSULTA_RECHAZADA', `La consulta tiene ${sql.length} caracteres y el máximo es ${MAX_CARACTERES_SQL}.`);
+    throw new ErrorMiSiiMcp('CONSULTA_RECHAZADA', `La consulta tiene ${sql.length} caracteres y el máximo es ${MAX_CARACTERES_SQL}.`);
   }
   return deps.consultaLibre.consultar(sql, { limites, tiposNegativos: TIPOS_DOC_NEGATIVOS });
 }

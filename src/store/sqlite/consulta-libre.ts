@@ -1,7 +1,7 @@
 import { fork, type ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { ErrorImpuestocl } from '../../domain/errores.js';
+import { ErrorMiSiiMcp } from '../../domain/errores.js';
 import type { ConsultaLibre, OpcionesConsulta, ResultadoConsulta } from '../../ports/index.js';
 import type { PedidoHijo, RespuestaHijo } from './consulta-hijo.js';
 import type { Db } from './db.js';
@@ -73,7 +73,7 @@ export class ConsultaLibreSqlite implements ConsultaLibre {
     const { filas, caracteres, caracteresCelda, milisegundos } = opciones.limites;
     const pedido: PedidoHijo = { imagen: this.imagenCopia(opciones.tiposNegativos), sql, limites: { filas, caracteres, caracteresCelda } };
     const respuesta = await this.enHijo(pedido, milisegundos);
-    if (!respuesta.ok) throw new ErrorImpuestocl('CONSULTA_RECHAZADA', `Consulta rechazada: ${respuesta.mensaje}`);
+    if (!respuesta.ok) throw new ErrorMiSiiMcp('CONSULTA_RECHAZADA', `Consulta rechazada: ${respuesta.mensaje}`);
     return { columnas: respuesta.columnas, filas: respuesta.filas, truncado: respuesta.truncado };
   }
 
@@ -117,7 +117,7 @@ export class ConsultaLibreSqlite implements ConsultaLibre {
         this.hijos.delete(hijo);
         HIJOS_VIVOS.delete(hijo);
         if (respuesta) resolver(respuesta);
-        else rechazar(new ErrorImpuestocl('CONSULTA_INTERRUMPIDA', motivo, { accion }));
+        else rechazar(new ErrorMiSiiMcp('CONSULTA_INTERRUMPIDA', motivo, { accion }));
       };
       hijo.on('message', (mensaje) => {
         respuesta ??= mensaje as RespuestaHijo;

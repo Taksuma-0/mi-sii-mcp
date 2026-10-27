@@ -2,7 +2,7 @@ import { Client, InMemoryTransport } from '@modelcontextprotocol/client';
 import { describe, expect, it, vi } from 'vitest';
 import { esquemaDatos } from '../../src/app/consulta-libre.js';
 import type { DepsApp } from '../../src/app/deps.js';
-import { ErrorImpuestocl, type CodigoError } from '../../src/domain/errores.js';
+import { ErrorMiSiiMcp, type CodigoError } from '../../src/domain/errores.js';
 import { crearServidorMcp, HERRAMIENTAS, INSTRUCCIONES_MCP, type OpcionesMcp } from '../../src/interfaces/mcp/servidor.js';
 import { boleta, boletaEmitida, declaracion, declaracionF22, detalleF22, empresaAutorizada, fila, informeBheEmitidas, perfilEmpresa, perfilPersona, perfilTributario, propuesta, resumen, RUT_EMPRESA, RUT_PERSONA, valores } from '../helpers/fabricas.js';
 import { depsDePrueba } from '../helpers/deps.js';
@@ -244,7 +244,7 @@ describe('servidor MCP', () => {
 
   describe('reintento', () => {
     it('un error de la herramienta que conviene reintentar más tarde lo dice', async () => {
-      const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorImpuestocl('SII_NO_DISPONIBLE', 'El SII no responde.') });
+      const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorMiSiiMcp('SII_NO_DISPONIBLE', 'El SII no responde.') });
       store.guardarContribuyente(perfilEmpresa());
       const cliente = await conectar(deps);
       const r = await cliente.callTool({ name: 'sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026-09' } });
@@ -261,7 +261,7 @@ describe('servidor MCP', () => {
     });
 
     it('un error de consulta interrumpida se reintenta ahora mismo', async () => {
-      const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorImpuestocl('CONSULTA_INTERRUMPIDA', 'Tardó demasiado.') });
+      const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorMiSiiMcp('CONSULTA_INTERRUMPIDA', 'Tardó demasiado.') });
       store.guardarContribuyente(perfilEmpresa());
       const cliente = await conectar(deps);
       const r = await cliente.callTool({ name: 'sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026-09' } });
@@ -282,8 +282,8 @@ describe('servidor MCP', () => {
     it('sincronizar lista los meses con errores reintentables más tarde', async () => {
       const { deps, store, sii } = depsDePrueba();
       store.guardarContribuyente(perfilEmpresa());
-      sii.fallas.set('f29|2026-10', new ErrorImpuestocl('SII_NO_DISPONIBLE', 'No responde.'));
-      sii.fallas.set('f29|2026-09', new ErrorImpuestocl('PORTAL_CAMBIO', 'Cambió.'));
+      sii.fallas.set('f29|2026-10', new ErrorMiSiiMcp('SII_NO_DISPONIBLE', 'No responde.'));
+      sii.fallas.set('f29|2026-09', new ErrorMiSiiMcp('PORTAL_CAMBIO', 'Cambió.'));
       const cliente = await conectar(deps);
       const r = await cliente.callTool({ name: 'sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026-09', hasta: '2026-10', superficies: ['f29'] } });
       const texto = textoDe(r);
@@ -293,7 +293,7 @@ describe('servidor MCP', () => {
     });
 
     it.each(['SII_EN_ESPERA', 'SII_LIMITE', 'SII_SESIONES_MAXIMAS'] as const)('sincronizar detenida por %s dice que se reintente más tarde', async (codigo) => {
-      const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorImpuestocl(codigo, 'Hay que esperar.') });
+      const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorMiSiiMcp(codigo, 'Hay que esperar.') });
       store.guardarContribuyente(perfilEmpresa());
       const cliente = await conectar(deps);
       const r = await cliente.callTool({ name: 'sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026-09' } });
@@ -304,7 +304,7 @@ describe('servidor MCP', () => {
     });
 
     it('sincronizar detenida por una clave rechazada no sugiere reintentar', async () => {
-      const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorImpuestocl('CLAVE_RECHAZADA', 'Clave mala.') });
+      const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorMiSiiMcp('CLAVE_RECHAZADA', 'Clave mala.') });
       store.guardarContribuyente(perfilEmpresa());
       const cliente = await conectar(deps);
       const r = await cliente.callTool({ name: 'sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026-09' } });
@@ -494,7 +494,7 @@ describe('servidor MCP', () => {
     const LOGIN = { comandoLogin: (rut: string) => `LOGIN ${rut}` };
 
     it.each<CodigoError>(['SESION_REQUERIDA', 'CLAVE_RECHAZADA', 'RUT_BLOQUEADO_LOCAL'])('sincronizar detenida por %s muestra el comando de login real', async (codigo) => {
-      const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorImpuestocl(codigo, 'Falla de sesión simulada.') });
+      const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorMiSiiMcp(codigo, 'Falla de sesión simulada.') });
       store.guardarContribuyente(perfilEmpresa());
       const cliente = await conectar(deps, LOGIN);
 
@@ -510,7 +510,7 @@ describe('servidor MCP', () => {
     });
 
     it('sin opciones usa mi-sii-mcp login con --guardar-clave', async () => {
-      const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorImpuestocl('SESION_REQUERIDA', 'Sin sesión.') });
+      const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorMiSiiMcp('SESION_REQUERIDA', 'Sin sesión.') });
       store.guardarContribuyente(perfilEmpresa());
       const cliente = await conectar(deps);
 
@@ -521,7 +521,7 @@ describe('servidor MCP', () => {
     });
 
     it('menciona también el login con navegador para ClaveÚnica, con el comando real', async () => {
-      const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorImpuestocl('SESION_REQUERIDA', 'Sin sesión.') });
+      const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorMiSiiMcp('SESION_REQUERIDA', 'Sin sesión.') });
       store.guardarContribuyente(perfilEmpresa());
       const cliente = await conectar(deps, { ...LOGIN, comandoLoginNavegador: (rut: string) => `NAVEGADOR ${rut}` });
 
@@ -536,7 +536,7 @@ describe('servidor MCP', () => {
     });
 
     it('sin opciones el login con navegador es mi-sii-mcp login-navegador --rut', async () => {
-      const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorImpuestocl('SESION_REQUERIDA', 'Sin sesión.') });
+      const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorMiSiiMcp('SESION_REQUERIDA', 'Sin sesión.') });
       store.guardarContribuyente(perfilEmpresa());
       const cliente = await conectar(deps);
 
@@ -588,7 +588,7 @@ describe('servidor MCP', () => {
     });
 
     it('sincronizar con un SIN_PERMISO lanzado al abrir el SII muestra la guía de login', async () => {
-      const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorImpuestocl('SIN_PERMISO', 'Sin acceso a ese RUT.') });
+      const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorMiSiiMcp('SIN_PERMISO', 'Sin acceso a ese RUT.') });
       store.guardarContribuyente(perfilEmpresa());
       const cliente = await conectar(deps, LOGIN);
 
@@ -606,8 +606,8 @@ describe('servidor MCP', () => {
     it('sincronizar con SIN_PERMISO en un período (error no fatal) agrega la guía de login una sola vez', async () => {
       const { deps, store, sii } = depsDePrueba();
       store.guardarContribuyente(perfilEmpresa());
-      sii.fallas.set('f29|2026-09', new ErrorImpuestocl('SIN_PERMISO', 'F29: no está autorizado.'));
-      sii.fallas.set('f29|2026-10', new ErrorImpuestocl('SIN_PERMISO', 'F29: no está autorizado.'));
+      sii.fallas.set('f29|2026-09', new ErrorMiSiiMcp('SIN_PERMISO', 'F29: no está autorizado.'));
+      sii.fallas.set('f29|2026-10', new ErrorMiSiiMcp('SIN_PERMISO', 'F29: no está autorizado.'));
       const cliente = await conectar(deps, LOGIN);
 
       const r = await cliente.callTool({ name: 'sincronizar', arguments: { rut: '22.222.222-2', desde: '2026-09', hasta: '2026-10' } });
@@ -683,7 +683,7 @@ describe('servidor MCP: cuenta del SII', () => {
   });
 
   it('perfil_sincronizar sin sesión muestra el comando de login', async () => {
-    const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorImpuestocl('SESION_REQUERIDA', 'Sin sesión.') });
+    const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorMiSiiMcp('SESION_REQUERIDA', 'Sin sesión.') });
     store.guardarContribuyente(perfilEmpresa());
     const cliente = await conectar(deps, { comandoLogin: (rut) => `LOGIN ${rut}` });
 
@@ -696,13 +696,13 @@ describe('servidor MCP: cuenta del SII', () => {
 
   it('perfil_sincronizar lista lo reintentable más tarde y la línea de reintento si se detuvo', async () => {
     const { deps, sii } = conCuenta();
-    sii.fallas.set('empresas', new ErrorImpuestocl('SII_NO_DISPONIBLE', 'No responde.'));
+    sii.fallas.set('empresas', new ErrorMiSiiMcp('SII_NO_DISPONIBLE', 'No responde.'));
     const cliente = await conectar(deps);
     const r = await cliente.callTool({ name: 'perfil_sincronizar', arguments: { rut: RUT_EMPRESA } });
     expect(textoDe(r)).toContain('Reintentables más tarde: cuenta.empresas SII_NO_DISPONIBLE');
     await cliente.close();
 
-    const detenida = depsDePrueba({ fallaAlAbrir: new ErrorImpuestocl('SII_EN_ESPERA', 'Hay que esperar.') });
+    const detenida = depsDePrueba({ fallaAlAbrir: new ErrorMiSiiMcp('SII_EN_ESPERA', 'Hay que esperar.') });
     detenida.store.guardarContribuyente(perfilEmpresa());
     const otro = await conectar(detenida.deps);
     expect(textoDe(await otro.callTool({ name: 'perfil_sincronizar', arguments: { rut: RUT_EMPRESA } }))).toContain('Reintentar: más tarde');
@@ -775,13 +775,13 @@ describe('servidor MCP: renta F22', () => {
 
   it('renta_sincronizar lista los años reintentables más tarde y la línea de reintento si se detuvo', async () => {
     const { deps, sii } = conRenta();
-    sii.fallas.set('f22|2026', new ErrorImpuestocl('SII_NO_DISPONIBLE', 'No responde.'));
+    sii.fallas.set('f22|2026', new ErrorMiSiiMcp('SII_NO_DISPONIBLE', 'No responde.'));
     const cliente = await conectar(deps);
     const r = await cliente.callTool({ name: 'renta_sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026' } });
     expect(textoDe(r)).toContain('Reintentables más tarde: AT2026 (f22 SII_NO_DISPONIBLE)');
     await cliente.close();
 
-    const detenida = depsDePrueba({ fallaAlAbrir: new ErrorImpuestocl('SII_LIMITE', 'Límite.') });
+    const detenida = depsDePrueba({ fallaAlAbrir: new ErrorMiSiiMcp('SII_LIMITE', 'Límite.') });
     detenida.store.guardarContribuyente(perfilEmpresa());
     const otro = await conectar(detenida.deps);
     expect(textoDe(await otro.callTool({ name: 'renta_sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026' } }))).toContain('Reintentar: más tarde');
@@ -794,7 +794,7 @@ describe('servidor MCP: renta F22', () => {
     expect(esError(mal)).toBe(true);
     await cliente.close();
 
-    const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorImpuestocl('SESION_REQUERIDA', 'Sin sesión.') });
+    const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorMiSiiMcp('SESION_REQUERIDA', 'Sin sesión.') });
     store.guardarContribuyente(perfilEmpresa());
     const sinSesion = await conectar(deps, { comandoLogin: (rut) => `LOGIN ${rut}` });
     const r = await sinSesion.callTool({ name: 'renta_sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2025', hasta: '2026' } });

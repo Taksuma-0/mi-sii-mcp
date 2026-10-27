@@ -86,8 +86,8 @@ node "C:\ruta\a\mi-sii-mcp\dist\interfaces\cli\bin.js" login-navegador --rut <tu
 
 - Se abre una ventana de Microsoft Edge o Google Chrome en la página real del SII, con un perfil temporal que no guarda contraseñas. Entras ahí como siempre (ClaveÚnica o clave tributaria). mi-sii-mcp no ve ni guarda lo que escribes: espera a que el SII inicie la sesión, toma solo las cookies de `sii.cl`, cierra la ventana y borra el perfil temporal.
 - `--rut` es opcional: si lo indicas y entras con otra identidad, la sesión no se guarda. Sin él, la sesión queda con el RUT con que entraste (puede ser una persona natural) y ese perfil se registra.
-- Tienes 10 minutos para entrar. Se cambia con la variable de entorno `IMPUESTOCL_PLAZO_NAVEGADOR_MS` (en milisegundos, entre 1 y 30 minutos).
-- Si Edge o Chrome no están en las carpetas habituales, indica la ruta del navegador con la variable de entorno `IMPUESTOCL_NAVEGADOR` (por ejemplo, la ruta completa de `chrome.exe`).
+- Tienes 10 minutos para entrar. Se cambia con la variable de entorno `MI_SII_MCP_PLAZO_NAVEGADOR_MS` (en milisegundos, entre 1 y 30 minutos).
+- Si Edge o Chrome no están en las carpetas habituales, indica la ruta del navegador con la variable de entorno `MI_SII_MCP_NAVEGADOR` (por ejemplo, la ruta completa de `chrome.exe`).
 - Esta sesión **no se renueva sola** (no hay clave en el llavero): cuando vence, el asistente te mostrará el comando de nuevo. La interfaz local también tiene el botón «Entrar con el navegador (ClaveÚnica o clave)».
 
 ### Una empresa con la sesión de quien la representa
@@ -189,8 +189,8 @@ Si el archivo ya tiene otros servidores, agrega solo la entrada `mi-sii-mcp` den
   npm.cmd run build
   ```
 
-- **Una consulta al SII tarda demasiado y se corta**: cada petición HTTP tiene un plazo de 60 segundos por defecto. Se puede cambiar con la variable de entorno `IMPUESTOCL_PLAZO_HTTP_MS` (en milisegundos; se acota entre 10 000 y el máximo del programa). En Claude Code se define al registrar el servidor, por ejemplo: `claude mcp add --scope user --env IMPUESTOCL_PLAZO_HTTP_MS=120000 mi-sii-mcp -- node "<ruta>\dist\interfaces\cli\bin.js" mcp` (si ya estaba registrado, quítalo antes; ver sección 8). En Claude Desktop se agrega un bloque `"env": { "IMPUESTOCL_PLAZO_HTTP_MS": "120000" }` a la entrada `mi-sii-mcp`.
-- **Respaldo de la base**: antes de migrar el esquema de la base a una versión nueva (por ejemplo, tras actualizar mi-sii-mcp), el programa guarda una copia íntegra junto a ella, con el nombre `impuestocl-antes-v<N>.db`, en la carpeta `.impuestocl`. Si la copia falla, la migración no se aplica y verás el error `RESPALDO_FALLIDO`. Las copias contienen tus datos: bórralas cuando ya no las necesites.
+- **Una consulta al SII tarda demasiado y se corta**: cada petición HTTP tiene un plazo de 60 segundos por defecto. Se puede cambiar con la variable de entorno `MI_SII_MCP_PLAZO_HTTP_MS` (en milisegundos; se acota entre 10 000 y el máximo del programa). En Claude Code se define al registrar el servidor, por ejemplo: `claude mcp add --scope user --env MI_SII_MCP_PLAZO_HTTP_MS=120000 mi-sii-mcp -- node "<ruta>\dist\interfaces\cli\bin.js" mcp` (si ya estaba registrado, quítalo antes; ver sección 8). En Claude Desktop se agrega un bloque `"env": { "MI_SII_MCP_PLAZO_HTTP_MS": "120000" }` a la entrada `mi-sii-mcp`.
+- **Respaldo de la base**: antes de migrar el esquema de la base a una versión nueva (por ejemplo, tras actualizar mi-sii-mcp), el programa guarda una copia íntegra junto a ella, con el nombre `mi-sii-mcp-antes-v<N>.db`, en la carpeta `.mi-sii-mcp`. Si la copia falla, la migración no se aplica y verás el error `RESPALDO_FALLIDO`. Las copias contienen tus datos: bórralas cuando ya no las necesites.
 - **`node` debe estar en el PATH, versión 22.12 o superior.** Compruébalo en una terminal nueva con `node --version`. Esto vale también para Claude Desktop: lanza `node` con el PATH de Windows, así que reinícialo por completo después de instalar o actualizar Node.
 - **No encuentras «Abrir mi-sii-mcp.cmd»**: está en la carpeta del proyecto, `C:\ruta\a\mi-sii-mcp\Abrir mi-sii-mcp.cmd`. Haz doble clic para abrir la interfaz local (ver `docs/guias/interfaz-local.md`).
 
@@ -200,7 +200,7 @@ Si el archivo ya tiene otros servidores, agrega solo la entrada `mi-sii-mcp` den
 claude mcp remove --scope user mi-sii-mcp
 ```
 
-Esto desconecta al asistente. No borra tus datos guardados ni tu clave: para la clave, usa `logout <tu RUT> --olvidar-clave` (sección 3). Tus datos locales están en la carpeta `.impuestocl` de tu usuario de Windows. En Claude Desktop, borra la entrada `mi-sii-mcp` del archivo de configuración y reinicia la aplicación.
+Esto desconecta al asistente. No borra tus datos guardados ni tu clave: para la clave, usa `logout <tu RUT> --olvidar-clave` (sección 3). Tus datos locales están en la carpeta `.mi-sii-mcp` de tu usuario de Windows. En Claude Desktop, borra la entrada `mi-sii-mcp` del archivo de configuración y reinicia la aplicación.
 
 ## 9. Actualizar el código
 

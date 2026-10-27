@@ -42,17 +42,17 @@ export const ACCION_POR_DEFECTO: Readonly<Record<CodigoError, string>> = {
   DATOS_INCOMPLETOS: 'El SII entregó menos documentos que su propio resumen; se conserva el último conjunto completo. Reintenta más tarde.',
   LECTURA_INCOHERENTE: 'El F29 leído no cuadra; se conserva la lectura anterior. Puede que el SII haya cambiado el formulario. Se guardó un archivo en la carpeta de diagnóstico; si reportas el problema, revisa el archivo antes de compartirlo: puede contener datos tributarios y de sesión.',
   RESPALDO_FALLIDO: 'No se migró la base porque no se pudo respaldar; revisa espacio en disco o que OneDrive/antivirus no bloquee la carpeta.',
-  NAVEGADOR_NO_DISPONIBLE: 'Instala Microsoft Edge o Google Chrome, o indica la ruta del navegador con la variable IMPUESTOCL_NAVEGADOR, y vuelve a ejecutar `mi-sii-mcp login-navegador`.',
+  NAVEGADOR_NO_DISPONIBLE: 'Instala Microsoft Edge o Google Chrome, o indica la ruta del navegador con la variable MI_SII_MCP_NAVEGADOR, y vuelve a ejecutar `mi-sii-mcp login-navegador`.',
 };
 
-export class ErrorImpuestocl extends Error {
+export class ErrorMiSiiMcp extends Error {
   readonly codigo: CodigoError;
   readonly accion: string;
   readonly detalle: unknown;
 
   constructor(codigo: CodigoError, mensaje: string, opciones: { accion?: string; detalle?: unknown; cause?: unknown } = {}) {
     super(mensaje, { cause: opciones.cause });
-    this.name = 'ErrorImpuestocl';
+    this.name = 'ErrorMiSiiMcp';
     this.codigo = codigo;
     this.accion = opciones.accion ?? ACCION_POR_DEFECTO[codigo];
     this.detalle = opciones.detalle;
@@ -63,7 +63,7 @@ export class ErrorImpuestocl extends Error {
   }
 }
 
-export const esErrorImpuestocl = (e: unknown): e is ErrorImpuestocl => e instanceof ErrorImpuestocl;
+export const esErrorMiSiiMcp = (e: unknown): e is ErrorMiSiiMcp => e instanceof ErrorMiSiiMcp;
 
 /** Errores que detienen una sincronización completa: no tiene sentido seguir con otros períodos. */
 export const ERRORES_FATALES: ReadonlySet<CodigoError> = new Set<CodigoError>([

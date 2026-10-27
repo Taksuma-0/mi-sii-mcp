@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Cookie, CookieJar } from 'tough-cookie';
-import { ErrorImpuestocl } from '../../domain/errores.js';
+import { ErrorMiSiiMcp } from '../../domain/errores.js';
 import { parseRut, type Rut } from '../../domain/rut.js';
 import type { ConsultaSesiones, EstadoSesion, IdentidadSii, ResultadoLogin, SecretStore } from '../../ports/index.js';
 import { capturarCookiesSii, esCookieTokenSii, esDominioSii, type CookieNavegador } from '../navegador/sesion-navegador.js';
@@ -92,7 +92,7 @@ export class GestorSesiones implements ConsultaSesiones {
     const delSii = cookies.filter((c) => esDominioSii(c.dominio));
     // La misma regla que usa la captura en el navegador para dar por iniciada la sesión.
     if (!delSii.some(esCookieTokenSii)) {
-      throw new ErrorImpuestocl('SESION_REQUERIDA', 'El navegador no entregó la cookie TOKEN del SII: el inicio de sesión no terminó.', {
+      throw new ErrorMiSiiMcp('SESION_REQUERIDA', 'El navegador no entregó la cookie TOKEN del SII: el inicio de sesión no terminó.', {
         accion: accionLoginNavegador(esperado ?? '<rut>'),
       });
     }
@@ -105,7 +105,7 @@ export class GestorSesiones implements ConsultaSesiones {
     const identidad = await leerIdentidad(http);
     if (esperado !== null && identidad.rut !== esperado) {
       await cerrarSesion(http);
-      throw new ErrorImpuestocl('SIN_PERMISO', `En el navegador se inició sesión como ${identidad.rut}, no como ${esperado}.`, {
+      throw new ErrorMiSiiMcp('SIN_PERMISO', `En el navegador se inició sesión como ${identidad.rut}, no como ${esperado}.`, {
         accion: `Ejecuta \`mi-sii-mcp login-navegador --rut ${esperado}\` y entra con la identidad de ${esperado}, o configura el acceso con \`mi-sii-mcp perfil agregar ${esperado} … --accede-con ${identidad.rut}\`.`,
       });
     }
@@ -152,7 +152,7 @@ export class GestorSesiones implements ConsultaSesiones {
     if (pendiente) return pendiente;
     const nueva = this.coordinar(rut.canonico, () => {
       if (existsSync(this.rutaBloqueo(rut.canonico))) {
-        throw new ErrorImpuestocl('RUT_BLOQUEADO_LOCAL', `El RUT ${rut.canonico} está bloqueado localmente por una clave rechazada.`);
+        throw new ErrorMiSiiMcp('RUT_BLOQUEADO_LOCAL', `El RUT ${rut.canonico} está bloqueado localmente por una clave rechazada.`);
       }
       return this.obtenerSesion(rut);
     }).finally(() => {
@@ -213,7 +213,7 @@ export class GestorSesiones implements ConsultaSesiones {
     const clave = await this.secretos.obtener(rut.canonico);
     if (!clave) {
       const delNavegador = this.leerArchivo(rut.canonico)?.origen === 'navegador';
-      throw new ErrorImpuestocl('SESION_REQUERIDA', `No hay sesión activa para ${rut.canonico} ni clave guardada en el llavero.`, delNavegador ? { accion: accionLoginNavegador(rut.canonico) } : {});
+      throw new ErrorMiSiiMcp('SESION_REQUERIDA', `No hay sesión activa para ${rut.canonico} ni clave guardada en el llavero.`, delNavegador ? { accion: accionLoginNavegador(rut.canonico) } : {});
     }
     const http = this.nuevoCliente();
     await iniciarSesion(http, rut, clave).catch(async (e: unknown) => {
@@ -230,12 +230,12 @@ export class GestorSesiones implements ConsultaSesiones {
     try {
       const identidad = await leerIdentidad(http);
       if (identidad.rut !== rut.canonico) {
-        throw new ErrorImpuestocl('PORTAL_CAMBIO', `El SII devolvió la identidad ${identidad.rut} en vez de ${rut.canonico}.`);
+        throw new ErrorMiSiiMcp('PORTAL_CAMBIO', `El SII devolvió la identidad ${identidad.rut} en vez de ${rut.canonico}.`);
       }
       // Sin la cookie TOKEN las consultas de www4 no sirven: la sesión se renueva aunque misiir todavía responda.
       return (await http.cookie('https://www4.sii.cl/', 'TOKEN')) !== null;
     } catch (e) {
-      if (e instanceof ErrorImpuestocl && e.codigo === 'SESION_REQUERIDA') return false;
+      if (e instanceof ErrorMiSiiMcp && e.codigo === 'SESION_REQUERIDA') return false;
       throw e;
     }
   }
@@ -295,7 +295,7 @@ export class GestorSesiones implements ConsultaSesiones {
   }
 
   private async siRechazoBloquear(rut: string, e: unknown): Promise<void> {
-    if (!(e instanceof ErrorImpuestocl) || e.codigo !== 'CLAVE_RECHAZADA') return;
+    if (!(e instanceof ErrorMiSiiMcp) || e.codigo !== 'CLAVE_RECHAZADA') return;
     const codigo = (e.detalle as { codigo?: string | null } | undefined)?.codigo ?? null;
     writeFileSync(this.rutaBloqueo(rut), JSON.stringify({ motivo: e.message, codigo, en: new Date().toISOString() }), { mode: 0o600 });
     try {
