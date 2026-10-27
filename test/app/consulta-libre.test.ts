@@ -89,6 +89,7 @@ describe('esquemaDatos', () => {
     expect(tablas.map((t) => t.nombre)).toEqual(expect.arrayContaining(['f29_propuesta', 'f29_propuesta_valor']));
     const columna = (tabla: string, nombre: string) => tablas.find((t) => t.nombre === tabla)?.columnas.find((c) => c.nombre === nombre)?.significado ?? '';
     expect(columna('f29_propuesta_valor', 'lista')).toMatch(/propuesto.*administrativo/);
+    expect(columna('f29_propuesta_valor', 'valor')).toBe('Valor del código, en pesos, salvo cantidades de documentos (p. ej. 519)');
     expect(columna('sincronizacion', 'superficie')).toContain('f29.propuesta');
     const regla = reglas.find((r) => r.includes('f29_propuesta'));
     expect(regla).toBeDefined();

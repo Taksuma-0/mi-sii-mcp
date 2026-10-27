@@ -217,7 +217,7 @@ const TABLAS: readonly TablaEsquema[] = [
       PERIODO,
       col('lista', 'TEXT', 'propuesto (monto que el SII propone para ese código) o administrativo (datos de control del SII, sin valor tributario directo)'),
       col('codigo', 'TEXT', "Código del formulario, como texto y sin ceros a la izquierda: codigo = '520'"),
-      col('valor', 'REAL', 'Valor del código, en pesos'),
+      col('valor', 'REAL', 'Valor del código, en pesos, salvo cantidades de documentos (p. ej. 519)'),
     ],
   },
   {
