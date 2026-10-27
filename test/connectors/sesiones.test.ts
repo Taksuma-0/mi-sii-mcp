@@ -79,6 +79,29 @@ describe('GestorSesiones', () => {
     expect(g.estado(RUT).tieneSesion).toBe(true);
   });
 
+  describe('cookie TOKEN', () => {
+    const TOKEN_VENCIDO: DefRespuesta = { headers: [...HTML, ['set-cookie', 'TOKEN=expirado; Max-Age=0; Domain=.sii.cl; Path=/']], body: paginaDatosCntr('22222222', '2', 'EMPRESA DEMO SPA') };
+
+    it('una sesión guardada cuyo TOKEN venció entra de nuevo con la clave del llavero', async () => {
+      const dir = dirTemporal();
+      const secretos = new SecretosEnMemoria();
+      secretos.mapa.set(RUT, 'secreta');
+      await gestor(dir, secretos, rutasLoginOk()).g.loginInteractivo(RUT, 'secreta', false);
+      const { g, llamadas } = gestor(dir, secretos, { ...rutasLoginOk(), [RUTA_MI_SII]: (_l, n) => (n === 1 ? TOKEN_VENCIDO : DATOS_OK) });
+      const http = await g.sesionActiva(RUT);
+      expect(llamadas.filter((l) => l.method === 'POST')).toHaveLength(1);
+      expect(await http.cookie('https://www4.sii.cl/', 'TOKEN')).toBe('tok123');
+    });
+
+    it('una sesión guardada cuyo TOKEN venció, sin clave en el llavero, exige login', async () => {
+      const dir = dirTemporal();
+      await gestor(dir, new SecretosEnMemoria(), rutasLoginOk()).g.loginInteractivo(RUT, 'secreta', false);
+      const { g, llamadas } = gestor(dir, new SecretosEnMemoria(), { ...rutasLoginOk(), [RUTA_MI_SII]: TOKEN_VENCIDO });
+      expect(await codigoDe(g.sesionActiva(RUT))).toBe('SESION_REQUERIDA');
+      expect(llamadas.filter((l) => l.method === 'POST')).toHaveLength(0);
+    });
+  });
+
   it('una clave guardada rechazada bloquea el RUT, borra la clave y no reintenta', async () => {
     const secretos = new SecretosEnMemoria();
     secretos.mapa.set(RUT, 'mala');

@@ -17,7 +17,9 @@ describe('LectorPortalSii', () => {
       'POST https://www4.sii.cl/propuestaf29ui/services/data/facadeAdapterService/getDeclaracionConEstados': { headers: JSON_CT, body: fixture('f29-estados.json') },
     });
     const crudas: RespuestaCruda[] = [];
-    const lector = new LectorPortalSii(new ClienteHttp(new CookieJar(), { fetch: fetchFalso, temporizador: sinEsperas }), (r) => void crudas.push(r));
+    const jar = new CookieJar();
+    await jar.setCookie('TOKEN=tok123; Domain=.sii.cl; Path=/', 'https://www4.sii.cl/');
+    const lector = new LectorPortalSii(new ClienteHttp(jar, { fetch: fetchFalso, temporizador: sinEsperas }), (r) => void crudas.push(r));
     const resumen = await lector.rcvResumen('22.222.222-2', parsePeriodo('2026-09'), 'COMPRA', 'REGISTRO');
     const declaraciones = await lector.f29Declaraciones('22222222-2', parsePeriodo('2026-09'));
     expect(resumen.rut).toBe('22222222-2');

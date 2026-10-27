@@ -17,28 +17,30 @@ const RUTA_ESTADOS = 'POST https://www4.sii.cl/propuestaf29ui/services/data/faca
 const RUTA_COMPACTO = 'GET https://www4.sii.cl/rfiInternet/formCompacto';
 const EMPRESA = parseRut('22222222-2');
 
-function preparar(rutas: Record<string, RutaFalsa>) {
+async function preparar(rutas: Record<string, RutaFalsa>) {
   const { fetchFalso, llamadas } = crearFetchFalso(rutas);
-  const http = new ClienteHttp(new CookieJar(), { fetch: fetchFalso, temporizador: sinEsperas });
+  const jar = new CookieJar();
+  await jar.setCookie('TOKEN=tok123; Domain=.sii.cl; Path=/', 'https://www4.sii.cl/');
+  const http = new ClienteHttp(jar, { fetch: fetchFalso, temporizador: sinEsperas });
   const crudas: RespuestaCruda[] = [];
   return { http, llamadas, crudas, sumidero: (r: RespuestaCruda) => void crudas.push(r) };
 }
 
 describe('f29Declaraciones', () => {
   it('lee las declaraciones del período con fecha ISO y código interno', async () => {
-    const { http, llamadas, sumidero } = preparar({ [RUTA_ESTADOS]: { headers: JSON_CT, body: fixture('f29-estados.json') } });
+    const { http, llamadas, sumidero } = await preparar({ [RUTA_ESTADOS]: { headers: JSON_CT, body: fixture('f29-estados.json') } });
     expect(await f29Declaraciones(http, sumidero, EMPRESA, parsePeriodo('2026-09'))).toEqual([declaracion()]);
     const cuerpo = JSON.parse(llamadas[0]!.body!) as { data: Record<string, unknown> };
     expect(cuerpo.data).toEqual({ rut: '22222222', dv: '2', formId: '2', mes: '09', anno: '2026' });
   });
 
   it('sin declaraciones devuelve una lista vacía', async () => {
-    const { http, sumidero } = preparar({ [RUTA_ESTADOS]: { headers: JSON_CT, body: '{"metaData":{"errors":null},"data":[]}' } });
+    const { http, sumidero } = await preparar({ [RUTA_ESTADOS]: { headers: JSON_CT, body: '{"metaData":{"errors":null},"data":[]}' } });
     expect(await f29Declaraciones(http, sumidero, EMPRESA, parsePeriodo('2026-09'))).toEqual([]);
   });
 
   it('data null sin errores devuelve una lista vacía', async () => {
-    const { http, sumidero } = preparar({ [RUTA_ESTADOS]: { headers: JSON_CT, body: '{"metaData":{"errors":null},"data":null}' } });
+    const { http, sumidero } = await preparar({ [RUTA_ESTADOS]: { headers: JSON_CT, body: '{"metaData":{"errors":null},"data":null}' } });
     expect(await f29Declaraciones(http, sumidero, EMPRESA, parsePeriodo('2026-09'))).toEqual([]);
   });
 
@@ -49,12 +51,12 @@ describe('f29Declaraciones', () => {
     { data: [null] },
     { data: [42] },
   ])('un sobre de estados con formato inesperado es PORTAL_CAMBIO: %j', async (sobre) => {
-    const { http, sumidero } = preparar({ [RUTA_ESTADOS]: { headers: JSON_CT, body: JSON.stringify(sobre) } });
+    const { http, sumidero } = await preparar({ [RUTA_ESTADOS]: { headers: JSON_CT, body: JSON.stringify(sobre) } });
     expect(await codigoDe(f29Declaraciones(http, sumidero, EMPRESA, parsePeriodo('2026-09')))).toBe('PORTAL_CAMBIO');
   });
 
   it('un error de autorización es SIN_PERMISO', async () => {
-    const { http, sumidero } = preparar({ [RUTA_ESTADOS]: { headers: JSON_CT, body: fixture('f29-estados-error.json') } });
+    const { http, sumidero } = await preparar({ [RUTA_ESTADOS]: { headers: JSON_CT, body: fixture('f29-estados-error.json') } });
     expect(await codigoDe(f29Declaraciones(http, sumidero, EMPRESA, parsePeriodo('2026-09')))).toBe('SIN_PERMISO');
   });
 });
@@ -62,7 +64,7 @@ describe('f29Declaraciones', () => {
 describe('f29Valores', () => {
   it('descarga el PDF compacto, lo guarda como evidencia y extrae los códigos', async () => {
     const pdf = await pdfSintetico(F29_SINTETICO);
-    const { http, llamadas, crudas, sumidero } = preparar({ [RUTA_COMPACTO]: { body: pdf, headers: [['content-type', 'application/pdf']] } });
+    const { http, llamadas, crudas, sumidero } = await preparar({ [RUTA_COMPACTO]: { body: pdf, headers: [['content-type', 'application/pdf']] } });
     const v = await f29Valores(http, sumidero, EMPRESA, declaracion());
     expect(v.folio).toBe(555_001);
     expect(v.valores['538']).toBe(1_234_567);
@@ -74,20 +76,20 @@ describe('f29Valores', () => {
   });
 
   it('si no llega un PDF es PORTAL_CAMBIO', async () => {
-    const { http, sumidero } = preparar({ [RUTA_COMPACTO]: { headers: HTML, body: '<html>error</html>' } });
+    const { http, sumidero } = await preparar({ [RUTA_COMPACTO]: { headers: HTML, body: '<html>error</html>' } });
     expect(await codigoDe(f29Valores(http, sumidero, EMPRESA, declaracion()))).toBe('PORTAL_CAMBIO');
   });
 
   it('un PDF ilegible con cabecera PDF es PORTAL_CAMBIO y conserva evidencia', async () => {
     const pdf = await pdfSintetico(F29_SINTETICO);
     const truncado = pdf.slice(0, 8);
-    const { http, crudas, sumidero } = preparar({ [RUTA_COMPACTO]: { headers: [['content-type', 'application/pdf']], body: truncado } });
+    const { http, crudas, sumidero } = await preparar({ [RUTA_COMPACTO]: { headers: [['content-type', 'application/pdf']], body: truncado } });
     expect(await codigoDe(f29Valores(http, sumidero, EMPRESA, declaracion()))).toBe('PORTAL_CAMBIO');
     expect(crudas[0]?.cuerpo).toBe(Buffer.from(truncado).toString('base64'));
   });
 
   it('una declaración sin folio no se puede descargar', async () => {
-    const { http, sumidero } = preparar({});
+    const { http, sumidero } = await preparar({});
     expect(await codigoDe(f29Valores(http, sumidero, EMPRESA, declaracion({ folio: 0 })))).toBe('SII_RECHAZO');
   });
 });

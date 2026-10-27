@@ -140,14 +140,15 @@ export class GestorSesiones implements ConsultaSesiones {
     return http;
   }
 
-  /** `false` si el SII dice que la sesión venció; cualquier otro fallo (incluida otra identidad) se propaga. */
+  /** `false` si el SII dice que la sesión venció o falta su cookie TOKEN; cualquier otro fallo (incluida otra identidad) se propaga. */
   private async sesionVigente(rut: Rut, http: ClienteHttp): Promise<boolean> {
     try {
       const identidad = await leerIdentidad(http);
       if (identidad.rut !== rut.canonico) {
         throw new ErrorImpuestocl('PORTAL_CAMBIO', `El SII devolvió la identidad ${identidad.rut} en vez de ${rut.canonico}.`);
       }
-      return true;
+      // Sin la cookie TOKEN las consultas de www4 no sirven: la sesión se renueva aunque misiir todavía responda.
+      return (await http.cookie('https://www4.sii.cl/', 'TOKEN')) !== null;
     } catch (e) {
       if (e instanceof ErrorImpuestocl && e.codigo === 'SESION_REQUERIDA') return false;
       throw e;
