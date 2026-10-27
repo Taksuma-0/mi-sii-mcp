@@ -209,7 +209,8 @@ export class GestorSesiones implements ConsultaSesiones {
 
   private async siRechazoBloquear(rut: string, e: unknown): Promise<void> {
     if (!(e instanceof ErrorImpuestocl) || e.codigo !== 'CLAVE_RECHAZADA') return;
-    writeFileSync(this.rutaBloqueo(rut), JSON.stringify({ motivo: e.message, en: new Date().toISOString() }), { mode: 0o600 });
+    const codigo = (e.detalle as { codigo?: string | null } | undefined)?.codigo ?? null;
+    writeFileSync(this.rutaBloqueo(rut), JSON.stringify({ motivo: e.message, codigo, en: new Date().toISOString() }), { mode: 0o600 });
     try {
       await this.secretos.borrar(rut);
     } catch {

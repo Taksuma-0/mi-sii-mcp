@@ -32,6 +32,12 @@ export function paginaErrorClave(): DefRespuesta {
   return { body: Uint8Array.from(Buffer.from(html, 'latin1')), headers: [['content-type', 'text/html; charset=ISO-8859-1']] };
 }
 
+/** Página de error del login con un código y un mensaje cualquiera, codificada en ISO-8859-1. */
+export function paginaErrorLogin(codigo: string, mensaje: string): DefRespuesta {
+  const html = `<html><body>${mensaje}<br>El código de este mensaje es ${codigo} <button>Aceptar</button></body></html>`;
+  return { body: Uint8Array.from(Buffer.from(html, 'latin1')), headers: [['content-type', 'text/html; charset=ISO-8859-1']] };
+}
+
 export function rutasLoginOk(
   rut = '22222222',
   dv = '2',

@@ -2,11 +2,12 @@ import { mkdtempSync, readFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
+import { CODIGO_CLAVE_INCORRECTA, CODIGO_SESIONES_MAXIMAS } from '../../src/connectors/sii/login.js';
 import { GestorSesiones } from '../../src/connectors/sii/sesiones.js';
 import { codigoDe } from '../helpers/errores.js';
 import { crearFetchFalso, HTML, sinEsperas, type DefRespuesta, type RutaFalsa } from '../helpers/http-falso.js';
 import { SecretosEnMemoria } from '../helpers/secretos.js';
-import { PAGINA_STUB, paginaDatosCntr, paginaErrorClave, RUTA_LOGOUT, RUTA_MI_SII, RUTA_POST, rutasLoginOk } from '../helpers/sii-login.js';
+import { PAGINA_STUB, paginaDatosCntr, paginaErrorClave, paginaErrorLogin, RUTA_LOGOUT, RUTA_MI_SII, RUTA_POST, rutasLoginOk } from '../helpers/sii-login.js';
 
 const RUT = '22222222-2';
 const DATOS_OK: DefRespuesta = { headers: HTML, body: paginaDatosCntr('22222222', '2', 'EMPRESA DEMO SPA') };
@@ -118,6 +119,57 @@ describe('GestorSesiones', () => {
     expect(llamadas.filter((l) => l.method === 'POST')).toHaveLength(1);
     await g.loginInteractivo(RUT, 'buena', false);
     expect(g.estado(RUT).bloqueado).toBe(false);
+  });
+
+  describe('códigos de error del login', () => {
+    const SESIONES_MAXIMAS = paginaErrorLogin(CODIGO_SESIONES_MAXIMAS, 'Ha superado el máximo de sesiones simultáneas permitidas.');
+
+    it('sesiones máximas no bloquea el RUT ni borra la clave, y la llamada siguiente intenta una vez más', async () => {
+      const secretos = new SecretosEnMemoria();
+      secretos.mapa.set(RUT, 'buena');
+      const ok = rutasLoginOk();
+      let agotadas = true;
+      const { g, llamadas } = gestor(dirTemporal(), secretos, {
+        ...ok,
+        [RUTA_POST]: () => (agotadas ? SESIONES_MAXIMAS : ok[RUTA_POST]!),
+        [RUTA_MI_SII]: (l) => (l.headers['Cookie']?.includes('TOKEN=') ? DATOS_OK : STUB),
+      });
+      const posts = () => llamadas.filter((l) => l.method === 'POST').length;
+      expect(await codigoDe(g.sesionActiva(RUT))).toBe('SII_SESIONES_MAXIMAS');
+      expect(posts()).toBe(1);
+      expect(g.estado(RUT).bloqueado).toBe(false);
+      expect(secretos.mapa.get(RUT)).toBe('buena');
+      expect(await codigoDe(g.sesionActiva(RUT))).toBe('SII_SESIONES_MAXIMAS');
+      expect(posts()).toBe(2);
+      agotadas = false;
+      await g.sesionActiva(RUT);
+      expect(posts()).toBe(3);
+      expect(g.estado(RUT).tieneSesion).toBe(true);
+    });
+
+    it('sesiones máximas en un login interactivo no bloquea', async () => {
+      const { g } = gestor(dirTemporal(), new SecretosEnMemoria(), { ...rutasLoginOk(), [RUTA_POST]: SESIONES_MAXIMAS });
+      expect(await codigoDe(g.loginInteractivo(RUT, 'buena', true))).toBe('SII_SESIONES_MAXIMAS');
+      expect(g.estado(RUT).bloqueado).toBe(false);
+    });
+
+    it('un código desconocido bloquea, borra la clave y guarda el código SII en el bloqueo', async () => {
+      const dir = dirTemporal();
+      const secretos = new SecretosEnMemoria();
+      secretos.mapa.set(RUT, 'mala');
+      const { g } = gestor(dir, secretos, { ...rutasLoginOk(), [RUTA_MI_SII]: STUB, [RUTA_POST]: paginaErrorLogin('99.99.999.999.999.99', 'Algo falló.') });
+      expect(await codigoDe(g.sesionActiva(RUT))).toBe('CLAVE_RECHAZADA');
+      expect(g.estado(RUT).bloqueado).toBe(true);
+      expect(secretos.mapa.has(RUT)).toBe(false);
+      expect(JSON.parse(readFileSync(join(dir, `${RUT}.bloqueo`), 'utf8'))).toMatchObject({ codigo: '99.99.999.999.999.99' });
+    });
+
+    it('la clave incorrecta guarda su código en el bloqueo', async () => {
+      const dir = dirTemporal();
+      const { g } = gestor(dir, new SecretosEnMemoria(), { ...rutasLoginOk(), [RUTA_POST]: paginaErrorClave() });
+      expect(await codigoDe(g.loginInteractivo(RUT, 'mala', false))).toBe('CLAVE_RECHAZADA');
+      expect(JSON.parse(readFileSync(join(dir, `${RUT}.bloqueo`), 'utf8'))).toMatchObject({ codigo: CODIGO_CLAVE_INCORRECTA });
+    });
   });
 
   it('si el llavero falla, el login funciona igual e informa que la clave no se guardó', async () => {

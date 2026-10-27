@@ -1,12 +1,12 @@
 import { CookieJar } from 'tough-cookie';
 import { describe, expect, it } from 'vitest';
 import { ClienteHttp } from '../../src/connectors/sii/http.js';
-import { extraerDatosCntrNow, extraerErrorLogin, iniciarSesion, leerIdentidad } from '../../src/connectors/sii/login.js';
+import { clasificarErrorLogin, CODIGO_CLAVE_INCORRECTA, CODIGO_SESIONES_MAXIMAS, extraerDatosCntrNow, extraerErrorLogin, iniciarSesion, leerIdentidad } from '../../src/connectors/sii/login.js';
 import { ErrorImpuestocl } from '../../src/domain/errores.js';
 import { parseRut } from '../../src/domain/rut.js';
 import { codigoDe } from '../helpers/errores.js';
 import { crearFetchFalso, HTML, sinEsperas } from '../helpers/http-falso.js';
-import { PAGINA_STUB, paginaDatosCntr, paginaErrorClave, RUTA_MI_SII, RUTA_POST, rutasLoginOk } from '../helpers/sii-login.js';
+import { PAGINA_STUB, paginaDatosCntr, paginaErrorClave, paginaErrorLogin, RUTA_MI_SII, RUTA_POST, rutasLoginOk } from '../helpers/sii-login.js';
 
 const cliente = (fetchFalso: typeof fetch) => new ClienteHttp(new CookieJar(), { fetch: fetchFalso, temporizador: sinEsperas });
 
@@ -44,6 +44,28 @@ describe('iniciarSesion', () => {
     expect((error as ErrorImpuestocl).message).toContain('no es correcta');
     expect((error as ErrorImpuestocl).detalle).toEqual({ codigo: '01.01.203.500.720.20' });
     expect(llamadas.filter((l) => l.method === 'POST')).toHaveLength(1);
+  });
+
+  it('el código de sesiones máximas es SII_SESIONES_MAXIMAS con su código, sin reintento', async () => {
+    const { fetchFalso, llamadas } = crearFetchFalso({ ...rutasLoginOk(), [RUTA_POST]: paginaErrorLogin(CODIGO_SESIONES_MAXIMAS, 'Ha superado el máximo de sesiones simultáneas permitidas.') });
+    const error = await iniciarSesion(cliente(fetchFalso), parseRut('22222222-2'), 'buena').catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ErrorImpuestocl);
+    expect((error as ErrorImpuestocl).codigo).toBe('SII_SESIONES_MAXIMAS');
+    expect((error as ErrorImpuestocl).detalle).toEqual({ codigo: CODIGO_SESIONES_MAXIMAS });
+    expect(llamadas.filter((l) => l.method === 'POST')).toHaveLength(1);
+  });
+
+  it('el mismo código sin hablar de sesiones sigue siendo CLAVE_RECHAZADA', async () => {
+    const { fetchFalso } = crearFetchFalso({ ...rutasLoginOk(), [RUTA_POST]: paginaErrorLogin(CODIGO_SESIONES_MAXIMAS, 'Acceso denegado.') });
+    expect(await codigoDe(iniciarSesion(cliente(fetchFalso), parseRut('22222222-2'), 'x'))).toBe('CLAVE_RECHAZADA');
+  });
+
+  it('un código desconocido es CLAVE_RECHAZADA y lleva el código en el mensaje', async () => {
+    const { fetchFalso } = crearFetchFalso({ ...rutasLoginOk(), [RUTA_POST]: paginaErrorLogin('99.99.999.999.999.99', 'Algo falló.') });
+    const error = await iniciarSesion(cliente(fetchFalso), parseRut('22222222-2'), 'x').catch((e: unknown) => e);
+    expect((error as ErrorImpuestocl).codigo).toBe('CLAVE_RECHAZADA');
+    expect((error as ErrorImpuestocl).message).toContain('99.99.999.999.999.99');
+    expect((error as ErrorImpuestocl).detalle).toEqual({ codigo: '99.99.999.999.999.99' });
   });
 
   it('un login colgado vence el plazo una sola vez: SII_NO_DISPONIBLE sin reenviar la clave', async () => {
@@ -99,6 +121,28 @@ describe('iniciarSesion', () => {
   it('si el SII devuelve otra identidad es PORTAL_CAMBIO', async () => {
     const { fetchFalso } = crearFetchFalso({ ...rutasLoginOk(), [RUTA_MI_SII]: { headers: HTML, body: paginaDatosCntr('11111111', '1', null) } });
     expect(await codigoDe(iniciarSesion(cliente(fetchFalso), parseRut('22222222-2'), 'x'))).toBe('PORTAL_CAMBIO');
+  });
+});
+
+describe('clasificarErrorLogin', () => {
+  it.each<[string | null, string, string]>([
+    [CODIGO_CLAVE_INCORRECTA, 'La Clave Tributaria no es correcta.', 'CLAVE_RECHAZADA'],
+    [CODIGO_CLAVE_INCORRECTA, 'Demasiadas sesiones.', 'CLAVE_RECHAZADA'],
+    [CODIGO_SESIONES_MAXIMAS, 'Máximo de sesiones alcanzado.', 'SII_SESIONES_MAXIMAS'],
+    [CODIGO_SESIONES_MAXIMAS, 'SESIÓN duplicada.', 'SII_SESIONES_MAXIMAS'],
+    [CODIGO_SESIONES_MAXIMAS, 'Acceso denegado.', 'CLAVE_RECHAZADA'],
+    ['00.00.000.000.000.00', 'Máximo de sesiones alcanzado.', 'CLAVE_RECHAZADA'],
+    [null, 'Algo.', 'CLAVE_RECHAZADA'],
+  ])('código %s, mensaje "%s" es %s', (codigo, mensaje, esperado) => {
+    expect(clasificarErrorLogin({ codigo, mensaje }).codigo).toBe(esperado);
+  });
+
+  it('con la clave incorrecta conserva el mensaje del SII tal cual', () => {
+    expect(clasificarErrorLogin({ codigo: CODIGO_CLAVE_INCORRECTA, mensaje: 'La Clave no es correcta.' }).message).toBe('La Clave no es correcta.');
+  });
+
+  it('sin mensaje usa uno genérico', () => {
+    expect(clasificarErrorLogin({ codigo: CODIGO_CLAVE_INCORRECTA, mensaje: '' }).message).toBe('El SII rechazó el inicio de sesión.');
   });
 });
 
