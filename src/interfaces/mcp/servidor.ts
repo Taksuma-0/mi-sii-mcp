@@ -3,6 +3,7 @@ import * as z from 'zod';
 import { consultaSql, esquemaDatos, LIMITES_CONSULTA } from '../../app/consulta-libre.js';
 import { documentos, f29Historial, hallazgos, plazos, resumenIva } from '../../app/consultas.js';
 import type { DepsApp } from '../../app/deps.js';
+import { sincronizarCuenta } from '../../app/cuenta.js';
 import { panorama } from '../../app/panorama.js';
 import { listarPerfiles } from '../../app/perfiles.js';
 import { releerF29 } from '../../app/releer-f29.js';
@@ -10,7 +11,7 @@ import { sincronizar } from '../../app/sincronizar.js';
 import { esErrorImpuestocl, type CodigoError } from '../../domain/errores.js';
 import { parsePeriodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
-import { lineaReintento, textoDocumentos, textoHallazgos, textoHistorialF29, textoPerfiles, textoPlazos, textoReintentables, textoReleerF29, textoResumenIva, textoSync } from '../formato.js';
+import { lineaReintento, textoDocumentos, textoHallazgos, textoHistorialF29, textoCuenta, textoPerfiles, textoPlazos, textoReintentables, textoReleerF29, textoResumenIva, textoSync } from '../formato.js';
 
 export const HERRAMIENTAS = [
   'perfiles_listar',
@@ -24,6 +25,7 @@ export const HERRAMIENTAS = [
   'consulta_sql',
   'datos_esquema',
   'f29_releer',
+  'perfil_sincronizar',
 ] as const;
 
 /** Lo que lee el asistente al conectarse: flujo de uso, regla de la clave y cobertura (máximo 1 500 caracteres). */
@@ -33,8 +35,9 @@ export const INSTRUCCIONES_MCP = [
   '3. Para IVA y conciliación prefiere iva_resumen, iva_hallazgos, f29_historial y plazos_proximos: aplican las reglas del dominio.',
   '4. Para cruces y preguntas libres, llama una vez a datos_esquema y luego a consulta_sql (solo lectura).',
   '5. Si un F29 leído no cuadra o se actualizó impuestocl, f29_releer relee los PDF ya guardados sin ir al SII.',
-  '6. Nunca pidas la clave tributaria ni intentes un login. Ante SESION_REQUERIDA (o CLAVE_RECHAZADA, RUT_BLOQUEADO_LOCAL), muestra a la persona el comando de login del mensaje para que lo ejecute en su terminal, o indícale «Abrir impuestocl.cmd»; después reintenta.',
-  '7. Cobertura actual: solo RCV (compras y ventas) y F29. No es asesoría tributaria.',
+  '6. perfil_sincronizar lee el perfil tributario (día 20, régimen) y las empresas autorizadas; plazos_proximos las usa.',
+  '7. Nunca pidas la clave tributaria ni intentes un login. Ante SESION_REQUERIDA (o CLAVE_RECHAZADA, RUT_BLOQUEADO_LOCAL), muestra a la persona el comando de login del mensaje para que lo ejecute en su terminal, o indícale «Abrir impuestocl.cmd»; después reintenta.',
+  '8. Cobertura actual: solo RCV (compras y ventas) y F29. No es asesoría tributaria.',
 ].join('\n');
 
 export interface OpcionesMcp {
@@ -169,6 +172,25 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
         const guia = codigos.map((c) => guiaDelCodigo(comandoLogin, c, r.rut)).find((g) => g !== null);
         const texto = [textoSync(r), textoReintentables(r), guia].filter((t) => t !== null).join('\n');
         return respuesta(texto, r);
+      }, rut),
+  );
+
+  servidor.registerTool(
+    'perfil_sincronizar',
+    {
+      title: 'Sincronizar la cuenta del SII',
+      description:
+        'Trae del SII el perfil tributario (si está autorizado a declarar el F29 hasta el día 20, régimen y segmento) y las empresas que el contribuyente puede consultar, y actualiza a quién representa el perfil con las empresas activas. Solo lee el SII y no guarda nombres, correos, teléfonos ni direcciones. Los plazos del F29 usan el día 20 solo si el SII lo autoriza (si no, el 12): sincroniza la cuenta antes de revisar plazos. Si no hay sesión, la respuesta trae el comando de login para que la persona lo ejecute en su terminal; nunca pidas la clave en el chat.',
+      inputSchema: z.object({ rut: RUT }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async ({ rut }, ctx) =>
+      seguro(async () => {
+        const r = await sincronizarCuenta(deps, rut, ctx.mcpReq.signal);
+        // Igual que sincronizar: los errores de sesión vienen en `abortado` o en los errores de cada lectura, y el comando de login se agrega una sola vez.
+        const codigos = [...(r.abortado ? [r.abortado.codigo] : []), ...r.errores.map((e) => e.codigo)];
+        const guia = codigos.map((c) => guiaDelCodigo(comandoLogin, c, r.rut)).find((g) => g !== null);
+        return respuesta([textoCuenta(r), guia].filter((t): t is string => typeof t === 'string').join('\n'), r);
       }, rut),
   );
 

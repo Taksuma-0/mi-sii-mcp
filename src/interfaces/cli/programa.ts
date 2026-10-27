@@ -1,5 +1,6 @@
 import { Command, InvalidArgumentError, Option } from 'commander';
 import { documentos, f29Historial, hallazgos, plazos, resumenIva } from '../../app/consultas.js';
+import { sincronizarCuenta } from '../../app/cuenta.js';
 import type { DepsApp } from '../../app/deps.js';
 import { agregarPerfil, listarPerfiles, registrarIdentidad } from '../../app/perfiles.js';
 import { releerF29 } from '../../app/releer-f29.js';
@@ -10,7 +11,7 @@ import { parseRut } from '../../domain/rut.js';
 import type { EstadoRcv, Lado, Severidad, TipoContribuyente } from '../../domain/tipos.js';
 import { VERSION } from '../../main/version.js';
 import type { EstadoSesion, ResultadoLogin } from '../../ports/index.js';
-import { lineaReintento, textoDocumentos, textoHallazgos, textoHistorialF29, textoPerfiles, textoPlazos, textoReleerF29, textoResumenIva, textoSync } from '../formato.js';
+import { lineaReintento, textoCuenta, textoDocumentos, textoHallazgos, textoHistorialF29, textoPerfiles, textoPlazos, textoReleerF29, textoResumenIva, textoSync } from '../formato.js';
 
 export interface IoCli {
   escribir(texto: string): void;
@@ -86,6 +87,19 @@ export function crearPrograma(
       ejecutar((c, o: { json?: boolean }) => {
         const ps = listarPerfiles(c.deps);
         mostrar(o.json, ps, textoPerfiles(ps));
+      }),
+    );
+
+  perfil
+    .command('sincronizar')
+    .description('Trae del SII el perfil tributario (día 20, régimen) y las empresas autorizadas, y actualiza a quién representa el perfil')
+    .argument('<rut>')
+    .option('--json', 'salida en JSON')
+    .action(
+      ejecutar(async (c, rut: string, o: { json?: boolean }) => {
+        const r = await sincronizarCuenta(c.deps, rut);
+        mostrar(o.json, r, textoCuenta(r));
+        if (r.abortado || r.errores.length > 0) salida.codigo = 1;
       }),
     );
 

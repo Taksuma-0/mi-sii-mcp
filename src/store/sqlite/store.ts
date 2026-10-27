@@ -4,6 +4,7 @@ import {
   type BoletaHonorarios,
   type DisponibilidadFuentes,
   type DocumentoRcv,
+  type EmpresaAutorizada,
   type EstadoRcv,
   type F29Declaracion,
   type F29Valores,
@@ -14,6 +15,8 @@ import {
   type Naturaleza,
   type OrigenLecturaF29,
   type Perfil,
+  type PerfilTributario,
+  type PerfilTributarioGuardado,
   type PropuestaF29,
   type RcvResumen,
   type RcvResumenFila,
@@ -52,6 +55,21 @@ interface FilaContribuyente {
   tipo: TipoContribuyente;
   razon_social: string | null;
   representa_json: string;
+}
+interface FilaTributario {
+  autorizado_dia20: number | null;
+  tipo_codigo: string | null;
+  tipo_descripcion: string | null;
+  subtipo_codigo: string | null;
+  subtipo_descripcion: string | null;
+  segmento_codigo: string | null;
+  segmento_descripcion: string | null;
+  glosa_actividad: string | null;
+  fecha_inicio_actividades: string | null;
+  fecha_termino_giro: string | null;
+  persona_empresa: string | null;
+  atributos_json: string;
+  obtenido_en: string;
 }
 interface FilaBhe {
   rut_emisor: string;
@@ -529,6 +547,71 @@ export class SqliteStore implements Store {
       .prepare('SELECT estado, error_codigo FROM sincronizacion WHERE rut = ? AND superficie = ? AND periodo = ? ORDER BY id DESC LIMIT 1')
       .get(rut, superficie, periodo) as { estado: 'en_curso' | 'ok' | 'error'; error_codigo: string | null } | undefined;
     return f ? { estado: f.estado, errorCodigo: f.error_codigo } : null;
+  }
+
+  // --- cuenta del SII ---------------------------------------------------------------------
+  guardarPerfilTributario(rut: string, perfil: PerfilTributario, obtenidoEn: string): void {
+    this.db
+      .prepare(
+        `INSERT OR REPLACE INTO contribuyente_tributario (rut, autorizado_dia20, tipo_codigo, tipo_descripcion, subtipo_codigo, subtipo_descripcion, segmento_codigo, segmento_descripcion,
+           glosa_actividad, fecha_inicio_actividades, fecha_termino_giro, persona_empresa, atributos_json, obtenido_en)
+         VALUES (@rut, @autorizado, @tipoCodigo, @tipoDescripcion, @subtipoCodigo, @subtipoDescripcion, @segmentoCodigo, @segmentoDescripcion,
+           @glosaActividad, @fechaInicioActividades, @fechaTerminoGiro, @personaEmpresa, @atributos, @obtenidoEn)`,
+      )
+      .run({
+        rut,
+        autorizado: perfil.autorizadoDia20 === null ? null : perfil.autorizadoDia20 ? 1 : 0,
+        tipoCodigo: perfil.tipoCodigo,
+        tipoDescripcion: perfil.tipoDescripcion,
+        subtipoCodigo: perfil.subtipoCodigo,
+        subtipoDescripcion: perfil.subtipoDescripcion,
+        segmentoCodigo: perfil.segmentoCodigo,
+        segmentoDescripcion: perfil.segmentoDescripcion,
+        glosaActividad: perfil.glosaActividad,
+        fechaInicioActividades: perfil.fechaInicioActividades,
+        fechaTerminoGiro: perfil.fechaTerminoGiro,
+        personaEmpresa: perfil.personaEmpresa,
+        atributos: JSON.stringify(perfil.atributos),
+        obtenidoEn,
+      });
+  }
+
+  perfilTributario(rut: string): PerfilTributarioGuardado | null {
+    const f = this.db.prepare('SELECT * FROM contribuyente_tributario WHERE rut = ?').get(rut) as FilaTributario | undefined;
+    if (!f) return null;
+    return {
+      autorizadoDia20: f.autorizado_dia20 === null ? null : f.autorizado_dia20 === 1,
+      tipoCodigo: f.tipo_codigo,
+      tipoDescripcion: f.tipo_descripcion,
+      subtipoCodigo: f.subtipo_codigo,
+      subtipoDescripcion: f.subtipo_descripcion,
+      segmentoCodigo: f.segmento_codigo,
+      segmentoDescripcion: f.segmento_descripcion,
+      glosaActividad: f.glosa_actividad,
+      fechaInicioActividades: f.fecha_inicio_actividades,
+      fechaTerminoGiro: f.fecha_termino_giro,
+      personaEmpresa: f.persona_empresa,
+      atributos: JSON.parse(f.atributos_json) as PerfilTributario['atributos'],
+      obtenidoEn: f.obtenido_en,
+    };
+  }
+
+  reemplazarEmpresasAutorizadas(sincronizacionId: number, rut: string, empresas: readonly EmpresaAutorizada[], obtenidoEn: string): void {
+    const ins = this.db.prepare(
+      `INSERT INTO sii_empresa_autorizada (rut, rut_empresa, razon_social, privilegios, fecha_desautorizacion, sincronizacion_id, obtenido_en)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    );
+    this.db.transaction(() => {
+      this.db.prepare('DELETE FROM sii_empresa_autorizada WHERE rut = ?').run(rut);
+      for (const e of empresas) ins.run(rut, e.rutEmpresa, e.razonSocial, e.privilegios, e.fechaDesautorizacion, sincronizacionId, obtenidoEn);
+    })();
+  }
+
+  empresasAutorizadas(rut: string): EmpresaAutorizada[] {
+    const filas = this.db
+      .prepare('SELECT rut_empresa, razon_social, privilegios, fecha_desautorizacion FROM sii_empresa_autorizada WHERE rut = ? ORDER BY rut_empresa')
+      .all(rut) as { rut_empresa: string; razon_social: string | null; privilegios: string | null; fecha_desautorizacion: string | null }[];
+    return filas.map((f) => ({ rutEmpresa: f.rut_empresa, razonSocial: f.razon_social, privilegios: f.privilegios, fechaDesautorizacion: f.fecha_desautorizacion }));
   }
 
   // --- frescura ---------------------------------------------------------------------------

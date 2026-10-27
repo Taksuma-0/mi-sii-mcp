@@ -62,6 +62,45 @@ const TABLAS: readonly TablaEsquema[] = [
     ],
   },
   {
+    nombre: 'contribuyente_tributario',
+    descripcion:
+      'Datos tributarios del contribuyente según Mi SII (una fila por rut), solo si se sincronizó la cuenta con perfil_sincronizar. Es una lista permitida: nunca guarda nombres, correo, teléfonos ni direcciones.',
+    columnas: [
+      RUT,
+      col('autorizado_dia20', 'INTEGER', '1 si el SII lo autoriza a declarar y pagar el F29 hasta el día 20; 0 si no; NULL si se desconoce (se asume el día 20)'),
+      col('tipo_codigo', 'TEXT', 'Código del tipo de contribuyente según el SII; puede ser NULL'),
+      col('tipo_descripcion', 'TEXT', 'Descripción del tipo de contribuyente; puede ser NULL'),
+      col('subtipo_codigo', 'TEXT', 'Código del subtipo de contribuyente; puede ser NULL'),
+      col('subtipo_descripcion', 'TEXT', 'Descripción del subtipo de contribuyente; puede ser NULL'),
+      col('segmento_codigo', 'TEXT', 'Código del segmento (tamaño) según el SII; puede ser NULL'),
+      col('segmento_descripcion', 'TEXT', 'Descripción del segmento; puede ser NULL'),
+      col('glosa_actividad', 'TEXT', 'Glosa de la actividad económica; puede ser NULL'),
+      col('fecha_inicio_actividades', 'TEXT', 'Fecha de inicio de actividades tal como la informa el SII; puede ser NULL'),
+      col('fecha_termino_giro', 'TEXT', 'Fecha de término de giro tal como la informa el SII; NULL si no ha terminado'),
+      col('persona_empresa', 'TEXT', 'Indicador del SII de si es persona o empresa; puede ser NULL'),
+      col(
+        'atributos_json',
+        'TEXT',
+        'Arreglo JSON de atributos del contribuyente {codigo, descripcion, fechaInicio, fechaTermino} con "valor" solo en EMTP (tamaño de empresa), SGMI (segmento), 14TT (régimen Pro Pyme transparente) y FPYM (facturador electrónico MIPYME); los demás, como NOTI (su valor es un correo), no traen valor. fechaTermino null = vigente',
+      ),
+      col('obtenido_en', 'TEXT', 'Instante ISO UTC en que se leyó de Mi SII'),
+    ],
+  },
+  {
+    nombre: 'sii_empresa_autorizada',
+    descripcion:
+      'Empresas que el contribuyente (rut) puede consultar en el SII, una fila por rut y empresa, solo si se sincronizó la cuenta con perfil_sincronizar. Cada lectura reemplaza la lista completa.',
+    columnas: [
+      col('rut', 'TEXT', 'RUT del contribuyente autenticado, sin puntos y con guion (22222222-2)'),
+      col('rut_empresa', 'TEXT', 'RUT de la empresa autorizada, sin puntos y con guion; puede ser el propio'),
+      col('razon_social', 'TEXT', 'Razón social o nombre de la empresa; puede ser NULL'),
+      col('privilegios', 'TEXT', 'Privilegios que el SII informa para esa empresa; puede ser NULL'),
+      col('fecha_desautorizacion', 'TEXT', 'Fecha desde la que ya no está autorizada; NULL = activa'),
+      SINCRONIZACION_ID,
+      OBTENIDO_EN,
+    ],
+  },
+  {
     nombre: 'rcv_resumen',
     descripcion:
       'Resumen del RCV: una fila por rut, periodo, lado, estado_rcv y tipo_doc, con cantidad y montos del grupo. Fuente de los totales de IVA: incluye las boletas de venta, que no existen en rcv_documento.',
@@ -225,8 +264,8 @@ const TABLAS: readonly TablaEsquema[] = [
     columnas: [
       col('id', 'INTEGER', 'Identificador; mayor id = intento más reciente'),
       RUT,
-      col('superficie', 'TEXT', 'rcv.VENTA, rcv.COMPRA, f29 (listado de declaraciones), f29.valores (detalle de la vigente; no se repite si f29_lectura ya tiene una lectura coherente del folio con la misma versión del lector, así que puede no haber un intento reciente), f29.propuesta (propuesta del SII; solo si se pidió) o bhe.recibidas (boletas de honorarios recibidas; solo si se pidió)'),
-      PERIODO,
+      col('superficie', 'TEXT', 'rcv.VENTA, rcv.COMPRA, f29 (listado de declaraciones), f29.valores (detalle de la vigente; no se repite si f29_lectura ya tiene una lectura coherente del folio con la misma versión del lector, así que puede no haber un intento reciente), f29.propuesta (propuesta del SII; solo si se pidió), bhe.recibidas (boletas de honorarios recibidas; solo si se pidió), cuenta.perfil (perfil tributario de Mi SII; solo con perfil_sincronizar) o cuenta.empresas (empresas autorizadas; solo con perfil_sincronizar)'),
+      col('periodo', 'TEXT', 'Período tributario AAAA-MM; vacío en cuenta.perfil y cuenta.empresas, que no son de un mes'),
       col('iniciado_en', 'TEXT', 'Instante ISO UTC de inicio'),
       col('terminado_en', 'TEXT', 'Instante ISO UTC de término; NULL si sigue en curso'),
       col('estado', 'TEXT', 'ok, error o en_curso'),
@@ -268,8 +307,9 @@ function reglas(): readonly string[] {
     "Un período puede tener varias declaraciones F29 (folios; por ejemplo rectificatorias). La vigente: solo cuentan las presentadas (folio > 0 y ni guardadas ni rechazadas ni anuladas: estado_id fuera de 10 y 70 y estado sin «guardad», «rechazad» ni «anulad»; un estado desconocido cuenta como presentado); si alguna tiene un estado con «vigente», se consideran solo esas y si no, todas las presentadas; gana la de fecha_presentacion más reciente (NULL es la más antigua) y, si empatan, el folio más alto. En SQL: `SELECT * FROM f29_declaracion WHERE rut = '<RUT>' AND periodo = '<AAAA-MM>' AND folio > 0 AND COALESCE(estado_id, 0) NOT IN (10, 70) AND estado NOT LIKE '%guardad%' AND estado NOT LIKE '%rechazad%' AND estado NOT LIKE '%anulad%' ORDER BY (estado LIKE '%vigente%') DESC, COALESCE(fecha_presentacion, '') DESC, folio DESC LIMIT 1`. Une sus valores por rut, periodo y folio.",
     "Propuesta del SII (f29_propuesta y f29_propuesta_valor, solo si se sincronizó la superficie propuesta): lo que el SII propone antes de declarar. Trae el crédito propuesto ('520'; '511' es el crédito neto por documentos), el remanente ('504') y la retención ('151'); no trae débito ni total a pagar, así que no sirve para saber si el F29 llevará pago. Con sin_propuesta = 1 el SII no propuso nada. No reemplaza al F29 declarado.",
     `Boletas de honorarios recibidas (bhe_recibida, solo si se sincronizó la superficie bhe): para montos usa solo las vigentes (anulada = 0). La retención del mes (SUM(retencion) con anulada = 0) se compara con el código '${CODIGO_F29.RETENCION_HONORARIOS}' (retención de honorarios) del F29 del mismo periodo (hallazgo RET-01: advertencia si el 151 es menor, info si es mayor); puede diferir si alguna boleta se pagó en otro mes o si el F29 incluye otras retenciones.`,
+    "Cuenta del SII (contribuyente_tributario y sii_empresa_autorizada, solo si se sincronizó con perfil_sincronizar): autorizado_dia20 dice si el SII autoriza declarar y pagar el F29 hasta el día 20 (si no, el plazo es el 12; NULL = se desconoce y se asume el día 20) y las empresas con fecha_desautorizacion NULL son las que el contribuyente puede consultar. Los atributos no traen correos ni otros datos personales.",
     'Que no haya filas no significa cero: un período no sincronizado no tiene filas. Revisa sincronizacion (el intento más reciente por rut, superficie y periodo): estado ok sin filas = el SII no tenía documentos o declaraciones; sin fila o con estado error = se desconoce, y los datos pueden estar incompletos o ser de un intento anterior.',
-    'Cobertura: solo el RCV (compras y ventas), el F29, la propuesta del F29 y las boletas de honorarios recibidas traídos por impuestocl. No hay otros impuestos ni trámites del SII, y esto no es asesoría tributaria.',
+    'Cobertura: solo el RCV (compras y ventas), el F29, la propuesta del F29, las boletas de honorarios recibidas y los datos tributarios de la cuenta traídos por impuestocl. No hay otros impuestos ni trámites del SII, y esto no es asesoría tributaria.',
   ];
 }
 

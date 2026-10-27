@@ -1,4 +1,4 @@
-import type { BoletaHonorarios, DocumentoRcv, F29Declaracion, F29Valores, Perfil, PropuestaF29, RcvResumen, RcvResumenFila } from '../../src/domain/tipos.js';
+import type { BoletaHonorarios, DocumentoRcv, EmpresaAutorizada, F29Declaracion, F29Valores, Perfil, PerfilTributario, PropuestaF29, RcvResumen, RcvResumenFila } from '../../src/domain/tipos.js';
 
 export const RUT_EMPRESA = '22222222-2';
 export const RUT_PERSONA = '11111111-1';
@@ -112,5 +112,32 @@ export const boleta = (o: Partial<BoletaHonorarios> = {}): BoletaHonorarios => (
   sociedadProfesional: false,
   anulada: false,
   fechaAnulacion: null,
+  ...o,
+});
+
+export const perfilTributario = (o: Partial<PerfilTributario> = {}): PerfilTributario => ({
+  autorizadoDia20: true,
+  tipoCodigo: '1',
+  tipoDescripcion: 'Primera Categoría',
+  subtipoCodigo: '10',
+  subtipoDescripcion: 'Sociedad por acciones',
+  segmentoCodigo: '5',
+  segmentoDescripcion: 'Segmento ficticio',
+  glosaActividad: 'SERVICIOS DE ASESORIA DE EJEMPLO',
+  fechaInicioActividades: '2020-03-02',
+  fechaTerminoGiro: null,
+  personaEmpresa: 'E',
+  atributos: [
+    { codigo: '14TT', descripcion: 'Régimen Pro Pyme Transparente 14 D N°8', fechaInicio: '2025-01-01', fechaTermino: null, valor: 'S' },
+    { codigo: 'NOTI', descripcion: 'Notificación por correo electrónico', fechaInicio: '2021-01-01', fechaTermino: null },
+  ],
+  ...o,
+});
+
+export const empresaAutorizada = (o: Partial<EmpresaAutorizada> = {}): EmpresaAutorizada => ({
+  rutEmpresa: RUT_PROVEEDOR,
+  razonSocial: 'OTRA EMPRESA DEMO LTDA',
+  privilegios: 'CONSULTA',
+  fechaDesautorizacion: null,
   ...o,
 });

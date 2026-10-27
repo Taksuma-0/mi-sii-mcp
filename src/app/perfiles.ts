@@ -1,10 +1,13 @@
 import { parseRut } from '../domain/rut.js';
 import type { Perfil, TipoContribuyente } from '../domain/tipos.js';
 import type { EstadoSesion, IdentidadSii } from '../ports/index.js';
+import { cuentaDe, type CuentaSii } from './cuenta.js';
 import type { DepsApp } from './deps.js';
 
 export interface PerfilConSesion extends Perfil {
   readonly sesion: EstadoSesion;
+  /** Día 20, régimen, segmento y empresas autorizadas; solo existe si se sincronizó la cuenta. */
+  readonly cuenta?: CuentaSii;
 }
 
 export function agregarPerfil(
@@ -24,7 +27,10 @@ export function agregarPerfil(
 }
 
 export function listarPerfiles(deps: DepsApp): PerfilConSesion[] {
-  return deps.store.contribuyentes().map((p) => ({ ...p, sesion: deps.sesiones.estado(p.rut) }));
+  return deps.store.contribuyentes().map((p) => {
+    const cuenta = cuentaDe(deps, p.rut);
+    return { ...p, sesion: deps.sesiones.estado(p.rut), ...(cuenta ? { cuenta } : {}) };
+  });
 }
 
 /** Tras un login: crea el perfil si no existe o completa su razón social. */

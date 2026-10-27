@@ -1,11 +1,13 @@
 import type { Periodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
-import type { DocumentoRcv, EstadoRcv, F29Declaracion, F29Valores, InformeBhe, Lado, PropuestaF29, RcvResumen } from '../../domain/tipos.js';
+import type { DocumentoRcv, EmpresaAutorizada, EstadoRcv, F29Declaracion, F29Valores, InformeBhe, Lado, PerfilTributario, PropuestaF29, RcvResumen } from '../../domain/tipos.js';
 import type { LectorPdfF29, SiiReader, SumideroRespuestas } from '../../ports/index.js';
 import { bheRecibidas } from './bhe.js';
+import { empresasAutorizadas } from './empresas.js';
 import { f29Declaraciones, f29Valores } from './f29.js';
 import { lectorPdfF29 } from './f29-pdf.js';
 import type { Http } from './http.js';
+import { leerPerfilTributario } from './login.js';
 import { f29Propuesta } from './propuesta.js';
 import { rcvDetalle, rcvResumen } from './rcv.js';
 
@@ -40,5 +42,14 @@ export class LectorPortalSii implements SiiReader {
 
   bheRecibidas(rut: string, periodo: Periodo): Promise<InformeBhe | null> {
     return bheRecibidas(this.http, this.sumidero, parseRut(rut), periodo);
+  }
+
+  /** La evidencia cruda de Mi SII no se guarda: trae datos personales y el sumidero no la recibe. */
+  perfilTributario(rut: string): Promise<PerfilTributario> {
+    return leerPerfilTributario(this.http, parseRut(rut).canonico);
+  }
+
+  empresasAutorizadas(): Promise<EmpresaAutorizada[]> {
+    return empresasAutorizadas(this.http, this.sumidero);
   }
 }

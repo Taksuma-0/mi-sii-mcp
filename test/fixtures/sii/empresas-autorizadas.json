@@ -1,0 +1,41 @@
+{
+  "metaData": { "namespace": "cl.sii.sdi.lob.diii.consdcv.data.api.interfaces.FacadeService/getDcvEmpresasAutorizadas", "conversationId": "tok123", "transactionId": "t-0001", "errors": null },
+  "data": [
+    {
+      "usrEmpRut": "22222222",
+      "usrEmpDv": "2",
+      "usrUsuarioRut": "11111111",
+      "usrUsuarioDv": "1",
+      "usrPrivilegios": "ADMIN",
+      "usrFechaDesautorizacion": null,
+      "empFechaDesautorizacion": null,
+      "usrEmpRutDv": "22222222-2",
+      "razonSocONombreEmp": "EMPRESA DEMO SPA"
+    },
+    {
+      "usrEmpRut": "33333333",
+      "usrEmpDv": "3",
+      "usrUsuarioRut": "11111111",
+      "usrUsuarioDv": "1",
+      "usrPrivilegios": "CONSULTA",
+      "usrFechaDesautorizacion": null,
+      "empFechaDesautorizacion": null,
+      "usrEmpRutDv": "33333333-3",
+      "razonSocONombreEmp": "OTRA EMPRESA DEMO LTDA"
+    },
+    {
+      "usrEmpRut": "44444444",
+      "usrEmpDv": "4",
+      "usrUsuarioRut": "11111111",
+      "usrUsuarioDv": "1",
+      "usrPrivilegios": null,
+      "usrFechaDesautorizacion": "2025-06-30",
+      "empFechaDesautorizacion": null,
+      "usrEmpRutDv": "44444444-4",
+      "razonSocONombreEmp": null
+    }
+  ],
+  "rutAutenticado": "11111111",
+  "dvAutenticado": "1",
+  "respEstado": { "codRespuesta": 0, "msgeRespuesta": "OK" }
+}

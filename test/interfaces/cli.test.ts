@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ErrorImpuestocl } from '../../src/domain/errores.js';
 import { leerLineaStdin, pedirClaveOculta } from '../../src/interfaces/cli/clave.js';
 import { crearPrograma, type ContenedorCli, type IoCli, type SesionesCli } from '../../src/interfaces/cli/programa.js';
-import { boleta, declaracion, documento, fila, perfilEmpresa, propuesta, resumen, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
+import { boleta, declaracion, documento, empresaAutorizada, fila, perfilEmpresa, perfilTributario, propuesta, resumen, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
 import { depsDePrueba } from '../helpers/deps.js';
 import { guardarPdfF29, pdfFalso } from '../helpers/lector-falso.js';
 import { sembrarMes, T_SEMBRADO } from '../helpers/sembrar.js';
@@ -311,5 +311,49 @@ describe('pedirClaveOculta', () => {
     t.entrada.emit('data', 'ficticia\r');
     await expect(clave).resolves.toBe('ficticia');
     expect(t.entrada.isRaw).toBe(true);
+  });
+});
+
+describe('CLI: cuenta del SII', () => {
+  function conCuenta() {
+    const e = entorno();
+    e.store.guardarContribuyente(perfilEmpresa());
+    e.sii.perfil = perfilTributario();
+    e.sii.empresas = [empresaAutorizada({ rutEmpresa: RUT_EMPRESA }), empresaAutorizada()];
+    return e;
+  }
+
+  it('perfil sincronizar <rut> trae el perfil tributario y las empresas autorizadas', async () => {
+    const e = conCuenta();
+
+    expect(await e.correr('perfil', 'sincronizar', '22.222.222-2')).toBe(0);
+
+    expect(e.sii.llamadas).toEqual(['perfil', 'empresas']);
+    expect(e.salidaTexto.at(-1)).toContain('Cuenta 22222222-2');
+    expect(e.salidaTexto.at(-1)).toContain('día 20: autorizado');
+    expect(e.store.contribuyente(RUT_EMPRESA)?.representa).toEqual(['33333333-3']);
+    expect(e.persistidos).toEqual([RUT_EMPRESA]);
+  });
+
+  it('--json imprime el resultado y un error de una superficie deja el código de salida en 1', async () => {
+    const e = conCuenta();
+    e.sii.perfil = null;
+
+    expect(await e.correr('perfil', 'sincronizar', RUT_EMPRESA, '--json')).toBe(1);
+
+    expect(JSON.parse(e.salidaTexto.at(-1)!)).toMatchObject({ rut: RUT_EMPRESA, perfil: 'sin_leer', empresas: 2, errores: [{ superficie: 'cuenta.perfil', codigo: 'PORTAL_CAMBIO' }] });
+  });
+
+  it('un RUT sin perfil es un error de dominio con código de salida 1', async () => {
+    const e = entorno();
+    expect(await e.correr('perfil', 'sincronizar', RUT_EMPRESA)).toBe(1);
+    expect(e.errores.at(-1)).toContain('PERFIL_NO_EXISTE');
+  });
+
+  it('perfil listar muestra la cuenta leída', async () => {
+    const e = conCuenta();
+    await e.correr('perfil', 'sincronizar', RUT_EMPRESA);
+    await e.correr('perfil', 'listar');
+    expect(e.salidaTexto.at(-1)).toContain('día 20: autorizado');
   });
 });

@@ -73,6 +73,19 @@ describe('db', () => {
     expect(db.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'bhe_recibida' AND sql LIKE '%rut, periodo%'").all()).toHaveLength(1);
   });
 
+  it('la migración 6 crea el perfil tributario por RUT y las empresas autorizadas con clave por RUT y empresa', () => {
+    const db = nuevaDb();
+    expect(MIGRACIONES.find((m) => m.version === 6)?.sql).toContain('sii_empresa_autorizada');
+    db.prepare("INSERT INTO sincronizacion (rut, superficie, periodo, iniciado_en) VALUES ('1', 'cuenta.empresas', '', 't')").run();
+    db.prepare("INSERT INTO contribuyente_tributario (rut, autorizado_dia20, atributos_json, obtenido_en) VALUES ('1', NULL, '[]', 't')").run();
+    expect(() => db.prepare("INSERT INTO contribuyente_tributario (rut, autorizado_dia20, atributos_json, obtenido_en) VALUES ('1', 1, '[]', 't')").run()).toThrow();
+    expect(() => db.prepare("INSERT INTO contribuyente_tributario (rut, autorizado_dia20, atributos_json, obtenido_en) VALUES ('2', 2, '[]', 't')").run()).toThrow();
+    const insertar = (empresa: string) => db.prepare("INSERT INTO sii_empresa_autorizada (rut, rut_empresa, sincronizacion_id, obtenido_en) VALUES ('1', ?, 1, 't')").run(empresa);
+    insertar('2-7');
+    expect(() => insertar('2-7')).toThrow();
+    expect(() => db.prepare("INSERT INTO sii_empresa_autorizada (rut, rut_empresa, sincronizacion_id, obtenido_en) VALUES ('1', '3-5', 99, 't')").run()).toThrow();
+  });
+
   it('migra una base v1 con datos a la v2 agregando estado_id', () => {
     const db = new Database(':memory:');
     aplicarMigraciones(db, [MIGRACIONES[0]!]);

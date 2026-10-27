@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { panorama } from '../../src/app/panorama.js';
 import { SqliteStore } from '../../src/store/sqlite/store.js';
 import { depsDePrueba } from '../helpers/deps.js';
-import { declaracion, documento, fila, perfilEmpresa, perfilPersona, resumen, RUT_EMPRESA, RUT_PERSONA, valores } from '../helpers/fabricas.js';
+import { declaracion, documento, empresaAutorizada, fila, perfilEmpresa, perfilPersona, perfilTributario, resumen, RUT_EMPRESA, RUT_PERSONA, valores } from '../helpers/fabricas.js';
 import { medirLecturas } from '../helpers/lecturas-sqlite.js';
 import { sembrarMes, T_SEMBRADO } from '../helpers/sembrar.js';
 
@@ -156,5 +156,22 @@ describe('panorama local del SII', () => {
   it('exige un perfil existente', () => {
     const { deps } = depsDePrueba();
     expect(() => panorama(deps, RUT_EMPRESA)).toThrow(expect.objectContaining({ codigo: 'PERFIL_NO_EXISTE' }));
+  });
+});
+
+describe('panorama: cuenta del SII', () => {
+  it('no trae el bloque cuenta si no se ha leído, y lo trae aparte del perfil si se leyó', () => {
+    const { deps, store } = conEmpresa();
+    expect('cuenta' in panorama(deps, RUT_EMPRESA)).toBe(false);
+
+    store.guardarPerfilTributario(RUT_EMPRESA, perfilTributario({ autorizadoDia20: false }), T_SEMBRADO);
+    const id = store.iniciarSincronizacion(RUT_EMPRESA, 'cuenta.empresas', '', T_SEMBRADO);
+    store.reemplazarEmpresasAutorizadas(id, RUT_EMPRESA, [empresaAutorizada()], T_SEMBRADO);
+    store.terminarSincronizacion(id, T_SEMBRADO, 'ok');
+
+    const r = panorama(deps, RUT_EMPRESA);
+    expect(r.perfil).toEqual(perfilEmpresa());
+    expect(r.cuenta).toMatchObject({ autorizadoDia20: false, obtenidoEn: T_SEMBRADO, empresas: [{ rut: '33333333-3', activa: true }] });
+    expect(r.periodos).toEqual([]);
   });
 });

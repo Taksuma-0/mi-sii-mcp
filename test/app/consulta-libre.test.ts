@@ -109,6 +109,23 @@ describe('esquemaDatos', () => {
     expect(regla).toContain('RET-01');
   });
 
+  it('documenta la cuenta del SII: perfil tributario, atributos sin datos personales y empresas autorizadas', () => {
+    const { tablas, reglas } = esquemaDatos();
+    expect(tablas.map((t) => t.nombre)).toEqual(expect.arrayContaining(['contribuyente_tributario', 'sii_empresa_autorizada']));
+    const columna = (tabla: string, nombre: string) => tablas.find((t) => t.nombre === tabla)?.columnas.find((c) => c.nombre === nombre)?.significado ?? '';
+    expect(columna('contribuyente_tributario', 'autorizado_dia20')).toMatch(/NULL.*desconoc/);
+    expect(columna('contribuyente_tributario', 'atributos_json')).toMatch(/EMTP.*SGMI.*14TT.*FPYM/);
+    expect(columna('contribuyente_tributario', 'atributos_json')).toMatch(/NOTI|correo/);
+    expect(columna('sii_empresa_autorizada', 'fecha_desautorizacion')).toMatch(/NULL.*activa/);
+    expect(columna('sincronizacion', 'superficie')).toContain('cuenta.perfil');
+    expect(columna('sincronizacion', 'superficie')).toContain('cuenta.empresas');
+    expect(columna('sincronizacion', 'periodo')).toMatch(/vac/);
+    const regla = reglas.find((r) => r.includes('contribuyente_tributario'));
+    expect(regla).toBeDefined();
+    expect(regla).toContain('perfil_sincronizar');
+    expect(regla).toMatch(/día 20/);
+  });
+
   it('describe cada tabla y cada columna con tipo y significado', () => {
     for (const tabla of esquemaDatos().tablas) {
       expect(tabla.descripcion.length, tabla.nombre).toBeGreaterThan(10);

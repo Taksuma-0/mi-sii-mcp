@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { BoletaHonorarios, DocumentoRcv, Hallazgo, Lado, PropuestaF29, RcvResumen } from '../../src/domain/tipos.js';
 import { abrirDb, type Db } from '../../src/store/sqlite/db.js';
 import { huellaDocumento, SqliteStore } from '../../src/store/sqlite/store.js';
-import { boleta, declaracion, documento, fila, propuesta, perfilEmpresa, perfilPersona, resumen, RUT_EMPRESA, RUT_PERSONA, valores } from '../helpers/fabricas.js';
+import { boleta, declaracion, documento, empresaAutorizada, fila, propuesta, perfilEmpresa, perfilTributario, perfilPersona, resumen, RUT_EMPRESA, RUT_PERSONA, valores } from '../helpers/fabricas.js';
 import { guardarPdfF29, pdfFalso } from '../helpers/lector-falso.js';
 import { medirLecturas } from '../helpers/lecturas-sqlite.js';
 
@@ -494,5 +494,74 @@ describe('SqliteStore: boletas de honorarios recibidas', () => {
     guardar([]);
     expect(store.disponibilidadFuentes(RUT_EMPRESA, '2026-09')).toMatchObject({ bheRecibidas: true, f29: false });
     expect(store.frescura(RUT_EMPRESA, '2026-09').bhe).toBe(T);
+  });
+});
+
+describe('SqliteStore: perfil tributario', () => {
+  it('sin datos guardados devuelve null', () => {
+    expect(store.perfilTributario(RUT_EMPRESA)).toBeNull();
+  });
+
+  it('guarda y devuelve el perfil con sus atributos y el instante de la lectura', () => {
+    const p = perfilTributario();
+    store.guardarPerfilTributario(RUT_EMPRESA, p, T);
+    expect(store.perfilTributario(RUT_EMPRESA)).toEqual({ ...p, obtenidoEn: T });
+  });
+
+  it('distingue no autorizado (false) de desconocido (null)', () => {
+    store.guardarPerfilTributario(RUT_EMPRESA, perfilTributario({ autorizadoDia20: false }), T);
+    expect(store.perfilTributario(RUT_EMPRESA)?.autorizadoDia20).toBe(false);
+    store.guardarPerfilTributario(RUT_EMPRESA, perfilTributario({ autorizadoDia20: null }), T);
+    expect(store.perfilTributario(RUT_EMPRESA)?.autorizadoDia20).toBeNull();
+  });
+
+  it('una lectura nueva reemplaza a la anterior y no toca a otro contribuyente', () => {
+    store.guardarPerfilTributario(RUT_PERSONA, perfilTributario({ glosaActividad: 'OTRA' }), T);
+    store.guardarPerfilTributario(RUT_EMPRESA, perfilTributario(), T);
+    store.guardarPerfilTributario(RUT_EMPRESA, perfilTributario({ glosaActividad: null, atributos: [] }), '2026-10-22T10:00:00.000Z');
+    expect(store.perfilTributario(RUT_EMPRESA)).toEqual({ ...perfilTributario({ glosaActividad: null, atributos: [] }), obtenidoEn: '2026-10-22T10:00:00.000Z' });
+    expect(store.perfilTributario(RUT_PERSONA)?.glosaActividad).toBe('OTRA');
+  });
+});
+
+describe('SqliteStore: empresas autorizadas', () => {
+  function guardar(empresas: ReturnType<typeof empresaAutorizada>[], obtenidoEn = T): number {
+    const id = store.iniciarSincronizacion(RUT_EMPRESA, 'cuenta.empresas', '', obtenidoEn);
+    store.reemplazarEmpresasAutorizadas(id, RUT_EMPRESA, empresas, obtenidoEn);
+    store.terminarSincronizacion(id, obtenidoEn, 'ok');
+    return id;
+  }
+
+  it('sin datos devuelve una lista vacía', () => {
+    expect(store.empresasAutorizadas(RUT_EMPRESA)).toEqual([]);
+  });
+
+  it('guarda y devuelve las empresas ordenadas por RUT, con nulos', () => {
+    const a = empresaAutorizada({ rutEmpresa: '44444444-4', razonSocial: null, privilegios: null, fechaDesautorizacion: '2025-06-30' });
+    const b = empresaAutorizada({ rutEmpresa: '33333333-3' });
+    guardar([a, b]);
+    expect(store.empresasAutorizadas(RUT_EMPRESA)).toEqual([b, a]);
+  });
+
+  it('reemplaza la lista anterior completa sin tocar a otro contribuyente', () => {
+    const otro = store.iniciarSincronizacion(RUT_PERSONA, 'cuenta.empresas', '', T);
+    store.reemplazarEmpresasAutorizadas(otro, RUT_PERSONA, [empresaAutorizada({ rutEmpresa: RUT_EMPRESA })], T);
+    guardar([empresaAutorizada(), empresaAutorizada({ rutEmpresa: '44444444-4' })]);
+    guardar([empresaAutorizada({ rutEmpresa: '44444444-4' })], '2026-10-22T10:00:00.000Z');
+    expect(store.empresasAutorizadas(RUT_EMPRESA).map((e) => e.rutEmpresa)).toEqual(['44444444-4']);
+    expect(store.empresasAutorizadas(RUT_PERSONA).map((e) => e.rutEmpresa)).toEqual([RUT_EMPRESA]);
+    guardar([], '2026-10-23T10:00:00.000Z');
+    expect(store.empresasAutorizadas(RUT_EMPRESA)).toEqual([]);
+  });
+
+  it('revierte el reemplazo si falla una inserción (RUT repetido)', () => {
+    guardar([empresaAutorizada()]);
+    expect(() => guardar([empresaAutorizada({ rutEmpresa: '44444444-4' }), empresaAutorizada({ rutEmpresa: '44444444-4' })], '2026-10-22T10:00:00.000Z')).toThrow();
+    expect(store.empresasAutorizadas(RUT_EMPRESA).map((e) => e.rutEmpresa)).toEqual(['33333333-3']);
+  });
+
+  it('la cuenta no es un período: periodosConDatos la ignora, aunque la sincronización sea ok', () => {
+    guardar([empresaAutorizada()]);
+    expect(store.periodosConDatos(RUT_EMPRESA)).toEqual([]);
   });
 });

@@ -214,3 +214,46 @@ export interface TotalesBheMes {
   readonly retencion: number;
   readonly liquido: number;
 }
+
+/**
+ * Atributo del contribuyente en Mi SII. `valor` solo existe para los códigos cuyo valor no es personal (ver
+ * `connectors/sii/login.ts`); los demás llegan sin esa clave.
+ */
+export interface AtributoTributario {
+  readonly codigo: string;
+  readonly descripcion: string | null;
+  readonly fechaInicio: string | null;
+  readonly fechaTermino: string | null;
+  readonly valor?: string | null;
+}
+
+/** Datos tributarios de Mi SII, sin nombres, correos, teléfonos, direcciones ni otros datos personales. */
+export interface PerfilTributario {
+  /** El SII autoriza declarar y pagar el F29 hasta el día 20; null si no lo informó. */
+  readonly autorizadoDia20: boolean | null;
+  readonly tipoCodigo: string | null;
+  readonly tipoDescripcion: string | null;
+  readonly subtipoCodigo: string | null;
+  readonly subtipoDescripcion: string | null;
+  readonly segmentoCodigo: string | null;
+  readonly segmentoDescripcion: string | null;
+  readonly glosaActividad: string | null;
+  readonly fechaInicioActividades: string | null;
+  readonly fechaTerminoGiro: string | null;
+  readonly personaEmpresa: string | null;
+  readonly atributos: readonly AtributoTributario[];
+}
+
+export interface PerfilTributarioGuardado extends PerfilTributario {
+  /** Instante ISO UTC en que se leyó de Mi SII. */
+  readonly obtenidoEn: string;
+}
+
+/** Empresa que el contribuyente autenticado puede consultar en el SII. */
+export interface EmpresaAutorizada {
+  readonly rutEmpresa: string;
+  readonly razonSocial: string | null;
+  readonly privilegios: string | null;
+  /** Fecha desde la que ya no está autorizada; null mientras sigue activa. */
+  readonly fechaDesautorizacion: string | null;
+}

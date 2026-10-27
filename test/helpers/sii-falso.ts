@@ -1,6 +1,6 @@
 import { ErrorImpuestocl } from '../../src/domain/errores.js';
 import type { Periodo } from '../../src/domain/periodo.js';
-import type { DocumentoRcv, EstadoRcv, F29Declaracion, F29Valores, InformeBhe, Lado, PropuestaF29, RcvResumen, RcvResumenFila } from '../../src/domain/tipos.js';
+import type { DocumentoRcv, EmpresaAutorizada, EstadoRcv, F29Declaracion, F29Valores, InformeBhe, Lado, PerfilTributario, PropuestaF29, RcvResumen, RcvResumenFila } from '../../src/domain/tipos.js';
 import type { SiiReader, SumideroRespuestas } from '../../src/ports/index.js';
 
 /**
@@ -11,6 +11,7 @@ import type { SiiReader, SumideroRespuestas } from '../../src/ports/index.js';
  * - valores: `periodo|folio`
  * - propuestas: `periodo` (null = el SII respondió sin datos)
  * - bhe: `periodo` (null = vacío ambiguo; sin entrada = mes sin boletas)
+ * - perfil y empresas: una sola respuesta cada una (`perfil` null = Mi SII sin datos); las llamadas quedan como `perfil` y `empresas`
  * Cada llamada queda en `llamadas` (p. ej. `resumen|2026-09|VENTA|REGISTRO`); `fallas` usa ese mismo texto.
  * `alLlamar` corre en cada llamada, antes de responder (por ejemplo, para cancelar a mitad de camino).
  * Un resumen sin filas llega con "sin movimientos" explícito (código 3), salvo con `vaciosAmbiguos`.
@@ -26,6 +27,8 @@ export class SiiFalso implements SiiReader {
   readonly propuestas = new Map<string, PropuestaF29 | null>();
   readonly bhe = new Map<string, InformeBhe | null>();
   readonly fallas = new Map<string, Error>();
+  perfil: PerfilTributario | null = null;
+  empresas: EmpresaAutorizada[] = [];
   alLlamar: (llamada: string) => void | Promise<void> = () => {};
   /** Entrega los resúmenes vacíos sin la marca `sinMovimientos`, como un vacío ambiguo del SII. */
   vaciosAmbiguos = false;
@@ -72,5 +75,16 @@ export class SiiFalso implements SiiReader {
     await this.registrar(`bhe|${periodo.texto}`);
     const informe = this.bhe.get(periodo.texto);
     return informe === undefined ? { boletas: [], totales: { total: 0, bruto: 0, retencion: 0, liquido: 0 } } : informe;
+  }
+
+  async perfilTributario(_rut: string): Promise<PerfilTributario> {
+    await this.registrar('perfil');
+    if (!this.perfil) throw new ErrorImpuestocl('PORTAL_CAMBIO', 'Mi SII no entregó datos del contribuyente.');
+    return this.perfil;
+  }
+
+  async empresasAutorizadas(): Promise<EmpresaAutorizada[]> {
+    await this.registrar('empresas');
+    return this.empresas;
   }
 }

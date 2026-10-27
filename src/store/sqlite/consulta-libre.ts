@@ -17,6 +17,8 @@ const tablasCopia = (signo: string): readonly string[] => [
   'contribuyente AS SELECT * FROM main.contribuyente',
   `rcv_resumen AS SELECT *, ${signo} AS signo FROM main.rcv_resumen`,
   `rcv_documento AS SELECT *, ${signo} AS signo FROM main.rcv_documento`,
+  'contribuyente_tributario AS SELECT * FROM main.contribuyente_tributario',
+  'sii_empresa_autorizada AS SELECT * FROM main.sii_empresa_autorizada',
   'f29_declaracion AS SELECT * FROM main.f29_declaracion',
   'f29_valor AS SELECT * FROM main.f29_valor',
   'f29_lectura AS SELECT * FROM main.f29_lectura',

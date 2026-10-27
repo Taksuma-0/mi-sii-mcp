@@ -3,6 +3,7 @@ import type {
   BoletaHonorarios,
   DisponibilidadFuentes,
   DocumentoRcv,
+  EmpresaAutorizada,
   EstadoRcv,
   F29Declaracion,
   F29Valores,
@@ -12,6 +13,8 @@ import type {
   LecturaF29,
   LecturaFolioF29,
   Perfil,
+  PerfilTributario,
+  PerfilTributarioGuardado,
   PropuestaF29,
   RcvResumen,
   RespuestaCruda,
@@ -33,6 +36,10 @@ export interface SiiReader {
   f29Propuesta(rut: string, periodo: Periodo): Promise<PropuestaF29 | null>;
   /** Boletas de honorarios recibidas del mes (todas las páginas), o null si el SII respondió vacío sin confirmar que no hay boletas. */
   bheRecibidas(rut: string, periodo: Periodo): Promise<InformeBhe | null>;
+  /** Datos tributarios de Mi SII del contribuyente de la sesión (lista permitida, sin datos personales). */
+  perfilTributario(rut: string): Promise<PerfilTributario>;
+  /** Empresas que el contribuyente de la sesión puede consultar en el SII. */
+  empresasAutorizadas(): Promise<EmpresaAutorizada[]>;
 }
 
 /** Lee los códigos del PDF compacto del F29. La sincronización y la relectura usan el mismo, así su versión dice qué lector se usó. */
@@ -184,6 +191,13 @@ export interface Store {
   /** Reemplaza las boletas de honorarios recibidas del mes en una transacción. */
   reemplazarBhe(sincronizacionId: number, rut: string, periodo: string, boletas: readonly BoletaHonorarios[], obtenidoEn: string): void;
   boletasHonorarios(rut: string, periodo: string): BoletaHonorarios[];
+  /** Reemplaza el perfil tributario del contribuyente. */
+  guardarPerfilTributario(rut: string, perfil: PerfilTributario, obtenidoEn: string): void;
+  perfilTributario(rut: string): PerfilTributarioGuardado | null;
+  /** Reemplaza la lista completa de empresas autorizadas del contribuyente en una transacción. */
+  reemplazarEmpresasAutorizadas(sincronizacionId: number, rut: string, empresas: readonly EmpresaAutorizada[], obtenidoEn: string): void;
+  /** Empresas autorizadas guardadas (activas y desautorizadas), ordenadas por RUT. */
+  empresasAutorizadas(rut: string): EmpresaAutorizada[];
   /** Cantidad de boletas guardadas del mes (con anuladas) y montos de las no anuladas. */
   totalesBhe(rut: string, periodo: string): TotalesBheMes;
   /** Estado y código de error del intento más reciente de una superficie en un mes; null si nunca se intentó. */

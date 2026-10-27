@@ -197,10 +197,46 @@ CREATE TABLE bhe_recibida (
 CREATE INDEX ix_bhe_recibida ON bhe_recibida (rut, periodo);
 `;
 
+/**
+ * Cuenta del SII. El perfil tributario de Mi SII es solo una lista permitida (sin nombres, correo, teléfonos ni
+ * direcciones; los atributos solo traen valor si no es personal). Las empresas autorizadas se reemplazan completas en
+ * cada lectura; fecha_desautorizacion NULL = activa.
+ */
+const V6 = `
+CREATE TABLE contribuyente_tributario (
+  rut TEXT PRIMARY KEY,
+  autorizado_dia20 INTEGER CHECK (autorizado_dia20 IN (0, 1)),
+  tipo_codigo TEXT,
+  tipo_descripcion TEXT,
+  subtipo_codigo TEXT,
+  subtipo_descripcion TEXT,
+  segmento_codigo TEXT,
+  segmento_descripcion TEXT,
+  glosa_actividad TEXT,
+  fecha_inicio_actividades TEXT,
+  fecha_termino_giro TEXT,
+  persona_empresa TEXT,
+  atributos_json TEXT NOT NULL DEFAULT '[]',
+  obtenido_en TEXT NOT NULL
+);
+
+CREATE TABLE sii_empresa_autorizada (
+  rut TEXT NOT NULL,
+  rut_empresa TEXT NOT NULL,
+  razon_social TEXT,
+  privilegios TEXT,
+  fecha_desautorizacion TEXT,
+  sincronizacion_id INTEGER NOT NULL REFERENCES sincronizacion (id),
+  obtenido_en TEXT NOT NULL,
+  PRIMARY KEY (rut, rut_empresa)
+);
+`;
+
 export const MIGRACIONES: readonly Migracion[] = [
   { version: 1, sql: V1 },
   { version: 2, sql: V2 },
   { version: 3, sql: V3 },
   { version: 4, sql: V4 },
   { version: 5, sql: V5 },
+  { version: 6, sql: V6 },
 ];

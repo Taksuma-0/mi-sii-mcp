@@ -3,6 +3,7 @@ import type { DisponibilidadFuentes, Lado, Perfil, RcvResumen, TotalesBheMes } f
 import type { Frescura } from '../ports/index.js';
 import { creditoRcv, debitoRcv, signoTipoDoc } from '../reconciliation/mapeo-f29.js';
 import { honorariosDelMes, perfilExistente } from './consultas.js';
+import { cuentaDe, type CuentaSii } from './cuenta.js';
 import type { DepsApp } from './deps.js';
 
 export interface TotalPanorama {
@@ -35,6 +36,8 @@ export interface PeriodoPanorama {
 
 export interface PanoramaSii {
   readonly perfil: Perfil;
+  /** Día 20, régimen, segmento y empresas autorizadas; solo existe si se sincronizó la cuenta. */
+  readonly cuenta?: CuentaSii;
   readonly periodos: readonly PeriodoPanorama[];
   readonly totales: {
     readonly ventas: TotalPanorama;
@@ -90,8 +93,10 @@ export function panorama(deps: DepsApp, rutTexto: string): PanoramaSii {
       ...(honorarios === null ? {} : { honorarios }),
     };
   });
+  const cuenta = cuentaDe(deps, perfil.rut);
   return {
     perfil,
+    ...(cuenta ? { cuenta } : {}),
     periodos,
     totales: {
       ventas: totalConCobertura(periodos.map((p) => p.ventas)),

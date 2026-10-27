@@ -4,7 +4,7 @@ import { esquemaDatos } from '../../src/app/consulta-libre.js';
 import type { DepsApp } from '../../src/app/deps.js';
 import { ErrorImpuestocl, type CodigoError } from '../../src/domain/errores.js';
 import { crearServidorMcp, HERRAMIENTAS, INSTRUCCIONES_MCP, type OpcionesMcp } from '../../src/interfaces/mcp/servidor.js';
-import { boleta, declaracion, fila, perfilEmpresa, propuesta, resumen, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
+import { boleta, declaracion, empresaAutorizada, fila, perfilEmpresa, perfilTributario, propuesta, resumen, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
 import { depsDePrueba } from '../helpers/deps.js';
 import { guardarPdfF29, pdfFalso } from '../helpers/lector-falso.js';
 import { sembrarMes, T_SEMBRADO } from '../helpers/sembrar.js';
@@ -22,10 +22,10 @@ const textoDe = (r: unknown): string => (r as { content: { type: string; text: s
 const esError = (r: unknown): boolean => (r as { isError?: boolean }).isError === true;
 
 describe('servidor MCP', () => {
-  it('expone exactamente las 11 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
+  it('expone exactamente las 12 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
     const cliente = await conectar(depsDePrueba().deps);
     const { tools } = await cliente.listTools();
-    expect(tools).toHaveLength(11);
+    expect(tools).toHaveLength(12);
     expect(tools.map((t) => t.name).sort()).toEqual([...HERRAMIENTAS].sort());
     expect(JSON.stringify(tools.map((t) => t.inputSchema)).toLowerCase()).not.toMatch(/clave|password|contrase/);
     expect(tools.find((t) => t.name === 'iva_resumen')?.annotations?.readOnlyHint).toBe(true);
@@ -358,7 +358,7 @@ describe('servidor MCP', () => {
     expect(instrucciones).toBe(INSTRUCCIONES_MCP);
     expect(instrucciones.length).toBeGreaterThan(0);
     expect(instrucciones.length).toBeLessThanOrEqual(1_500);
-    for (const clave of ['perfiles_listar', 'sii_panorama', 'sincronizar', '12 meses', 'iva_resumen', 'iva_hallazgos', 'f29_historial', 'plazos_proximos', 'datos_esquema', 'consulta_sql', 'f29_releer', 'SESION_REQUERIDA', 'Abrir impuestocl.cmd', 'RCV', 'F29']) {
+    for (const clave of ['perfiles_listar', 'sii_panorama', 'sincronizar', '12 meses', 'iva_resumen', 'iva_hallazgos', 'f29_historial', 'plazos_proximos', 'datos_esquema', 'consulta_sql', 'f29_releer', 'perfil_sincronizar', 'SESION_REQUERIDA', 'Abrir impuestocl.cmd', 'RCV', 'F29']) {
       expect(instrucciones).toContain(clave);
     }
     expect(instrucciones).toMatch(/nunca pidas la clave/i);
@@ -432,7 +432,7 @@ describe('servidor MCP', () => {
   });
 
   describe('datos_esquema', () => {
-    it('lista las 11 tablas con sus columnas y las reglas de interpretación', async () => {
+    it('lista las 13 tablas con sus columnas y las reglas de interpretación', async () => {
       const cliente = await conectar(depsDePrueba().deps);
 
       const r = await cliente.callTool({ name: 'datos_esquema', arguments: {} });
@@ -440,9 +440,9 @@ describe('servidor MCP', () => {
       expect(esError(r)).toBe(false);
       const texto = textoDe(r);
       const datos = JSON.parse(texto.slice(texto.indexOf('\n\n') + 2));
-      expect(datos.tablas.map((t: { nombre: string }) => t.nombre)).toEqual(['contribuyente', 'rcv_resumen', 'rcv_documento', 'f29_declaracion', 'f29_valor', 'f29_lectura', 'f29_propuesta', 'f29_propuesta_valor', 'bhe_recibida', 'hallazgo', 'sincronizacion']);
+      expect(datos.tablas.map((t: { nombre: string }) => t.nombre)).toEqual(['contribuyente', 'contribuyente_tributario', 'sii_empresa_autorizada', 'rcv_resumen', 'rcv_documento', 'f29_declaracion', 'f29_valor', 'f29_lectura', 'f29_propuesta', 'f29_propuesta_valor', 'bhe_recibida', 'hallazgo', 'sincronizacion']);
       expect(datos).toEqual(JSON.parse(JSON.stringify(esquemaDatos())));
-      expect(texto.split('\n\n')[0]).toContain('11 tablas');
+      expect(texto.split('\n\n')[0]).toContain('13 tablas');
       await cliente.close();
     });
 
@@ -576,5 +576,79 @@ describe('servidor MCP', () => {
       expect(descripcion).not.toContain('impuestocl login');
       await cliente.close();
     });
+  });
+});
+
+describe('servidor MCP: cuenta del SII', () => {
+  function conCuenta() {
+    const p = depsDePrueba();
+    p.store.guardarContribuyente(perfilEmpresa());
+    p.sii.perfil = perfilTributario();
+    p.sii.empresas = [empresaAutorizada({ rutEmpresa: RUT_EMPRESA, razonSocial: 'EMPRESA DEMO SPA' }), empresaAutorizada()];
+    return p;
+  }
+
+  it('perfil_sincronizar lee el SII y no es de solo lectura ni destructiva', async () => {
+    const { deps, sii, store } = conCuenta();
+    const cliente = await conectar(deps);
+    const { tools } = await cliente.listTools();
+    const herramienta = tools.find((t) => t.name === 'perfil_sincronizar')!;
+    expect(herramienta.annotations).toEqual({ readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true });
+    expect(Object.keys(herramienta.inputSchema.properties ?? {})).toEqual(['rut']);
+    expect(herramienta.description).toMatch(/día 20/);
+
+    const r = await cliente.callTool({ name: 'perfil_sincronizar', arguments: { rut: '22.222.222-2' } });
+
+    expect(esError(r)).toBe(false);
+    expect(sii.llamadas).toEqual(['perfil', 'empresas']);
+    const texto = textoDe(r);
+    expect(texto.split('\n\n')[0]).toContain('Cuenta 22222222-2');
+    const datos = JSON.parse(texto.slice(texto.indexOf('\n\n') + 2));
+    expect(datos).toMatchObject({ rut: RUT_EMPRESA, perfil: 'leido', autorizadoDia20: true, empresas: 2, representa: ['33333333-3'], errores: [], abortado: null });
+    expect(store.perfilTributario(RUT_EMPRESA)).not.toBeNull();
+    await cliente.close();
+  });
+
+  it('perfil_sincronizar sin sesión muestra el comando de login', async () => {
+    const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorImpuestocl('SESION_REQUERIDA', 'Sin sesión.') });
+    store.guardarContribuyente(perfilEmpresa());
+    const cliente = await conectar(deps, { comandoLogin: (rut) => `LOGIN ${rut}` });
+
+    const r = await cliente.callTool({ name: 'perfil_sincronizar', arguments: { rut: RUT_EMPRESA } });
+
+    expect(textoDe(r)).toContain('LOGIN 22222222-2');
+    expect(textoDe(r)).toContain('Sincronización detenida');
+    await cliente.close();
+  });
+
+  it('perfil_sincronizar con un RUT sin perfil devuelve el error de dominio', async () => {
+    const cliente = await conectar(depsDePrueba().deps);
+    const r = await cliente.callTool({ name: 'perfil_sincronizar', arguments: { rut: RUT_EMPRESA } });
+    expect(esError(r)).toBe(true);
+    expect(textoDe(r)).toContain('PERFIL_NO_EXISTE');
+    await cliente.close();
+  });
+
+  it('perfiles_listar y sii_panorama muestran el bloque cuenta solo si existe, sin datos personales', async () => {
+    const { deps } = conCuenta();
+    const cliente = await conectar(deps);
+    const datosDe = (r: unknown) => JSON.parse(textoDe(r).slice(textoDe(r).indexOf('\n\n') + 2));
+
+    const antesPerfiles = datosDe(await cliente.callTool({ name: 'perfiles_listar', arguments: {} }));
+    expect('cuenta' in antesPerfiles[0]).toBe(false);
+    expect('cuenta' in datosDe(await cliente.callTool({ name: 'sii_panorama', arguments: { rut: RUT_EMPRESA } }))).toBe(false);
+
+    await cliente.callTool({ name: 'perfil_sincronizar', arguments: { rut: RUT_EMPRESA } });
+
+    const listados = await cliente.callTool({ name: 'perfiles_listar', arguments: {} });
+    const [perfil] = datosDe(listados);
+    expect(perfil.cuenta).toMatchObject({ autorizadoDia20: true, tipo: 'Primera Categoría', segmento: 'Segmento ficticio' });
+    expect(perfil.cuenta.empresas.map((e: { rut: string }) => e.rut)).toEqual(['22222222-2', '33333333-3']);
+    expect(textoDe(listados).split('\n\n')[0]).toContain('día 20: autorizado');
+    const panorama = datosDe(await cliente.callTool({ name: 'sii_panorama', arguments: { rut: RUT_EMPRESA } }));
+    expect(panorama.cuenta).toEqual(perfil.cuenta);
+    expect(panorama.perfil).not.toHaveProperty('cuenta');
+    expect(JSON.stringify([perfil, panorama])).not.toMatch(/ejemplo\.invalid/);
+    await cliente.close();
   });
 });

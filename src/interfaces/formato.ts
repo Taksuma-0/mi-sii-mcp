@@ -1,4 +1,5 @@
 import type { FilaHistorialF29, PaginaDocumentos, ResumenIva } from '../app/consultas.js';
+import type { CuentaSii, ResultadoCuenta } from '../app/cuenta.js';
 import type { PerfilConSesion } from '../app/perfiles.js';
 import type { ResultadoReleerF29, ResultadoRelectura } from '../app/releer-f29.js';
 import { SINCRONIZACION_CANCELADA, type ResultadoPeriodo, type ResultadoSync } from '../app/sincronizar.js';
@@ -55,12 +56,42 @@ export function textoPlazos(plazos: readonly Plazo[]): string {
     .join('\n');
 }
 
+const plural = (n: number, singular: string, pluralTexto: string): string => `${n} ${n === 1 ? singular : pluralTexto}`;
+
+const TEXTO_DIA20 = (autorizado: boolean | null): string => (autorizado === null ? 'sin dato' : autorizado ? 'autorizado' : 'no autorizado');
+
+/** Resultado de leer la cuenta del SII (perfil tributario y empresas autorizadas), sin datos personales. */
+export function textoCuenta(r: ResultadoCuenta): string {
+  const perfil = r.perfil === 'leido' ? `día 20: ${TEXTO_DIA20(r.autorizadoDia20)}` : 'perfil tributario sin leer';
+  const empresas =
+    r.empresas === null || r.empresasActivas === null
+      ? 'empresas autorizadas sin leer'
+      : `${plural(r.empresasActivas, 'empresa activa', 'empresas activas')}, ${plural(r.empresas - r.empresasActivas, 'desautorizada', 'desautorizadas')}`;
+  const lineas = [`Cuenta ${r.rut}: ${perfil} · ${empresas}`];
+  if (r.empresas !== null) lineas.push(`Representa a ${plural(r.representa.length, 'empresa', 'empresas')}${r.representa.length > 0 ? `: ${r.representa.join(', ')}` : ''}`);
+  if (r.errores.length > 0) lineas.push(`Errores: ${r.errores.map((e) => `${e.superficie} ${e.codigo}`).join(', ')}`);
+  if (r.abortado) {
+    lineas.push(r.abortado.codigo === SINCRONIZACION_CANCELADA.codigo ? r.abortado.mensaje : `Sincronización detenida: [${r.abortado.codigo}] ${r.abortado.mensaje}`);
+  }
+  return lineas.join('\n');
+}
+
+function lineaCuenta(c: CuentaSii): string {
+  const activas = c.empresas.filter((e) => e.activa).length;
+  const partes = [
+    `día 20: ${TEXTO_DIA20(c.autorizadoDia20)}`,
+    ...(c.segmento ? [`segmento ${c.segmento}`] : []),
+    ...(c.empresas.length > 0 ? [plural(activas, 'empresa activa', 'empresas activas')] : []),
+  ];
+  return ` · ${partes.join(' · ')}`;
+}
+
 export function textoPerfiles(perfiles: readonly PerfilConSesion[]): string {
   if (perfiles.length === 0) return 'No hay perfiles. Agrega uno con `impuestocl perfil agregar <rut> --alias <nombre> --tipo empresa`.';
   return perfiles
     .map((p) => {
       const sesion = p.sesion.bloqueado ? 'BLOQUEADA (clave rechazada)' : p.sesion.tieneSesion ? `guardada ${p.sesion.guardadaEn}` : 'sin sesión';
-      return `${p.rut}  ${p.alias} (${p.tipo})${p.razonSocial ? ` — ${p.razonSocial}` : ''} · sesión: ${sesion}`;
+      return `${p.rut}  ${p.alias} (${p.tipo})${p.razonSocial ? ` — ${p.razonSocial}` : ''} · sesión: ${sesion}${p.cuenta ? lineaCuenta(p.cuenta) : ''}`;
     })
     .join('\n');
 }
