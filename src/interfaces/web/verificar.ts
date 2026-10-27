@@ -54,7 +54,7 @@ const MENSAJES: Readonly<Record<CodigoError, string>> = {
   CONSULTA_RECHAZADA: 'La consulta no está permitida. Usa una sola sentencia SELECT o WITH.',
   CONSULTA_INTERRUMPIDA: 'La consulta tardó demasiado y se detuvo. Simplifica la consulta y vuelve a intentarlo.',
   SII_SESIONES_MAXIMAS: 'El SII tiene demasiadas sesiones abiertas para este RUT. Cierra la sesión del SII en otros navegadores o equipos y vuelve a intentarlo en unos minutos.',
-  RESPUESTA_VACIA: 'El SII respondió sin datos donde antes había. Se conservan los datos anteriores; puedes volver a intentarlo más tarde.',
+  RESPUESTA_VACIA: 'El SII respondió sin datos; si había datos anteriores, se conservan. Puedes volver a intentarlo más tarde.',
   DATOS_INCOMPLETOS: 'El SII entregó menos documentos de los esperados. Se conserva el último conjunto completo; puedes volver a intentarlo más tarde.',
   LECTURA_INCOHERENTE: 'La lectura del F29 no cuadra, así que se conserva la anterior. Puede que el SII haya cambiado el formulario.',
   RESPALDO_FALLIDO: 'No se pudo respaldar la base antes de actualizarla, así que no se actualizó. Revisa el espacio en disco o que OneDrive o el antivirus no bloqueen la carpeta.',

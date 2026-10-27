@@ -153,8 +153,16 @@ function totalInformado(xml: Readonly<Record<string, string>>): number | null {
   return total;
 }
 
-/** Número de página de `pagina_sig_codigo`; null si no viene o no es un número. */
-const paginaSiguiente = (xml: Readonly<Record<string, string>>): number | null => entero(xml['pagina_sig_codigo']);
+/**
+ * Índice de página de `pagina_sig_codigo`, solo si es un índice simple (hasta 3 dígitos) bajo `MAX_PAGINAS_BHE`. En la
+ * página real suele ser un código largo (14 dígitos) que no es un índice: entonces null y no se salta a ninguna página.
+ */
+function paginaSiguiente(xml: Readonly<Record<string, string>>): number | null {
+  const codigo = (xml['pagina_sig_codigo'] ?? '').trim();
+  if (!/^\d{1,3}$/.test(codigo)) return null;
+  const pagina = Number(codigo);
+  return pagina < MAX_PAGINAS_BHE ? pagina : null;
+}
 
 const sumaRetencion = (boletas: readonly BoletaHonorarios[], conAnuladas: boolean): number =>
   boletas.filter((b) => conAnuladas || !b.anulada).reduce((suma, b) => suma + b.retencion, 0);

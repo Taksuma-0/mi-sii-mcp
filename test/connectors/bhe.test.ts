@@ -267,6 +267,16 @@ describe('bheRecibidas', () => {
     expect(r?.boletas.map((b) => b.folio)).toEqual([1, 2, 3]);
   });
 
+  it.each([
+    ['un código largo del SII (no un índice de página)', '20260915123456'],
+    ['un índice fuera del tope de páginas', '50'],
+  ])('una página repetida con pagina_sig_codigo que es %s no salta: DATOS_INCOMPLETOS sin pedidos de más', async (_caso, sig) => {
+    const { http, llamadas, sumidero } = preparar({ headers: HTML, body: pagina(3, [{ folio: 1 }, { folio: 2 }], { sig }) });
+
+    expect(await codigoDe(bheRecibidas(http, sumidero, EMPRESA, SEPT))).toBe('DATOS_INCOMPLETOS');
+    expect(llamadas.map((l) => paginaDe(l.url))).toEqual(['0', '1']);
+  });
+
   it('una página repetida cuyo pagina_sig_codigo ya se pidió no se vuelve a pedir: DATOS_INCOMPLETOS', async () => {
     const { http, llamadas, sumidero } = preparar({ headers: HTML, body: pagina(3, [{ folio: 1 }, { folio: 2 }], { sig: '1' }) });
 

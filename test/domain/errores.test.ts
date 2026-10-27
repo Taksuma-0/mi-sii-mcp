@@ -81,3 +81,9 @@ describe('ErrorImpuestocl', () => {
     });
   });
 });
+
+describe('RESPUESTA_VACIA', () => {
+  it('la acción por defecto no supone que antes hubiera datos', () => {
+    expect(ACCION_POR_DEFECTO.RESPUESTA_VACIA).toBe('El SII respondió sin datos; si había datos anteriores, se conservan. Reintenta más tarde.');
+  });
+});

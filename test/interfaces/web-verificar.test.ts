@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ErrorImpuestocl } from '../../src/domain/errores.js';
 import * as syncApp from '../../src/app/sincronizar.js';
-import { verificar, SecretosNulos, type FabricaContenedorWeb } from '../../src/interfaces/web/verificar.js';
+import { errorPublico, verificar, SecretosNulos, type FabricaContenedorWeb } from '../../src/interfaces/web/verificar.js';
 import { depsDePrueba } from '../helpers/deps.js';
 import { declaracion, fila, perfilEmpresa, valores } from '../helpers/fabricas.js';
 
@@ -112,5 +112,14 @@ describe('fuentes pedidas por la web', () => {
     await verificar(entrada, e.fabrica);
     expect(espia).toHaveBeenCalledOnce();
     expect(espia.mock.calls[0]![4]).toEqual(['rcv', 'f29']);
+  });
+});
+
+describe('mensaje público de RESPUESTA_VACIA', () => {
+  it('no supone que antes hubiera datos', () => {
+    expect(errorPublico(new ErrorImpuestocl('RESPUESTA_VACIA', 'detalle interno'))).toEqual({
+      codigo: 'RESPUESTA_VACIA',
+      mensaje: 'El SII respondió sin datos; si había datos anteriores, se conservan. Puedes volver a intentarlo más tarde.',
+    });
   });
 });

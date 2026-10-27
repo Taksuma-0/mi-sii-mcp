@@ -35,7 +35,7 @@ export const ACCION_POR_DEFECTO: Readonly<Record<CodigoError, string>> = {
   CONSULTA_RECHAZADA: 'Usa una sola sentencia SELECT o WITH sobre las tablas de datos_esquema.',
   CONSULTA_INTERRUMPIDA: 'Simplifica la consulta: filtra por RUT o período, agrega LIMIT o agrupa.',
   SII_SESIONES_MAXIMAS: 'El SII tiene demasiadas sesiones abiertas para este RUT. Cierra la sesión del SII en el navegador u otros equipos y reintenta en unos minutos.',
-  RESPUESTA_VACIA: 'El SII respondió sin datos donde antes había; se conservan los datos anteriores. Reintenta más tarde.',
+  RESPUESTA_VACIA: 'El SII respondió sin datos; si había datos anteriores, se conservan. Reintenta más tarde.',
   DATOS_INCOMPLETOS: 'El SII entregó menos documentos que su propio resumen; se conserva el último conjunto completo. Reintenta más tarde.',
   LECTURA_INCOHERENTE: 'El F29 leído no cuadra; se conserva la lectura anterior. Puede que el SII haya cambiado el formulario.',
   RESPALDO_FALLIDO: 'No se migró la base porque no se pudo respaldar; revisa espacio en disco o que OneDrive/antivirus no bloquee la carpeta.',
