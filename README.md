@@ -1,17 +1,22 @@
 <p align="center">
-  <img src="docs/img/banner.svg" alt="mi-sii-mcp: tus impuestos del SII, conversados con tu asistente" width="100%">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/img/marca/logo-horizontal-oscuro.svg">
+    <img src="docs/img/marca/logo-horizontal.svg" alt="mi-sii-mcp" width="520">
+  </picture>
+</p>
+
+<h3 align="center">Tus impuestos del SII, conversados con tu asistente.</h3>
+
+<p align="center">
+  <a href="LICENSE"><img alt="Licencia MIT" src="https://img.shields.io/badge/licencia-MIT-0f2a44?style=flat-square"></a>
+  <img alt="Node.js 22.12 o superior" src="https://img.shields.io/badge/node-%E2%89%A522.12-0f2a44?style=flat-square&logo=nodedotjs&logoColor=3dd6c3">
+  <a href="https://modelcontextprotocol.io"><img alt="Servidor MCP" src="https://img.shields.io/badge/MCP-cualquier%20cliente-0f2a44?style=flat-square&labelColor=3dd6c3"></a>
+  <img alt="Solo lectura" src="https://img.shields.io/badge/SII-solo%20lectura-0f2a44?style=flat-square&labelColor=7cb6fb">
+  <img alt="Proyecto independiente, no oficial" src="https://img.shields.io/badge/proyecto-independiente%20%C2%B7%20no%20oficial-a12627?style=flat-square">
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img alt="Licencia MIT" src="https://img.shields.io/badge/licencia-MIT-0b4f63"></a>
-  <img alt="Node.js 22.12 o superior" src="https://img.shields.io/badge/node-%E2%89%A522.12-3c873a">
-  <a href="https://modelcontextprotocol.io"><img alt="Servidor MCP" src="https://img.shields.io/badge/MCP-servidor-1764b6"></a>
-  <img alt="Solo lectura" src="https://img.shields.io/badge/SII-solo%20lectura-16645e">
-  <img alt="No oficial" src="https://img.shields.io/badge/estado-no%20oficial-a12627">
-</p>
-
-<p align="center">
-  <b>Pregúntale a tu asistente por tus impuestos del SII, con tus datos reales.</b><br>
+  Pregúntale a tu asistente por tus impuestos del SII, con tus datos reales.<br>
   <a href="#instalación">Instalación</a> ·
   <a href="#qué-lee-del-sii">Qué lee</a> ·
   <a href="#seguridad-y-privacidad">Seguridad</a> ·
