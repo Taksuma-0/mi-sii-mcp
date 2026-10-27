@@ -1,0 +1,61 @@
+{
+  "data": {
+    "decls": [
+      {
+        "folio": "123456789",
+        "tipoIng": "I",
+        "fecIng": "15/04/2026",
+        "codConc": "07",
+        "vgte": "1",
+        "tipoImpugnado": null,
+        "remanenteSolicitado": "0",
+        "remanenteDevuelto": "0",
+        "impuestoPagado": "1.234.567",
+        "montoGiro": "0",
+        "fechaVencimiento": "30/04/2026",
+        "rectificacble": "S",
+        "dcrtCodigoRectificado": null,
+        "dcrtCodigoAnulado": null,
+        "nombres": "PERSONA FICTICIA",
+        "apellidoPaterno": "APELLIDOFICTICIO",
+        "apellidoMaterno": "OTROAPELLIDO",
+        "calle": "CALLE FICTICIA 123",
+        "comuna": "COMUNA FICTICIA",
+        "cuenta": "000111222333",
+        "ctabco": "000111222333",
+        "cta": "CTA-FICTICIA",
+        "banco": "BANCO FICTICIO",
+        "giro": "GIRO FICTICIO",
+        "rutTercero": "33333333",
+        "dvTercero": "3"
+      },
+      {
+        "folio": "98765432",
+        "tipoIng": "I",
+        "fecIng": "02/04/2026",
+        "codConc": "11",
+        "vgte": "0",
+        "tipoImpugnado": "R",
+        "remanenteSolicitado": "50.000",
+        "remanenteDevuelto": "",
+        "impuestoPagado": "-1.000",
+        "montoGiro": null,
+        "fechaVencimiento": null,
+        "rectificacble": "N",
+        "dcrtCodigoRectificado": "1",
+        "dcrtCodigoAnulado": null,
+        "nombres": "PERSONA FICTICIA",
+        "calle": "CALLE FICTICIA 123",
+        "cuenta": "000111222333",
+        "banco": "BANCO FICTICIO"
+      }
+    ],
+    "glosas": [
+      { "codConclusion": "07", "descripcion": "Conclusión ficticia: declaración sin observaciones" },
+      { "codConclusion": "11", "descripcion": "Conclusión ficticia: declaración rectificada" }
+    ]
+  },
+  "respCod": 0,
+  "errorMsg": null,
+  "metaData": { "namespace": "cl.sii.sdi.lob.renta.consultaestadof22.data.api.interfaces.FacadeService/buscaDeclVgte", "conversationId": "TOKEN-FICTICIO-0000", "transactionId": "00000000-0000-0000-0000-000000000000", "errors": null }
+}

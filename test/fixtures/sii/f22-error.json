@@ -1,0 +1,6 @@
+{
+  "data": null,
+  "respCod": 1,
+  "errorMsg": "Usuario no autorizado para consultar este contribuyente",
+  "metaData": { "namespace": "cl.sii.sdi.lob.renta.consultaestadof22.data.api.interfaces.FacadeService/buscaDeclVgte", "conversationId": "TOKEN-FICTICIO-0000", "transactionId": "00000000-0000-0000-0000-000000000000", "errors": null }
+}

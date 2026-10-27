@@ -5,6 +5,8 @@ import type {
   DocumentoRcv,
   EmpresaAutorizada,
   EstadoRcv,
+  F22Declaracion,
+  F22Detalle,
   F29Declaracion,
   F29Valores,
   Hallazgo,
@@ -40,6 +42,10 @@ export interface SiiReader {
   perfilTributario(rut: string): Promise<PerfilTributario>;
   /** Empresas que el contribuyente de la sesión puede consultar en el SII. */
   empresasAutorizadas(): Promise<EmpresaAutorizada[]>;
+  /** Declaraciones de renta (F22) del año tributario, solo con campos permitidos; vacía si el SII no informó ninguna. */
+  f22Declaraciones(rut: string, anioTributario: number): Promise<F22Declaracion[]>;
+  /** Códigos (sin los de identificación), observaciones y eventos de un folio del F22. */
+  f22Detalle(rut: string, anioTributario: number, folio: number): Promise<F22Detalle>;
 }
 
 /** Lee los códigos del PDF compacto del F29. La sincronización y la relectura usan el mismo, así su versión dice qué lector se usó. */
@@ -53,6 +59,11 @@ export interface PdfF29Guardado {
   readonly periodo: string;
   readonly folio: number;
   readonly bytes: Uint8Array;
+  readonly obtenidoEn: string;
+}
+
+/** Declaración F22 guardada, con el instante en que se leyó del SII. */
+export interface F22DeclaracionGuardada extends F22Declaracion {
   readonly obtenidoEn: string;
 }
 
@@ -198,6 +209,14 @@ export interface Store {
   reemplazarEmpresasAutorizadas(sincronizacionId: number, rut: string, empresas: readonly EmpresaAutorizada[], obtenidoEn: string): void;
   /** Empresas autorizadas guardadas (activas y desautorizadas), ordenadas por RUT. */
   empresasAutorizadas(rut: string): EmpresaAutorizada[];
+  /** Reemplaza las declaraciones F22 del año tributario y borra el detalle de los folios que ya no están, en una transacción. */
+  reemplazarF22Declaraciones(sincronizacionId: number, rut: string, anioTributario: number, declaraciones: readonly F22Declaracion[], obtenidoEn: string): void;
+  /** Reemplaza los valores, observaciones y eventos de un folio del F22 en una transacción. */
+  reemplazarF22Detalle(rut: string, anioTributario: number, folio: number, detalle: F22Detalle): void;
+  /** Declaraciones F22 guardadas (de un año o de todos), del año más nuevo al más antiguo y por folio. */
+  declaracionesF22(rut: string, anioTributario?: number): F22DeclaracionGuardada[];
+  /** Detalle guardado de un folio del F22 (listas vacías si no hay); las observaciones vuelven sin enlace. */
+  detalleF22(rut: string, anioTributario: number, folio: number): F22Detalle;
   /** Cantidad de boletas guardadas del mes (con anuladas) y montos de las no anuladas. */
   totalesBhe(rut: string, periodo: string): TotalesBheMes;
   /** Estado y código de error del intento más reciente de una superficie en un mes; null si nunca se intentó. */

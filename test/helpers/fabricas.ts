@@ -1,4 +1,4 @@
-import type { BoletaHonorarios, DocumentoRcv, EmpresaAutorizada, F29Declaracion, F29Valores, Perfil, PerfilTributario, PropuestaF29, RcvResumen, RcvResumenFila } from '../../src/domain/tipos.js';
+import type { BoletaHonorarios, DocumentoRcv, EmpresaAutorizada, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, Perfil, PerfilTributario, PropuestaF29, RcvResumen, RcvResumenFila } from '../../src/domain/tipos.js';
 
 export const RUT_EMPRESA = '22222222-2';
 export const RUT_PERSONA = '11111111-1';
@@ -139,5 +139,33 @@ export const empresaAutorizada = (o: Partial<EmpresaAutorizada> = {}): EmpresaAu
   razonSocial: 'OTRA EMPRESA DEMO LTDA',
   privilegios: 'CONSULTA',
   fechaDesautorizacion: null,
+  ...o,
+});
+
+export const declaracionF22 = (o: Partial<F22Declaracion> = {}): F22Declaracion => ({
+  rut: RUT_EMPRESA,
+  anioTributario: 2026,
+  folio: 123_456_789,
+  vigente: true,
+  codigoConclusion: '07',
+  conclusion: 'Conclusión ficticia: declaración sin observaciones',
+  fechaIngreso: '2026-04-15',
+  tipoImpugnado: null,
+  remanenteSolicitado: 0,
+  remanenteDevuelto: 0,
+  impuestoPagado: 1_234_567,
+  montoGiro: 0,
+  fechaVencimiento: '2026-04-30',
+  ...o,
+});
+
+export const detalleF22 = (o: Partial<F22Detalle> = {}): F22Detalle => ({
+  valores: [
+    { codigo: '305', valor: -250_000, glosa: 'Resultado liquidación anual ficticio' },
+    { codigo: '87', valor: 250_000, glosa: 'Monto devolución solicitada ficticia' },
+    { codigo: '15', valor: null, glosa: 'Fecha ficticia' },
+  ],
+  observaciones: [{ codigo: 'A01', descripcion: 'Observación ficticia', url: 'https://www.sii.cl/ayuda/ficticia.html' }],
+  eventos: [{ orden: 1, codigoEvento: 'E01', nombre: 'Declaración recibida', fecha: '2026-04-15', tipo: 'INFO', codigoCarta: null }],
   ...o,
 });

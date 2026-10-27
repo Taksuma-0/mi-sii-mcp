@@ -1,6 +1,6 @@
 import { ErrorImpuestocl } from '../../src/domain/errores.js';
 import type { Periodo } from '../../src/domain/periodo.js';
-import type { DocumentoRcv, EmpresaAutorizada, EstadoRcv, F29Declaracion, F29Valores, InformeBhe, Lado, PerfilTributario, PropuestaF29, RcvResumen, RcvResumenFila } from '../../src/domain/tipos.js';
+import type { DocumentoRcv, EmpresaAutorizada, EstadoRcv, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBhe, Lado, PerfilTributario, PropuestaF29, RcvResumen, RcvResumenFila } from '../../src/domain/tipos.js';
 import type { SiiReader, SumideroRespuestas } from '../../src/ports/index.js';
 
 /**
@@ -12,6 +12,7 @@ import type { SiiReader, SumideroRespuestas } from '../../src/ports/index.js';
  * - propuestas: `periodo` (null = el SII respondió sin datos)
  * - bhe: `periodo` (null = vacío ambiguo; sin entrada = mes sin boletas)
  * - perfil y empresas: una sola respuesta cada una (`perfil` null = Mi SII sin datos); las llamadas quedan como `perfil` y `empresas`
+ * - f22: `anio` (sin entrada = sin declaraciones); f22Detalles: `anio|folio` (sin entrada = detalle vacío); llamadas `f22|anio` y `f22detalle|anio|folio`
  * Cada llamada queda en `llamadas` (p. ej. `resumen|2026-09|VENTA|REGISTRO`); `fallas` usa ese mismo texto.
  * `alLlamar` corre en cada llamada, antes de responder (por ejemplo, para cancelar a mitad de camino).
  * Un resumen sin filas llega con "sin movimientos" explícito (código 3), salvo con `vaciosAmbiguos`.
@@ -27,6 +28,8 @@ export class SiiFalso implements SiiReader {
   readonly propuestas = new Map<string, PropuestaF29 | null>();
   readonly bhe = new Map<string, InformeBhe | null>();
   readonly fallas = new Map<string, Error>();
+  readonly f22 = new Map<number, F22Declaracion[]>();
+  readonly f22Detalles = new Map<string, F22Detalle>();
   perfil: PerfilTributario | null = null;
   empresas: EmpresaAutorizada[] = [];
   alLlamar: (llamada: string) => void | Promise<void> = () => {};
@@ -86,5 +89,15 @@ export class SiiFalso implements SiiReader {
   async empresasAutorizadas(): Promise<EmpresaAutorizada[]> {
     await this.registrar('empresas');
     return this.empresas;
+  }
+
+  async f22Declaraciones(_rut: string, anioTributario: number): Promise<F22Declaracion[]> {
+    await this.registrar(`f22|${anioTributario}`);
+    return this.f22.get(anioTributario) ?? [];
+  }
+
+  async f22Detalle(_rut: string, anioTributario: number, folio: number): Promise<F22Detalle> {
+    await this.registrar(`f22detalle|${anioTributario}|${folio}`);
+    return this.f22Detalles.get(`${anioTributario}|${folio}`) ?? { valores: [], observaciones: [], eventos: [] };
   }
 }

@@ -42,4 +42,25 @@ describe('LectorPortalSii', () => {
 
     expect(v).toMatchObject({ valores: { '538': 1 }, versionLector: 'lector-inyectado' });
   });
+  it('lee las declaraciones y el detalle del F22 normalizando el RUT', async () => {
+    const base = 'POST https://www4.sii.cl/consultaestadof22ui/services/data/facadeService';
+    const { fetchFalso, llamadas } = crearFetchFalso({
+      [`${base}/buscaDeclVgte`]: { headers: JSON_CT, body: fixture('f22-declaraciones.json') },
+      [`${base}/f22Compacto`]: { headers: JSON_CT, body: fixture('f22-compacto.json') },
+      [`${base}/situacionObservacion`]: { headers: JSON_CT, body: fixture('f22-observaciones.json') },
+      [`${base}/buscaEventos`]: { headers: JSON_CT, body: fixture('f22-eventos.json') },
+    });
+    const crudas: RespuestaCruda[] = [];
+    const jar = new CookieJar();
+    await jar.setCookie('TOKEN=tok123; Domain=.sii.cl; Path=/', 'https://www4.sii.cl/');
+    const lector = new LectorPortalSii(new ClienteHttp(jar, { fetch: fetchFalso, temporizador: sinEsperas }), (r) => void crudas.push(r));
+
+    const declaraciones = await lector.f22Declaraciones('22.222.222-2', 2026);
+    const detalle = await lector.f22Detalle('22.222.222-2', 2026, declaraciones[0]!.folio);
+
+    expect(declaraciones.map((d) => [d.rut, d.folio])).toEqual([['22222222-2', 123_456_789], ['22222222-2', 98_765_432]]);
+    expect(detalle.valores.length).toBeGreaterThan(0);
+    expect(JSON.parse(llamadas[1]!.body!).data).toMatchObject({ rut: '22222222', dv: '2', folio: '123456789' });
+    expect(crudas.map((c) => c.superficie)).toEqual(['f22', 'f22.compacto', 'f22.observaciones', 'f22.eventos']);
+  });
 });

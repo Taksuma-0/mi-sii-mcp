@@ -6,6 +6,8 @@ import {
   type DocumentoRcv,
   type EmpresaAutorizada,
   type EstadoRcv,
+  type F22Declaracion,
+  type F22Detalle,
   type F29Declaracion,
   type F29Valores,
   type Hallazgo,
@@ -26,7 +28,7 @@ import {
   type TipoContribuyente,
   type TotalesBheMes,
 } from '../../domain/tipos.js';
-import type { DocumentosPaginados, FiltroDocumentos, FiltroHallazgos, Frescura, HallazgoGuardado, LecturaF29Guardada, PdfF29Guardado, Store } from '../../ports/index.js';
+import type { DocumentosPaginados, F22DeclaracionGuardada, FiltroDocumentos, FiltroHallazgos, Frescura, HallazgoGuardado, LecturaF29Guardada, PdfF29Guardado, Store } from '../../ports/index.js';
 import type { Db } from './db.js';
 
 export const sha256 = (texto: string): string => createHash('sha256').update(texto).digest('hex');
@@ -137,6 +139,26 @@ interface FilaHallazgo {
   version_reglas: string;
   calculado_en: string;
 }
+
+interface FilaDeclaracionF22 {
+  rut: string;
+  anio_tributario: number;
+  folio: number;
+  vigente: number | null;
+  codigo_conclusion: string | null;
+  conclusion: string | null;
+  fecha_ingreso: string | null;
+  tipo_impugnado: string | null;
+  remanente_solicitado: number | null;
+  remanente_devuelto: number | null;
+  impuesto_pagado: number | null;
+  monto_giro: number | null;
+  fecha_vencimiento: string | null;
+  obtenido_en: string;
+}
+
+/** Tablas del detalle de un folio del F22; se borran y reemplazan juntas. */
+const TABLAS_DETALLE_F22 = ['f22_valor', 'f22_observacion', 'f22_evento'] as const;
 
 const aPerfil = (f: FilaContribuyente): Perfil => ({
   rut: f.rut,
@@ -612,6 +634,99 @@ export class SqliteStore implements Store {
       .prepare('SELECT rut_empresa, razon_social, privilegios, fecha_desautorizacion FROM sii_empresa_autorizada WHERE rut = ? ORDER BY rut_empresa')
       .all(rut) as { rut_empresa: string; razon_social: string | null; privilegios: string | null; fecha_desautorizacion: string | null }[];
     return filas.map((f) => ({ rutEmpresa: f.rut_empresa, razonSocial: f.razon_social, privilegios: f.privilegios, fechaDesautorizacion: f.fecha_desautorizacion }));
+  }
+
+  // --- renta F22 ---------------------------------------------------------------------------
+  reemplazarF22Declaraciones(sincronizacionId: number, rut: string, anioTributario: number, declaraciones: readonly F22Declaracion[], obtenidoEn: string): void {
+    const ins = this.db.prepare(
+      `INSERT INTO f22_declaracion (rut, anio_tributario, folio, vigente, codigo_conclusion, conclusion, fecha_ingreso, tipo_impugnado, remanente_solicitado,
+         remanente_devuelto, impuesto_pagado, monto_giro, fecha_vencimiento, sincronizacion_id, obtenido_en)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    const folios = JSON.stringify(declaraciones.map((d) => d.folio));
+    this.db.transaction(() => {
+      this.db.prepare('DELETE FROM f22_declaracion WHERE rut = ? AND anio_tributario = ?').run(rut, anioTributario);
+      for (const tabla of TABLAS_DETALLE_F22) {
+        this.db.prepare(`DELETE FROM ${tabla} WHERE rut = ? AND anio_tributario = ? AND folio NOT IN (SELECT value FROM json_each(?))`).run(rut, anioTributario, folios);
+      }
+      for (const d of declaraciones) {
+        ins.run(
+          rut,
+          anioTributario,
+          d.folio,
+          d.vigente === null ? null : d.vigente ? 1 : 0,
+          d.codigoConclusion,
+          d.conclusion,
+          d.fechaIngreso,
+          d.tipoImpugnado,
+          d.remanenteSolicitado,
+          d.remanenteDevuelto,
+          d.impuestoPagado,
+          d.montoGiro,
+          d.fechaVencimiento,
+          sincronizacionId,
+          obtenidoEn,
+        );
+      }
+    })();
+  }
+
+  reemplazarF22Detalle(rut: string, anioTributario: number, folio: number, detalle: F22Detalle): void {
+    const insValor = this.db.prepare('INSERT INTO f22_valor (rut, anio_tributario, folio, codigo, valor, glosa) VALUES (?, ?, ?, ?, ?, ?)');
+    const insObservacion = this.db.prepare('INSERT INTO f22_observacion (rut, anio_tributario, folio, codigo, descripcion) VALUES (?, ?, ?, ?, ?)');
+    const insEvento = this.db.prepare(
+      'INSERT INTO f22_evento (rut, anio_tributario, folio, orden, codigo_evento, nombre, fecha, tipo, codigo_carta) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    );
+    this.db.transaction(() => {
+      for (const tabla of TABLAS_DETALLE_F22) {
+        this.db.prepare(`DELETE FROM ${tabla} WHERE rut = ? AND anio_tributario = ? AND folio = ?`).run(rut, anioTributario, folio);
+      }
+      for (const v of detalle.valores) insValor.run(rut, anioTributario, folio, v.codigo, v.valor, v.glosa);
+      for (const o of detalle.observaciones) insObservacion.run(rut, anioTributario, folio, o.codigo, o.descripcion);
+      for (const e of detalle.eventos) insEvento.run(rut, anioTributario, folio, e.orden, e.codigoEvento, e.nombre, e.fecha, e.tipo, e.codigoCarta);
+    })();
+  }
+
+  declaracionesF22(rut: string, anioTributario?: number): F22DeclaracionGuardada[] {
+    const filas = (
+      anioTributario === undefined
+        ? this.db.prepare('SELECT * FROM f22_declaracion WHERE rut = ? ORDER BY anio_tributario DESC, folio').all(rut)
+        : this.db.prepare('SELECT * FROM f22_declaracion WHERE rut = ? AND anio_tributario = ? ORDER BY folio').all(rut, anioTributario)
+    ) as FilaDeclaracionF22[];
+    return filas.map((f) => ({
+      rut: f.rut,
+      anioTributario: f.anio_tributario,
+      folio: f.folio,
+      vigente: f.vigente === null ? null : f.vigente === 1,
+      codigoConclusion: f.codigo_conclusion,
+      conclusion: f.conclusion,
+      fechaIngreso: f.fecha_ingreso,
+      tipoImpugnado: f.tipo_impugnado,
+      remanenteSolicitado: f.remanente_solicitado,
+      remanenteDevuelto: f.remanente_devuelto,
+      impuestoPagado: f.impuesto_pagado,
+      montoGiro: f.monto_giro,
+      fechaVencimiento: f.fecha_vencimiento,
+      obtenidoEn: f.obtenido_en,
+    }));
+  }
+
+  detalleF22(rut: string, anioTributario: number, folio: number): F22Detalle {
+    const clave = [rut, anioTributario, folio] as const;
+    const valores = this.db
+      .prepare('SELECT codigo, valor, glosa FROM f22_valor WHERE rut = ? AND anio_tributario = ? AND folio = ? ORDER BY CAST(codigo AS INTEGER), codigo')
+      .all(...clave) as { codigo: string; valor: number | null; glosa: string | null }[];
+    const observaciones = this.db
+      .prepare('SELECT codigo, descripcion FROM f22_observacion WHERE rut = ? AND anio_tributario = ? AND folio = ? ORDER BY codigo')
+      .all(...clave) as { codigo: string; descripcion: string | null }[];
+    const eventos = this.db
+      .prepare('SELECT orden, codigo_evento, nombre, fecha, tipo, codigo_carta FROM f22_evento WHERE rut = ? AND anio_tributario = ? AND folio = ? ORDER BY orden')
+      .all(...clave) as { orden: number; codigo_evento: string | null; nombre: string | null; fecha: string | null; tipo: string | null; codigo_carta: string | null }[];
+    return {
+      valores,
+      observaciones: observaciones.map((o) => ({ codigo: o.codigo, descripcion: o.descripcion, url: null })),
+      eventos: eventos.map((e) => ({ orden: e.orden, codigoEvento: e.codigo_evento, nombre: e.nombre, fecha: e.fecha, tipo: e.tipo, codigoCarta: e.codigo_carta })),
+    };
   }
 
   // --- frescura ---------------------------------------------------------------------------

@@ -1,0 +1,10 @@
+{
+  "data": [
+    { "codigo": "A01", "descripcion": "Observación ficticia de renta", "url": "https://www.sii.cl/ayudas/observacion-ficticia.html" },
+    { "codigo": "B02", "descripcion": "Otra observación ficticia", "url": "https://sitio-ajeno.example.invalid/datos?nombre=PERSONA%20FICTICIA" },
+    { "codigo": "C03", "descripcion": "Observación ficticia sin enlace", "url": null }
+  ],
+  "respCod": 0,
+  "errorMsg": null,
+  "metaData": { "namespace": "cl.sii.sdi.lob.renta.consultaestadof22.data.api.interfaces.FacadeService/situacionObservacion", "conversationId": "TOKEN-FICTICIO-0000", "transactionId": "00000000-0000-0000-0000-000000000000", "errors": null }
+}

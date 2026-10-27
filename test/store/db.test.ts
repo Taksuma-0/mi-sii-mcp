@@ -86,6 +86,30 @@ describe('db', () => {
     expect(() => db.prepare("INSERT INTO sii_empresa_autorizada (rut, rut_empresa, sincronizacion_id, obtenido_en) VALUES ('1', '3-5', 99, 't')").run()).toThrow();
   });
 
+  it('la migración 7 crea el F22 por RUT, año tributario y folio, con valores, observaciones y eventos', () => {
+    const db = nuevaDb();
+    expect(MIGRACIONES.find((m) => m.version === 7)?.sql).toContain('f22_declaracion');
+    db.prepare("INSERT INTO sincronizacion (rut, superficie, periodo, iniciado_en) VALUES ('1', 'f22', 'AT2026', 't')").run();
+    const declaracion = (folio: number, vigente: number | null, sincronizacion = 1) =>
+      db.prepare("INSERT INTO f22_declaracion (rut, anio_tributario, folio, vigente, sincronizacion_id, obtenido_en) VALUES ('1', 2026, ?, ?, ?, 't')").run(folio, vigente, sincronizacion);
+    declaracion(10, 1);
+    declaracion(11, null);
+    expect(() => declaracion(10, 0)).toThrow();
+    expect(() => declaracion(12, 2)).toThrow();
+    expect(() => declaracion(13, 1, 99)).toThrow();
+    const valor = (codigo: string, v: number | null) => db.prepare("INSERT INTO f22_valor (rut, anio_tributario, folio, codigo, valor, glosa) VALUES ('1', 2026, 10, ?, ?, 'g')").run(codigo, v);
+    valor('305', -1.5);
+    valor('15', null);
+    expect(() => valor('305', 2)).toThrow();
+    const observacion = () => db.prepare("INSERT INTO f22_observacion (rut, anio_tributario, folio, codigo, descripcion) VALUES ('1', 2026, 10, 'A01', 'd')").run();
+    observacion();
+    expect(observacion).toThrow();
+    const evento = (orden: number) => db.prepare("INSERT INTO f22_evento (rut, anio_tributario, folio, orden, codigo_evento, nombre, fecha, tipo, codigo_carta) VALUES ('1', 2026, 10, ?, 'E', 'n', NULL, NULL, NULL)").run(orden);
+    evento(1);
+    expect(() => evento(1)).toThrow();
+    expect(db.prepare("SELECT valor FROM f22_valor WHERE codigo = '305'").get()).toEqual({ valor: -1.5 });
+  });
+
   it('migra una base v1 con datos a la v2 agregando estado_id', () => {
     const db = new Database(':memory:');
     aplicarMigraciones(db, [MIGRACIONES[0]!]);

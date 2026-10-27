@@ -232,6 +232,63 @@ CREATE TABLE sii_empresa_autorizada (
 );
 `;
 
+/**
+ * Renta anual (F22) por año tributario y folio. Solo campos permitidos: sin nombres, domicilio, cuenta ni banco; los
+ * códigos de identificación del compacto no se guardan, y las observaciones y eventos van sin enlace ni referencia.
+ */
+const V7 = `
+CREATE TABLE f22_declaracion (
+  rut TEXT NOT NULL,
+  anio_tributario INTEGER NOT NULL,
+  folio INTEGER NOT NULL,
+  vigente INTEGER CHECK (vigente IN (0, 1)),
+  codigo_conclusion TEXT,
+  conclusion TEXT,
+  fecha_ingreso TEXT,
+  tipo_impugnado TEXT,
+  remanente_solicitado INTEGER,
+  remanente_devuelto INTEGER,
+  impuesto_pagado INTEGER,
+  monto_giro INTEGER,
+  fecha_vencimiento TEXT,
+  sincronizacion_id INTEGER NOT NULL REFERENCES sincronizacion (id),
+  obtenido_en TEXT NOT NULL,
+  PRIMARY KEY (rut, anio_tributario, folio)
+);
+
+CREATE TABLE f22_valor (
+  rut TEXT NOT NULL,
+  anio_tributario INTEGER NOT NULL,
+  folio INTEGER NOT NULL,
+  codigo TEXT NOT NULL,
+  valor REAL,
+  glosa TEXT,
+  PRIMARY KEY (rut, anio_tributario, folio, codigo)
+);
+
+CREATE TABLE f22_observacion (
+  rut TEXT NOT NULL,
+  anio_tributario INTEGER NOT NULL,
+  folio INTEGER NOT NULL,
+  codigo TEXT NOT NULL,
+  descripcion TEXT,
+  PRIMARY KEY (rut, anio_tributario, folio, codigo)
+);
+
+CREATE TABLE f22_evento (
+  rut TEXT NOT NULL,
+  anio_tributario INTEGER NOT NULL,
+  folio INTEGER NOT NULL,
+  orden INTEGER NOT NULL,
+  codigo_evento TEXT,
+  nombre TEXT,
+  fecha TEXT,
+  tipo TEXT,
+  codigo_carta TEXT,
+  PRIMARY KEY (rut, anio_tributario, folio, orden)
+);
+`;
+
 export const MIGRACIONES: readonly Migracion[] = [
   { version: 1, sql: V1 },
   { version: 2, sql: V2 },
@@ -239,4 +296,5 @@ export const MIGRACIONES: readonly Migracion[] = [
   { version: 4, sql: V4 },
   { version: 5, sql: V5 },
   { version: 6, sql: V6 },
+  { version: 7, sql: V7 },
 ];

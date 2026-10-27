@@ -257,3 +257,59 @@ export interface EmpresaAutorizada {
   /** Fecha desde la que ya no está autorizada; null mientras sigue activa. */
   readonly fechaDesautorizacion: string | null;
 }
+
+/**
+ * Declaración anual de renta (F22) de un año tributario, solo con campos permitidos: sin nombres, domicilio, cuenta ni
+ * banco. Los montos son null si el SII no los informó.
+ */
+export interface F22Declaracion {
+  readonly rut: string;
+  /** Año tributario (AT): el año comercial + 1. */
+  readonly anioTributario: number;
+  readonly folio: number;
+  /** El SII la marca vigente (S/1) o no (N/0); null si no lo informó. */
+  readonly vigente: boolean | null;
+  readonly codigoConclusion: string | null;
+  /** Glosa del SII de `codigoConclusion`. */
+  readonly conclusion: string | null;
+  /** Fecha de ingreso, `AAAA-MM-DD` si el SII la entrega como `DD/MM/AAAA`. */
+  readonly fechaIngreso: string | null;
+  readonly tipoImpugnado: string | null;
+  readonly remanenteSolicitado: number | null;
+  readonly remanenteDevuelto: number | null;
+  readonly impuestoPagado: number | null;
+  readonly montoGiro: number | null;
+  readonly fechaVencimiento: string | null;
+}
+
+/** Código del F22 con su glosa del SII; `valor` null si vino vacío, no es numérico o es una fecha. */
+export interface F22Valor {
+  readonly codigo: string;
+  readonly valor: number | null;
+  readonly glosa: string | null;
+}
+
+export interface F22Observacion {
+  readonly codigo: string;
+  readonly descripcion: string | null;
+  /** Enlace de ayuda del SII; null si no es de sii.cl. No se guarda en la base. */
+  readonly url: string | null;
+}
+
+export interface F22Evento {
+  /** Posición en la lista del SII, desde 1. */
+  readonly orden: number;
+  readonly codigoEvento: string | null;
+  readonly nombre: string | null;
+  /** `AAAA-MM-DD` si el SII la entrega como `DD/MM/AAAA`. */
+  readonly fecha: string | null;
+  readonly tipo: string | null;
+  readonly codigoCarta: string | null;
+}
+
+/** Detalle de un folio del F22: códigos (sin los de identificación), observaciones y eventos. */
+export interface F22Detalle {
+  readonly valores: readonly F22Valor[];
+  readonly observaciones: readonly F22Observacion[];
+  readonly eventos: readonly F22Evento[];
+}

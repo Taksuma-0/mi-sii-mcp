@@ -1,0 +1,35 @@
+{
+  "data": [
+    {
+      "folio": "123456789",
+      "codEvento": "E01",
+      "nombre": "Declaración recibida",
+      "fechaEvento": "15/04/2026",
+      "codCarta": null,
+      "idCarta": "ID-CARTA-FICTICIO-1",
+      "codigo": "X1",
+      "tipoEvento": "INFO",
+      "referencia": "Referencia ficticia de PERSONA FICTICIA, CALLE FICTICIA 123",
+      "evigCodigo": "1",
+      "fechaCitacion": null,
+      "unidadSii": "UNIDAD FICTICIA"
+    },
+    {
+      "folio": "123456789",
+      "codEvento": "E02",
+      "nombre": "Devolución autorizada",
+      "fechaEvento": "10/05/2026",
+      "codCarta": "C9",
+      "idCarta": "ID-CARTA-FICTICIO-2",
+      "codigo": "X2",
+      "tipoEvento": "PAGO",
+      "referencia": "Referencia ficticia 2",
+      "evigCodigo": "2",
+      "fechaCitacion": "01/06/2026",
+      "unidadSii": "UNIDAD FICTICIA"
+    }
+  ],
+  "respCod": 0,
+  "errorMsg": null,
+  "metaData": { "namespace": "cl.sii.sdi.lob.renta.consultaestadof22.data.api.interfaces.FacadeService/buscaEventos", "conversationId": "TOKEN-FICTICIO-0000", "transactionId": "00000000-0000-0000-0000-000000000000", "errors": null }
+}

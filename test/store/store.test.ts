@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { BoletaHonorarios, DocumentoRcv, Hallazgo, Lado, PropuestaF29, RcvResumen } from '../../src/domain/tipos.js';
 import { abrirDb, type Db } from '../../src/store/sqlite/db.js';
 import { huellaDocumento, SqliteStore } from '../../src/store/sqlite/store.js';
-import { boleta, declaracion, documento, empresaAutorizada, fila, propuesta, perfilEmpresa, perfilTributario, perfilPersona, resumen, RUT_EMPRESA, RUT_PERSONA, valores } from '../helpers/fabricas.js';
+import { boleta, declaracion, declaracionF22, detalleF22, documento, empresaAutorizada, fila, propuesta, perfilEmpresa, perfilTributario, perfilPersona, resumen, RUT_EMPRESA, RUT_PERSONA, valores } from '../helpers/fabricas.js';
 import { guardarPdfF29, pdfFalso } from '../helpers/lector-falso.js';
 import { medirLecturas } from '../helpers/lecturas-sqlite.js';
 
@@ -562,6 +562,80 @@ describe('SqliteStore: empresas autorizadas', () => {
 
   it('la cuenta no es un período: periodosConDatos la ignora, aunque la sincronización sea ok', () => {
     guardar([empresaAutorizada()]);
+    expect(store.periodosConDatos(RUT_EMPRESA)).toEqual([]);
+  });
+});
+
+describe('SqliteStore: renta F22', () => {
+  const syncF22 = (anio: number, declaraciones = [declaracionF22({ anioTributario: anio })], obtenidoEn = T): number => {
+    const id = store.iniciarSincronizacion(RUT_EMPRESA, 'f22', `AT${anio}`, obtenidoEn);
+    store.reemplazarF22Declaraciones(id, RUT_EMPRESA, anio, declaraciones, obtenidoEn);
+    store.terminarSincronizacion(id, obtenidoEn, 'ok');
+    return id;
+  };
+
+  it('sin datos no hay declaraciones y el detalle está vacío', () => {
+    expect(store.declaracionesF22(RUT_EMPRESA)).toEqual([]);
+    expect(store.detalleF22(RUT_EMPRESA, 2026, 1)).toEqual({ valores: [], observaciones: [], eventos: [] });
+  });
+
+  it('guarda y devuelve las declaraciones con nulos y booleanos, de la más nueva a la más antigua', () => {
+    const vigente = declaracionF22();
+    const anterior = declaracionF22({ folio: 98_765_432, vigente: false, tipoImpugnado: 'R', remanenteDevuelto: null, montoGiro: null, fechaVencimiento: null, conclusion: null });
+    const sinMarca = declaracionF22({ anioTributario: 2025, folio: 55, vigente: null, impuestoPagado: 1234.5 });
+    syncF22(2026, [vigente, anterior]);
+    syncF22(2025, [sinMarca], '2026-10-22T10:00:00.000Z');
+
+    expect(store.declaracionesF22(RUT_EMPRESA)).toEqual([
+      { ...anterior, obtenidoEn: T },
+      { ...vigente, obtenidoEn: T },
+      { ...sinMarca, obtenidoEn: '2026-10-22T10:00:00.000Z' },
+    ]);
+    expect(store.declaracionesF22(RUT_EMPRESA, 2025).map((d) => d.folio)).toEqual([55]);
+  });
+
+  it('guarda el detalle de un folio sin el enlace de las observaciones y lo reemplaza completo', () => {
+    syncF22(2026);
+    const detalle = detalleF22();
+    store.reemplazarF22Detalle(RUT_EMPRESA, 2026, 123_456_789, detalle);
+
+    expect(store.detalleF22(RUT_EMPRESA, 2026, 123_456_789)).toEqual({
+      valores: [...detalle.valores].sort((a, b) => Number(a.codigo) - Number(b.codigo)),
+      observaciones: detalle.observaciones.map((o) => ({ ...o, url: null })),
+      eventos: detalle.eventos,
+    });
+
+    store.reemplazarF22Detalle(RUT_EMPRESA, 2026, 123_456_789, { valores: [{ codigo: '87', valor: 1, glosa: null }], observaciones: [], eventos: [] });
+    expect(store.detalleF22(RUT_EMPRESA, 2026, 123_456_789)).toEqual({ valores: [{ codigo: '87', valor: 1, glosa: null }], observaciones: [], eventos: [] });
+  });
+
+  it('reemplaza las declaraciones del año sin tocar otros años y borra el detalle de los folios que ya no están', () => {
+    syncF22(2026, [declaracionF22({ folio: 1 }), declaracionF22({ folio: 2, vigente: false })]);
+    syncF22(2025, [declaracionF22({ anioTributario: 2025, folio: 3 })]);
+    store.reemplazarF22Detalle(RUT_EMPRESA, 2026, 1, detalleF22());
+    store.reemplazarF22Detalle(RUT_EMPRESA, 2026, 2, detalleF22());
+    store.reemplazarF22Detalle(RUT_EMPRESA, 2025, 3, detalleF22());
+
+    syncF22(2026, [declaracionF22({ folio: 2, vigente: true })]);
+
+    expect(store.declaracionesF22(RUT_EMPRESA).map((d) => [d.anioTributario, d.folio, d.vigente])).toEqual([[2026, 2, true], [2025, 3, true]]);
+    expect(store.detalleF22(RUT_EMPRESA, 2026, 1).valores).toEqual([]);
+    expect(store.detalleF22(RUT_EMPRESA, 2026, 2).valores).toHaveLength(3);
+    expect(store.detalleF22(RUT_EMPRESA, 2025, 3).valores).toHaveLength(3);
+  });
+
+  it('revierte el reemplazo si falla una inserción (folio o código repetido)', () => {
+    syncF22(2026, [declaracionF22({ folio: 1 })]);
+    store.reemplazarF22Detalle(RUT_EMPRESA, 2026, 1, detalleF22());
+    expect(() => syncF22(2026, [declaracionF22({ folio: 7 }), declaracionF22({ folio: 7 })])).toThrow();
+    expect(store.declaracionesF22(RUT_EMPRESA).map((d) => d.folio)).toEqual([1]);
+    const repetido = { valores: [{ codigo: '1', valor: 1, glosa: null }, { codigo: '1', valor: 2, glosa: null }], observaciones: [], eventos: [] };
+    expect(() => store.reemplazarF22Detalle(RUT_EMPRESA, 2026, 1, repetido)).toThrow();
+    expect(store.detalleF22(RUT_EMPRESA, 2026, 1).valores).toHaveLength(3);
+  });
+
+  it('la renta es anual: periodosConDatos ignora los períodos AT<AAAA>', () => {
+    syncF22(2026);
     expect(store.periodosConDatos(RUT_EMPRESA)).toEqual([]);
   });
 });

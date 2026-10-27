@@ -1,9 +1,10 @@
 import type { Periodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
-import type { DocumentoRcv, EmpresaAutorizada, EstadoRcv, F29Declaracion, F29Valores, InformeBhe, Lado, PerfilTributario, PropuestaF29, RcvResumen } from '../../domain/tipos.js';
+import type { DocumentoRcv, EmpresaAutorizada, EstadoRcv, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBhe, Lado, PerfilTributario, PropuestaF29, RcvResumen } from '../../domain/tipos.js';
 import type { LectorPdfF29, SiiReader, SumideroRespuestas } from '../../ports/index.js';
 import { bheRecibidas } from './bhe.js';
 import { empresasAutorizadas } from './empresas.js';
+import { f22Declaraciones, f22Detalle } from './f22.js';
 import { f29Declaraciones, f29Valores } from './f29.js';
 import { lectorPdfF29 } from './f29-pdf.js';
 import type { Http } from './http.js';
@@ -51,5 +52,13 @@ export class LectorPortalSii implements SiiReader {
 
   empresasAutorizadas(): Promise<EmpresaAutorizada[]> {
     return empresasAutorizadas(this.http, this.sumidero);
+  }
+
+  f22Declaraciones(rut: string, anioTributario: number): Promise<F22Declaracion[]> {
+    return f22Declaraciones(this.http, this.sumidero, parseRut(rut), anioTributario);
+  }
+
+  f22Detalle(rut: string, anioTributario: number, folio: number): Promise<F22Detalle> {
+    return f22Detalle(this.http, this.sumidero, parseRut(rut), anioTributario, folio);
   }
 }

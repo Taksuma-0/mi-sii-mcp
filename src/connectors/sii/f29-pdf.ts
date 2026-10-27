@@ -1,5 +1,6 @@
 import { extractTextItems } from 'unpdf';
 import type { LectorPdfF29 } from '../../ports/index.js';
+import { aNumero, esValor } from './campos.js';
 import { CODIGOS_F29 } from './codigos-f29.js';
 
 export interface TokenPdf {
@@ -17,15 +18,10 @@ export interface TokenPdf {
   readonly enGlosa?: boolean;
 }
 
-const ES_MONTO = /^-?\d{1,3}(?:\.\d{3})+$|^-?\d+$/;
-/** Coma decimal, o punto decimal con `0.` inicial o 1 a 2 decimales (`0.5`, `1.25`); 3 dígitos tras un punto son miles. */
-const ES_DECIMAL = /^-?\d+,\d+$|^-?0\.\d+$|^-?\d+\.\d{1,2}$/;
 const ES_CODIGO_DE_CELDA = /^\d{1,4}$/;
 const TIENE_LETRAS = /\p{L}/u;
 const PASO_PALABRA_X = 0.001;
 
-const aNumero = (s: string): number => (ES_DECIMAL.test(s) ? Number(s.replace(',', '.')) : Number(s.replace(/\./g, '')));
-const esValor = (s: string): boolean => ES_MONTO.test(s) || ES_DECIMAL.test(s);
 /** La cabecera de la tabla del PDF compacto («Código Glosa Valor», una vez por columna). */
 const PALABRAS_CABECERA = ['código', 'glosa', 'valor'];
 const esCabeceraDeTabla = (textos: readonly string[]): boolean => PALABRAS_CABECERA.every((p) => textos.some((t) => t.toLowerCase() === p));
