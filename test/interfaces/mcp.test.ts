@@ -145,6 +145,7 @@ describe('servidor MCP', () => {
     expect(JSON.stringify(herramienta.inputSchema)).toContain('"bhe"');
     expect(herramienta.description).toMatch(/«bhe».*boletas de honorarios recibidas/i);
     expect(tools.find((t) => t.name === 'f29_historial')?.description).toMatch(/boletas de honorarios.*151/);
+    expect(tools.find((t) => t.name === 'iva_hallazgos')?.description).toMatch(/retención de honorarios/);
 
     const r = await cliente.callTool({ name: 'sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026-09', superficies: ['bhe'] } });
 

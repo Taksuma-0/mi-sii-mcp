@@ -208,7 +208,7 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
     'iva_hallazgos',
     {
       title: 'Hallazgos de conciliación',
-      description: 'Hallazgos de conciliación de IVA (descuadres, F29 faltantes, facturas por reclamar, cambios posteriores al F29) de todos los meses con datos, o de un rango.',
+      description: 'Hallazgos de conciliación de IVA (descuadres, F29 faltantes, facturas por reclamar, cambios posteriores al F29 y, si se sincronizaron las boletas de honorarios recibidas, la retención de honorarios frente al código 151) de todos los meses con datos, o de un rango.',
       inputSchema: z.object({ rut: RUT, desde: PERIODO.optional(), hasta: PERIODO.optional(), severidad: z.enum(['info', 'advertencia', 'critico']).optional() }),
       annotations: SOLO_LECTURA,
     },

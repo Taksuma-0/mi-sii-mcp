@@ -106,6 +106,7 @@ describe('esquemaDatos', () => {
     expect(regla).toBeDefined();
     expect(regla).toContain('anulada = 0');
     expect(regla).toContain(`'${CODIGO_F29.RETENCION_HONORARIOS}'`);
+    expect(regla).toContain('RET-01');
   });
 
   it('describe cada tabla y cada columna con tipo y significado', () => {

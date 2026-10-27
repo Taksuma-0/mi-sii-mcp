@@ -24,6 +24,11 @@ export interface EntradaConciliacion {
   readonly toleranciaPesos: number;
   /** Omitido conserva el contrato de los consumidores puros previos: todas las fuentes conocidas. */
   readonly disponibilidad?: DisponibilidadFuentes;
+  /**
+   * Boletas de honorarios recibidas del mes: si se consultaron y la suma de la retención de las no anuladas. Omitido
+   * equivale a no consultadas.
+   */
+  readonly bhe?: { readonly consultado: boolean; readonly retencion: number };
 }
 
 type DatosHallazgo = Omit<Hallazgo, 'rut' | 'periodo'>;
@@ -137,6 +142,36 @@ export function reglaF29Incoherente(e: EntradaConciliacion): Hallazgo[] {
       detalle: `En el F29 folio ${e.valores.folio}: ${incoherencias.join('; ')}. Puede que el PDF se haya leído mal o que el SII haya cambiado el formulario.`,
       montos: null,
       evidencia: [`F29:${e.valores.folio}`],
+    }),
+  ];
+}
+
+/**
+ * RET-01: la retención de las boletas de honorarios recibidas no anuladas del mes debe estar en el código 151 del F29.
+ * Solo si las boletas se consultaron y el F29 se leyó. Nunca es crítica: una boleta pagada en otro mes se declara en
+ * ese mes, y el 151 puede incluir otras retenciones.
+ */
+export function reglaRetencionHonorarios(e: EntradaConciliacion): Hallazgo[] {
+  if (!e.bhe?.consultado || !e.valores || !f29Leido(e.valores)) return [];
+  const esperado = e.bhe.retencion;
+  const declarado = montoF29(e.valores, CODIGO_F29.RETENCION_HONORARIOS) ?? 0;
+  const diferencia = esperado - declarado;
+  if (Math.abs(diferencia) <= e.toleranciaPesos) return [];
+  const montos = `Retención de las boletas de honorarios recibidas no anuladas: ${formatearClp(esperado)}. Código ${CODIGO_F29.RETENCION_HONORARIOS} del F29 folio ${e.valores.folio}: ${formatearClp(declarado)}.`;
+  const menor = declarado < esperado;
+  return [
+    hallazgo(e, {
+      regla: 'RET-01',
+      severidad: menor ? 'advertencia' : 'info',
+      naturaleza: 'DERIVADO',
+      titulo: menor ? 'El F29 declara menos retención de honorarios que las boletas recibidas' : 'El F29 declara más retención de honorarios que las boletas recibidas',
+      detalle: `${montos} ${
+        menor
+          ? 'La retención de honorarios declarada en el F29 (código 151) es menor que la de las boletas recibidas del mes. Si alguna boleta se pagó en otro mes, su retención va en ese mes.'
+          : 'El F29 declara más retención que las boletas recibidas del mes (puede incluir boletas de terceros o boletas de meses anteriores pagadas este mes).'
+      }`,
+      montos: { esperado, declarado, diferencia },
+      evidencia: [`F29:${e.valores.folio}`, `BHE:${e.periodo.texto}`],
     }),
   ];
 }

@@ -1,6 +1,6 @@
 import type { F29Valores, Lado, RcvResumen } from '../domain/tipos.js';
 
-export const VERSION_REGLAS = 'iva-2026.10.3';
+export const VERSION_REGLAS = 'iva-2026.10.4';
 
 export const CODIGO_F29 = {
   TOTAL_DEBITOS: '538',

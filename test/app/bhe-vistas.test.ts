@@ -105,3 +105,34 @@ describe('f29Historial con las boletas de honorarios recibidas', () => {
     expect(texto[1]).toContain(`retención (151) ${formatearClp(228_750)} · retención de boletas de honorarios ${formatearClp(228_750)}`);
   });
 });
+
+describe('RET-01 con las boletas guardadas', () => {
+  it('suma solo la retención de las boletas no anuladas del mes contra el 151', () => {
+    const { deps, store } = conEmpresa();
+    // 151 = 152.500 + 76.250: cuadra solo si la anulada (30.500) queda fuera.
+    sembrarMes(store, '2026-09', SEPT);
+    sembrarBhe(store, '2026-09', BOLETAS);
+
+    expect(resumenIva(deps, RUT_EMPRESA, '2026-09').hallazgos.filter((h) => h.regla === 'RET-01')).toEqual([]);
+
+    sembrarBhe(store, '2026-09', [...BOLETAS, boleta({ folio: 4, retencion: 10_000 })]);
+    const [h] = resumenIva(deps, RUT_EMPRESA, '2026-09').hallazgos.filter((x) => x.regla === 'RET-01');
+    expect(h).toMatchObject({ severidad: 'advertencia', montos: { esperado: 238_750, declarado: 228_750, diferencia: 10_000 } });
+  });
+
+  it('no aplica si las boletas del mes no se consultaron', () => {
+    const { deps, store } = conEmpresa();
+    sembrarMes(store, '2026-09', { ...SEPT, valores: [valores({ '538': 190_000, '537': 24_000, '504': 5_000, '89': 166_000, '77': 0, '91': 166_000, '151': 50_000 })] });
+
+    expect(resumenIva(deps, RUT_EMPRESA, '2026-09').hallazgos.some((h) => h.regla === 'RET-01')).toBe(false);
+  });
+
+  it('con boletas consultadas sin ninguna y un 151 declarado es info', () => {
+    const { deps, store } = conEmpresa();
+    sembrarMes(store, '2026-09', SEPT);
+    sembrarBhe(store, '2026-09', []);
+
+    const [h] = resumenIva(deps, RUT_EMPRESA, '2026-09').hallazgos.filter((x) => x.regla === 'RET-01');
+    expect(h).toMatchObject({ severidad: 'info', montos: { esperado: 0, declarado: 228_750 } });
+  });
+});

@@ -94,6 +94,7 @@ function valoresVigentes(deps: DepsApp, rut: string, periodo: string): F29Valore
 function conciliarYGuardar(deps: DepsApp, perfil: Perfil, periodo: Periodo) {
   const declaraciones = deps.store.declaracionesF29(perfil.rut, periodo.texto);
   const vigente = declaracionVigente(declaraciones);
+  const disponibilidad = deps.store.disponibilidadFuentes(perfil.rut, periodo.texto);
   const entrada = {
     rut: perfil.rut,
     tipo: perfil.tipo,
@@ -106,7 +107,8 @@ function conciliarYGuardar(deps: DepsApp, perfil: Perfil, periodo: Periodo) {
     valoresAnterior: periodo.texto === '2000-01' ? null : valoresVigentes(deps, perfil.rut, periodoAnterior(periodo).texto),
     snapshots: vigente?.fechaPresentacion ? deps.store.snapshotsRcv(perfil.rut, periodo.texto) : [],
     toleranciaPesos: deps.toleranciaPesos,
-    disponibilidad: deps.store.disponibilidadFuentes(perfil.rut, periodo.texto),
+    disponibilidad,
+    bhe: { consultado: disponibilidad.bheRecibidas, retencion: disponibilidad.bheRecibidas ? deps.store.totalesBhe(perfil.rut, periodo.texto).retencion : 0 },
   } satisfies EntradaConciliacion;
   const resultado = conciliarPeriodo(entrada);
   deps.store.reemplazarHallazgos(perfil.rut, periodo.texto, resultado.hallazgos, resultado.versionReglas, deps.reloj.ahora().toISOString());
