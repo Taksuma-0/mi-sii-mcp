@@ -7,6 +7,7 @@ import { ESTADOS_RCV, type EstadoRcv } from '../../domain/tipos.js';
 import { cargarConfig } from '../../main/config.js';
 import { crearEspacioLocal, type OperacionesEspacio } from './espacio.js';
 import { paginaLocal } from './pagina.js';
+import { puertoProhibido } from './puertos.js';
 import { verificar, errorPublico, type EntradaVerificacion, type ResultadoVerificacion } from './verificar.js';
 
 export interface ServidorLocal {
@@ -200,10 +201,18 @@ export async function crearServidorLocal(opciones: OpcionesServidor = {}): Promi
     return cerrado;
   }
 
-  await new Promise<void>((resolve, reject) => {
+  const escuchar = () => new Promise<void>((resolve, reject) => {
     servidor.once('error', reject);
     servidor.listen(opciones.puerto ?? 47529, '127.0.0.1', () => { servidor.off('error', reject); resolve(); });
   });
+  await escuchar();
+  // Un puerto efímero que fetch y los navegadores prohíben no sirve: se vuelve a pedir uno al sistema.
+  for (let intento = 0; opciones.puerto === 0 && intento < 20; intento++) {
+    const asignado = servidor.address();
+    if (!asignado || typeof asignado === 'string' || !puertoProhibido(asignado.port)) break;
+    await new Promise<void>((resolve) => { servidor.close(() => resolve()); });
+    await escuchar();
+  }
   const direccion = servidor.address();
   if (!direccion || typeof direccion === 'string') throw new Error('No se pudo abrir el servidor local.');
   url = `http://127.0.0.1:${direccion.port}`;
