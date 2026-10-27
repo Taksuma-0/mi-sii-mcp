@@ -1,61 +1,80 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/img/marca/logo-horizontal-oscuro.svg">
-    <img src="docs/img/marca/logo-horizontal.svg" alt="mi-sii-mcp" width="520">
+    <img src="docs/img/marca/logo-horizontal.svg" alt="Logo de mi-sii-mcp" width="520">
   </picture>
 </p>
 
-<h3 align="center">Tus impuestos del SII, conversados con tu asistente.</h3>
+<h1 align="center">mi-sii-mcp — Servidor MCP para el SII de Chile</h1>
+
+<p align="center"><b>Tus impuestos del SII, conversados con tu asistente de IA.</b></p>
 
 <p align="center">
   <a href="LICENSE"><img alt="Licencia MIT" src="https://img.shields.io/badge/licencia-MIT-0f2a44?style=flat-square"></a>
+  <img alt="Open source" src="https://img.shields.io/badge/open%20source-TypeScript-0f2a44?style=flat-square&labelColor=3dd6c3">
   <img alt="Node.js 22.12 o superior" src="https://img.shields.io/badge/node-%E2%89%A522.12-0f2a44?style=flat-square&logo=nodedotjs&logoColor=3dd6c3">
-  <a href="https://modelcontextprotocol.io"><img alt="Servidor MCP" src="https://img.shields.io/badge/MCP-cualquier%20cliente-0f2a44?style=flat-square&labelColor=3dd6c3"></a>
-  <img alt="Solo lectura" src="https://img.shields.io/badge/SII-solo%20lectura-0f2a44?style=flat-square&labelColor=7cb6fb">
-  <img alt="Proyecto independiente, no oficial" src="https://img.shields.io/badge/proyecto-independiente%20%C2%B7%20no%20oficial-a12627?style=flat-square">
+  <a href="https://modelcontextprotocol.io"><img alt="Model Context Protocol" src="https://img.shields.io/badge/MCP-stdio-0f2a44?style=flat-square&labelColor=7cb6fb"></a>
+  <img alt="Solo lectura" src="https://img.shields.io/badge/SII-solo%20lectura-0f2a44?style=flat-square&labelColor=3dd6c3">
 </p>
 
 <p align="center">
-  Pregúntale a tu asistente por tus impuestos del SII, con tus datos reales.<br>
+  <a href="https://taksuma-0.github.io/mi-sii-mcp/">Sitio web</a> ·
   <a href="#instalación">Instalación</a> ·
-  <a href="#qué-lee-del-sii">Qué lee</a> ·
-  <a href="#seguridad-y-privacidad">Seguridad</a> ·
-  <a href="#herramientas-del-mcp">Herramientas</a> ·
+  <a href="#compatibilidad-con-agentes-de-ia">Compatibilidad</a> ·
+  <a href="#ejemplos-de-consultas-tributarias">Ejemplos</a> ·
+  <a href="#preguntas-frecuentes">Preguntas frecuentes</a> ·
   <a href="docs/guias/asistente-mcp.md">Guía completa</a>
 </p>
 
-mi-sii-mcp es un servidor [MCP](https://modelcontextprotocol.io) que conecta **cualquier asistente compatible con MCP** (Claude, Cursor, VS Code con Copilot, Gemini CLI, Codex, Windsurf, Cline y otros) con **tu cuenta del SII de Chile**. Trae tus datos tributarios, los guarda **solo en tu equipo** y los cruza para mostrarte qué cuadra, qué no y qué vence.
+**mi-sii-mcp** es un servidor [Model Context Protocol (MCP)](https://modelcontextprotocol.io) de código abierto que conecta asistentes de inteligencia artificial —**Claude, Codex, Cursor, Gemini CLI, VS Code con Copilot** y otros clientes MCP— con tu información tributaria del **Servicio de Impuestos Internos (SII) de Chile**. Lee tu IVA, tus F29, tu renta (F22), tus boletas de honorarios y lo que otros informan sobre ti; lo guarda **en tu equipo** y lo **concilia** para mostrarte qué cuadra, qué no y qué vence. Funciona en **solo lectura** y el asistente nunca recibe tu clave.
 
-> [!WARNING]
-> **No oficial.** No está afiliado al Servicio de Impuestos Internos ni es asesoría tributaria. Úsalo para revisar tu información; las decisiones tributarias son tuyas o de tu contador.
+> [!NOTE]
+> Proyecto independiente de código abierto: no está afiliado al SII ni reemplaza la asesoría de un contador. Úsalo para revisar tu información y tomar mejores decisiones.
 
 <p align="center">
-  <img src="docs/img/demo-conversacion.svg" alt="Demo: el asistente responde cuánto se ha retenido en boletas de honorarios, por pagador, y confirma que cuadra con lo informado al SII (datos ficticios)" width="820">
+  <img src="docs/img/demo-conversacion.svg" alt="Demostración con datos ficticios: el asistente consulta mi-sii-mcp y responde cuánto se ha retenido en boletas de honorarios, por pagador, y que cuadra con lo informado al SII" width="820">
 </p>
 
 ---
 
-## ¿Qué puedes preguntarle?
+## Características principales
 
-- «¿Cuánto me han retenido este año en boletas de honorarios?»
-- «¿Cuadran mis boletas con lo que declaré en la renta?»
-- «¿Qué informaron mis pagadores al SII sobre mí?»
-- «¿Tengo algún F29 sin presentar o por vencer?»
-- «¿Cuadra el IVA de mis compras y ventas con el F29 de septiembre?»
-- «¿A quién le emití más boletas en 2026?»
-- «Estímame la devolución de la próxima renta» (con fuentes oficiales para los valores públicos)
+- **Consultas tributarias en lenguaje natural**: pregúntale a tu asistente por tu IVA, tus F29, tu renta o tus boletas de honorarios, con tus datos reales del SII.
+- **Conciliación automática**: cruza el registro de compras y ventas con el F29, las boletas con la renta y lo que informan tus pagadores con tus propios registros.
+- **Alertas útiles**: F29 sin presentar o por vencer (día 12, 20 o 28 según tu caso), facturas por reclamar y descuadres.
+- **Solo lectura**: nunca presenta, modifica ni emite nada en el SII.
+- **Datos locales**: todo se guarda en una base SQLite en tu equipo; no hay servidores intermedios.
+- **La clave no pasa por el chat**: inicias sesión en una página local y ninguna herramienta del MCP recibe claves.
+- **Varias cuentas**: tu RUT personal y los de tus empresas, cada uno con su propia sesión.
+- **Open source (MIT)**, escrito en TypeScript, con más de 1.300 pruebas automáticas que usan solo datos ficticios.
 
-## Qué lee del SII
+## Qué lee del SII y qué concilia
 
-| Área | Qué trae | Qué cruza |
+| Área | Qué trae del SII | Qué concilia |
 | --- | --- | --- |
-| **IVA** | Registro de compras y ventas (RCV), F29 presentados (con su PDF) y propuesta de F29 | IVA del RCV contra el F29, F29 faltantes, facturas por reclamar, coherencia interna del F29 |
+| **IVA** | Registro de Compras y Ventas (RCV), F29 presentados (con su PDF) y propuesta de F29 | IVA del RCV contra el F29, F29 faltantes, facturas por reclamar y coherencia interna del F29 |
 | **Boletas de honorarios** | Recibidas (por mes) y emitidas (resumen anual y detalle boleta por boleta) | Retención de las boletas contra el F29 (código 151) y contra la renta (códigos 547 y 492) |
-| **Renta (F22)** | Declaraciones por año, folio vigente, códigos, observaciones y eventos (devoluciones, giros) | Boletas emitidas y lo informado por terceros contra el F22 |
-| **Informado por terceros** | Declaraciones juradas que otros presentan sobre ti (p. ej. retenciones de honorarios, sueldos) | Retención informada por cada pagador contra tus boletas y tu F22; avisa si el SII observó la declaración de un informante |
-| **Cuenta** | Perfil tributario (régimen, segmento, si declara el F29 hasta el día 20) y empresas autorizadas | Vencimientos del F29 según tu caso (día 12, 20 o 28) |
+| **Renta (F22)** | Declaraciones por año tributario, folio vigente, códigos, observaciones y eventos (devoluciones, giros) | Boletas emitidas y lo informado por terceros contra el F22 |
+| **Informado por terceros** | Declaraciones juradas que otros presentan sobre ti (p. ej. retenciones de honorarios) | Lo que informa cada pagador contra tus boletas y tu F22; avisa si el SII observó la declaración de un informante |
+| **Cuenta** | Perfil tributario (régimen, segmento, autorización para declarar el F29 hasta el día 20) y empresas autorizadas | Vencimientos del F29 según tu caso |
 
 Los **datos públicos** (UTM, tablas de impuestos, tasas de cotización, comisiones de AFP) no se guardan: la herramienta `fuentes_oficiales` indica en qué página oficial consultarlos para el año que corresponda.
+
+## Compatibilidad con agentes de IA
+
+mi-sii-mcp es un servidor MCP local (transporte **stdio**), así que funciona con los clientes que ejecutan servidores MCP locales.
+
+| Cliente | Estado | Cómo se configura |
+| --- | --- | --- |
+| **Claude Code** | ✅ Probado | `claude mcp add` ([ver instalación](#1-registrar-el-servidor-en-tu-asistente)) |
+| **Claude Desktop** | Configuración documentada | `claude_desktop_config.json` (formato `mcpServers`) |
+| **Codex CLI** | Configuración documentada | `~/.codex/config.toml` |
+| **Cursor** | Configuración documentada | `~/.cursor/mcp.json` (formato `mcpServers`) |
+| **VS Code con GitHub Copilot** | Configuración documentada | `.vscode/mcp.json` |
+| **Gemini CLI** | Configuración documentada | `~/.gemini/settings.json` (formato `mcpServers`) |
+| **Windsurf, Cline** y otros | Configuración documentada | Formato `mcpServers` |
+
+«Configuración documentada» significa que se usa el formato MCP estándar de cada cliente; el desarrollo y las pruebas en vivo se hicieron con Claude Code.
 
 ## Cómo funciona
 
@@ -77,24 +96,15 @@ flowchart LR
 ```
 
 1. **Conectas tu cuenta** una vez en una página local; la clave no pasa por el chat.
-2. **El asistente pide datos** al MCP, que los lee del SII y los guarda en tu equipo.
-3. **El MCP cruza la información** con reglas tributarias y responde con hallazgos claros.
-
-## Seguridad y privacidad
-
-- **Solo lee.** Nunca presenta, modifica ni emite nada en el SII.
-- **Tus datos quedan en tu equipo**, en una base SQLite en `~/.mi-sii-mcp`. No hay servidores intermedios.
-- **El asistente nunca ve tu clave.** El inicio de sesión lo haces tú en una página local o en el navegador; el MCP no tiene ninguna herramienta que reciba claves.
-- Si eliges «Mantener conectada», la clave queda en el **almacén de credenciales del sistema** (Administrador de credenciales de Windows, Llavero de macOS o Secret Service en Linux), no en archivos.
-- Los datos de terceros se limitan a lo necesario (p. ej. razón social del pagador); no se guardan correos, direcciones, códigos de barra ni el token de la sesión.
-- Lo que el asistente consulta pasa a la conversación con él: pregunta solo por los contribuyentes que estés dispuesto a comentar ahí.
+2. **El asistente pide datos** al servidor MCP, que los lee del SII y los guarda en tu equipo.
+3. **mi-sii-mcp concilia la información** con reglas tributarias y responde con hallazgos claros.
 
 ## Requisitos
 
 - [Node.js](https://nodejs.org) 22.12 o superior (probado con Node 24).
-- Cualquier cliente compatible con [MCP](https://modelcontextprotocol.io/clients) que ejecute servidores locales (stdio): Claude Code, Claude Desktop, Cursor, VS Code con Copilot, Gemini CLI, Codex CLI, Windsurf, Cline, entre otros.
-- Clave tributaria del SII (o ClaveÚnica, desde el navegador).
-- Windows es la plataforma probada; macOS y Linux deberían funcionar con el mismo código.
+- Un cliente MCP que ejecute servidores locales (ver [compatibilidad](#compatibilidad-con-agentes-de-ia)).
+- Clave tributaria del SII.
+- Windows es la plataforma probada; el código es multiplataforma y en macOS o Linux la página local se abre con `npm run local`.
 
 ## Instalación
 
@@ -160,7 +170,7 @@ Agrega esto al archivo de configuración MCP de tu cliente (Claude Desktop: `cla
 ```
 </details>
 
-El servidor trae sus propias instrucciones de uso para el asistente (por dónde empezar, cómo reintentar, que nunca pida la clave), así que funciona igual con cualquier cliente.
+El servidor trae sus propias instrucciones de uso para el asistente (por dónde empezar, cómo reintentar, que nunca pida la clave), así que se comporta igual con cualquier cliente.
 
 ### 2. Conectar tu cuenta del SII
 
@@ -171,16 +181,28 @@ En Windows, haz doble clic en **`Abrir mi-sii-mcp.cmd`** (en la carpeta del proy
 3. Pulsas **Conectar**.
 
 <p align="center">
-  <img src="docs/img/pagina-conectar.png" alt="Página local para conectar la cuenta del SII, con cuentas de ejemplo" width="560">
+  <img src="docs/img/pagina-conectar.png" alt="Página local de mi-sii-mcp para conectar la cuenta del SII, con cuentas de ejemplo" width="560">
 </p>
 
-Puedes conectar varias cuentas (tu RUT personal y tus empresas). También puedes entrar con **ClaveÚnica** desde la misma página, aunque esa sesión no se renueva sola.
+Puedes conectar varias cuentas (tu RUT personal y tus empresas). La misma página ofrece entrar con **ClaveÚnica** desde el navegador; esa opción es **experimental** (aún no se ha probado con una cuenta real) y su sesión no se renueva sola.
 
 En otras plataformas, abre la página con `npm run local`, o inicia sesión desde la terminal con `node dist/interfaces/cli/bin.js login <rut> --guardar-clave`.
 
 ### 3. Preguntar
 
 Reinicia tu asistente (en Claude Code basta con `/mcp`) para que cargue el servidor y pregunta, por ejemplo: «lista mis perfiles» o «trae mi renta de los últimos 3 años».
+
+## Ejemplos de consultas tributarias
+
+| Pregunta al asistente | Qué hace mi-sii-mcp |
+| --- | --- |
+| «¿Cuánto me han retenido este año en boletas de honorarios?» | Trae tus boletas emitidas y suma la retención por mes y por pagador (`renta_sincronizar`, `renta_resumen`) |
+| «¿Cuadran mis boletas con lo que declaré en la renta?» | Compara tus boletas con los códigos 547 y 492 del F22, considerando el reajuste por IPC |
+| «¿Qué informaron mis pagadores al SII sobre mí?» | Lee las declaraciones juradas de terceros y las cruza con tus boletas |
+| «¿Tengo algún F29 sin presentar o por vencer?» | Revisa tus F29 y calcula el vencimiento según tu caso (`plazos_proximos`, `iva_hallazgos`) |
+| «¿Cuadra el IVA de compras y ventas con el F29 de septiembre?» | Concilia el RCV con el F29 del mes (`iva_resumen`) |
+| «¿A quién le emití más boletas en 2026?» | Consulta el detalle boleta por boleta guardado (`consulta_sql`) |
+| «Estímame la devolución de la próxima renta» | Junta tus datos y te indica las fuentes oficiales de los valores públicos (`fuentes_oficiales`) |
 
 ## Herramientas del MCP
 
@@ -198,6 +220,44 @@ Reinicia tu asistente (en Claude Code basta con `/mcp`) para que cargue el servi
 | `f29_releer` | Vuelve a leer los PDF de F29 guardados, sin ir al SII | No |
 | `fuentes_oficiales` | Dónde consultar los datos públicos (UTM, tablas, tasas) y cómo estimar una renta | No |
 | `datos_esquema`, `consulta_sql` | Mapa de las tablas y consultas `SELECT` de solo lectura para preguntas libres | No |
+
+## Seguridad y privacidad
+
+- **Solo lee.** Nunca presenta, modifica ni emite nada en el SII.
+- **Tus datos quedan en tu equipo**, en una base SQLite en `~/.mi-sii-mcp`; el servidor se comunica directamente con el SII, sin servidores intermedios.
+- **El asistente nunca recibe tu clave.** El inicio de sesión lo haces tú en una página local o en la terminal; el MCP no tiene ninguna herramienta que reciba claves.
+- **La sesión** se guarda como cookies en tu equipo para no pedirte la clave en cada consulta. Si eliges «Mantener conectada», la clave queda en el **almacén de credenciales del sistema** (Administrador de credenciales de Windows, Llavero de macOS o Secret Service en Linux), no en archivos.
+- **Las respuestas del SII que se guardan como respaldo se sanean**: sin correos, direcciones, códigos de barra ni el token de la sesión. De terceros se guarda solo lo necesario (p. ej. la razón social de un pagador).
+- **Lo que consultas pasa a la conversación** con tu asistente (y a su proveedor de IA): pregunta solo por los contribuyentes que estés dispuesto a comentar ahí.
+
+## Preguntas frecuentes
+
+### ¿Qué es mi-sii-mcp?
+Es un servidor MCP de código abierto que permite que un asistente de IA consulte y concilie tu información tributaria del SII de Chile: IVA, F29, renta F22, boletas de honorarios y declaraciones de terceros.
+
+### ¿Qué es un servidor MCP y por qué usarlo con el SII?
+MCP (Model Context Protocol) es un estándar abierto para que los asistentes de IA usen herramientas externas. Un servidor MCP para el SII le da a tu asistente herramientas para leer tus datos tributarios y aplicar reglas de conciliación, en vez de que copies y pegues información del portal.
+
+### ¿Cómo conecto Claude, Codex, Cursor o Gemini CLI al SII?
+Instala mi-sii-mcp, regístralo en tu cliente con la [configuración de la instalación](#1-registrar-el-servidor-en-tu-asistente) y conecta tu cuenta en la página local. Claude Code está probado; para los demás clientes se usa su formato MCP estándar.
+
+### ¿El asistente puede ver mi clave tributaria?
+No. La clave se escribe solo en la página local (o en la terminal) y ninguna herramienta del MCP la recibe. Si eliges mantener la sesión, la clave queda en el almacén de credenciales de tu sistema.
+
+### ¿Dónde quedan mis datos?
+En tu equipo, en `~/.mi-sii-mcp`. Lo que preguntas y las respuestas sí pasan por tu asistente de IA, como cualquier conversación con él.
+
+### ¿Puede presentar mi F29 o emitir boletas?
+No. mi-sii-mcp solo lee el portal del SII; no presenta declaraciones, no emite documentos ni modifica nada.
+
+### ¿Es una herramienta oficial del SII?
+No. Es un proyecto independiente de código abierto y no reemplaza la asesoría de un contador.
+
+### ¿Cuánto cuesta?
+Es gratuito y de código abierto (licencia MIT). Solo necesitas un cliente MCP; el costo del asistente de IA depende de su proveedor.
+
+### ¿Funciona en macOS o Linux?
+El código es multiplataforma, pero la plataforma probada es Windows. En macOS o Linux la página para conectar la cuenta se abre con `npm run local`.
 
 ## Uso desde la terminal (opcional)
 
@@ -224,6 +284,14 @@ Variables de entorno opcionales:
 | `MI_SII_MCP_NAVEGADOR` | Ruta de Edge o Chrome para entrar con ClaveÚnica |
 | `MI_SII_MCP_PLAZO_NAVEGADOR_MS` | Tiempo para completar el inicio de sesión en el navegador |
 
+## Documentación
+
+- [Sitio web del proyecto](https://taksuma-0.github.io/mi-sii-mcp/)
+- [Guía para usarlo con un asistente](docs/guias/asistente-mcp.md): instalación detallada, preguntas, herramientas y solución de problemas.
+- [Guía de la página local](docs/guias/interfaz-local.md)
+- [Decisiones de diseño](docs/decisiones): plazos del F29, áreas del SII, datos públicos de la renta y más.
+- [Difusión y directorios MCP](docs/difusion.md): metadatos para directorios y registro en buscadores.
+
 ## Desarrollo
 
 ```bash
@@ -233,7 +301,7 @@ npm run build       # compila a dist/
 npm run probar:mcp  # prueba el servidor MCP compilado
 ```
 
-El código está organizado por capas (`domain`, `app`, `connectors`, `store`, `interfaces`, `main`); `test/arquitectura.test.ts` verifica que se respeten. Las decisiones de diseño están en [`docs/decisiones`](docs/decisiones) y las guías de uso en [`docs/guias`](docs/guias).
+El código está organizado por capas (`domain`, `app`, `connectors`, `store`, `interfaces`, `main`); `test/arquitectura.test.ts` verifica que se respeten.
 
 Las contribuciones son bienvenidas. Por favor, **nunca incluyas datos tributarios reales** (RUT, nombres, montos) en issues, pruebas ni fixtures: usa RUT ficticios como `11.111.111-1`.
 
@@ -241,8 +309,9 @@ Las contribuciones son bienvenidas. Por favor, **nunca incluyas datos tributario
 
 - La propuesta del F22 aún no se lee (el SII la publica en abril).
 - La declaración de sueldos del empleador (DJ 1887) se lee de forma genérica: su formato no se ha verificado con datos reales.
+- El inicio de sesión con ClaveÚnica desde el navegador es experimental.
 - Si el SII cambia su portal, algunas lecturas pueden fallar hasta actualizar el lector; los errores lo indican y nunca se borran datos guardados por una respuesta vacía.
 
 ## Licencia
 
-[MIT](LICENSE) © 2026 Welinton Barrera
+[MIT](LICENSE) © 2026 Welinton Barrera · Código fuente: [github.com/Taksuma-0/mi-sii-mcp](https://github.com/Taksuma-0/mi-sii-mcp)
