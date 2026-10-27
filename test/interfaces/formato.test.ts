@@ -141,10 +141,10 @@ describe('formato: renta F22', () => {
       textoRenta({
         rut: '22222222-2',
         anios: [
-          { anioTributario: 2024, declaraciones: 0, folioVigente: null, detalle: 'sin_vigente', boletasEmitidas: null, errores: [] },
-          { anioTributario: 2025, declaraciones: 1, folioVigente: 7, detalle: 'sin_leer', boletasEmitidas: null, errores: [{ superficie: 'f22.folio', codigo: 'PORTAL_CAMBIO', mensaje: 'x' }] },
-          { anioTributario: 2026, declaraciones: 2, folioVigente: 123_456_789, detalle: 'leido', boletasEmitidas: null, errores: [] },
-          { anioTributario: 2023, declaraciones: null, folioVigente: null, detalle: 'sin_leer', boletasEmitidas: null, errores: [{ superficie: 'f22', codigo: 'RESPUESTA_VACIA', mensaje: 'x' }] },
+          { anioTributario: 2024, declaraciones: 0, folioVigente: null, detalle: 'sin_vigente', boletasEmitidas: null, detalleBoletas: null, errores: [] },
+          { anioTributario: 2025, declaraciones: 1, folioVigente: 7, detalle: 'sin_leer', boletasEmitidas: null, detalleBoletas: null, errores: [{ superficie: 'f22.folio', codigo: 'PORTAL_CAMBIO', mensaje: 'x' }] },
+          { anioTributario: 2026, declaraciones: 2, folioVigente: 123_456_789, detalle: 'leido', boletasEmitidas: null, detalleBoletas: null, errores: [] },
+          { anioTributario: 2023, declaraciones: null, folioVigente: null, detalle: 'sin_leer', boletasEmitidas: null, detalleBoletas: null, errores: [{ superficie: 'f22', codigo: 'RESPUESTA_VACIA', mensaje: 'x' }] },
         ],
         abortado: { superficie: 'sesion', codigo: 'SESION_REQUERIDA', mensaje: 'Inicia sesión.' },
       }),
@@ -220,9 +220,9 @@ describe('formato: renta F22', () => {
     const texto = textoRenta({
       rut: '11111111-1',
       anios: [
-        { anioTributario: 2026, declaraciones: 1, folioVigente: 9, detalle: 'leido', boletasEmitidas: 11, errores: [] },
-        { anioTributario: 2027, declaraciones: 0, folioVigente: null, detalle: 'sin_vigente', boletasEmitidas: 1, errores: [] },
-        { anioTributario: 2025, declaraciones: 0, folioVigente: null, detalle: 'sin_vigente', boletasEmitidas: 0, errores: [] },
+        { anioTributario: 2026, declaraciones: 1, folioVigente: 9, detalle: 'leido', boletasEmitidas: 11, detalleBoletas: null, errores: [] },
+        { anioTributario: 2027, declaraciones: 0, folioVigente: null, detalle: 'sin_vigente', boletasEmitidas: 1, detalleBoletas: null, errores: [] },
+        { anioTributario: 2025, declaraciones: 0, folioVigente: null, detalle: 'sin_vigente', boletasEmitidas: 0, detalleBoletas: null, errores: [] },
       ],
       abortado: null,
     });
@@ -236,6 +236,25 @@ describe('formato: renta F22', () => {
     );
   });
 
+  it('textoRenta resume el detalle por boleta de los meses y muestra sus avisos', () => {
+    const aviso = 'Boletas emitidas 2025-08: el detalle trae 1 vigente, 0 anuladas y bruto $900.000; el informe anual dice 1 vigente, 0 anuladas y bruto $800.000.';
+    const texto = textoRenta({
+      rut: '11111111-1',
+      anios: [
+        { anioTributario: 2026, declaraciones: 1, folioVigente: 9, detalle: 'leido', boletasEmitidas: 11, detalleBoletas: { leidos: 3, omitidos: 1, fallidos: 1, avisos: [aviso] }, errores: [] },
+        { anioTributario: 2025, declaraciones: 0, folioVigente: null, detalle: 'sin_vigente', boletasEmitidas: 1, detalleBoletas: { leidos: 1, omitidos: 0, fallidos: 0, avisos: [] }, errores: [] },
+        { anioTributario: 2024, declaraciones: 0, folioVigente: null, detalle: 'sin_vigente', boletasEmitidas: 0, detalleBoletas: { leidos: 0, omitidos: 0, fallidos: 0, avisos: [] }, errores: [] },
+      ],
+      abortado: null,
+    });
+    expect(texto.split('\n').slice(1)).toEqual([
+      'AT2026: 1 declaración · folio vigente 9 · detalle leído · 11 boletas emitidas en 2025 · detalle por boleta: 3 meses leídos, 1 al día, 1 con error',
+      `  Aviso: ${aviso}`,
+      'AT2025: sin declaraciones · 1 boleta emitida en 2024 · detalle por boleta: 1 mes leído',
+      'AT2024: sin declaraciones · 0 boletas emitidas en 2023',
+    ]);
+  });
+
   describe('textoResumenRenta: boletas de honorarios emitidas', () => {
     const base = {
       anioTributario: 2026, folio: 9, vigente: true, declaraciones: 1, codigoConclusion: null, conclusion: null, fechaIngreso: null, tipoImpugnado: null,
@@ -243,7 +262,7 @@ describe('formato: renta F22', () => {
       codigosClave: [], observaciones: [], eventos: [], obtenidoEn: '2026-10-21T15:00:00.000Z',
     };
     const honorarios = {
-      anioComercial: 2025, vigentes: 3, anuladas: 1, bruto: 2_000_000, retencionTerceros: 290_000, retencionPropia: 0, obtenidoEn: '2026-10-21T15:00:00.000Z',
+      anioComercial: 2025, vigentes: 3, anuladas: 1, bruto: 2_000_000, retencionTerceros: 290_000, retencionPropia: 0, obtenidoEn: '2026-10-21T15:00:00.000Z', pagadores: null,
       cruceF22: {
         bruto: { codigo: '547', boletas: 2_000_000, f22: 2_012_600, estado: 'cuadra' as const, reajustePct: 0.63 },
         retencion: { codigo: '492', boletas: 290_000, f22: 291_827, estado: 'cuadra' as const, reajustePct: 0.63 },
@@ -271,6 +290,20 @@ describe('formato: renta F22', () => {
           '  Boletas de honorarios emitidas en 2026: 1 vigente · bruto $100.000 · retención $0 · retención propia $14.500',
         ].join('\n'),
       );
+    });
+
+    it('con detalle muestra los principales pagadores, con nombre o RUT, y cuántos más hay', () => {
+      const pagadores = {
+        principales: [
+          { rutReceptor: '33333333-3', nombreReceptor: 'Cliente Uno SpA', boletas: 2, bruto: 1_300_000, retencion: 188_500 },
+          { rutReceptor: '44444444-4', nombreReceptor: null, boletas: 1, bruto: 700_000, retencion: 0 },
+        ],
+        otros: 2,
+      };
+      const texto = textoResumenRenta({ rut: '11111111-1', anios: [{ ...base, honorariosEmitidos: { ...honorarios, pagadores } }] });
+      expect(texto.split('\n').at(-1)).toBe('  Por pagador: Cliente Uno SpA $1.300.000 (retención $188.500) · 44444444-4 $700.000 (retención $0) · y 2 más');
+      const sinOtros = textoResumenRenta({ rut: '11111111-1', anios: [{ ...base, honorariosEmitidos: { ...honorarios, pagadores: { ...pagadores, otros: 0 } } }] });
+      expect(sinOtros.split('\n').at(-1)).not.toContain('más');
     });
 
     it('sin boletas dice ninguna y no cruza; un cruce que no cuadra muestra ambos montos', () => {

@@ -1,8 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { cruzarHonorariosF22, f22Vigente, hayBoletasEmitidas, parseAnioTributario, periodoRenta, rangoAnios, totalesBheEmitidas } from '../../src/domain/renta.js';
+import {
+  cruzarHonorariosF22,
+  diferenciaConAnual,
+  f22Vigente,
+  hayBoletasEmitidas,
+  pagadoresBheEmitidas,
+  parseAnioTributario,
+  periodoRenta,
+  rangoAnios,
+  totalesBheEmitidas,
+} from '../../src/domain/renta.js';
 import type { F22Valor } from '../../src/domain/tipos.js';
 import { ErrorImpuestocl } from '../../src/domain/errores.js';
-import { declaracionF22, informeBheEmitidas } from '../helpers/fabricas.js';
+import { boletaEmitida, declaracionF22, informeBheEmitidas, mesBheEmitida } from '../helpers/fabricas.js';
 
 /** Código del ErrorImpuestocl que lanza la función, o una descripción si no lanza así. */
 function codigoDe(fn: () => unknown): string {
@@ -103,5 +113,43 @@ describe('totalesBheEmitidas y hayBoletasEmitidas', () => {
     expect(totalesBheEmitidas(anio.meses)).toEqual({ vigentes: 2, anuladas: 2, bruto: 150_000, retencionTerceros: 14_500, retencionPropia: 7_250 });
     expect(hayBoletasEmitidas(totalesBheEmitidas(informeBheEmitidas(2025).meses))).toBe(false);
     expect(hayBoletasEmitidas(totalesBheEmitidas(informeBheEmitidas(2025, { 4: { anuladas: 1 } }).meses))).toBe(true);
+  });
+});
+
+describe('diferenciaConAnual', () => {
+  const marzo = mesBheEmitida(3, { bruto: 1_200_000, vigentes: 2, anuladas: 1 });
+  const boletas = [boletaEmitida({ folio: 1, bruto: 500_000 }), boletaEmitida({ folio: 2, bruto: 700_000 }), boletaEmitida({ folio: 3, bruto: 200_000, anulada: true })];
+
+  it('null si las cantidades y el bruto de las vigentes calzan con el mes del informe anual', () => {
+    expect(diferenciaConAnual('2025-03', marzo, boletas)).toBeNull();
+  });
+
+  it('si no calzan, lo dice con ambas cifras', () => {
+    expect(diferenciaConAnual('2025-03', marzo, boletas.slice(0, 2))).toBe(
+      'Boletas emitidas 2025-03: el detalle trae 2 vigentes, 0 anuladas y bruto $1.200.000; el informe anual dice 2 vigentes, 1 anulada y bruto $1.200.000.',
+    );
+    expect(diferenciaConAnual('2025-03', marzo, [boletas[0]!, boletas[2]!])).toMatch(/1 vigente, 1 anulada y bruto \$500\.000/);
+  });
+});
+
+describe('pagadoresBheEmitidas', () => {
+  it('suma las vigentes por receptor, de mayor a menor bruto; deja fuera las anuladas y cuenta los demás', () => {
+    const boletas = [
+      boletaEmitida({ folio: 1, rutReceptor: '33333333-3', nombreReceptor: null, bruto: 300_000, retencionReceptor: 41_250 }),
+      boletaEmitida({ folio: 2, rutReceptor: '33333333-3', nombreReceptor: 'Cliente Uno', bruto: 200_000, retencionReceptor: 27_500 }),
+      boletaEmitida({ folio: 3, rutReceptor: '44444444-4', nombreReceptor: null, bruto: 600_000, retencionReceptor: 0 }),
+      boletaEmitida({ folio: 4, rutReceptor: '55555555-5', nombreReceptor: 'Solo anulada', bruto: 900_000, anulada: true }),
+      boletaEmitida({ folio: 5, rutReceptor: '66666666-6', nombreReceptor: 'Cliente Chico', bruto: 10_000, retencionReceptor: 1_375 }),
+    ];
+
+    expect(pagadoresBheEmitidas(boletas, 2)).toEqual({
+      principales: [
+        { rutReceptor: '44444444-4', nombreReceptor: null, boletas: 1, bruto: 600_000, retencion: 0 },
+        { rutReceptor: '33333333-3', nombreReceptor: 'Cliente Uno', boletas: 2, bruto: 500_000, retencion: 68_750 },
+      ],
+      otros: 1,
+    });
+    expect(pagadoresBheEmitidas(boletas).otros).toBe(0);
+    expect(pagadoresBheEmitidas([])).toEqual({ principales: [], otros: 0 });
   });
 });

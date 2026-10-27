@@ -4,7 +4,7 @@ import { esquemaDatos } from '../../src/app/consulta-libre.js';
 import type { DepsApp } from '../../src/app/deps.js';
 import { ErrorImpuestocl, type CodigoError } from '../../src/domain/errores.js';
 import { crearServidorMcp, HERRAMIENTAS, INSTRUCCIONES_MCP, type OpcionesMcp } from '../../src/interfaces/mcp/servidor.js';
-import { boleta, declaracion, declaracionF22, detalleF22, empresaAutorizada, fila, informeBheEmitidas, perfilEmpresa, perfilPersona, perfilTributario, propuesta, resumen, RUT_EMPRESA, RUT_PERSONA, valores } from '../helpers/fabricas.js';
+import { boleta, boletaEmitida, declaracion, declaracionF22, detalleF22, empresaAutorizada, fila, informeBheEmitidas, perfilEmpresa, perfilPersona, perfilTributario, propuesta, resumen, RUT_EMPRESA, RUT_PERSONA, valores } from '../helpers/fabricas.js';
 import { depsDePrueba } from '../helpers/deps.js';
 import { guardarPdfF29, pdfFalso } from '../helpers/lector-falso.js';
 import { sembrarMes, T_SEMBRADO } from '../helpers/sembrar.js';
@@ -820,20 +820,31 @@ describe('servidor MCP: renta F22', () => {
     sii.f22.set(2026, [declaracionF22({ rut: RUT_PERSONA })]);
     sii.f22Detalles.set('2026|123456789', detalleF22({ valores: [{ codigo: '547', valor: 1_006_300, glosa: 'Ingresos ficticios' }, { codigo: '492', valor: 145_914, glosa: 'Retención ficticia' }] }));
     sii.bheEmitidas.set(2025, informeBheEmitidas(2025, { 6: { bruto: 1_000_000, retencionTerceros: 145_000, vigentes: 2, folioInicial: 1, folioFinal: 2 } }));
+    sii.bheEmitidasDetalle.set('2025-06', {
+      total: 2,
+      boletas: [
+        boletaEmitida({ periodo: '2025-06', folio: 1, nombreReceptor: 'Cliente Uno SpA', bruto: 600_000, retencionReceptor: 87_000 }),
+        boletaEmitida({ periodo: '2025-06', folio: 2, rutReceptor: '44444444-4', nombreReceptor: null, bruto: 400_000, retencionReceptor: 58_000 }),
+      ],
+    });
     const cliente = await conectar(deps);
     const { tools } = await cliente.listTools();
     const descripcion = (nombre: string) => tools.find((t) => t.name === nombre)!.description ?? '';
     expect(descripcion('renta_sincronizar')).toMatch(/boletas de honorarios emitidas/);
     expect(descripcion('renta_sincronizar')).toMatch(/año tributario siguiente/);
     expect(descripcion('renta_resumen')).toMatch(/boletas de honorarios emitidas.*547.*492/);
+    expect(descripcion('renta_sincronizar')).toMatch(/boleta por boleta/);
+    expect(descripcion('renta_resumen')).toMatch(/pagadores/);
+    expect(descripcion('renta_resumen')).toMatch(/a quién le emití boletas.*consulta_sql.*bhe_emitida\b/);
 
     const sync = await cliente.callTool({ name: 'renta_sincronizar', arguments: { rut: RUT_PERSONA, desde: '2026' } });
-    expect(textoDe(sync).split('\n\n')[0]).toContain('AT2026: 1 declaración · folio vigente 123456789 · detalle leído · 2 boletas emitidas en 2025');
+    expect(textoDe(sync).split('\n\n')[0]).toContain('AT2026: 1 declaración · folio vigente 123456789 · detalle leído · 2 boletas emitidas en 2025 · detalle por boleta: 1 mes leído');
 
     const r = await cliente.callTool({ name: 'renta_resumen', arguments: { rut: RUT_PERSONA } });
     const texto = textoDe(r).split('\n\n')[0];
     expect(texto).toContain('Boletas de honorarios emitidas en 2025: 2 vigentes · bruto $1.000.000 · retención $145.000');
     expect(texto).toContain('Cruce con el F22: bruto vs 547 cuadra (el F22 reajusta por IPC: +0,6 %) · retención vs 492 cuadra (+0,6 %)');
+    expect(texto).toContain('Por pagador: Cliente Uno SpA $600.000 (retención $87.000) · 44444444-4 $400.000 (retención $58.000)');
     expect(datosDe(r).anios[0].honorariosEmitidos).toMatchObject({ anioComercial: 2025, vigentes: 2, cruceF22: { bruto: { estado: 'cuadra' } } });
     await cliente.close();
   });

@@ -79,7 +79,17 @@ export function textoCuenta(r: ResultadoCuenta): string {
   return lineas.join('\n');
 }
 
-function lineaAnioRenta(a: ResultadoAnioRenta): string {
+/** «3 meses leídos, 1 al día, 1 con error»: solo lo que pasó; null si el año no tenía meses con boletas. */
+function textoDetalleBoletas(d: NonNullable<ResultadoAnioRenta['detalleBoletas']>): string | null {
+  const partes = [
+    ...(d.leidos > 0 ? [plural(d.leidos, 'mes leído', 'meses leídos')] : []),
+    ...(d.omitidos > 0 ? [`${d.omitidos} al día`] : []),
+    ...(d.fallidos > 0 ? [`${d.fallidos} con error`] : []),
+  ];
+  return partes.length === 0 ? null : `detalle por boleta: ${partes.join(', ')}`;
+}
+
+function lineasAnioSincronizado(a: ResultadoAnioRenta): string[] {
   const partes =
     a.declaraciones === null
       ? ['declaraciones sin leer']
@@ -91,13 +101,15 @@ function lineaAnioRenta(a: ResultadoAnioRenta): string {
             ...(a.detalle === 'leido' ? ['detalle leído'] : a.detalle === 'sin_leer' ? ['detalle sin leer'] : []),
           ];
   if (a.boletasEmitidas !== null) partes.push(`${plural(a.boletasEmitidas, 'boleta emitida', 'boletas emitidas')} en ${a.anioTributario - 1}`);
+  const detalle = a.detalleBoletas === null ? null : textoDetalleBoletas(a.detalleBoletas);
+  if (detalle !== null) partes.push(detalle);
   if (a.errores.length > 0) partes.push(`errores: ${a.errores.map((e) => `${e.superficie} ${e.codigo}`).join(', ')}`);
-  return `AT${a.anioTributario}: ${partes.join(' · ')}`;
+  return [`AT${a.anioTributario}: ${partes.join(' · ')}`, ...(a.detalleBoletas?.avisos ?? []).map((aviso) => `  Aviso: ${aviso}`)];
 }
 
 /** Resultado de traer la renta (F22) del SII, año tributario por año. */
 export function textoRenta(r: ResultadoRenta): string {
-  const lineas = [`Renta (F22) ${r.rut}:`, ...r.anios.map(lineaAnioRenta)];
+  const lineas = [`Renta (F22) ${r.rut}:`, ...r.anios.flatMap(lineasAnioSincronizado)];
   if (r.abortado) {
     lineas.push(r.abortado.codigo === SINCRONIZACION_CANCELADA.codigo ? r.abortado.mensaje : `Sincronización detenida: [${r.abortado.codigo}] ${r.abortado.mensaje}`);
   }
@@ -134,6 +146,10 @@ function lineasHonorarios(h: HonorariosEmitidos): string[] {
     const explicada = PARES_CRUCE.find(({ clave }) => cruce[clave].estado === 'cuadra')?.clave;
     const pares = PARES_CRUCE.flatMap(({ clave, etiqueta, pronombre }) => textoPar(etiqueta, pronombre, cruce[clave], clave === explicada) ?? []);
     if (pares.length > 0) lineas.push(`  Cruce con el F22: ${pares.join(' · ')}`);
+  }
+  if (h.pagadores !== null && h.pagadores.principales.length > 0) {
+    const principales = h.pagadores.principales.map((p) => `${p.nombreReceptor ?? p.rutReceptor} ${monto(p.bruto)} (retención ${monto(p.retencion)})`);
+    lineas.push(`  Por pagador: ${[...principales, ...(h.pagadores.otros > 0 ? [`y ${h.pagadores.otros} más`] : [])].join(' · ')}`);
   }
   return lineas;
 }

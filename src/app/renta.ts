@@ -1,19 +1,24 @@
 import { ERRORES_FATALES, ErrorImpuestocl, esErrorImpuestocl } from '../domain/errores.js';
+import { crearPeriodo } from '../domain/periodo.js';
 import {
   CODIGOS_CLAVE_F22,
   cruzarHonorariosF22,
+  diferenciaConAnual,
   f22Vigente,
   hayBoletasEmitidas,
+  pagadoresBheEmitidas,
   parseAnioTributario,
   periodoRenta,
   rangoAnios,
+  SUPERFICIE_DETALLE_BHE_EMITIDAS,
   totalesBheEmitidas,
   type CruceHonorariosF22,
+  type PagadorBhe,
   type TotalesBheEmitidas,
 } from '../domain/renta.js';
 import { parseRut } from '../domain/rut.js';
-import type { F22Evento, F22Valor, RespuestaCruda } from '../domain/tipos.js';
-import type { BheEmitidaMesGuardado } from '../ports/index.js';
+import type { BoletaHonorariosEmitida, F22Evento, F22Valor, InformeBheEmitidas, RespuestaCruda } from '../domain/tipos.js';
+import type { BheEmitidaMesGuardado, SiiReader } from '../ports/index.js';
 import { perfilExistente } from './consultas.js';
 import type { DepsApp } from './deps.js';
 import { Cancelada, registrar, revisarCancelacion, SINCRONIZACION_CANCELADA, type ErrorSuperficie, type ResultadoPeriodo } from './registro.js';
@@ -28,7 +33,21 @@ export interface ResultadoAnioRenta {
   readonly detalle: 'leido' | 'sin_leer' | 'sin_vigente';
   /** Boletas de honorarios emitidas vigentes del año comercial (AT − 1); null si no se leyeron o el perfil no es una persona. */
   readonly boletasEmitidas: number | null;
+  /** Detalle boleta por boleta de los meses con boletas emitidas; null si no se leyó el informe anual o el perfil no es una persona. */
+  readonly detalleBoletas: DetalleBoletasAnio | null;
   readonly errores: readonly ErrorSuperficie[];
+}
+
+/** Cómo terminó el detalle boleta por boleta de los meses en que el informe anual informa boletas emitidas. */
+export interface DetalleBoletasAnio {
+  /** Meses leídos y guardados. */
+  readonly leidos: number;
+  /** Meses que no se pidieron: lo guardado ya calzaba con el informe anual. */
+  readonly omitidos: number;
+  /** Meses que fallaron; el error queda en `errores`, con el mes en el mensaje. */
+  readonly fallidos: number;
+  /** Meses guardados cuyo detalle no calza con el informe anual (cantidades o bruto de las vigentes). */
+  readonly avisos: readonly string[];
 }
 
 export interface ResultadoRenta {
@@ -39,9 +58,63 @@ export interface ResultadoRenta {
 }
 
 /**
+ * Detalle boleta por boleta de las boletas emitidas: solo de los meses en que el informe anual informa boletas (vigentes o
+ * anuladas) y cuyo detalle guardado no calza ya con ese mes. Cada mes va en su registro (período AAAA-MM); uno que falla
+ * no impide los demás. Un detalle sin boletas (vacío ambiguo, o ninguna cuando el anual informa) no reemplaza lo guardado
+ * (RESPUESTA_VACIA); uno que no calza con el anual se guarda igual, con un aviso. La cancelación se revisa entre meses.
+ */
+async function detalleBoletasEmitidas(
+  deps: DepsApp,
+  sii: SiiReader,
+  rut: string,
+  anual: InformeBheEmitidas,
+  buffer: RespuestaCruda[],
+  res: ResultadoPeriodo,
+  signal: AbortSignal | undefined,
+): Promise<DetalleBoletasAnio> {
+  let leidos = 0;
+  let omitidos = 0;
+  let fallidos = 0;
+  const avisos: string[] = [];
+  for (const mes of anual.meses) {
+    if (mes.vigentes + mes.anuladas === 0) continue;
+    const periodo = crearPeriodo(anual.anioComercial, mes.mes);
+    if (diferenciaConAnual(periodo.texto, mes, deps.store.boletasEmitidas(rut, periodo.texto)) === null) {
+      omitidos++;
+      continue;
+    }
+    revisarCancelacion(signal);
+    const delMes: ResultadoPeriodo = { periodo: periodo.texto, errores: [], avisos: [], documentos: 0, f29Folio: null };
+    const leidas = await registrar(deps, rut, SUPERFICIE_DETALLE_BHE_EMITIDAS, periodo.texto, buffer, delMes, signal, async (id, ahora) => {
+      const informe = await sii.bheEmitidasMes(rut, periodo);
+      if (informe === null || informe.boletas.length === 0) {
+        const guardadas = deps.store.boletasEmitidas(rut, periodo.texto).length > 0;
+        throw new ErrorImpuestocl(
+          'RESPUESTA_VACIA',
+          `Boletas emitidas ${periodo.texto}: el SII respondió el detalle sin boletas y el informe anual informa ${mes.vigentes + mes.anuladas}; ${guardadas ? 'se conservan las guardadas' : 'no hay boletas guardadas de ese mes'}.`,
+        );
+      }
+      deps.store.reemplazarBoletasEmitidas(id, rut, periodo.texto, informe.boletas, ahora);
+      return informe.boletas;
+    });
+    // El registro del año es por AT: el mes va en el mensaje para saber cuál falló.
+    for (const e of delMes.errores) res.errores.push(e.mensaje.includes(periodo.texto) ? e : { ...e, mensaje: `${periodo.texto}: ${e.mensaje}` });
+    if (leidas === null) {
+      fallidos++;
+      continue;
+    }
+    leidos++;
+    const aviso = diferenciaConAnual(periodo.texto, mes, leidas);
+    if (aviso !== null) avisos.push(aviso);
+  }
+  return { leidos, omitidos, fallidos, avisos };
+}
+
+/**
  * Trae del SII la renta anual (F22) de un rango de años tributarios (`AAAA`, máximo 10): las declaraciones del año y el
  * detalle del folio vigente (códigos, observaciones y eventos). A una persona le trae además el informe anual de boletas
- * de honorarios emitidas del año comercial (AT − 1); un error ahí no impide el F22 ni al revés. El año tributario
+ * de honorarios emitidas del año comercial (AT − 1) y, de los meses con boletas, su detalle boleta por boleta; un error
+ * ahí no impide el F22 ni al revés. El año tributario
  * siguiente al actual sirve para ver las boletas del año en curso, aunque aún no haya F22. Si el SII responde sin
  * declaraciones, sin códigos o con las boletas todas en 0 y había datos guardados, se conservan (RESPUESTA_VACIA).
  * `signal` se revisa antes de abrir la sesión, de cada año y de cada lectura; al cancelarse devuelve lo traído y `abortado`.
@@ -94,21 +167,24 @@ export async function sincronizarRenta(deps: DepsApp, rutTexto: string, desde: s
         });
         if (leido) detalle = 'leido';
       }
-      let boletasEmitidas: number | null = null;
+      let anual: InformeBheEmitidas | null = null;
+      let detalleBoletas: DetalleBoletasAnio | null = null;
       if (conBoletas) {
         revisarCancelacion(signal);
         const anioComercial = anio - 1;
-        boletasEmitidas = await registrar(deps, rut, 'bhe.emitidas', periodo, buffer, res, signal, async (id, ahora) => {
+        anual = await registrar(deps, rut, 'bhe.emitidas', periodo, buffer, res, signal, async (id, ahora) => {
           const informe = await sii.bheEmitidasAnual(rut, anioComercial);
-          const totales = totalesBheEmitidas(informe.meses);
-          if (!hayBoletasEmitidas(totales) && hayBoletasEmitidas(totalesBheEmitidas(deps.store.bheEmitidas(rut, anioComercial)))) {
+          if (!hayBoletasEmitidas(totalesBheEmitidas(informe.meses)) && hayBoletasEmitidas(totalesBheEmitidas(deps.store.bheEmitidas(rut, anioComercial)))) {
             throw new ErrorImpuestocl('RESPUESTA_VACIA', `Renta ${periodo}: el SII respondió las boletas de honorarios emitidas de ${anioComercial} en cero; se conservan las guardadas.`);
           }
           deps.store.reemplazarBheEmitidas(id, rut, anioComercial, informe.meses, ahora);
-          return totales.vigentes;
+          return informe;
         });
+        // Sin el informe anual de esta lectura no se sabe qué meses pedir: no hay detalle.
+        if (anual !== null) detalleBoletas = await detalleBoletasEmitidas(deps, sii, rut, anual, buffer, res, signal);
       }
-      resultados.push({ anioTributario: anio, declaraciones: declaraciones?.length ?? null, folioVigente: vigente?.folio ?? null, detalle, boletasEmitidas, errores: res.errores });
+      const boletasEmitidas = anual === null ? null : totalesBheEmitidas(anual.meses).vigentes;
+      resultados.push({ anioTributario: anio, declaraciones: declaraciones?.length ?? null, folioVigente: vigente?.folio ?? null, detalle, boletasEmitidas, detalleBoletas, errores: res.errores });
     }
     return { rut, anios: resultados, abortado: null };
   } catch (e) {
@@ -130,6 +206,8 @@ export interface HonorariosEmitidos extends TotalesBheEmitidas {
   readonly anioComercial: number;
   /** Bruto con el 547 y retención de terceros con el 492 del folio vigente; null si el año no tiene folio vigente con detalle guardado. */
   readonly cruceF22: CruceHonorariosF22 | null;
+  /** Los 5 receptores con mayor bruto vigente según el detalle guardado, y cuántos más hay; null si no hay detalle guardado del año. */
+  readonly pagadores: { readonly principales: readonly PagadorBhe[]; readonly otros: number } | null;
   /** Instante ISO UTC de la lectura del informe anual. */
   readonly obtenidoEn: string;
 }
@@ -187,7 +265,7 @@ export function resumenRenta(deps: DepsApp, rutTexto: string, anio?: string): Re
       const detalle = v === null ? null : deps.store.detalleF22(perfil.rut, a, v.folio);
       const porCodigo = new Map((detalle?.valores ?? []).map((x) => [x.codigo, x]));
       const meses = emitidas.filter((m) => m.anioComercial === a - 1);
-      const honorariosEmitidos = meses.length === 0 ? null : honorariosDe(a - 1, meses, detalle?.valores.length ? detalle.valores : null);
+      const honorariosEmitidos = meses.length === 0 ? null : honorariosDe(a - 1, meses, detalle?.valores.length ? detalle.valores : null, deps.store.boletasEmitidasDelAnio(perfil.rut, a - 1));
       return {
         anioTributario: a,
         folio: v?.folio ?? null,
@@ -213,13 +291,22 @@ export function resumenRenta(deps: DepsApp, rutTexto: string, anio?: string): Re
   };
 }
 
-/** Totales de las boletas emitidas de un año comercial y, si hay códigos del folio vigente, su cruce con el F22. */
-function honorariosDe(anioComercial: number, meses: readonly BheEmitidaMesGuardado[], valoresF22: readonly F22Valor[] | null): HonorariosEmitidos {
+/**
+ * Totales de las boletas emitidas de un año comercial; si hay códigos del folio vigente, su cruce con el F22, y si hay
+ * detalle boleta por boleta, los principales pagadores.
+ */
+function honorariosDe(
+  anioComercial: number,
+  meses: readonly BheEmitidaMesGuardado[],
+  valoresF22: readonly F22Valor[] | null,
+  boletas: readonly BoletaHonorariosEmitida[],
+): HonorariosEmitidos {
   const totales = totalesBheEmitidas(meses);
   return {
     anioComercial,
     ...totales,
     cruceF22: valoresF22 === null ? null : cruzarHonorariosF22({ bruto: totales.bruto, retencion: totales.retencionTerceros }, valoresF22),
+    pagadores: boletas.length === 0 ? null : pagadoresBheEmitidas(boletas),
     obtenidoEn: meses[0]!.obtenidoEn,
   };
 }

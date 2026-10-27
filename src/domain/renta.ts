@@ -1,5 +1,6 @@
 import { ErrorImpuestocl } from './errores.js';
-import type { BheEmitidaMes, F22Declaracion, F22Valor } from './tipos.js';
+import { formatearClp } from './formato.js';
+import type { BheEmitidaMes, BoletaHonorariosEmitida, F22Declaracion, F22Valor } from './tipos.js';
 
 /** Máximo de años tributarios por sincronización de renta. */
 export const MAX_ANIOS_RENTA = 10;
@@ -129,3 +130,49 @@ export function totalesBheEmitidas(meses: readonly Omit<BheEmitidaMes, 'mes' | '
 
 /** Si el año trae alguna boleta (vigente o anulada) o algún monto: un año todo en 0 es un año sin boletas o una respuesta vacía. */
 export const hayBoletasEmitidas = (t: TotalesBheEmitidas): boolean => t.vigentes + t.anuladas > 0 || t.bruto + t.retencionTerceros + t.retencionPropia > 0;
+
+const cantidad = (n: number, singular: string, plural: string): string => `${n} ${n === 1 ? singular : plural}`;
+
+/**
+ * Compara el detalle de un mes con el mismo mes del informe anual: misma cantidad de vigentes y de anuladas y mismo bruto
+ * de las vigentes. Null si calzan; si no, el aviso para la persona con ambas cifras.
+ */
+export function diferenciaConAnual(periodo: string, mes: BheEmitidaMes, boletas: readonly BoletaHonorariosEmitida[]): string | null {
+  const vigentes = boletas.filter((b) => !b.anulada);
+  const detalle = { vigentes: vigentes.length, anuladas: boletas.length - vigentes.length, bruto: vigentes.reduce((s, b) => s + b.bruto, 0) };
+  if (detalle.vigentes === mes.vigentes && detalle.anuladas === mes.anuladas && detalle.bruto === mes.bruto) return null;
+  const describir = (d: { vigentes: number; anuladas: number; bruto: number }): string =>
+    `${cantidad(d.vigentes, 'vigente', 'vigentes')}, ${cantidad(d.anuladas, 'anulada', 'anuladas')} y bruto ${formatearClp(d.bruto)}`;
+  return `Boletas emitidas ${periodo}: el detalle trae ${describir(detalle)}; el informe anual dice ${describir(mes)}.`;
+}
+
+/** Quien recibió (y pagó) boletas emitidas vigentes: cuántas, el bruto y la retención que hizo (de terceros). */
+export interface PagadorBhe {
+  readonly rutReceptor: string;
+  /** El nombre que informa el SII en alguna de sus boletas; null si nunca vino. */
+  readonly nombreReceptor: string | null;
+  readonly boletas: number;
+  readonly bruto: number;
+  readonly retencion: number;
+}
+
+/**
+ * Receptores de las boletas vigentes, de mayor a menor bruto (y por RUT si empatan): los `maximo` primeros y cuántos más
+ * hay. Las anuladas no cuentan.
+ */
+export function pagadoresBheEmitidas(boletas: readonly BoletaHonorariosEmitida[], maximo = 5): { readonly principales: readonly PagadorBhe[]; readonly otros: number } {
+  const porRut = new Map<string, PagadorBhe>();
+  for (const b of boletas) {
+    if (b.anulada) continue;
+    const previo = porRut.get(b.rutReceptor);
+    porRut.set(b.rutReceptor, {
+      rutReceptor: b.rutReceptor,
+      nombreReceptor: b.nombreReceptor ?? previo?.nombreReceptor ?? null,
+      boletas: (previo?.boletas ?? 0) + 1,
+      bruto: (previo?.bruto ?? 0) + b.bruto,
+      retencion: (previo?.retencion ?? 0) + b.retencionReceptor,
+    });
+  }
+  const todos = [...porRut.values()].sort((a, b) => b.bruto - a.bruto || a.rutReceptor.localeCompare(b.rutReceptor));
+  return { principales: todos.slice(0, maximo), otros: Math.max(0, todos.length - maximo) };
+}
