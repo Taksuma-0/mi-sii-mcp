@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  compararConBoletas,
+  compararConF22,
   cruzarHonorariosF22,
+  cruzarInformanteBoletas,
+  cruzarRetencionTerceros,
   diferenciaConAnual,
   f22Vigente,
   hayBoletasEmitidas,
@@ -12,7 +16,7 @@ import {
 } from '../../src/domain/renta.js';
 import type { F22Valor } from '../../src/domain/tipos.js';
 import { ErrorImpuestocl } from '../../src/domain/errores.js';
-import { boletaEmitida, declaracionF22, informeBheEmitidas, mesBheEmitida } from '../helpers/fabricas.js';
+import { boletaEmitida, declaracionF22, djTercero, informeBheEmitidas, mesBheEmitida } from '../helpers/fabricas.js';
 
 /** Código del ErrorImpuestocl que lanza la función, o una descripción si no lanza así. */
 function codigoDe(fn: () => unknown): string {
@@ -151,5 +155,60 @@ describe('pagadoresBheEmitidas', () => {
     });
     expect(pagadoresBheEmitidas(boletas).otros).toBe(0);
     expect(pagadoresBheEmitidas([])).toEqual({ principales: [], otros: 0 });
+  });
+});
+
+describe('rentas informadas por terceros: cruces', () => {
+  const F22 = (valor: number | null) => [{ codigo: '492', valor, glosa: 'Retención ficticia' }];
+
+  it('contra el F22 compara directo (ambos actualizados por IPC): cuadra solo si son iguales', () => {
+    expect(compararConF22(175_000, F22(175_000))).toEqual({ otro: 175_000, estado: 'cuadra', diferencia: 0, reajustePct: null });
+    expect(compararConF22(175_000, F22(170_000))).toEqual({ otro: 170_000, estado: 'difiere', diferencia: 5_000, reajustePct: null });
+    // Sin el 492 en el folio: el F22 no la declara.
+    expect(compararConF22(175_000, [])).toEqual({ otro: null, estado: 'difiere', diferencia: 175_000, reajustePct: null });
+    expect(compararConF22(0, F22(null))).toMatchObject({ estado: 'cuadra', diferencia: 0 });
+  });
+
+  it('contra las boletas (nominales) acepta el reajuste de 0 % a 10 %, como el cruce con el F22', () => {
+    expect(compararConBoletas(101_000, 100_000)).toEqual({ otro: 100_000, estado: 'cuadra', diferencia: 1_000, reajustePct: 1 });
+    expect(compararConBoletas(110_000, 100_000)).toMatchObject({ estado: 'cuadra' });
+    expect(compararConBoletas(110_001, 100_000)).toMatchObject({ estado: 'difiere', diferencia: 10_001 });
+    expect(compararConBoletas(99_999, 100_000)).toMatchObject({ estado: 'difiere', diferencia: -1 });
+    expect(compararConBoletas(50_000, 0)).toEqual({ otro: 0, estado: 'difiere', diferencia: 50_000, reajustePct: null });
+    expect(compararConBoletas(0, 0)).toMatchObject({ estado: 'cuadra' });
+  });
+
+  it('suma la retención de la DJ 1879 y la cruza con las boletas emitidas del año y con el 492; null sin filas de la 1879', () => {
+    const filas = [djTercero({ retencionHonorarios: 45_000 }), djTercero({ informanteRut: '44444444-4', retencionHonorarios: 130_000 }), djTercero({ dj: 1887, retencionHonorarios: 9 })];
+    expect(cruzarRetencionTerceros(filas, 170_000, F22(175_000))).toEqual({
+      dj: 1879,
+      informada: 175_000,
+      boletas: { otro: 170_000, estado: 'cuadra', diferencia: 5_000, reajustePct: 2.94 },
+      f22: { otro: 175_000, estado: 'cuadra', diferencia: 0, reajustePct: null },
+    });
+    expect(cruzarRetencionTerceros(filas, null, null)).toMatchObject({ informada: 175_000, boletas: null, f22: null });
+    expect(cruzarRetencionTerceros([djTercero({ dj: 1887 })], 1, F22(1))).toBeNull();
+  });
+
+  it('por informante compara meses y retención con las boletas vigentes emitidas a su RUT; null si no hay', () => {
+    const boletas = [
+      boletaEmitida({ periodo: '2025-07', folio: 1, rutReceptor: '33333333-3', retencionReceptor: 20_000 }),
+      boletaEmitida({ periodo: '2025-08', folio: 2, rutReceptor: '33333333-3', retencionReceptor: 24_000 }),
+      boletaEmitida({ periodo: '2025-10', folio: 3, rutReceptor: '33333333-3', retencionReceptor: 1, anulada: true }),
+      boletaEmitida({ periodo: '2025-11', folio: 4, rutReceptor: '33333333-3', retencionReceptor: 0 }),
+      boletaEmitida({ periodo: '2025-07', folio: 5, rutReceptor: '55555555-5', retencionReceptor: 9_999 }),
+    ];
+    expect(cruzarInformanteBoletas(djTercero({ meses: [7, 8, 9], retencionHonorarios: 45_000 }), boletas)).toEqual({
+      boletas: 3,
+      mesesBoletas: [7, 8, 11],
+      soloDj: [9],
+      soloBoletas: [11],
+      retencionBoletas: 44_000,
+      retencion: { otro: 44_000, estado: 'cuadra', diferencia: 1_000, reajustePct: 2.27 },
+    });
+    expect(cruzarInformanteBoletas(djTercero({ informanteRut: '44444444-4' }), boletas)).toBeNull();
+    const sinRetencion = djTercero({ meses: [7, 8, 11] });
+    delete (sinRetencion as { retencionHonorarios?: number }).retencionHonorarios;
+    expect(cruzarInformanteBoletas(sinRetencion, boletas)).toMatchObject({ soloDj: [], soloBoletas: [], retencion: null });
   });
 });

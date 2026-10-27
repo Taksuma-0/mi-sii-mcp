@@ -1,6 +1,6 @@
 import { ErrorImpuestocl } from './errores.js';
 import { formatearClp } from './formato.js';
-import type { BheEmitidaMes, BoletaHonorariosEmitida, F22Declaracion, F22Valor } from './tipos.js';
+import type { BheEmitidaMes, BoletaHonorariosEmitida, DjTercero, F22Declaracion, F22Valor } from './tipos.js';
 
 /** Máximo de años tributarios por sincronización de renta. */
 export const MAX_ANIOS_RENTA = 10;
@@ -83,17 +83,23 @@ export interface CruceHonorariosF22 {
   readonly retencion: ParCruceHonorarios;
 }
 
+/** Cuánto más trae el monto reajustado que el nominal, en % con 2 decimales; null si alguno de los dos no es positivo. */
+const reajustePctDe = (nominal: number, reajustado: number | null): number | null =>
+  nominal > 0 && reajustado !== null && reajustado > 0 ? Math.round((reajustado / nominal - 1) * 10_000) / 100 : null;
+
+/** El reajustado es el nominal más entre 0 % y 10 %. Comparación en enteros: 1 ≤ reajustado / nominal ≤ 1,10 sin errores de coma flotante en los bordes. */
+const dentroDelReajuste = (nominal: number, reajustado: number): boolean =>
+  nominal > 0 && reajustado >= nominal && reajustado * 100 <= nominal * (100 + REAJUSTE_MAXIMO_HONORARIOS_PCT);
+
 function cruzarPar(codigo: string, boletas: number, valores: readonly F22Valor[]): ParCruceHonorarios {
   const f22 = valores.find((v) => v.codigo === codigo)?.valor ?? null;
-  const reajustePct = boletas > 0 && f22 !== null && f22 > 0 ? Math.round((f22 / boletas - 1) * 10_000) / 100 : null;
   const declarado = f22 !== null && f22 !== 0;
   let estado: EstadoCruceHonorarios;
   if (boletas > 0 && !declarado) estado = 'sin_declarar';
   else if (boletas <= 0 && !declarado) estado = 'sin_datos';
-  // Comparación en enteros: 1 ≤ F22 / boletas ≤ 1,10 sin errores de coma flotante en los bordes.
-  else if (boletas > 0 && f22! >= boletas && f22! * 100 <= boletas * (100 + REAJUSTE_MAXIMO_HONORARIOS_PCT)) estado = 'cuadra';
+  else if (dentroDelReajuste(boletas, f22!)) estado = 'cuadra';
   else estado = 'difiere';
-  return { codigo, boletas, f22, estado, reajustePct };
+  return { codigo, boletas, f22, estado, reajustePct: reajustePctDe(boletas, f22) };
 }
 
 /**
@@ -175,4 +181,102 @@ export function pagadoresBheEmitidas(boletas: readonly BoletaHonorariosEmitida[]
   }
   const todos = [...porRut.values()].sort((a, b) => b.bruto - a.bruto || a.rutReceptor.localeCompare(b.rutReceptor));
   return { principales: todos.slice(0, maximo), otros: Math.max(0, todos.length - maximo) };
+}
+
+/** DJ con las retenciones de honorarios que informa quien pagó boletas y retuvo. */
+export const DJ_RETENCION_HONORARIOS = 1879;
+/** Superficie de la lista de DJ informadas por terceros de un año tributario (período AT<AAAA>). */
+export const SUPERFICIE_TERCEROS = 'terceros';
+/** Superficie del detalle de una DJ informada por terceros (período AT<AAAA>): `terceros.1879`. */
+export const superficieDetalleTerceros = (dj: number): string => `${SUPERFICIE_TERCEROS}.${dj}`;
+
+/** Un monto informado por terceros comparado con otro (el F22 o las boletas). */
+export interface ComparacionMonto {
+  /** El monto con que se compara; null si no viene (cuenta como 0). */
+  readonly otro: number | null;
+  readonly estado: 'cuadra' | 'difiere';
+  /** Lo informado por terceros menos `otro`. */
+  readonly diferencia: number;
+  /** Solo contra boletas (nominales): cuánto más trae lo informado, en %; null si alguno no es positivo. */
+  readonly reajustePct: number | null;
+}
+
+/**
+ * Lo informado por terceros contra un código del F22 (por defecto el 492, retención de honorarios). Las DJ traen montos
+ * «actualizados» (reajustados por IPC), igual que el F22: cuadra solo si son iguales.
+ */
+export function compararConF22(informado: number, valores: readonly F22Valor[], codigo = CODIGO_F22_RETENCION_HONORARIOS): ComparacionMonto {
+  const otro = valores.find((v) => v.codigo === codigo)?.valor ?? null;
+  const diferencia = informado - (otro ?? 0);
+  return { otro, estado: diferencia === 0 ? 'cuadra' : 'difiere', diferencia, reajustePct: null };
+}
+
+/**
+ * Lo informado por terceros (actualizado por IPC) contra el monto nominal de las boletas: cuadra si trae entre 0 % y
+ * 10 % más, la misma tolerancia que el cruce de las boletas con el F22. Ambos en 0 también cuadra.
+ */
+export function compararConBoletas(informado: number, boletas: number): ComparacionMonto {
+  const cuadra = (boletas === 0 && informado === 0) || dentroDelReajuste(boletas, informado);
+  return { otro: boletas, estado: cuadra ? 'cuadra' : 'difiere', diferencia: informado - boletas, reajustePct: reajustePctDe(boletas, informado) };
+}
+
+/** Retención de honorarios que informan los terceros en la DJ 1879, contra las boletas emitidas del año y el F22. */
+export interface CruceRetencionTerceros {
+  readonly dj: number;
+  /** Suma de la retención de honorarios de las filas de la 1879 (actualizada por IPC). */
+  readonly informada: number;
+  /** Contra la retención de terceros de las boletas emitidas del año comercial; null si no hay boletas guardadas. */
+  readonly boletas: ComparacionMonto | null;
+  /** Contra el código 492 del folio vigente; null si no hay folio vigente con detalle guardado. */
+  readonly f22: ComparacionMonto | null;
+}
+
+/**
+ * Suma la retención de honorarios de las filas de la DJ 1879 y la cruza con la retención de terceros nominal de las
+ * boletas emitidas del año comercial (con tolerancia de reajuste) y con el 492 del F22 (directo). Null si no hay filas
+ * de la 1879 con retención. Es información para la persona, nunca un hallazgo crítico.
+ */
+export function cruzarRetencionTerceros(filas: readonly DjTercero[], retencionBoletas: number | null, valoresF22: readonly F22Valor[] | null): CruceRetencionTerceros | null {
+  const montos = filas.flatMap((f) => (f.dj === DJ_RETENCION_HONORARIOS && f.retencionHonorarios !== undefined ? [f.retencionHonorarios] : []));
+  if (montos.length === 0) return null;
+  const informada = montos.reduce((s, m) => s + m, 0);
+  return {
+    dj: DJ_RETENCION_HONORARIOS,
+    informada,
+    boletas: retencionBoletas === null ? null : compararConBoletas(informada, retencionBoletas),
+    f22: valoresF22 === null ? null : compararConF22(informada, valoresF22),
+  };
+}
+
+/** Un informante de la DJ 1879 contra las boletas vigentes que el contribuyente le emitió ese año. */
+export interface CruceInformanteBoletas {
+  readonly boletas: number;
+  /** Meses (1 a 12) con boletas emitidas al informante. */
+  readonly mesesBoletas: readonly number[];
+  /** Meses con rentas en la DJ sin boletas emitidas ese mes, y al revés. El pago puede caer en otro mes que la boleta. */
+  readonly soloDj: readonly number[];
+  readonly soloBoletas: readonly number[];
+  /** Retención de terceros (la que hace quien paga) de esas boletas, nominal. */
+  readonly retencionBoletas: number;
+  /** La retención de la DJ contra la de las boletas; null si la fila no trae retención de honorarios. */
+  readonly retencion: ComparacionMonto | null;
+}
+
+/**
+ * Compara una fila de la DJ con las boletas vigentes del año comercial emitidas al RUT del informante: meses y
+ * retención. Null si no hay boletas a ese RUT.
+ */
+export function cruzarInformanteBoletas(fila: DjTercero, boletasDelAnio: readonly BoletaHonorariosEmitida[]): CruceInformanteBoletas | null {
+  const suyas = boletasDelAnio.filter((b) => !b.anulada && b.rutReceptor === fila.informanteRut);
+  if (suyas.length === 0) return null;
+  const mesesBoletas = [...new Set(suyas.map((b) => Number(b.periodo.slice(5, 7))))].sort((a, b) => a - b);
+  const retencionBoletas = suyas.reduce((s, b) => s + b.retencionReceptor, 0);
+  return {
+    boletas: suyas.length,
+    mesesBoletas,
+    soloDj: fila.meses.filter((m) => !mesesBoletas.includes(m)),
+    soloBoletas: mesesBoletas.filter((m) => !fila.meses.includes(m)),
+    retencionBoletas,
+    retencion: fila.retencionHonorarios === undefined ? null : compararConBoletas(fila.retencionHonorarios, retencionBoletas),
+  };
 }
