@@ -1,4 +1,4 @@
-import type { BheEmitidaMes, BoletaHonorarios, BoletaHonorariosEmitida, DocumentoRcv, EmpresaAutorizada, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBheEmitidas, Perfil, PerfilTributario, PropuestaF29, RcvResumen, RcvResumenFila } from '../../src/domain/tipos.js';
+import type { BheEmitidaMes, BoletaHonorarios, BoletaHonorariosEmitida, DjTercero, DocumentoRcv, EmpresaAutorizada, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBheEmitidas, Perfil, PerfilTributario, PropuestaF29, RcvResumen, RcvResumenFila } from '../../src/domain/tipos.js';
 
 export const RUT_EMPRESA = '22222222-2';
 export const RUT_PERSONA = '11111111-1';
@@ -206,5 +206,24 @@ export const boletaEmitida = (o: Partial<BoletaHonorariosEmitida> = {}): BoletaH
   sociedadProfesional: false,
   anulada: false,
   fechaAnulacion: null,
+  ...o,
+});
+
+/** Clave de la retención de honorarios de la DJ 1879 tal como la resuelve el conector desde las cabeceras. */
+export const MONTO_RETENCION_1879 = 'Monto Retenido Anual Actualizado (Del 01/01 Al 31/12) / Honorarios Y Otros (Art.42 N° 2) / Tasa 14.5%';
+
+/** Fila de la DJ 1879 (retenciones de honorarios) que un cliente sintético informó sobre la persona sintética. */
+export const djTercero = (o: Partial<DjTercero> = {}): DjTercero => ({
+  dj: 1879,
+  informanteRut: RUT_PROVEEDOR,
+  informanteNombre: 'Cliente Ficticio SpA',
+  estado: 'No Observada',
+  observada: false,
+  certificado: '101',
+  folio: 1_234_567,
+  fechaPresentacion: '2026-02-02',
+  meses: [3],
+  montos: { [MONTO_RETENCION_1879]: 70_000 },
+  retencionHonorarios: 70_000,
   ...o,
 });

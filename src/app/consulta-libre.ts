@@ -346,6 +346,30 @@ const TABLAS: readonly TablaEsquema[] = [
     ],
   },
   {
+    nombre: 'dj_tercero',
+    descripcion:
+      'Declaraciones juradas (DJ) que terceros informaron al SII sobre el contribuyente (rentas informadas por terceros, con renta_sincronizar): una fila por rut, anio_tributario, dj, informante y folio. Por ejemplo la DJ 1879 (retenciones de honorarios: quien pagó boletas y retuvo) o la 1887 (sueldos que informa el empleador). Sin datos de contacto de los informantes.',
+    columnas: [
+      RUT,
+      ANIO_TRIBUTARIO,
+      col('dj', 'INTEGER', 'Número de la declaración jurada (1879, 1887, …)'),
+      col('informante_rut', 'TEXT', 'RUT de quien informó (quien pagó y retuvo), sin puntos y con guion'),
+      col('informante_nombre', 'TEXT', 'Nombre o razón social del informante; NULL si el SII lo informa vacío'),
+      col('estado', 'TEXT', 'Estado de la declaración del informante según el SII (p. ej. Observada o No Observada)'),
+      col('observada', 'INTEGER', '1 si el SII observó la declaración del informante (estado Observada); 0 si no'),
+      col('certificado', 'TEXT', 'Número del certificado; puede ser NULL'),
+      col('folio', 'INTEGER', 'Folio de la declaración jurada del informante'),
+      col('fecha_presentacion', 'TEXT', 'Fecha en que el informante presentó la DJ, AAAA-MM-DD; puede ser NULL'),
+      col('meses', 'TEXT', 'Meses del año comercial con rentas, separados por coma (por ejemplo 7,8,9); vacío si ninguno'),
+      col('montos_json', 'TEXT', 'Objeto JSON con las columnas de montos de la DJ tal como las titula el SII (cabecera → monto en pesos, o null)'),
+      col('retencion_honorarios', 'INTEGER', 'Retención de honorarios informada (suma de las tasas), actualizada por IPC; NULL si la DJ no la trae'),
+      col('renta_sueldo', 'INTEGER', 'Renta total neta pagada (sueldo) informada por el empleador; NULL si la DJ no la trae. Columna no verificada en vivo'),
+      col('impuesto_unico_retenido', 'INTEGER', 'Impuesto único retenido por el empleador; NULL si la DJ no lo trae. Columna no verificada en vivo'),
+      SINCRONIZACION_ID,
+      OBTENIDO_EN,
+    ],
+  },
+  {
     nombre: 'hallazgo',
     descripcion:
       'Resultados de la conciliación IVA (RCV contra F29) y avisos de plazos, por rut y periodo. Se recalculan al pedir iva_resumen o iva_hallazgos: una tabla vacía no prueba que no haya diferencias.',
@@ -370,8 +394,8 @@ const TABLAS: readonly TablaEsquema[] = [
     columnas: [
       col('id', 'INTEGER', 'Identificador; mayor id = intento más reciente'),
       RUT,
-      col('superficie', 'TEXT', 'rcv.VENTA, rcv.COMPRA, f29 (listado de declaraciones), f29.valores (detalle de la vigente; no se repite si f29_lectura ya tiene una lectura coherente del folio con la misma versión del lector, así que puede no haber un intento reciente), f29.propuesta (propuesta del SII; solo si se pidió), bhe.recibidas (boletas de honorarios recibidas; solo si se pidió), cuenta.perfil (perfil tributario de Mi SII; solo con perfil_sincronizar), cuenta.empresas (empresas autorizadas; solo con perfil_sincronizar), f22 (declaraciones de renta del año; solo con renta_sincronizar), f22.folio (detalle del folio vigente; solo con renta_sincronizar) bhe.emitidas (informe anual de boletas de honorarios emitidas del año comercial anterior al AT; solo personas, con renta_sincronizar) o bhe.emitidas.detalle (boletas emitidas de un mes, una por una, periodo AAAA-MM; solo personas, con renta_sincronizar y solo en los meses con boletas)'),
-      col('periodo', 'TEXT', 'Período tributario AAAA-MM; vacío en cuenta.perfil y cuenta.empresas, que no son de un mes; AT<AAAA> (año tributario) en f22, f22.folio y bhe.emitidas, que son anuales'),
+      col('superficie', 'TEXT', 'rcv.VENTA, rcv.COMPRA, f29 (listado de declaraciones), f29.valores (detalle de la vigente; no se repite si f29_lectura ya tiene una lectura coherente del folio con la misma versión del lector, así que puede no haber un intento reciente), f29.propuesta (propuesta del SII; solo si se pidió), bhe.recibidas (boletas de honorarios recibidas; solo si se pidió), cuenta.perfil (perfil tributario de Mi SII; solo con perfil_sincronizar), cuenta.empresas (empresas autorizadas; solo con perfil_sincronizar), f22 (declaraciones de renta del año; solo con renta_sincronizar), f22.folio (detalle del folio vigente; solo con renta_sincronizar), bhe.emitidas (informe anual de boletas de honorarios emitidas del año comercial anterior al AT; solo personas, con renta_sincronizar), bhe.emitidas.detalle (boletas emitidas de un mes, una por una, periodo AAAA-MM; solo personas, con renta_sincronizar y solo en los meses con boletas), terceros (lista de DJ informadas por terceros del año; con renta_sincronizar) o terceros.<dj> (detalle de una DJ, p. ej. terceros.1879; con renta_sincronizar)'),
+      col('periodo', 'TEXT', 'Período tributario AAAA-MM; vacío en cuenta.perfil y cuenta.empresas, que no son de un mes; AT<AAAA> (año tributario) en f22, f22.folio, bhe.emitidas, terceros y terceros.<dj>, que son anuales'),
       col('iniciado_en', 'TEXT', 'Instante ISO UTC de inicio'),
       col('terminado_en', 'TEXT', 'Instante ISO UTC de término; NULL si sigue en curso'),
       col('estado', 'TEXT', 'ok, error o en_curso'),
@@ -417,9 +441,10 @@ function reglas(): readonly string[] {
     "Renta anual F22 (f22_declaracion, f22_valor, f22_observacion y f22_evento, solo si se sincronizó con renta_sincronizar): van por anio_tributario, y el año tributario (AT) es el año comercial + 1 (AT 2026 = renta de 2025). La vigente del año: vigente = 1 (si ninguna trae marca, la de fecha_ingreso más reciente). f22_valor, f22_observacion y f22_evento son solo del folio vigente: únelos por rut, anio_tributario y folio. Cada código de f22_valor trae su glosa del SII: léela para saber qué es (por ejemplo, codigo = '305'), y valor NULL = vacío, no numérico o fecha. No hay nombres, domicilio, cuenta ni banco.",
     `Boletas de honorarios emitidas (bhe_emitida_mes, solo personas, con renta_sincronizar): anio es el año comercial y el F22 que las declara es el del año tributario anio + 1. SUM(bruto) del año se compara con el código '${CODIGO_F22_HONORARIOS_BRUTO}' y SUM(retencion_terceros) con el '${CODIGO_F22_RETENCION_HONORARIOS}' de f22_valor del folio vigente. El F22 reajusta cada mes por IPC: suele traer algo más que las boletas (entre 0 % y ${REAJUSTE_MAXIMO_HONORARIOS_PCT} % se considera que cuadra), así que no se exige igualdad.`,
     `Boletas emitidas una por una (bhe_emitida, solo personas, con renta_sincronizar): para montos usa solo las vigentes (anulada = 0). retencion_receptor la retiene quien paga la boleta (retención de terceros, la que va al código '${CODIGO_F22_RETENCION_HONORARIOS}' del F22) y retencion_emisor la paga el propio emisor. Para saber a quién se le emitieron boletas, agrupa por rut_receptor (y nombre_receptor). Solo se traen los meses en que bhe_emitida_mes informa boletas: un mes ausente puede no haberse leído; revisa sincronizacion (superficie bhe.emitidas.detalle).`,
+    `Rentas informadas por terceros (dj_tercero, con renta_sincronizar): van por anio_tributario (AT = año comercial + 1). En la DJ 1879 cada fila es quien pagó honorarios y retuvo: SUM(retencion_honorarios) del año se compara con el código '${CODIGO_F22_RETENCION_HONORARIOS}' de f22_valor del folio vigente (ambos actualizados por IPC: deberían ser iguales) y con SUM(retencion_terceros) de bhe_emitida_mes del año comercial (nominal: la DJ trae entre 0 % y ${REAJUSTE_MAXIMO_HONORARIOS_PCT} % más); por informante, con bhe_emitida por rut_receptor = informante_rut. observada = 1 es un aviso: el SII observó la declaración del informante. Si una DJ deja de venir en el resumen del SII, sus filas guardadas se conservan: revisa sincronizacion (superficies terceros y terceros.<dj>).`,
     'Que no haya filas no significa cero: un período no sincronizado no tiene filas. Revisa sincronizacion (el intento más reciente por rut, superficie y periodo): estado ok sin filas = el SII no tenía documentos o declaraciones; sin fila o con estado error = se desconoce, y los datos pueden estar incompletos o ser de un intento anterior.',
     'Hallazgos guardados (tabla hallazgo): se recalculan solo al pedir iva_resumen o iva_hallazgos, así que pueden quedar desfasados tras perfil_sincronizar (por ejemplo, los plazos del F29 cambian si cambia el día 20) o tras sincronizar datos nuevos. Para cifras al día llama a esas herramientas antes de leer la tabla.',
-    'Cobertura: el RCV (compras y ventas), el F29, la propuesta del F29, las boletas de honorarios recibidas, los datos tributarios y las empresas autorizadas de la cuenta y la renta anual (F22) traídos por impuestocl. No hay otros impuestos ni trámites del SII, y esto no es asesoría tributaria.',
+    'Cobertura: el RCV (compras y ventas), el F29, la propuesta del F29, las boletas de honorarios recibidas, los datos tributarios y las empresas autorizadas de la cuenta, la renta anual (F22) y las rentas informadas por terceros (DJ) traídos por impuestocl. No hay otros impuestos ni trámites del SII, y esto no es asesoría tributaria.',
   ];
 }
 

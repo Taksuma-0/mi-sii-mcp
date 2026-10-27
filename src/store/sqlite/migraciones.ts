@@ -343,6 +343,36 @@ CREATE TABLE bhe_emitida (
 );
 `;
 
+/**
+ * Declaraciones juradas que terceros informaron al SII sobre el contribuyente (rentas informadas por terceros): una fila
+ * por año tributario, DJ, informante y folio. `meses` son los meses con rentas separados por coma ("7,8,9"; vacío si
+ * ninguno) y `montos_json` las columnas de montos de la DJ (cabecera → monto o null). La retención de honorarios, la
+ * renta del sueldo y el impuesto único son NULL si las cabeceras de la DJ no los traen. Se reemplaza el año y la DJ
+ * completos en cada lectura. Sin datos de contacto de los informantes.
+ */
+const V11 = `
+CREATE TABLE dj_tercero (
+  rut TEXT NOT NULL,
+  anio_tributario INTEGER NOT NULL,
+  dj INTEGER NOT NULL,
+  informante_rut TEXT NOT NULL,
+  informante_nombre TEXT,
+  estado TEXT,
+  observada INTEGER NOT NULL CHECK (observada IN (0, 1)),
+  certificado TEXT,
+  folio INTEGER NOT NULL,
+  fecha_presentacion TEXT,
+  meses TEXT NOT NULL,
+  montos_json TEXT NOT NULL,
+  retencion_honorarios INTEGER,
+  renta_sueldo INTEGER,
+  impuesto_unico_retenido INTEGER,
+  sincronizacion_id INTEGER NOT NULL REFERENCES sincronizacion (id),
+  obtenido_en TEXT NOT NULL,
+  PRIMARY KEY (rut, anio_tributario, dj, informante_rut, folio)
+);
+`;
+
 export const MIGRACIONES: readonly Migracion[] = [
   { version: 1, sql: V1 },
   { version: 2, sql: V2 },
@@ -354,4 +384,5 @@ export const MIGRACIONES: readonly Migracion[] = [
   { version: 8, sql: V8 },
   { version: 9, sql: V9 },
   { version: 10, sql: V10 },
+  { version: 11, sql: V11 },
 ];

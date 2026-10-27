@@ -64,14 +64,21 @@ describe('esquemaDatos', () => {
   it('el esquema documenta exactamente las tablas y columnas de la copia', async () => {
     const { deps } = depsDePrueba();
 
-    const copia = await consultaSql(
-      deps,
-      "SELECT m.name, p.name FROM sqlite_master m JOIN pragma_table_info(m.name) p WHERE m.type = 'table' ORDER BY 1, 2",
-    );
+    // Por páginas: las columnas de la copia superan el tope de 200 filas de una consulta.
+    const filas: (readonly unknown[])[] = [];
+    for (let desde = 0; ; desde += 100) {
+      const pagina = await consultaSql(
+        deps,
+        `SELECT m.name, p.name FROM sqlite_master m JOIN pragma_table_info(m.name) p WHERE m.type = 'table' ORDER BY 1, 2 LIMIT 100 OFFSET ${desde}`,
+      );
+      expect(pagina.truncado).toBe(false);
+      filas.push(...pagina.filas);
+      if (pagina.filas.length < 100) break;
+    }
     const documentado = esquemaDatos()
       .tablas.flatMap((t) => t.columnas.map((c) => [t.nombre, c.nombre]))
       .sort((a, b) => (a[0]! + '.' + a[1]!).localeCompare(b[0]! + '.' + b[1]!));
-    const real = copia.filas.map((f) => [f[0], f[1]]).sort((a, b) => (a[0] + '.' + a[1]).localeCompare(b[0] + '.' + b[1]));
+    const real = filas.map((f) => [f[0], f[1]]).sort((a, b) => (a[0] + '.' + a[1]).localeCompare(b[0] + '.' + b[1]));
 
     expect(documentado).toEqual(real);
     expect(documentado.length).toBeGreaterThan(50);
@@ -137,6 +144,26 @@ describe('esquemaDatos', () => {
     expect(regla).toContain('anulada = 0');
     expect(regla).toContain('rut_receptor');
     expect(regla).toContain('renta_sincronizar');
+  });
+
+  it('documenta las rentas informadas por terceros: informante, observada, meses, montos, superficies y el cruce de la 1879', () => {
+    const { tablas, reglas } = esquemaDatos();
+    expect(tablas.map((t) => t.nombre)).toContain('dj_tercero');
+    const columna = (tabla: string, nombre: string) => tablas.find((t) => t.nombre === tabla)?.columnas.find((c) => c.nombre === nombre)?.significado ?? '';
+    expect(columna('dj_tercero', 'informante_rut')).toMatch(/pagó y retuvo/);
+    expect(columna('dj_tercero', 'observada')).toMatch(/1.*observ/);
+    expect(columna('dj_tercero', 'meses')).toMatch(/7,8,9/);
+    expect(columna('dj_tercero', 'montos_json')).toMatch(/JSON/);
+    expect(columna('dj_tercero', 'renta_sueldo')).toMatch(/no verificad/i);
+    expect(columna('sincronizacion', 'superficie')).toMatch(/terceros \(.*terceros\.<dj>/);
+    expect(columna('sincronizacion', 'periodo')).toMatch(/terceros/);
+    const regla = reglas.find((r) => r.includes('(dj_tercero,'));
+    expect(regla).toBeDefined();
+    expect(regla).toContain('1879');
+    expect(regla).toContain("'492'");
+    expect(regla).toMatch(/IPC/);
+    expect(regla).toContain('renta_sincronizar');
+    expect(reglas.find((r) => r.startsWith('Cobertura'))).toMatch(/informadas por terceros/);
   });
 
   it('documenta la cuenta del SII: perfil tributario, atributos sin datos personales y empresas autorizadas', () => {

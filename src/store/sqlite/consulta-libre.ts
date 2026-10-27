@@ -31,6 +31,7 @@ const tablasCopia = (signo: string): readonly string[] => [
   'bhe_recibida AS SELECT * FROM main.bhe_recibida',
   'bhe_emitida_mes AS SELECT * FROM main.bhe_emitida_mes',
   'bhe_emitida AS SELECT * FROM main.bhe_emitida',
+  'dj_tercero AS SELECT * FROM main.dj_tercero',
   'hallazgo AS SELECT * FROM main.hallazgo',
   'sincronizacion AS SELECT id, rut, superficie, periodo, iniciado_en, terminado_en, estado, error_codigo FROM main.sincronizacion',
 ];

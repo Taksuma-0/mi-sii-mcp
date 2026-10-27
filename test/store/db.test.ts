@@ -154,6 +154,25 @@ describe('db', () => {
     expect(() => insertar(4, 0, 0, 99)).toThrow();
   });
 
+  it('la migración 11 crea las DJ informadas por terceros por RUT, año, DJ, informante y folio', () => {
+    const db = nuevaDb();
+    expect(MIGRACIONES.find((m) => m.version === 11)?.sql).toContain('dj_tercero');
+    db.prepare("INSERT INTO sincronizacion (rut, superficie, periodo, iniciado_en) VALUES ('1', 'terceros.1879', 'AT2026', 't')").run();
+    const insertar = (folio: number, observada = 0, sincronizacion = 1, informante = '33333333-3') =>
+      db
+        .prepare(
+          `INSERT INTO dj_tercero (rut, anio_tributario, dj, informante_rut, informante_nombre, estado, observada, certificado, folio, fecha_presentacion, meses, montos_json,
+             retencion_honorarios, renta_sueldo, impuesto_unico_retenido, sincronizacion_id, obtenido_en)
+           VALUES ('1', 2026, 1879, ?, NULL, 'Observada', ?, NULL, ?, NULL, '7,8', '{}', 100, NULL, NULL, ?, 't')`,
+        )
+        .run(informante, observada, folio, sincronizacion);
+    insertar(1);
+    insertar(1, 0, 1, '44444444-4');
+    expect(() => insertar(1)).toThrow();
+    expect(() => insertar(2, 2)).toThrow();
+    expect(() => insertar(3, 0, 99)).toThrow();
+  });
+
   it('migra una base v1 con datos a la v2 agregando estado_id', () => {
     const db = new Database(':memory:');
     aplicarMigraciones(db, [MIGRACIONES[0]!]);

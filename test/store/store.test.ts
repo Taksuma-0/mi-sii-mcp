@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { BoletaHonorarios, DocumentoRcv, Hallazgo, Lado, PropuestaF29, RcvResumen } from '../../src/domain/tipos.js';
 import { abrirDb, type Db } from '../../src/store/sqlite/db.js';
 import { huellaDocumento, SqliteStore } from '../../src/store/sqlite/store.js';
-import { boleta, declaracion, declaracionF22, detalleF22, boletaEmitida, documento, empresaAutorizada, fila, informeBheEmitidas, propuesta, perfilEmpresa, perfilTributario, perfilPersona, resumen, RUT_EMPRESA, RUT_PERSONA, valores } from '../helpers/fabricas.js';
+import { boleta, declaracion, declaracionF22, detalleF22, djTercero, boletaEmitida, documento, empresaAutorizada, fila, informeBheEmitidas, propuesta, perfilEmpresa, perfilTributario, perfilPersona, resumen, RUT_EMPRESA, RUT_PERSONA, valores } from '../helpers/fabricas.js';
 import { guardarPdfF29, pdfFalso } from '../helpers/lector-falso.js';
 import { medirLecturas } from '../helpers/lecturas-sqlite.js';
 
@@ -723,6 +723,60 @@ describe('SqliteStore: boletas de honorarios emitidas', () => {
 
   it('las boletas emitidas son anuales: periodosConDatos las ignora', () => {
     syncEmitidas(2025);
+    expect(store.periodosConDatos(RUT_PERSONA)).toEqual([]);
+  });
+});
+
+describe('SqliteStore: rentas informadas por terceros', () => {
+  const syncDj = (anio: number, dj: number, filas: Parameters<SqliteStore['reemplazarDjTerceros']>[4], obtenidoEn = T): number => {
+    const id = store.iniciarSincronizacion(RUT_PERSONA, `terceros.${dj}`, `AT${anio}`, obtenidoEn);
+    store.reemplazarDjTerceros(id, RUT_PERSONA, anio, dj, filas, obtenidoEn);
+    store.terminarSincronizacion(id, obtenidoEn, 'ok');
+    return id;
+  };
+
+  beforeEach(() => {
+    store.guardarContribuyente(perfilPersona());
+  });
+
+  it('sin datos no hay filas', () => {
+    expect(store.djTerceros(RUT_PERSONA)).toEqual([]);
+  });
+
+  it('guarda las filas de una DJ y las devuelve tal cual, del año más nuevo al más antiguo, por DJ, informante y folio', () => {
+    const observada = djTercero({ informanteRut: '44444444-4', informanteNombre: null, estado: 'Observada', observada: true, certificado: null, fechaPresentacion: null, meses: [7, 8, 12], montos: { a: 1, b: null } });
+    const sueldo = djTercero({ dj: 1887, montos: { 'Renta Total Neta Pagada': 9_000_000, 'Impuesto Único Retenido': 120_000 }, rentaSueldo: 9_000_000, impuestoUnicoRetenido: 120_000 });
+    delete (sueldo as { retencionHonorarios?: number }).retencionHonorarios;
+    delete (observada as { retencionHonorarios?: number }).retencionHonorarios;
+    syncDj(2025, 1879, [djTercero()], '2026-10-20T10:00:00.000Z');
+    syncDj(2026, 1879, [observada, djTercero()]);
+    syncDj(2026, 1887, [sueldo]);
+
+    const conGuardado = (f: ReturnType<typeof djTercero>, anio: number, obtenidoEn = T) => ({ ...f, rut: RUT_PERSONA, anioTributario: anio, obtenidoEn });
+    expect(store.djTerceros(RUT_PERSONA)).toEqual([
+      conGuardado(djTercero(), 2026),
+      conGuardado(observada, 2026),
+      conGuardado(sueldo, 2026),
+      conGuardado(djTercero(), 2025, '2026-10-20T10:00:00.000Z'),
+    ]);
+    expect(store.djTerceros(RUT_PERSONA, 2025)).toHaveLength(1);
+    expect('retencionHonorarios' in store.djTerceros(RUT_PERSONA, 2026)[2]!).toBe(false);
+  });
+
+  it('reemplaza solo la DJ y el año pedidos y revierte si falla una inserción', () => {
+    syncDj(2026, 1879, [djTercero(), djTercero({ folio: 2 })]);
+    syncDj(2026, 1887, [djTercero({ dj: 1887 })]);
+    syncDj(2025, 1879, [djTercero()]);
+    syncDj(2026, 1879, [djTercero({ folio: 3 })]);
+
+    expect(store.djTerceros(RUT_PERSONA, 2026).map((f) => [f.dj, f.folio])).toEqual([[1879, 3], [1887, 1_234_567]]);
+    expect(store.djTerceros(RUT_PERSONA, 2025)).toHaveLength(1);
+    expect(() => store.reemplazarDjTerceros(1, RUT_PERSONA, 2026, 1879, [djTercero({ folio: 9 }), djTercero({ folio: 9 })], T)).toThrow();
+    expect(store.djTerceros(RUT_PERSONA, 2026).map((f) => f.folio)).toEqual([3, 1_234_567]);
+  });
+
+  it('son anuales: periodosConDatos las ignora', () => {
+    syncDj(2026, 1879, [djTercero()]);
     expect(store.periodosConDatos(RUT_PERSONA)).toEqual([]);
   });
 });

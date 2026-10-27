@@ -6,6 +6,7 @@ import {
   type BoletaHonorarios,
   type BoletaHonorariosEmitida,
   type DisponibilidadFuentes,
+  type DjTercero,
   type DocumentoRcv,
   type EmpresaAutorizada,
   type EstadoRcv,
@@ -31,7 +32,7 @@ import {
   type TipoContribuyente,
   type TotalesBheMes,
 } from '../../domain/tipos.js';
-import type { BheEmitidaMesGuardado, DocumentosPaginados, F22DeclaracionGuardada, FiltroDocumentos, FiltroHallazgos, Frescura, HallazgoGuardado, LecturaF29Guardada, PdfF29Guardado, Store } from '../../ports/index.js';
+import type { BheEmitidaMesGuardado, DjTerceroGuardado, DocumentosPaginados, F22DeclaracionGuardada, FiltroDocumentos, FiltroHallazgos, Frescura, HallazgoGuardado, LecturaF29Guardada, PdfF29Guardado, Store } from '../../ports/index.js';
 import type { Db } from './db.js';
 
 export const sha256 = (texto: string): string => createHash('sha256').update(texto).digest('hex');
@@ -193,6 +194,45 @@ const aBoletaEmitida = (f: FilaBoletaEmitida): BoletaHonorariosEmitida => ({
   sociedadProfesional: f.sociedad_profesional === 1,
   anulada: f.anulada === 1,
   fechaAnulacion: f.fecha_anulacion,
+});
+
+interface FilaDjTercero {
+  rut: string;
+  anio_tributario: number;
+  dj: number;
+  informante_rut: string;
+  informante_nombre: string | null;
+  estado: string | null;
+  observada: number;
+  certificado: string | null;
+  folio: number;
+  fecha_presentacion: string | null;
+  meses: string;
+  montos_json: string;
+  retencion_honorarios: number | null;
+  renta_sueldo: number | null;
+  impuesto_unico_retenido: number | null;
+  obtenido_en: string;
+}
+
+/** Los montos opcionales solo aparecen si la DJ los trae (NULL en la base = la clave no existe). */
+const aDjTercero = (f: FilaDjTercero): DjTerceroGuardado => ({
+  rut: f.rut,
+  anioTributario: f.anio_tributario,
+  dj: f.dj,
+  informanteRut: f.informante_rut,
+  informanteNombre: f.informante_nombre,
+  estado: f.estado,
+  observada: f.observada === 1,
+  certificado: f.certificado,
+  folio: f.folio,
+  fechaPresentacion: f.fecha_presentacion,
+  meses: f.meses === '' ? [] : f.meses.split(',').map(Number),
+  montos: JSON.parse(f.montos_json) as Record<string, number | null>,
+  ...(f.retencion_honorarios === null ? {} : { retencionHonorarios: f.retencion_honorarios }),
+  ...(f.renta_sueldo === null ? {} : { rentaSueldo: f.renta_sueldo }),
+  ...(f.impuesto_unico_retenido === null ? {} : { impuestoUnicoRetenido: f.impuesto_unico_retenido }),
+  obtenidoEn: f.obtenido_en,
 });
 
 interface FilaBheEmitida {
@@ -863,6 +903,47 @@ export class SqliteStore implements Store {
     return (this.db.prepare("SELECT * FROM bhe_emitida WHERE rut = ? AND periodo LIKE ? ORDER BY periodo, folio").all(rut, `${anioComercial}-%`) as FilaBoletaEmitida[]).map(
       aBoletaEmitida,
     );
+  }
+
+  // --- rentas informadas por terceros -------------------------------------------------------
+  reemplazarDjTerceros(sincronizacionId: number, rut: string, anioTributario: number, dj: number, filas: readonly DjTercero[], obtenidoEn: string): void {
+    const ins = this.db.prepare(
+      `INSERT INTO dj_tercero (rut, anio_tributario, dj, informante_rut, informante_nombre, estado, observada, certificado, folio, fecha_presentacion, meses, montos_json,
+         retencion_honorarios, renta_sueldo, impuesto_unico_retenido, sincronizacion_id, obtenido_en)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    this.db.transaction(() => {
+      this.db.prepare('DELETE FROM dj_tercero WHERE rut = ? AND anio_tributario = ? AND dj = ?').run(rut, anioTributario, dj);
+      for (const f of filas) {
+        ins.run(
+          rut,
+          anioTributario,
+          dj,
+          f.informanteRut,
+          f.informanteNombre,
+          f.estado,
+          f.observada ? 1 : 0,
+          f.certificado,
+          f.folio,
+          f.fechaPresentacion,
+          f.meses.join(','),
+          JSON.stringify(f.montos),
+          f.retencionHonorarios ?? null,
+          f.rentaSueldo ?? null,
+          f.impuestoUnicoRetenido ?? null,
+          sincronizacionId,
+          obtenidoEn,
+        );
+      }
+    })();
+  }
+
+  djTerceros(rut: string, anioTributario?: number): DjTerceroGuardado[] {
+    const filas =
+      anioTributario === undefined
+        ? this.db.prepare('SELECT * FROM dj_tercero WHERE rut = ? ORDER BY anio_tributario DESC, dj, informante_rut, folio').all(rut)
+        : this.db.prepare('SELECT * FROM dj_tercero WHERE rut = ? AND anio_tributario = ? ORDER BY dj, informante_rut, folio').all(rut, anioTributario);
+    return (filas as FilaDjTercero[]).map(aDjTercero);
   }
 
   // --- frescura ---------------------------------------------------------------------------

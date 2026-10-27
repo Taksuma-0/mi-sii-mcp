@@ -83,6 +83,13 @@ export interface F22DeclaracionGuardada extends F22Declaracion {
   readonly obtenidoEn: string;
 }
 
+/** Fila guardada de una DJ informada por terceros, con el contribuyente, el año tributario y el instante de la lectura. */
+export interface DjTerceroGuardado extends DjTercero {
+  readonly rut: string;
+  readonly anioTributario: number;
+  readonly obtenidoEn: string;
+}
+
 /** Mes guardado del informe anual de boletas de honorarios emitidas, con su año comercial y el instante de la lectura. */
 export interface BheEmitidaMesGuardado extends BheEmitidaMes {
   readonly anioComercial: number;
@@ -255,6 +262,10 @@ export interface Store {
   boletasEmitidas(rut: string, periodo: string): BoletaHonorariosEmitida[];
   /** Boletas de honorarios emitidas guardadas de un año comercial (con anuladas), por mes y folio. */
   boletasEmitidasDelAnio(rut: string, anioComercial: number): BoletaHonorariosEmitida[];
+  /** Reemplaza las filas guardadas de una DJ informada por terceros de un año tributario en una transacción. */
+  reemplazarDjTerceros(sincronizacionId: number, rut: string, anioTributario: number, dj: number, filas: readonly DjTercero[], obtenidoEn: string): void;
+  /** Filas guardadas de las DJ informadas por terceros (de un año tributario o de todos), del año más nuevo al más antiguo, por DJ, informante y folio. */
+  djTerceros(rut: string, anioTributario?: number): DjTerceroGuardado[];
   /** Cantidad de boletas guardadas del mes (con anuladas) y montos de las no anuladas. */
   totalesBhe(rut: string, periodo: string): TotalesBheMes;
   /** Estado y código de error del intento más reciente de una superficie en un mes; null si nunca se intentó. */
