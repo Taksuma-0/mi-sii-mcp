@@ -656,3 +656,19 @@ describe('SqliteStore: renta F22', () => {
     expect(store.periodosConDatos(RUT_EMPRESA)).toEqual([]);
   });
 });
+
+describe('contribuyente con acceso por otra identidad', () => {
+  it('guarda y lee accedeCon; sin él, el perfil no trae la clave', () => {
+    const db = abrirDb(':memory:');
+    try {
+      const store = new SqliteStore(db);
+      store.guardarContribuyente({ ...perfilEmpresa(), accedeCon: '33333333-3' });
+      expect(store.contribuyente(RUT_EMPRESA)).toEqual({ ...perfilEmpresa(), accedeCon: '33333333-3' });
+      expect(store.contribuyentes()).toEqual([{ ...perfilEmpresa(), accedeCon: '33333333-3' }]);
+      store.guardarContribuyente(perfilEmpresa());
+      expect(store.contribuyente(RUT_EMPRESA)).toEqual(perfilEmpresa());
+    } finally {
+      db.close();
+    }
+  });
+});

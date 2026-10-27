@@ -28,6 +28,16 @@ function mesCompleto() {
 }
 
 describe('sincronizar', () => {
+  it('una lectura por representación deja el aviso en cada mes con RCV, y no en el F29 solo', async () => {
+    const { deps, sii } = mesCompleto();
+    sii.aviso = 'lectura por representación sin confirmar en vivo (sesión de 33333333-3)';
+    const r = await sincronizar(deps, RUT_EMPRESA, SEPT, parsePeriodo('2026-10'));
+    for (const p of r.periodos) expect(p.avisos).toContain(`RCV ${p.periodo}: lectura por representación sin confirmar en vivo (sesión de 33333333-3)`);
+    expect(textoSync(r)).toContain('lectura por representación sin confirmar en vivo');
+    const soloF29 = await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT, ['f29']);
+    expect(soloF29.periodos[0]!.avisos.some((a) => a.includes('representación'))).toBe(false);
+  });
+
   it('conserva el último conjunto completo del lado incompleto y permite una eliminación posterior confirmada', async () => {
     const { deps, store, sii, db } = mesCompleto();
     await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT);

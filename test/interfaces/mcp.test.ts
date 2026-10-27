@@ -524,6 +524,17 @@ describe('servidor MCP', () => {
       await cliente.close();
     });
 
+    it('perfiles_listar muestra con qué sesión se entra a cada contribuyente', async () => {
+      const { deps, store } = depsDePrueba();
+      store.guardarContribuyente({ ...perfilEmpresa(), accedeCon: '33333333-3' });
+      const cliente = await conectar(deps, LOGIN);
+
+      const r = await cliente.callTool({ name: 'perfiles_listar', arguments: {} });
+
+      expect(textoDe(r)).toContain('accede con 33333333-3');
+      await cliente.close();
+    });
+
     it('perfiles_listar sin perfiles guía al login y no cita comandos que no están en el PATH', async () => {
       const cliente = await conectar(depsDePrueba().deps, LOGIN);
 

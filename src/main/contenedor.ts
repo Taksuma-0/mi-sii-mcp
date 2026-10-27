@@ -6,11 +6,13 @@ import { LlaveroSistema } from '../connectors/secretos/llavero.js';
 import { lectorPdfF29 } from '../connectors/sii/f29-pdf.js';
 import { conSenal, type OpcionesHttp } from '../connectors/sii/http.js';
 import { LectorPortalSii } from '../connectors/sii/lector.js';
+import { LectorPorRepresentacion } from '../connectors/sii/representacion.js';
 import { GestorSesiones } from '../connectors/sii/sesiones.js';
 import type { SecretStore } from '../ports/index.js';
 import { ConsultaLibreSqlite } from '../store/sqlite/consulta-libre.js';
 import { abrirDb } from '../store/sqlite/db.js';
 import { SqliteStore } from '../store/sqlite/store.js';
+import { parseRut } from '../domain/rut.js';
 import { cargarConfig, type Config } from './config.js';
 
 export interface Contenedor {
@@ -40,19 +42,30 @@ export function crearContenedor(o: OpcionesContenedor = {}): Contenedor {
       { intervaloMinMs: config.intervaloMinMs, plazoMs: config.plazoHttpMs, ...o.opcionesHttp },
       (opciones) => capturar({ plazoMs: config.plazoNavegadorMs, ...opciones }),
     );
+    const store = new SqliteStore(db);
+    /** Con qué identidad se entra por `rut`: la de `accedeCon` si el contribuyente no tiene sesión propia guardada. */
+    const rutDeAcceso = (rut: string): string | null => {
+      const canonico = parseRut(rut).canonico;
+      const accedeCon = store.contribuyente(canonico)?.accedeCon;
+      return accedeCon && accedeCon !== canonico && !sesiones.estado(canonico).tieneSesion ? accedeCon : null;
+    };
     const deps: DepsApp = {
-      store: new SqliteStore(db),
+      store,
       consultaLibre: new ConsultaLibreSqlite(db),
       lectorPdfF29,
       sesiones,
       reloj: { ahora: () => new Date() },
       toleranciaPesos: config.toleranciaPesos,
-      abrirSii: async (rut, sumidero, signal) => new LectorPortalSii(conSenal(await sesiones.sesionActiva(rut), signal), sumidero, lectorPdfF29),
+      abrirSii: async (rut, sumidero, signal) => {
+        const acceso = rutDeAcceso(rut);
+        const lector = new LectorPortalSii(conSenal(await sesiones.sesionActiva(acceso ?? rut), signal), sumidero, lectorPdfF29);
+        return acceso ? new LectorPorRepresentacion(lector, acceso) : lector;
+      },
       diagnostico: (nombre, contenido) => {
         mkdirSync(config.dirDiagnostico, { recursive: true });
         writeFileSync(join(config.dirDiagnostico, nombre), contenido, { mode: 0o600 });
       },
-      alTerminarSync: (rut) => sesiones.persistir(rut),
+      alTerminarSync: (rut) => sesiones.persistir(rutDeAcceso(rut) ?? rut),
     };
     return { config, deps, sesiones, cerrar: () => db.close() };
   } catch (error) {

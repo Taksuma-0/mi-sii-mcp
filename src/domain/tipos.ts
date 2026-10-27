@@ -20,6 +20,8 @@ export interface Perfil {
   readonly tipo: TipoContribuyente;
   readonly representa: readonly string[];
   readonly razonSocial: string | null;
+  /** RUT de la identidad con cuya sesión se entra al SII (p. ej., la persona que representa a la empresa); sin él, la propia. */
+  readonly accedeCon?: string;
 }
 
 export interface RcvResumenFila {

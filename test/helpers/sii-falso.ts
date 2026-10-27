@@ -20,6 +20,8 @@ import type { SiiReader, SumideroRespuestas } from '../../src/ports/index.js';
  */
 export class SiiFalso implements SiiReader {
   sumidero: SumideroRespuestas = () => {};
+  /** Aviso del lector (p. ej., lectura por representación). */
+  aviso: string | undefined = undefined;
   readonly llamadas: string[] = [];
   readonly resumenes = new Map<string, RcvResumenFila[]>();
   readonly detalles = new Map<string, DocumentoRcv[]>();

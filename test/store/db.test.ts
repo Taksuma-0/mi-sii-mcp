@@ -86,6 +86,13 @@ describe('db', () => {
     expect(() => db.prepare("INSERT INTO sii_empresa_autorizada (rut, rut_empresa, sincronizacion_id, obtenido_en) VALUES ('1', '3-5', 99, 't')").run()).toThrow();
   });
 
+  it('la migración 8 agrega al contribuyente con qué sesión se entra (acceso_rut, NULL = la propia)', () => {
+    const db = nuevaDb();
+    expect(MIGRACIONES.find((m) => m.version === 8)?.sql).toContain('acceso_rut');
+    db.prepare("INSERT INTO contribuyente (rut, alias, tipo) VALUES ('1', 'a', 'empresa')").run();
+    expect(db.prepare("SELECT acceso_rut FROM contribuyente WHERE rut = '1'").get()).toEqual({ acceso_rut: null });
+  });
+
   it('la migración 7 crea el F22 por RUT, año tributario y folio, con valores, observaciones y eventos', () => {
     const db = nuevaDb();
     expect(MIGRACIONES.find((m) => m.version === 7)?.sql).toContain('f22_declaracion');

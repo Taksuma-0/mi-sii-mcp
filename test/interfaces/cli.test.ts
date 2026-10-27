@@ -60,6 +60,15 @@ describe('CLI', () => {
     expect(JSON.parse(e.salidaTexto.at(-1)!)).toMatchObject([{ rut: RUT_EMPRESA, alias: 'Pyme', tipo: 'empresa' }]);
   });
 
+  it('perfil agregar --accede-con guarda con qué sesión se entra y lo muestra', async () => {
+    const e = entorno();
+    expect(await e.correr('perfil', 'agregar', '22.222.222-2', '--alias', 'Pyme', '--tipo', 'empresa', '--accede-con', '33.333.333-3')).toBe(0);
+    expect(e.salidaTexto.at(-1)).toContain('accede con 33333333-3');
+    expect(e.store.contribuyente(RUT_EMPRESA)?.accedeCon).toBe('33333333-3');
+    await e.correr('perfil', 'listar');
+    expect(e.salidaTexto.at(-1)).toContain('accede con 33333333-3');
+  });
+
   it('iva --json imprime el resumen del mes', async () => {
     const e = entorno();
     e.store.guardarContribuyente(perfilEmpresa());

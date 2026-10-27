@@ -60,6 +60,7 @@ const TABLAS: readonly TablaEsquema[] = [
       col('razon_social', 'TEXT', 'Razón social; NULL si no se conoce'),
       col('representa_json', 'TEXT', 'Arreglo JSON con los RUT que este perfil representa'),
       col('creado_en', 'TEXT', 'Instante ISO UTC de creación del perfil'),
+      col('acceso_rut', 'TEXT', 'RUT de la identidad con cuya sesión se entra al SII por este perfil (p. ej., quien representa a la empresa); NULL = la propia'),
     ],
   },
   {

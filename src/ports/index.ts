@@ -30,6 +30,8 @@ import type {
 export type SumideroRespuestas = (respuesta: RespuestaCruda) => void;
 
 export interface SiiReader {
+  /** Aviso que acompaña toda lectura de este lector (p. ej., una lectura por representación sin confirmar en vivo). */
+  readonly aviso?: string;
   rcvResumen(rut: string, periodo: Periodo, lado: Lado, estado: EstadoRcv): Promise<RcvResumen>;
   rcvDetalle(rut: string, periodo: Periodo, lado: Lado, tipoDoc: number, estado: EstadoRcv): Promise<DocumentoRcv[]>;
   f29Declaraciones(rut: string, periodo: Periodo): Promise<F29Declaracion[]>;

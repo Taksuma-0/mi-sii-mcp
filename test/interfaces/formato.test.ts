@@ -1,8 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import type { ResultadoRelectura } from '../../src/app/releer-f29.js';
-import { textoHallazgos, textoPlazos, textoReleerF29, textoRenta, textoResumenRenta, textoSync } from '../../src/interfaces/formato.js';
+import { textoHallazgos, textoPerfiles, textoPlazos, textoReleerF29, textoRenta, textoResumenRenta, textoSync } from '../../src/interfaces/formato.js';
 
 describe('formato', () => {
+  it('textoPerfiles dice con qué sesión se entra y si la sesión es del navegador', () => {
+    const sesion = { tieneSesion: true, guardadaEn: '2026-10-27T10:00:00.000Z', bloqueado: false };
+    const texto = textoPerfiles([
+      { rut: '22222222-2', alias: 'Pyme', tipo: 'empresa', representa: [], razonSocial: null, accedeCon: '33333333-3', sesion: { tieneSesion: false, guardadaEn: null, bloqueado: false } },
+      { rut: '33333333-3', alias: 'Juana', tipo: 'persona', representa: [], razonSocial: null, sesion: { ...sesion, origen: 'navegador' } },
+    ]);
+    expect(texto).toContain('22222222-2  Pyme (empresa) · sesión: sin sesión · accede con 33333333-3');
+    expect(texto).toContain('33333333-3  Juana (persona) · sesión: guardada 2026-10-27T10:00:00.000Z (navegador, sin renovación automática)');
+  });
+
   it('muestra la relectura del F29 folio por folio', () => {
     const folio = (periodo: string, folio: number, resultado: ResultadoRelectura, codigosCambiados: string[] = [], mensaje: string | null = null) => ({
       periodo,

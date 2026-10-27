@@ -1,3 +1,4 @@
+import { ErrorImpuestocl } from '../domain/errores.js';
 import { parseRut } from '../domain/rut.js';
 import type { Perfil, TipoContribuyente } from '../domain/tipos.js';
 import type { EstadoSesion, IdentidadSii } from '../ports/index.js';
@@ -12,15 +13,27 @@ export interface PerfilConSesion extends Perfil {
 
 export function agregarPerfil(
   deps: DepsApp,
-  entrada: { readonly rut: string; readonly alias: string; readonly tipo: TipoContribuyente; readonly representa?: readonly string[] },
+  entrada: {
+    readonly rut: string;
+    readonly alias: string;
+    readonly tipo: TipoContribuyente;
+    readonly representa?: readonly string[];
+    /** RUT de la identidad con cuya sesión se entra al SII; sin él, la propia. */
+    readonly accedeCon?: string;
+  },
 ): Perfil {
   const rut = parseRut(entrada.rut).canonico;
+  const accedeCon = entrada.accedeCon === undefined ? undefined : parseRut(entrada.accedeCon).canonico;
+  if (accedeCon === rut) {
+    throw new ErrorImpuestocl('RUT_INVALIDO', `--accede-con debe ser otra identidad que ${rut}.`, { accion: 'Omite --accede-con: sin él, el contribuyente entra con su propia sesión.' });
+  }
   const perfil: Perfil = {
     rut,
     alias: entrada.alias.trim() || rut,
     tipo: entrada.tipo,
     representa: (entrada.representa ?? []).map((r) => parseRut(r).canonico),
     razonSocial: deps.store.contribuyente(rut)?.razonSocial ?? null,
+    ...(accedeCon ? { accedeCon } : {}),
   };
   deps.store.guardarContribuyente(perfil);
   return perfil;

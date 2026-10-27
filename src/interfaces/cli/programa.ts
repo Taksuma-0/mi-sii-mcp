@@ -77,10 +77,14 @@ export function crearPrograma(
     .requiredOption('--alias <alias>', 'nombre corto para reconocerlo')
     .addOption(new Option('--tipo <tipo>', 'persona o empresa').choices(['persona', 'empresa']).makeOptionMandatory())
     .option('--representa <ruts...>', 'RUT de las empresas que representa')
+    .option('--accede-con <rut>', 'RUT de la identidad con cuya sesión se entra al SII (p. ej., quien representa a la empresa)')
     .action(
-      ejecutar((c, rut: string, o: { alias: string; tipo: TipoContribuyente; representa?: string[] }) => {
-        const p = agregarPerfil(c.deps, { rut, alias: o.alias, tipo: o.tipo, representa: o.representa ?? [] });
-        io.escribir(`Perfil guardado: ${p.rut} ${p.alias} (${p.tipo}).`);
+      ejecutar((c, rut: string, o: { alias: string; tipo: TipoContribuyente; representa?: string[]; accedeCon?: string }) => {
+        const p = agregarPerfil(c.deps, { rut, alias: o.alias, tipo: o.tipo, representa: o.representa ?? [], ...(o.accedeCon ? { accedeCon: o.accedeCon } : {}) });
+        const acceso = p.accedeCon
+          ? ` Sin sesión propia, accede con ${p.accedeCon}: solo el RCV (lectura por representación sin confirmar en vivo); el resto exige la sesión de ${p.rut}.`
+          : '';
+        io.escribir(`Perfil guardado: ${p.rut} ${p.alias} (${p.tipo}).${acceso}`);
       }),
     );
   perfil

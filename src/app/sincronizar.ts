@@ -105,6 +105,7 @@ export async function sincronizar(
           });
         }
       }
+      if (superficies.includes('rcv') && sii.aviso) res.avisos.push(`RCV ${periodo.texto}: ${sii.aviso}`);
       if (superficies.includes('f29')) {
         revisarCancelacion(signal);
         const f29 = await registrar(deps, rut, 'f29', periodo.texto, buffer, res, signal, async (id, ahora) => {

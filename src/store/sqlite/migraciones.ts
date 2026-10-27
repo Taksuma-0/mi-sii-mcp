@@ -289,6 +289,11 @@ CREATE TABLE f22_evento (
 );
 `;
 
+/** Con qué sesión se entra al SII por cada contribuyente (p. ej., la empresa vía su representante); NULL = la propia. */
+const V8 = `
+ALTER TABLE contribuyente ADD COLUMN acceso_rut TEXT;
+`;
+
 export const MIGRACIONES: readonly Migracion[] = [
   { version: 1, sql: V1 },
   { version: 2, sql: V2 },
@@ -297,4 +302,5 @@ export const MIGRACIONES: readonly Migracion[] = [
   { version: 5, sql: V5 },
   { version: 6, sql: V6 },
   { version: 7, sql: V7 },
+  { version: 8, sql: V8 },
 ];

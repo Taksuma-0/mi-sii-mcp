@@ -57,6 +57,7 @@ interface FilaContribuyente {
   tipo: TipoContribuyente;
   razon_social: string | null;
   representa_json: string;
+  acceso_rut: string | null;
 }
 interface FilaTributario {
   autorizado_dia20: number | null;
@@ -166,6 +167,7 @@ const aPerfil = (f: FilaContribuyente): Perfil => ({
   tipo: f.tipo,
   razonSocial: f.razon_social,
   representa: JSON.parse(f.representa_json) as string[],
+  ...(f.acceso_rut ? { accedeCon: f.acceso_rut } : {}),
 });
 
 const aDocumento = (f: FilaDocumento): DocumentoRcv => ({
@@ -232,24 +234,32 @@ export class SqliteStore implements Store {
   guardarContribuyente(perfil: Perfil): void {
     this.db
       .prepare(
-        `INSERT INTO contribuyente (rut, alias, tipo, razon_social, representa_json)
-         VALUES (@rut, @alias, @tipo, @razonSocial, @representa)
+        `INSERT INTO contribuyente (rut, alias, tipo, razon_social, representa_json, acceso_rut)
+         VALUES (@rut, @alias, @tipo, @razonSocial, @representa, @accesoRut)
          ON CONFLICT (rut) DO UPDATE SET
            alias = excluded.alias,
            tipo = excluded.tipo,
            razon_social = COALESCE(excluded.razon_social, contribuyente.razon_social),
-           representa_json = excluded.representa_json`,
+           representa_json = excluded.representa_json,
+           acceso_rut = excluded.acceso_rut`,
       )
-      .run({ rut: perfil.rut, alias: perfil.alias, tipo: perfil.tipo, razonSocial: perfil.razonSocial, representa: JSON.stringify(perfil.representa) });
+      .run({
+        rut: perfil.rut,
+        alias: perfil.alias,
+        tipo: perfil.tipo,
+        razonSocial: perfil.razonSocial,
+        representa: JSON.stringify(perfil.representa),
+        accesoRut: perfil.accedeCon ?? null,
+      });
   }
 
   contribuyente(rut: string): Perfil | null {
-    const f = this.db.prepare('SELECT rut, alias, tipo, razon_social, representa_json FROM contribuyente WHERE rut = ?').get(rut) as FilaContribuyente | undefined;
+    const f = this.db.prepare('SELECT rut, alias, tipo, razon_social, representa_json, acceso_rut FROM contribuyente WHERE rut = ?').get(rut) as FilaContribuyente | undefined;
     return f ? aPerfil(f) : null;
   }
 
   contribuyentes(): Perfil[] {
-    return (this.db.prepare('SELECT rut, alias, tipo, razon_social, representa_json FROM contribuyente ORDER BY alias').all() as FilaContribuyente[]).map(aPerfil);
+    return (this.db.prepare('SELECT rut, alias, tipo, razon_social, representa_json, acceso_rut FROM contribuyente ORDER BY alias').all() as FilaContribuyente[]).map(aPerfil);
   }
 
   // --- sincronizaciones y evidencia -----------------------------------------------------

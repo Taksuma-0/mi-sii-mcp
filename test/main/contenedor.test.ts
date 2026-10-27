@@ -6,9 +6,13 @@ import { VERSION_LECTOR_F29 } from '../../src/connectors/sii/f29-pdf.js';
 import { cargarConfig } from '../../src/main/config.js';
 import { crearContenedor } from '../../src/main/contenedor.js';
 import * as sqlite from '../../src/store/sqlite/db.js';
-import { crearFetchFalso, HTML, sinEsperas } from '../helpers/http-falso.js';
+import { readFileSync as leerFixture } from 'node:fs';
+import { parsePeriodo } from '../../src/domain/periodo.js';
+import { codigoDe } from '../helpers/errores.js';
+import { perfilEmpresa } from '../helpers/fabricas.js';
+import { crearFetchFalso, HTML, JSON_CT, sinEsperas } from '../helpers/http-falso.js';
 import { SecretosEnMemoria } from '../helpers/secretos.js';
-import { paginaDatosCntr, RUTA_MI_SII } from '../helpers/sii-login.js';
+import { PAGINA_STUB, paginaDatosCntr, RUTA_MI_SII } from '../helpers/sii-login.js';
 
 describe('configuración y contenedor', () => {
   let home: string;
@@ -82,6 +86,81 @@ describe('configuración y contenedor', () => {
     } finally {
       c.cerrar();
     }
+  });
+
+  describe('acceso de un contribuyente con la sesión de otra identidad', () => {
+    const EMPRESA = '22222222-2';
+    const PERSONA = '33333333-3';
+    const RUTA_RESUMEN = 'POST https://www4.sii.cl/consdcvinternetui/services/data/facadeService/getResumen';
+    const SIN_MOVIMIENTO = leerFixture(join(import.meta.dirname, '..', 'fixtures', 'sii', 'rcv-resumen-sin-movimiento.json'), 'utf8');
+    const cookies = (token: string) => [{ nombre: 'TOKEN', valor: token, dominio: '.sii.cl', ruta: '/', expira: null, httpOnly: true, seguro: true }];
+
+    function preparar() {
+      const { fetchFalso, llamadas } = crearFetchFalso({
+        [RUTA_MI_SII]: (l) => {
+          const cookie = l.headers['Cookie'] ?? '';
+          if (cookie.includes('tok-persona')) return { headers: HTML, body: paginaDatosCntr('33333333', '3', null) };
+          if (cookie.includes('tok-empresa')) return { headers: HTML, body: paginaDatosCntr('22222222', '2', 'EMPRESA DEMO SPA') };
+          return { headers: HTML, body: PAGINA_STUB };
+        },
+        [RUTA_RESUMEN]: { headers: JSON_CT, body: SIN_MOVIMIENTO },
+      });
+      const capturas: string[] = [];
+      const c = crearContenedor({
+        config: cargarConfig({ IMPUESTOCL_HOME: home }),
+        secretos: new SecretosEnMemoria(),
+        opcionesHttp: { fetch: fetchFalso, temporizador: sinEsperas },
+        capturarNavegador: async () => cookies(capturas.shift() ?? 'tok-persona'),
+      });
+      c.deps.store.guardarContribuyente({ ...perfilEmpresa(), accedeCon: PERSONA });
+      return { c, llamadas, capturas };
+    }
+
+    it('sin sesión propia, el RCV se lee con la sesión de quien accede (rutEmisor = la empresa) y queda marcado como no confirmado', async () => {
+      const { c, llamadas } = preparar();
+      try {
+        await c.sesiones.loginNavegador(PERSONA);
+        const persistidos = vi.spyOn(c.sesiones, 'persistir');
+        const sii = await c.deps.abrirSii(EMPRESA, () => {});
+        expect(sii.aviso).toBe(`lectura por representación sin confirmar en vivo (sesión de ${PERSONA})`);
+        await sii.rcvResumen(EMPRESA, parsePeriodo('2026-09'), 'COMPRA', 'REGISTRO');
+        const consulta = llamadas.find((l) => l.url.endsWith('/getResumen'))!;
+        expect(consulta.headers['Cookie']).toContain('TOKEN=tok-persona');
+        expect(JSON.parse(consulta.body!).data).toMatchObject({ rutEmisor: '22222222', dvEmisor: '2' });
+
+        const antes = llamadas.length;
+        expect(await codigoDe(sii.f29Declaraciones(EMPRESA, parsePeriodo('2026-09')))).toBe('SIN_PERMISO');
+        expect(await codigoDe(sii.perfilTributario(EMPRESA))).toBe('SIN_PERMISO');
+        expect(llamadas.length).toBe(antes);
+
+        c.deps.alTerminarSync?.(EMPRESA);
+        expect(persistidos).toHaveBeenCalledWith(PERSONA);
+      } finally {
+        c.cerrar();
+      }
+    });
+
+    it('sin sesión de quien accede, pide entrar con esa identidad', async () => {
+      const { c } = preparar();
+      try {
+        expect(await codigoDe(c.deps.abrirSii(EMPRESA, () => {}))).toBe('SESION_REQUERIDA');
+      } finally {
+        c.cerrar();
+      }
+    });
+
+    it('con sesión propia del contribuyente se usa esa, sin aviso ni restricciones', async () => {
+      const { c, capturas } = preparar();
+      try {
+        capturas.push('tok-persona', 'tok-empresa');
+        await c.sesiones.loginNavegador(PERSONA);
+        await c.sesiones.loginNavegador(EMPRESA);
+        const sii = await c.deps.abrirSii(EMPRESA, () => {});
+        expect(sii.aviso).toBeUndefined();
+      } finally {
+        c.cerrar();
+      }
+    });
   });
 
   it('crearContenedor arma la base, las sesiones y el diagnóstico sin tocar la red', () => {

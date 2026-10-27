@@ -37,3 +37,27 @@ describe('perfiles con cuenta', () => {
     expect('cuenta' in lista.find((p) => p.rut === '11111111-1')!).toBe(false);
   });
 });
+
+describe('perfiles con acceso por otra identidad', () => {
+  it('agregarPerfil guarda con qué sesión se entra (RUT normalizado) y registrarIdentidad lo conserva', () => {
+    const { deps, store } = depsDePrueba();
+    const p = agregarPerfil(deps, { rut: '22.222.222-2', alias: 'Pyme', tipo: 'empresa', accedeCon: '33.333.333-3' });
+    expect(p.accedeCon).toBe('33333333-3');
+    expect(store.contribuyente('22222222-2')?.accedeCon).toBe('33333333-3');
+    registrarIdentidad(deps, { rut: '22222222-2', nombre: 'EMPRESA DEMO SPA', razonSocial: 'EMPRESA DEMO SPA', tipo: 'empresa' });
+    expect(store.contribuyente('22222222-2')?.accedeCon).toBe('33333333-3');
+  });
+
+  it('volver a agregar el perfil sin --accede-con lo quita, y no puede acceder con su propio RUT', () => {
+    const { deps, store } = depsDePrueba();
+    agregarPerfil(deps, { rut: '22.222.222-2', alias: 'Pyme', tipo: 'empresa', accedeCon: '33.333.333-3' });
+    agregarPerfil(deps, { rut: '22.222.222-2', alias: 'Pyme', tipo: 'empresa' });
+    expect(store.contribuyente('22222222-2')).not.toHaveProperty('accedeCon');
+    expect(() => agregarPerfil(deps, { rut: '22.222.222-2', alias: 'Pyme', tipo: 'empresa', accedeCon: '22222222-2' })).toThrowError(
+      expect.objectContaining({ codigo: 'RUT_INVALIDO' }),
+    );
+    expect(() => agregarPerfil(deps, { rut: '22.222.222-2', alias: 'Pyme', tipo: 'empresa', accedeCon: '33.333.333-K' })).toThrowError(
+      expect.objectContaining({ codigo: 'RUT_INVALIDO' }),
+    );
+  });
+});

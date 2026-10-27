@@ -148,8 +148,10 @@ export function textoPerfiles(perfiles: readonly PerfilConSesion[]): string {
   if (perfiles.length === 0) return 'No hay perfiles. Agrega uno con `impuestocl perfil agregar <rut> --alias <nombre> --tipo empresa`.';
   return perfiles
     .map((p) => {
-      const sesion = p.sesion.bloqueado ? 'BLOQUEADA (clave rechazada)' : p.sesion.tieneSesion ? `guardada ${p.sesion.guardadaEn}` : 'sin sesión';
-      return `${p.rut}  ${p.alias} (${p.tipo})${p.razonSocial ? ` — ${p.razonSocial}` : ''} · sesión: ${sesion}${p.cuenta ? lineaCuenta(p.cuenta) : ''}`;
+      const navegador = p.sesion.origen === 'navegador' ? ' (navegador, sin renovación automática)' : '';
+      const sesion = p.sesion.bloqueado ? 'BLOQUEADA (clave rechazada)' : p.sesion.tieneSesion ? `guardada ${p.sesion.guardadaEn}${navegador}` : 'sin sesión';
+      const acceso = p.accedeCon ? ` · accede con ${p.accedeCon}` : '';
+      return `${p.rut}  ${p.alias} (${p.tipo})${p.razonSocial ? ` — ${p.razonSocial}` : ''} · sesión: ${sesion}${acceso}${p.cuenta ? lineaCuenta(p.cuenta) : ''}`;
     })
     .join('\n');
 }
