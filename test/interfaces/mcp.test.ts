@@ -362,7 +362,7 @@ describe('servidor MCP', () => {
     expect(instrucciones).toBe(INSTRUCCIONES_MCP);
     expect(instrucciones.length).toBeGreaterThan(0);
     expect(instrucciones.length).toBeLessThanOrEqual(1_500);
-    for (const clave of ['perfiles_listar', 'sii_panorama', 'sincronizar', '12 meses', 'iva_resumen', 'iva_hallazgos', 'f29_historial', 'plazos_proximos', 'datos_esquema', 'consulta_sql', 'f29_releer', 'perfil_sincronizar', 'renta_sincronizar', 'renta_resumen', 'propuesta', 'bhe', 'Reintentar: ahora mismo', 'Reintentables más tarde', 'SESION_REQUERIDA', 'Abrir impuestocl.cmd', 'RCV', 'F29', 'F22']) {
+    for (const clave of ['perfiles_listar', 'sii_panorama', 'sincronizar', '12 meses', 'iva_resumen', 'iva_hallazgos', 'f29_historial', 'plazos_proximos', 'datos_esquema', 'consulta_sql', 'f29_releer', 'perfil_sincronizar', 'renta_sincronizar', 'renta_resumen', 'propuesta', 'bhe', 'Reintentar: ahora mismo', 'Reintentables más tarde', 'SESION_REQUERIDA', 'login-navegador', 'Abrir impuestocl.cmd', 'RCV', 'F29', 'F22']) {
       expect(instrucciones).toContain(clave);
     }
     expect(instrucciones).toMatch(/boletas de honorarios recibidas/);
@@ -495,6 +495,32 @@ describe('servidor MCP', () => {
       const r = await cliente.callTool({ name: 'sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026-09' } });
 
       expect(textoDe(r)).toContain('`impuestocl login 22222222-2 --guardar-clave`');
+      await cliente.close();
+    });
+
+    it('menciona también el login con navegador para ClaveÚnica, con el comando real', async () => {
+      const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorImpuestocl('SESION_REQUERIDA', 'Sin sesión.') });
+      store.guardarContribuyente(perfilEmpresa());
+      const cliente = await conectar(deps, { ...LOGIN, comandoLoginNavegador: (rut: string) => `NAVEGADOR ${rut}` });
+
+      const r = await cliente.callTool({ name: 'sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026-09' } });
+
+      const texto = textoDe(r);
+      expect(texto).toContain('LOGIN 22222222-2');
+      expect(texto).toContain('`NAVEGADOR 22222222-2`');
+      expect(texto).toContain('ClaveÚnica');
+      expect(texto).not.toContain('impuestocl login');
+      await cliente.close();
+    });
+
+    it('sin opciones el login con navegador es impuestocl login-navegador --rut', async () => {
+      const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorImpuestocl('SESION_REQUERIDA', 'Sin sesión.') });
+      store.guardarContribuyente(perfilEmpresa());
+      const cliente = await conectar(deps);
+
+      const r = await cliente.callTool({ name: 'sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026-09' } });
+
+      expect(textoDe(r)).toContain('`impuestocl login-navegador --rut 22222222-2`');
       await cliente.close();
     });
 

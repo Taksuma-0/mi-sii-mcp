@@ -17,7 +17,8 @@ export type CodigoError =
   | 'RESPUESTA_VACIA'
   | 'DATOS_INCOMPLETOS'
   | 'LECTURA_INCOHERENTE'
-  | 'RESPALDO_FALLIDO';
+  | 'RESPALDO_FALLIDO'
+  | 'NAVEGADOR_NO_DISPONIBLE';
 
 export const ACCION_POR_DEFECTO: Readonly<Record<CodigoError, string>> = {
   SESION_REQUERIDA: 'Ejecuta `impuestocl login <rut>` para iniciar sesión en el SII.',
@@ -39,6 +40,7 @@ export const ACCION_POR_DEFECTO: Readonly<Record<CodigoError, string>> = {
   DATOS_INCOMPLETOS: 'El SII entregó menos documentos que su propio resumen; se conserva el último conjunto completo. Reintenta más tarde.',
   LECTURA_INCOHERENTE: 'El F29 leído no cuadra; se conserva la lectura anterior. Puede que el SII haya cambiado el formulario.',
   RESPALDO_FALLIDO: 'No se migró la base porque no se pudo respaldar; revisa espacio en disco o que OneDrive/antivirus no bloquee la carpeta.',
+  NAVEGADOR_NO_DISPONIBLE: 'Instala Microsoft Edge o Google Chrome, o indica la ruta del navegador con la variable IMPUESTOCL_NAVEGADOR, y vuelve a ejecutar `impuestocl login-navegador`.',
 };
 
 export class ErrorImpuestocl extends Error {
@@ -93,6 +95,7 @@ export const REINTENTO: Readonly<Record<CodigoError, Reintento>> = {
   DATOS_INCOMPLETOS: 'mas_tarde',
   LECTURA_INCOHERENTE: 'no',
   RESPALDO_FALLIDO: 'mas_tarde',
+  NAVEGADOR_NO_DISPONIBLE: 'no',
 };
 
 /** `codigo` es texto porque los errores de sincronización no lo tipan: CANCELADO se reintenta ya; ERROR_INTERNO y los desconocidos no. */

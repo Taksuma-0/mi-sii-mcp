@@ -30,6 +30,7 @@ async function entorno() {
     analizar: vi.fn<OperacionesEspacio['analizar']>(async () => []),
     documentos: vi.fn<OperacionesEspacio['documentos']>(async () => pagina),
     desconectar: vi.fn<OperacionesEspacio['desconectar']>(async () => {}),
+    conectarNavegador: vi.fn<OperacionesEspacio['conectarNavegador']>(async () => ({ contexto, panorama })),
   };
   const s = await crearServidorLocal({ puerto: 0, espacio });
   cierres.push(s.cerrar);
@@ -161,5 +162,31 @@ describe('rutas HTTP del espacio', () => {
     expect(await r.json()).toMatchObject({ codigo: 'ERROR_INTERNO', mensaje: expect.any(String) });
     expect((await fetch(e.s.url + caso.ruta)).status).toBe(404);
     expect(await (await fetch(e.s.url + '/estado')).json()).toEqual({ aplicacion: 'impuestocl-local-v1', ocupado: false });
+  });
+
+  it.each([[{}, {}], [{ rut: '22.222.222-2' }, { rut: '22.222.222-2' }]])('despacha /conectar-navegador con %j', async (datos, args) => {
+    const e = await entorno();
+    const r = await e.post('/conectar-navegador', datos);
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual({ contexto, panorama });
+    expect(e.espacio.conectarNavegador).toHaveBeenCalledExactlyOnceWith(args);
+    for (const [metodo, fn] of Object.entries(e.espacio)) if (metodo !== 'conectarNavegador') expect(fn).not.toHaveBeenCalled();
+  });
+
+  it('valida /conectar-navegador: sin clave ni campos ajenos, y el RUT debe ser válido', async () => {
+    const e = await entorno();
+    for (const datos of [null, [], 'texto', { clave: 'x' }, { rut: '' }, { rut: 1 }, { rut: null }, { rut: 'invalido' }, { rut: '22222222-2', contexto }]) {
+      expect((await e.post('/conectar-navegador', datos)).status).toBe(400);
+    }
+    e.expectSinServicio();
+  });
+
+  it('protege /conectar-navegador con Origin y token', async () => {
+    const e = await entorno();
+    const extras: Record<string, string>[] = [{ origin: 'https://ajeno.invalid' }, { 'x-csrf-token': 'ajeno' }, { 'content-type': 'text/plain' }];
+    for (const extra of extras) {
+      expect((await e.post('/conectar-navegador', {}, extra)).status).toBeGreaterThanOrEqual(400);
+    }
+    e.expectSinServicio();
   });
 });

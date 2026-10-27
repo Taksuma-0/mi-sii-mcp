@@ -49,8 +49,8 @@ describe('HTTP local', () => {
     expect(e.html).toContain('type="password"');
     expect(e.html).toContain('aria-live="polite"');
     expect(e.html).not.toMatch(/innerHTML|localStorage|sessionStorage|indexedDB|serviceWorker|https:\/\//);
-    // Incluye cuatro flujos y tablas nativas, sin dependencias ni recursos externos.
-    expect(Buffer.byteLength(e.html)).toBeLessThanOrEqual(24 * 1024);
+    // Incluye cuatro flujos, el acceso con navegador y tablas nativas, sin dependencias ni recursos externos.
+    expect(Buffer.byteLength(e.html)).toBeLessThanOrEqual(26 * 1024);
   });
 
   it('conecta sin mes y reserva las fechas y consultas para después de entrar', async () => {
@@ -66,6 +66,13 @@ describe('HTTP local', () => {
     for (const id of ['totales', 'filas-panorama', 'resultado-sync', 'resultado-analisis', 'resultado-documentos', 'documentos-anterior', 'documentos-siguiente', 'cambiar']) expect(html).toContain(`id="${id}"`);
     expect(html).toContain('Total declarado en F29');
     expect(html).toContain('Aún no has cargado datos');
+  });
+
+  it('ofrece entrar con el navegador (ClaveÚnica o clave) por su ruta protegida', async () => {
+    const { html } = await entorno();
+    const acceso = /<section id="acceso"[\s\S]*?<\/section>/.exec(html)?.[0] ?? '';
+    expect(acceso).toMatch(/<button id="entrar-navegador"[^>]*type="button"[^>]*>Entrar con el navegador \(ClaveÚnica o clave\)<\/button>/);
+    expect(html).toContain("enviar('/conectar-navegador'");
   });
 
   it('mantiene el estado global visible fuera del acceso y no expone una acción automática de verificación', async () => {

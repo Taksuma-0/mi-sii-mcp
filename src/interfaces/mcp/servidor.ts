@@ -37,7 +37,7 @@ export const INSTRUCCIONES_MCP = [
   '2. Si falta o está viejo, usa sincronizar por tramos de hasta 12 meses e informa el avance en cada tramo. Trae rcv y f29 por defecto; propuesta y bhe (boletas de honorarios recibidas) son opcionales. renta_sincronizar trae el F22 por año tributario; perfil_sincronizar, el perfil y las empresas autorizadas.',
   '3. Para IVA, retenciones y plazos prefiere iva_resumen, iva_hallazgos, f29_historial y plazos_proximos: aplican las reglas del dominio. Para la renta, renta_resumen. Si un F29 no cuadra o se actualizó impuestocl, f29_releer relee los PDF ya guardados sin ir al SII.',
   '4. Para cruces y preguntas libres, llama una vez a datos_esquema y luego a consulta_sql (solo lectura).',
-  '5. Nunca pidas la clave tributaria ni intentes un login. Ante SESION_REQUERIDA (o CLAVE_RECHAZADA, RUT_BLOQUEADO_LOCAL), muestra a la persona el comando de login del mensaje para que lo ejecute en su terminal, o indícale «Abrir impuestocl.cmd»; después reintenta.',
+  '5. Nunca pidas la clave tributaria ni intentes un login. Ante SESION_REQUERIDA (o CLAVE_RECHAZADA, RUT_BLOQUEADO_LOCAL), muestra a la persona el comando de login del mensaje (o el de login-navegador, para ClaveÚnica) para que lo ejecute en su terminal, o indícale «Abrir impuestocl.cmd»; después reintenta.',
   '6. Reintenta solo si el mensaje dice «Reintentar: ahora mismo» o «más tarde» (o lista «Reintentables más tarde»); con «Reintentar: no», sigue la acción indicada.',
   '7. Cobertura: RCV (compras y ventas), F29, propuesta de F29, boletas de honorarios recibidas, renta F22, perfil tributario y empresas autorizadas. No es asesoría tributaria.',
 ].join('\n');
@@ -45,9 +45,21 @@ export const INSTRUCCIONES_MCP = [
 export interface OpcionesMcp {
   /** Comando que la persona ejecuta en su terminal para iniciar sesión; por defecto supone `impuestocl` en el PATH. */
   readonly comandoLogin?: (rut: string) => string;
+  /**
+   * Comando del login en el navegador (ClaveÚnica o clave escrita en la página real del SII). Por defecto supone
+   * `impuestocl` en el PATH; si solo se indicó `comandoLogin`, no se menciona (no se sabe cómo llamarlo).
+   */
+  readonly comandoLoginNavegador?: (rut: string) => string;
+}
+
+/** Los dos comandos con que la persona entra por su cuenta. */
+interface ComandosLogin {
+  readonly clave: (rut: string) => string;
+  readonly navegador: ((rut: string) => string) | null;
 }
 
 const COMANDO_LOGIN_POR_DEFECTO = (rut: string): string => `impuestocl login ${rut} --guardar-clave`;
+const COMANDO_LOGIN_NAVEGADOR_POR_DEFECTO = (rut: string): string => `impuestocl login-navegador --rut ${rut}`;
 /** Errores que se resuelven con un login nuevo de la persona, no con un reintento. */
 const ERRORES_DE_SESION: ReadonlySet<CodigoError> = new Set<CodigoError>(['SESION_REQUERIDA', 'CLAVE_RECHAZADA', 'RUT_BLOQUEADO_LOCAL']);
 /**
@@ -75,7 +87,7 @@ const respuesta = (texto: string, datos: unknown): ResultadoHerramienta => ({
 });
 
 /** Qué hacer cuando hace falta entrar: la persona lo hace por su cuenta y el asistente nunca maneja la clave. */
-function guiaLogin(comandoLogin: (rut: string) => string, rutTexto: string | undefined, explicacion?: string): string {
+function guiaLogin(comandos: ComandosLogin, rutTexto: string | undefined, explicacion?: string): string {
   let rut = '<rut>';
   try {
     if (rutTexto !== undefined) rut = parseRut(rutTexto).canonico;
@@ -83,25 +95,28 @@ function guiaLogin(comandoLogin: (rut: string) => string, rutTexto: string | und
     // RUT ilegible: el comando queda con el marcador.
   }
   const antes = explicacion === undefined ? '' : `${explicacion} `;
-  return `${antes}Pide a la persona que ejecute en su propia terminal: \`${comandoLogin(rut)}\` (con --guardar-clave la sesión se renueva sola), o que entre con «Abrir impuestocl.cmd». Después reintenta. Nunca pidas la clave en el chat.`;
+  const navegador = comandos.navegador
+    ? ` Si entra con ClaveÚnica, que ejecute \`${comandos.navegador(rut)}\`: abre la página real del SII en su navegador y la sesión no se renueva sola.`
+    : '';
+  return `${antes}Pide a la persona que ejecute en su propia terminal: \`${comandos.clave(rut)}\` (con --guardar-clave la sesión se renueva sola), o que entre con «Abrir impuestocl.cmd».${navegador} Después reintenta. Nunca pidas la clave en el chat.`;
 }
 
 /** La guía de login que corresponde a un código de error, o `null` si el error no se resuelve entrando. `codigo` es texto porque los errores de sincronización no lo tipan. */
-function guiaDelCodigo(comandoLogin: (rut: string) => string, codigo: string, rut: string | undefined): string | null {
+function guiaDelCodigo(comandos: ComandosLogin, codigo: string, rut: string | undefined): string | null {
   const explicacion = (EXPLICACION_DE_LOGIN as ReadonlyMap<string, string>).get(codigo);
   if (explicacion === undefined && !(ERRORES_DE_SESION as ReadonlySet<string>).has(codigo)) return null;
-  return guiaLogin(comandoLogin, rut, explicacion);
+  return guiaLogin(comandos, rut, explicacion);
 }
 
 /** Convierte los errores de dominio en resultados de error; en los que se resuelven entrando, `rut` es el de la llamada y arma el comando de login. */
-function crearSeguro(comandoLogin: (rut: string) => string) {
+function crearSeguro(comandos: ComandosLogin) {
   return async (fn: () => ResultadoHerramienta | Promise<ResultadoHerramienta>, rut?: string): Promise<ResultadoHerramienta> => {
     try {
       return await fn();
     } catch (e) {
       if (!esErrorImpuestocl(e)) throw e;
       // La acción por defecto de estos errores nombra `impuestocl login` o `impuestocl perfil agregar`, que no están en el PATH del asistente.
-      const accion = guiaDelCodigo(comandoLogin, e.codigo, rut) ?? `Acción sugerida: ${e.accion}`;
+      const accion = guiaDelCodigo(comandos, e.codigo, rut) ?? `Acción sugerida: ${e.accion}`;
       return { content: [{ type: 'text', text: `Error [${e.codigo}]: ${e.message}\n${accion}\n${lineaReintento(e.codigo)}` }], isError: true };
     }
   };
@@ -109,7 +124,10 @@ function crearSeguro(comandoLogin: (rut: string) => string) {
 
 /** Ninguna herramienta recibe claves: el login lo hace la persona en la interfaz local «Abrir impuestocl.cmd» o en su terminal con `opciones.comandoLogin`. */
 export function crearServidorMcp(deps: DepsApp, version: string, opciones: OpcionesMcp = {}): McpServer {
-  const comandoLogin = opciones.comandoLogin ?? COMANDO_LOGIN_POR_DEFECTO;
+  const comandoLogin: ComandosLogin = {
+    clave: opciones.comandoLogin ?? COMANDO_LOGIN_POR_DEFECTO,
+    navegador: opciones.comandoLoginNavegador ?? (opciones.comandoLogin ? null : COMANDO_LOGIN_NAVEGADOR_POR_DEFECTO),
+  };
   const seguro = crearSeguro(comandoLogin);
   const servidor = new McpServer({ name: 'impuestocl', version }, { instructions: INSTRUCCIONES_MCP });
 

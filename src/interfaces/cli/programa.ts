@@ -11,7 +11,7 @@ import { parsePeriodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
 import type { EstadoRcv, Lado, Severidad, TipoContribuyente } from '../../domain/tipos.js';
 import { VERSION } from '../../main/version.js';
-import type { EstadoSesion, ResultadoLogin } from '../../ports/index.js';
+import type { EstadoSesion, IdentidadSii, ResultadoLogin } from '../../ports/index.js';
 import { lineaReintento, textoCuenta, textoDocumentos, textoHallazgos, textoHistorialF29, textoPerfiles, textoPlazos, textoReleerF29, textoRenta, textoResumenIva, textoResumenRenta, textoSync } from '../formato.js';
 
 export interface IoCli {
@@ -23,6 +23,8 @@ export interface IoCli {
 
 export interface SesionesCli {
   loginInteractivo(rut: string, clave: string, guardarClave: boolean): Promise<ResultadoLogin>;
+  /** Abre el navegador para que la persona entre (ClaveÚnica o clave) y guarda la sesión; devuelve solo la identidad. */
+  loginNavegador(rutEsperado?: string): Promise<IdentidadSii>;
   logout(rut: string, olvidarClave: boolean): Promise<void>;
   estado(rut: string): EstadoSesion;
 }
@@ -122,6 +124,23 @@ export function crearPrograma(
             : ' No se pudo guardar la clave en el llavero; tendrás que ingresarla cuando expire la sesión.'
           : '';
         io.escribir(`Sesión iniciada: ${r.identidad.nombre} (${r.identidad.rut}, ${r.identidad.tipo}).${nota}`);
+      }),
+    );
+
+  programa
+    .command('login-navegador')
+    .description('Inicia sesión en el SII desde tu navegador (Edge o Chrome), con ClaveÚnica o clave tributaria; impuestocl no ve la clave')
+    .option('--rut <rut>', 'RUT con que esperas entrar; si entras con otro, no se guarda la sesión')
+    .action(
+      ejecutar(async (c, o: { rut?: string }) => {
+        io.escribir(
+          'Se abrirá una ventana del navegador en la página del SII. Entra ahí con tu ClaveÚnica o tu clave tributaria; impuestocl no ve ni guarda tu clave. Tienes 10 minutos por defecto; la ventana se cierra sola al terminar.',
+        );
+        const identidad = await c.sesiones.loginNavegador(o.rut);
+        registrarIdentidad(c.deps, identidad);
+        io.escribir(
+          `Sesión iniciada desde el navegador: ${identidad.nombre} (${identidad.rut}, ${identidad.tipo}). Esta sesión no se renueva sola: cuando venza, vuelve a ejecutar login-navegador.`,
+        );
       }),
     );
 

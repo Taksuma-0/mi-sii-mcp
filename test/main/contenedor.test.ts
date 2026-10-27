@@ -6,7 +6,9 @@ import { VERSION_LECTOR_F29 } from '../../src/connectors/sii/f29-pdf.js';
 import { cargarConfig } from '../../src/main/config.js';
 import { crearContenedor } from '../../src/main/contenedor.js';
 import * as sqlite from '../../src/store/sqlite/db.js';
+import { crearFetchFalso, HTML, sinEsperas } from '../helpers/http-falso.js';
 import { SecretosEnMemoria } from '../helpers/secretos.js';
+import { paginaDatosCntr, RUTA_MI_SII } from '../helpers/sii-login.js';
 
 describe('configuración y contenedor', () => {
   let home: string;
@@ -50,6 +52,36 @@ describe('configuración y contenedor', () => {
 
   it.each(['0', '500', '9999'])('cargarConfig exige al menos 10000 ms de plazo HTTP si IMPUESTOCL_PLAZO_HTTP_MS es %s', (plazo) => {
     expect(cargarConfig({ IMPUESTOCL_HOME: home, IMPUESTOCL_PLAZO_HTTP_MS: plazo }).plazoHttpMs).toBe(10_000);
+  });
+
+  it('cargarConfig usa 10 minutos para el login con navegador y respeta IMPUESTOCL_PLAZO_NAVEGADOR_MS (mínimo 1 minuto)', () => {
+    expect(cargarConfig({ IMPUESTOCL_HOME: home }).plazoNavegadorMs).toBe(600_000);
+    expect(cargarConfig({ IMPUESTOCL_HOME: home, IMPUESTOCL_PLAZO_NAVEGADOR_MS: '120000' }).plazoNavegadorMs).toBe(120_000);
+    expect(cargarConfig({ IMPUESTOCL_HOME: home, IMPUESTOCL_PLAZO_NAVEGADOR_MS: '5' }).plazoNavegadorMs).toBe(60_000);
+  });
+
+  it('crearContenedor conecta el login con navegador con el plazo configurado y no devuelve cookies', async () => {
+    const config = cargarConfig({ IMPUESTOCL_HOME: home, IMPUESTOCL_PLAZO_NAVEGADOR_MS: '90000' });
+    const { fetchFalso } = crearFetchFalso({ [RUTA_MI_SII]: { headers: HTML, body: paginaDatosCntr('22222222', '2', 'EMPRESA DEMO SPA') } });
+    const capturas: unknown[] = [];
+    const c = crearContenedor({
+      config,
+      secretos: new SecretosEnMemoria(),
+      opcionesHttp: { fetch: fetchFalso, temporizador: sinEsperas },
+      capturarNavegador: async (o) => {
+        capturas.push(o);
+        return [{ nombre: 'TOKEN', valor: 'tok-secreto', dominio: '.sii.cl', ruta: '/', expira: null, httpOnly: true, seguro: true }];
+      },
+    });
+    try {
+      const identidad = await c.sesiones.loginNavegador();
+      expect(capturas).toEqual([{ plazoMs: 90_000 }]);
+      expect(identidad.rut).toBe('22222222-2');
+      expect(JSON.stringify(identidad)).not.toContain('tok-secreto');
+      expect(c.sesiones.estado('22222222-2')).toMatchObject({ tieneSesion: true, origen: 'navegador' });
+    } finally {
+      c.cerrar();
+    }
   });
 
   it('crearContenedor arma la base, las sesiones y el diagnóstico sin tocar la red', () => {

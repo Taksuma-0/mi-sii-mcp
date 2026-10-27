@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { DepsApp } from '../app/deps.js';
+import { capturarCookiesSii, type CookieNavegador, type OpcionesNavegador } from '../connectors/navegador/sesion-navegador.js';
 import { LlaveroSistema } from '../connectors/secretos/llavero.js';
 import { lectorPdfF29 } from '../connectors/sii/f29-pdf.js';
 import { conSenal, type OpcionesHttp } from '../connectors/sii/http.js';
@@ -19,16 +20,26 @@ export interface Contenedor {
   cerrar(): void;
 }
 
-export function crearContenedor(o: { config?: Config; secretos?: SecretStore; opcionesHttp?: OpcionesHttp } = {}): Contenedor {
+export interface OpcionesContenedor {
+  readonly config?: Config;
+  readonly secretos?: SecretStore;
+  readonly opcionesHttp?: OpcionesHttp;
+  /** Reemplaza la apertura del navegador de `login-navegador` (las pruebas nunca lanzan uno real). */
+  readonly capturarNavegador?: (opciones: OpcionesNavegador) => Promise<readonly CookieNavegador[]>;
+}
+
+export function crearContenedor(o: OpcionesContenedor = {}): Contenedor {
   const config = o.config ?? cargarConfig();
   mkdirSync(config.home, { recursive: true });
   const db = abrirDb(config.rutaDb);
   try {
-    const sesiones = new GestorSesiones(config.dirSesiones, o.secretos ?? new LlaveroSistema(), {
-      intervaloMinMs: config.intervaloMinMs,
-      plazoMs: config.plazoHttpMs,
-      ...o.opcionesHttp,
-    });
+    const capturar = o.capturarNavegador ?? capturarCookiesSii;
+    const sesiones = new GestorSesiones(
+      config.dirSesiones,
+      o.secretos ?? new LlaveroSistema(),
+      { intervaloMinMs: config.intervaloMinMs, plazoMs: config.plazoHttpMs, ...o.opcionesHttp },
+      (opciones) => capturar({ plazoMs: config.plazoNavegadorMs, ...opciones }),
+    );
     const deps: DepsApp = {
       store: new SqliteStore(db),
       consultaLibre: new ConsultaLibreSqlite(db),

@@ -27,7 +27,7 @@ class ErrorHttp extends Error {
 }
 
 const LIMITE_BODY = 16 * 1024;
-const RUTAS_ESPACIO = new Set(['/conectar', '/panorama', '/sincronizar', '/analizar', '/documentos', '/desconectar']);
+const RUTAS_ESPACIO = new Set(['/conectar', '/conectar-navegador', '/panorama', '/sincronizar', '/analizar', '/documentos', '/desconectar']);
 
 function leerJson(req: IncomingMessage): Promise<unknown> {
   return new Promise((resolve, reject) => {
@@ -75,6 +75,14 @@ function prepararOperacion(ruta: string, valor: unknown, espacio: OperacionesEsp
     if (!campos(['rut', 'clave']) || !esTexto(rut) || !esTexto(clave)) throw invalida();
     parseRut(rut);
     return () => espacio.conectar({ rut, clave });
+  }
+  if (ruta === '/conectar-navegador') {
+    const { rut } = datos;
+    if (!campos(['rut'])) throw invalida();
+    if (!('rut' in datos)) return () => espacio.conectarNavegador({});
+    if (!esTexto(rut)) throw invalida();
+    parseRut(rut);
+    return () => espacio.conectarNavegador({ rut });
   }
   const { contexto } = datos;
   if (!esTexto(contexto)) throw invalida();

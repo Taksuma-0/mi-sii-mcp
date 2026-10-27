@@ -86,6 +86,8 @@ export interface EstadoSesion {
   readonly tieneSesion: boolean;
   readonly guardadaEn: string | null;
   readonly bloqueado: boolean;
+  /** 'navegador' si la sesión se tomó del navegador (login-navegador): no se renueva sola. */
+  readonly origen?: 'navegador';
 }
 
 export interface ConsultaSesiones {

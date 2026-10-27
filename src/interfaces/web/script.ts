@@ -118,6 +118,17 @@ $('formulario').addEventListener('submit', async (evento) => {
   } catch (error) { limpiarEspacio(); fallo(error); }
   finally { datos = null; clave.value = ''; bloquear(false); }
 });
+$('entrar-navegador').addEventListener('click', async () => {
+  if (ocupado) return;
+  const rut = $('rut').value.trim();
+  clave.value = ''; contexto = null; limpiarConsultas(); bloquear(true); informar('Entra en la ventana del SII que se abrió (hasta 10 minutos).');
+  try {
+    const r = await enviar('/conectar-navegador', rut ? { rut } : {});
+    mostrarPanorama(r.panorama); contexto = r.contexto; sugerirFechas();
+    $('acceso').hidden = true; $('espacio').hidden = false; informar('Conectado. Esta sesión no se renueva sola.');
+  } catch (error) { limpiarEspacio(); fallo(error); }
+  finally { bloquear(false); }
+});
 $('form-historial').addEventListener('submit', async (evento) => {
   evento.preventDefault(); if (ocupado || !contexto) return;
   const r = rango('historial'), fuente = $('historial-fuentes').value;

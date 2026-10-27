@@ -20,8 +20,9 @@ function entorno() {
   const loginInteractivo = vi.fn(async (rut: string, _clave: string, _guardar: boolean) => ({
     identidad: { rut, nombre: 'Empresa de prueba', razonSocial: 'EMPRESA DEMO SPA', tipo: 'empresa' as const }, claveGuardada: false,
   }));
-  const fabrica: FabricaContenedorWeb = vi.fn(() => ({ deps: p.deps, sesiones: { loginInteractivo }, cerrar }));
-  return { ...p, fabrica, cerrar, loginInteractivo, espacio: crearEspacioLocal(fabrica) };
+  const loginNavegador = vi.fn(async (_rut?: string) => ({ rut: '22222222-2', nombre: 'Empresa de prueba', razonSocial: 'EMPRESA DEMO SPA', tipo: 'empresa' as const }));
+  const fabrica: FabricaContenedorWeb = vi.fn(() => ({ deps: p.deps, sesiones: { loginInteractivo, loginNavegador }, cerrar }));
+  return { ...p, fabrica, cerrar, loginInteractivo, loginNavegador, espacio: crearEspacioLocal(fabrica) };
 }
 
 describe('espacio local por contexto', () => {
@@ -54,6 +55,27 @@ describe('espacio local por contexto', () => {
     expect(e.fabrica).toHaveBeenCalledTimes(2);
     expect(e.cerrar).toHaveBeenCalledTimes(2);
     expect(e.loginInteractivo).toHaveBeenCalledOnce();
+  });
+
+  it('conecta con el navegador: registra la identidad y abre su espacio sin pedir clave', async () => {
+    const e = entorno();
+    const r = await e.espacio.conectarNavegador({});
+    expect(e.loginNavegador).toHaveBeenCalledExactlyOnceWith(undefined);
+    expect(e.loginInteractivo).not.toHaveBeenCalled();
+    expect(e.fabrica).toHaveBeenCalledWith({ secretos: expect.any(SecretosNulos) });
+    expect(r.contexto).toMatch(/^[a-f0-9]{64}$/);
+    expect(r.panorama.perfil).toMatchObject({ rut: '22222222-2', razonSocial: 'EMPRESA DEMO SPA' });
+    expect(e.store.contribuyente('22222222-2')).not.toBeNull();
+    expect(e.cerrar).toHaveBeenCalledOnce();
+    expect(await e.espacio.panorama(r.contexto)).toEqual(r.panorama);
+  });
+
+  it('conecta con el navegador esperando el RUT indicado, validado antes de abrir nada', async () => {
+    const e = entorno();
+    await e.espacio.conectarNavegador({ rut: '22.222.222-2' });
+    expect(e.loginNavegador).toHaveBeenCalledExactlyOnceWith('22222222-2');
+    await expect(e.espacio.conectarNavegador({ rut: 'invalido' })).rejects.toMatchObject({ codigo: 'RUT_INVALIDO' });
+    expect(e.fabrica).toHaveBeenCalledOnce();
   });
 
   it.each([{ ...entrada, rut: 'invalido' }, { ...entrada, clave: '' }])('valida acceso antes del contenedor: %j', async (valor) => {

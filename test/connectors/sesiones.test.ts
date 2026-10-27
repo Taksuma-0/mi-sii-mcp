@@ -2,6 +2,7 @@ import { mkdtempSync, readFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
+import type { CookieNavegador } from '../../src/connectors/navegador/sesion-navegador.js';
 import { CODIGO_CLAVE_INCORRECTA, CODIGO_SESIONES_MAXIMAS } from '../../src/connectors/sii/login.js';
 import { GestorSesiones } from '../../src/connectors/sii/sesiones.js';
 import { codigoDe } from '../helpers/errores.js';
@@ -476,5 +477,113 @@ describe('GestorSesiones', () => {
     // Una segunda consulta vuelve a probar solo la sesión en memoria, no el archivo ya descartado.
     expect(await codigoDe(g.sesionActiva(RUT))).toBe('SESION_REQUERIDA');
     expect(consultasMiSii() - antes).toBe(2);
+  });
+});
+
+describe('GestorSesiones con una sesión del navegador', () => {
+  const cookieNav = (nombre: string, dominio: string, valor = `v-${nombre}`): CookieNavegador => ({ nombre, valor, dominio, ruta: '/', expira: null, httpOnly: true, seguro: true });
+  const COOKIES = [cookieNav('TOKEN', '.sii.cl', 'tok-nav'), cookieNav('CSESSIONID', '.sii.cl'), cookieNav('NETSCAPE_LIVEWIRE.rut', 'www4.sii.cl')];
+  const PERSONA: DefRespuesta = { headers: HTML, body: paginaDatosCntr('33333333', '3', null) };
+
+  it('importarSesion verifica la identidad, guarda la sesión sin tocar el llavero y la reutiliza', async () => {
+    const dir = dirTemporal();
+    const secretos = new SecretosEnMemoria();
+    const { g, llamadas } = gestor(dir, secretos, { [RUTA_MI_SII]: DATOS_OK });
+    const identidad = await g.importarSesion(COOKIES);
+    expect(identidad).toEqual({ rut: RUT, nombre: 'EMPRESA DEMO SPA', razonSocial: 'EMPRESA DEMO SPA', tipo: 'empresa' });
+    expect(llamadas[0]!.headers['Cookie']).toContain('TOKEN=tok-nav');
+    expect(g.estado(RUT)).toMatchObject({ tieneSesion: true, bloqueado: false, origen: 'navegador' });
+    expect(secretos.mapa.size).toBe(0);
+
+    const otro = gestor(dir, secretos, { [RUTA_MI_SII]: DATOS_OK });
+    await otro.g.sesionActiva(RUT);
+    expect(otro.llamadas.some((l) => l.method === 'POST')).toBe(false);
+    expect(otro.llamadas[0]!.headers['Cookie']).toContain('TOKEN=tok-nav');
+    // Una cookie sin punto inicial vale solo para su host: no viaja a misiir, pero queda guardada para www4.
+    expect(otro.llamadas[0]!.headers['Cookie']).not.toContain('NETSCAPE_LIVEWIRE');
+    const archivo = JSON.parse(readFileSync(join(dir, `${RUT}.json`), 'utf8')) as { origen: string; jar: { cookies: { key: string; domain: string; hostOnly: boolean }[] } };
+    expect(archivo.origen).toBe('navegador');
+    expect(archivo.jar.cookies.find((c) => c.key === 'NETSCAPE_LIVEWIRE.rut')).toMatchObject({ domain: 'www4.sii.cl', hostOnly: true });
+    expect(archivo.jar.cookies.find((c) => c.key === 'TOKEN')).toMatchObject({ domain: 'sii.cl', hostOnly: false });
+  });
+
+  it('guarda la sesión con el RUT de la identidad, que puede ser una persona', async () => {
+    const { g } = gestor(dirTemporal(), new SecretosEnMemoria(), { [RUTA_MI_SII]: PERSONA });
+    const identidad = await g.importarSesion(COOKIES);
+    expect(identidad).toMatchObject({ rut: '33333333-3', tipo: 'persona' });
+    expect(g.estado('33333333-3').tieneSesion).toBe(true);
+    expect(g.estado(RUT).tieneSesion).toBe(false);
+  });
+
+  it('nunca carga cookies de otros dominios', async () => {
+    const { g, llamadas } = gestor(dirTemporal(), new SecretosEnMemoria(), { [RUTA_MI_SII]: DATOS_OK });
+    await g.importarSesion([...COOKIES, cookieNav('ajena', '.evilsii.cl'), cookieNav('google', 'misiir.sii.cl.example.com')]);
+    expect(llamadas[0]!.headers['Cookie']).not.toContain('ajena');
+    expect(llamadas[0]!.headers['Cookie']).not.toContain('google');
+  });
+
+  it('con otra identidad que la esperada falla claro, cierra esa sesión del SII y no guarda nada', async () => {
+    const { g, llamadas } = gestor(dirTemporal(), new SecretosEnMemoria(), { [RUTA_MI_SII]: PERSONA, [RUTA_LOGOUT]: { headers: HTML, body: '<html></html>' } });
+    const error = await g.importarSesion(COOKIES, '22.222.222-2').catch((e: unknown) => e);
+    expect(error).toMatchObject({ codigo: 'SIN_PERMISO', message: expect.stringContaining('33333333-3') });
+    expect((error as { accion: string }).accion).toContain('login-navegador');
+    expect(g.estado(RUT).tieneSesion).toBe(false);
+    expect(g.estado('33333333-3').tieneSesion).toBe(false);
+    expect(llamadas.some((l) => `${l.method} ${l.url.split('?')[0]}` === RUTA_LOGOUT)).toBe(true);
+  });
+
+  it('sin la cookie TOKEN no consulta al SII y pide entrar de nuevo', async () => {
+    const { g, llamadas } = gestor(dirTemporal(), new SecretosEnMemoria(), { [RUTA_MI_SII]: DATOS_OK });
+    const error = await g.importarSesion(COOKIES.filter((c) => c.nombre !== 'TOKEN')).catch((e: unknown) => e);
+    expect(error).toMatchObject({ codigo: 'SESION_REQUERIDA' });
+    expect(llamadas).toHaveLength(0);
+    expect(g.estado(RUT).tieneSesion).toBe(false);
+  });
+
+  it('levanta el bloqueo local: la persona acaba de entrar', async () => {
+    const dir = dirTemporal();
+    const secretos = new SecretosEnMemoria();
+    secretos.mapa.set(RUT, 'mala');
+    const ok = rutasLoginOk();
+    const previo = gestor(dir, secretos, { ...ok, [RUTA_POST]: paginaErrorClave(), [RUTA_MI_SII]: STUB });
+    expect(await codigoDe(previo.g.sesionActiva(RUT))).toBe('CLAVE_RECHAZADA');
+    const { g } = gestor(dir, secretos, { [RUTA_MI_SII]: DATOS_OK });
+    await g.importarSesion(COOKIES, RUT);
+    expect(g.estado(RUT).bloqueado).toBe(false);
+    await g.sesionActiva(RUT);
+  });
+
+  it('al vencer no se renueva sola y sugiere login-navegador', async () => {
+    let vencida = false;
+    const { g } = gestor(dirTemporal(), new SecretosEnMemoria(), { [RUTA_MI_SII]: () => (vencida ? STUB : DATOS_OK) });
+    await g.importarSesion(COOKIES);
+    vencida = true;
+    const error = await g.sesionActiva(RUT).catch((e: unknown) => e);
+    expect(error).toMatchObject({ codigo: 'SESION_REQUERIDA' });
+    expect((error as { accion: string }).accion).toContain('login-navegador');
+  });
+
+  it('persistir conserva la marca del navegador y un login con clave la quita', async () => {
+    const { g } = gestor(dirTemporal(), new SecretosEnMemoria(), { ...rutasLoginOk(), [RUTA_MI_SII]: DATOS_OK });
+    await g.importarSesion(COOKIES);
+    g.persistir(RUT);
+    expect(g.estado(RUT).origen).toBe('navegador');
+    await g.loginInteractivo(RUT, 'secreta', false);
+    expect(g.estado(RUT).origen).toBeUndefined();
+  });
+
+  it('loginNavegador valida el RUT esperado antes de abrir el navegador e importa lo capturado', async () => {
+    const capturas: unknown[] = [];
+    const { fetchFalso } = crearFetchFalso({ [RUTA_MI_SII]: DATOS_OK });
+    const g = new GestorSesiones(dirTemporal(), new SecretosEnMemoria(), { fetch: fetchFalso, temporizador: sinEsperas }, async (o) => {
+      capturas.push(o);
+      return COOKIES;
+    });
+    expect(await codigoDe(g.loginNavegador('22.222.222-K'))).toBe('RUT_INVALIDO');
+    expect(capturas).toHaveLength(0);
+    const identidad = await g.loginNavegador('22.222.222-2');
+    expect(identidad.rut).toBe(RUT);
+    expect(capturas).toHaveLength(1);
+    expect(JSON.stringify(identidad)).not.toContain('tok-nav');
   });
 });

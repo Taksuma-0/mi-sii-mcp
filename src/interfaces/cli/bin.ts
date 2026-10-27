@@ -12,6 +12,7 @@ let contenedor: Contenedor | null = null;
 
 /** `impuestocl` no está en el PATH del asistente: el comando de login apunta a este mismo archivo compilado. */
 const comandoLoginReal = (rut: string): string => `node "${fileURLToPath(import.meta.url)}" login ${rut} --guardar-clave`;
+const comandoLoginNavegadorReal = (rut: string): string => `node "${fileURLToPath(import.meta.url)}" login-navegador --rut ${rut}`;
 
 const { programa, salida } = crearPrograma(
   {
@@ -21,7 +22,7 @@ const { programa, salida } = crearPrograma(
     leerStdin: () => leerLineaStdin(),
   },
   () => (contenedor ??= crearContenedor()),
-  (c) => iniciarMcpStdio(() => crearServidorMcp(c.deps, VERSION, { comandoLogin: comandoLoginReal })),
+  (c) => iniciarMcpStdio(() => crearServidorMcp(c.deps, VERSION, { comandoLogin: comandoLoginReal, comandoLoginNavegador: comandoLoginNavegadorReal })),
 );
 
 try {

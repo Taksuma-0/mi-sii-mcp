@@ -17,7 +17,7 @@ function entorno(fallaLogin?: Error) {
     if (fallaLogin) throw fallaLogin;
     return { identidad: { rut, nombre: 'EMPRESA DEMO', razonSocial: 'EMPRESA DEMO SPA', tipo: 'empresa' as const }, claveGuardada: false };
   });
-  const fabrica: FabricaContenedorWeb = vi.fn(() => ({ deps: p.deps, sesiones: { loginInteractivo }, cerrar }));
+  const fabrica: FabricaContenedorWeb = vi.fn(() => ({ deps: p.deps, sesiones: { loginInteractivo, loginNavegador: vi.fn() }, cerrar }));
   return { ...p, fabrica, cerrar, loginInteractivo };
 }
 

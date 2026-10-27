@@ -20,6 +20,8 @@ export interface EntradaDocumentos { readonly periodo: string; readonly lado?: L
 export interface ResultadoSincronizacion { readonly estado: 'completo' | 'parcial'; readonly sincronizacion: string; readonly panorama: PanoramaSii }
 export interface OperacionesEspacio {
   conectar(entrada: { readonly rut: string; readonly clave: string }): Promise<{ contexto: string; panorama: PanoramaSii }>;
+  /** Entra desde el navegador de la persona (ClaveÚnica o clave); `rut`, si viene, es el que se espera. */
+  conectarNavegador(entrada: { readonly rut?: string }): Promise<{ contexto: string; panorama: PanoramaSii }>;
   panorama(contexto: string): Promise<PanoramaSii>;
   sincronizar(contexto: string, entrada: EntradaSincronizacion): Promise<ResultadoSincronizacion>;
   analizar(contexto: string, entrada: RangoEspacio): Promise<readonly ResumenIva[]>;
@@ -53,6 +55,17 @@ export function crearEspacioLocal(fabrica: FabricaContenedorWeb = crearContenedo
         const login = await contenedor.sesiones.loginInteractivo(rut, entrada.clave, false);
         registrarIdentidad(contenedor.deps, login.identidad);
         return panorama(contenedor.deps, rut);
+      });
+      const contexto = randomBytes(32).toString('hex');
+      contextos.set(contexto, rut);
+      return { contexto, panorama: vista };
+    },
+    async conectarNavegador(entrada) {
+      const esperado = entrada.rut === undefined ? undefined : parseRut(entrada.rut).canonico;
+      const { rut, vista } = await conContenedor(async (contenedor) => {
+        const identidad = await contenedor.sesiones.loginNavegador(esperado);
+        registrarIdentidad(contenedor.deps, identidad);
+        return { rut: identidad.rut, vista: panorama(contenedor.deps, identidad.rut) };
       });
       const contexto = randomBytes(32).toString('hex');
       contextos.set(contexto, rut);

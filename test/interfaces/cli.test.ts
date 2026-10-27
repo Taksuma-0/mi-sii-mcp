@@ -8,16 +8,22 @@ import { depsDePrueba } from '../helpers/deps.js';
 import { guardarPdfF29, pdfFalso } from '../helpers/lector-falso.js';
 import { sembrarMes, T_SEMBRADO } from '../helpers/sembrar.js';
 
-function entorno(o: { claveStdin?: string; fallaAlAbrir?: Error } = {}) {
+function entorno(o: { claveStdin?: string; fallaAlAbrir?: Error; falloNavegador?: Error } = {}) {
   const p = depsDePrueba({ fallaAlAbrir: o.fallaAlAbrir });
   const salidaTexto: string[] = [];
   const errores: string[] = [];
   const logins: { rut: string; clave: string; guardar: boolean }[] = [];
+  const navegador: (string | undefined)[] = [];
   const contadores = { cerrado: 0, mcp: 0 };
   const sesiones: SesionesCli = {
     loginInteractivo: async (rut, clave, guardar) => {
       logins.push({ rut, clave, guardar });
       return { identidad: { rut: RUT_EMPRESA, nombre: 'EMPRESA DEMO SPA', razonSocial: 'EMPRESA DEMO SPA', tipo: 'empresa' }, claveGuardada: guardar };
+    },
+    loginNavegador: async (rut) => {
+      navegador.push(rut);
+      if (o.falloNavegador) throw o.falloNavegador;
+      return { rut: '33333333-3', nombre: 'JUANA PÉREZ', razonSocial: null, tipo: 'persona' };
     },
     logout: async () => {},
     estado: () => ({ tieneSesion: false, guardadaEn: null, bloqueado: false }),
@@ -43,7 +49,7 @@ function entorno(o: { claveStdin?: string; fallaAlAbrir?: Error } = {}) {
     await programa.parseAsync(['node', 'impuestocl', ...args]);
     return salida.codigo;
   };
-  return { ...p, correr, salidaTexto, errores, logins, contadores };
+  return { ...p, correr, salidaTexto, errores, logins, navegador, contadores };
 }
 
 describe('CLI', () => {
@@ -88,6 +94,24 @@ describe('CLI', () => {
     expect(e.logins).toEqual([{ rut: '22222222-2', clave: 'secreta', guardar: true }]);
     expect(e.store.contribuyente(RUT_EMPRESA)?.alias).toBe('EMPRESA DEMO SPA');
     expect(e.salidaTexto.at(-1)).toContain('Clave guardada en el llavero');
+  });
+
+  it('login-navegador abre el navegador, registra la identidad (puede ser una persona) y avisa que no se renueva sola', async () => {
+    const e = entorno();
+    expect(await e.correr('login-navegador')).toBe(0);
+    expect(e.navegador).toEqual([undefined]);
+    expect(e.store.contribuyente('33333333-3')).toMatchObject({ tipo: 'persona', alias: 'JUANA PÉREZ' });
+    expect(e.salidaTexto.join(' ')).toContain('ClaveÚnica');
+    expect(e.salidaTexto.at(-1)).toContain('Sesión iniciada desde el navegador: JUANA PÉREZ (33333333-3, persona)');
+    expect(e.salidaTexto.at(-1)).toContain('no se renueva sola');
+  });
+
+  it('login-navegador --rut pasa el RUT esperado y un rechazo sale con 1', async () => {
+    const e = entorno({ falloNavegador: new ErrorImpuestocl('SIN_PERMISO', 'En el navegador se inició sesión como 33333333-3, no como 22222222-2.') });
+    expect(await e.correr('login-navegador', '--rut', '22.222.222-2')).toBe(1);
+    expect(e.navegador).toEqual(['22.222.222-2']);
+    expect(e.errores[0]).toContain('Error [SIN_PERMISO]');
+    expect(e.store.contribuyentes()).toEqual([]);
   });
 
   it('sync sale con 1 si alguna superficie falló', async () => {

@@ -6,7 +6,7 @@ import { ErrorImpuestocl, esErrorImpuestocl, type CodigoError } from '../../doma
 import { parsePeriodo, periodoAnterior } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
 import { crearContenedor } from '../../main/contenedor.js';
-import type { ResultadoLogin, SecretStore } from '../../ports/index.js';
+import type { IdentidadSii, ResultadoLogin, SecretStore } from '../../ports/index.js';
 import { textoPlazos, textoResumenIva, textoSync } from '../formato.js';
 
 export interface EntradaVerificacion {
@@ -25,7 +25,11 @@ export interface ResultadoVerificacion {
 
 export interface ContenedorWeb {
   readonly deps: DepsApp;
-  readonly sesiones: { loginInteractivo(rut: string, clave: string, guardarClave: boolean): Promise<ResultadoLogin> };
+  readonly sesiones: {
+    loginInteractivo(rut: string, clave: string, guardarClave: boolean): Promise<ResultadoLogin>;
+    /** Login en el navegador de la persona (ClaveÚnica o clave): devuelve solo la identidad, nunca cookies. */
+    loginNavegador(rutEsperado?: string): Promise<IdentidadSii>;
+  };
   cerrar(): void;
 }
 
@@ -58,6 +62,7 @@ const MENSAJES: Readonly<Record<CodigoError, string>> = {
   DATOS_INCOMPLETOS: 'El SII entregó menos documentos de los esperados. Se conserva el último conjunto completo; puedes volver a intentarlo más tarde.',
   LECTURA_INCOHERENTE: 'La lectura del F29 no cuadra, así que se conserva la anterior. Puede que el SII haya cambiado el formulario.',
   RESPALDO_FALLIDO: 'No se pudo respaldar la base antes de actualizarla, así que no se actualizó. Revisa el espacio en disco o que OneDrive o el antivirus no bloqueen la carpeta.',
+  NAVEGADOR_NO_DISPONIBLE: 'No se pudo abrir Microsoft Edge ni Google Chrome en este equipo. Instala uno de ellos o entra con tu clave tributaria.',
 };
 
 /** Nunca expone mensajes, causas o cuerpos recibidos del SII. */
