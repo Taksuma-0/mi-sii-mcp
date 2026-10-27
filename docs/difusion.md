@@ -2,6 +2,23 @@
 
 Cómo se presenta **mi-sii-mcp** fuera del repositorio: sitio web, Google Search Console y directorios de servidores MCP. Revisado el 27 de octubre de 2026. Nada de lo que está marcado como «pendiente» se ha enviado ni registrado todavía.
 
+## Estado (27-10-2026)
+
+| Acción | Estado |
+| --- | --- |
+| Sitio en GitHub Pages, About, enlace al sitio y topics del repo | ✅ Hecho |
+| Imagen social del repositorio (Settings → Social preview) | ✅ Hecho |
+| Google Search Console: propiedad `https://taksuma-0.github.io/mi-sii-mcp/` verificada con `docs/google71cc82c95b49bdda.html` (no borrar ese archivo), sitemap enviado e indexación solicitada | ✅ Hecho |
+| Glama: ficha reclamada, descripción actualizada y build de prueba exitoso (Node 24, `npm ci --ignore-scripts`, `npm run build`, inicio `node dist/interfaces/cli/bin.js mcp`) | ✅ Hecho |
+| Glama: **Create Release** desde el build exitoso | Pendiente (un clic en Admin → Dockerfile) |
+| MCP Market (cola gratuita) y mcpservers.org (gratis) | Pendiente: formularios listos, falta enviarlos |
+| npm (`npm publish`) | Pendiente: npm suspendió temporalmente la cuenta para publicar tras activar el 2FA; reintentar con el código de 6 dígitos de la app |
+| MCP Registry oficial | Pendiente: requiere el paquete en npm |
+| Release `v0.1.0` en GitHub | Pendiente |
+| PR a awesome-mcp-servers | Pendiente, después del release en Glama |
+
+Nota sobre la instalación con npm: en Glama, `npm ci` intentó compilar `better-sqlite3` con `node-gyp` y falló por falta de compilador; con `--ignore-scripts` usa los binarios precompilados que trae el paquete (`prebuilds/`). Al publicar en npm, conviene probar `npx mi-sii-mcp --help` en un equipo limpio.
+
 ## Lo que ya está en el repositorio
 
 | Archivo | Para qué |
