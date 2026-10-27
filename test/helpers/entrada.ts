@@ -12,7 +12,7 @@ export function entrada(o: Partial<EntradaConciliacion> = {}): EntradaConciliaci
     resumenes: [resumen({ lado: 'VENTA', filas: [fila(33, 1_000_000, 190_000, 2)] }), resumen({ lado: 'COMPRA', filas: [fila(33, 100_000, 19_000, 1)] })],
     documentos: [],
     declaraciones: [declaracion()],
-    valores: valores({ '538': 190_000, '537': 24_000, '504': 5_000, '77': 0, '91': 166_000 }),
+    valores: valores({ '538': 190_000, '537': 24_000, '504': 5_000, '89': 166_000, '77': 0, '91': 166_000 }),
     valoresAnterior: valores({ '77': 5_000 }, { periodo: '2026-08', folio: 554_000 }),
     snapshots: [],
     toleranciaPesos: 0,

@@ -5,7 +5,7 @@ import { declaracion, documento, fila, perfilEmpresa, resumen, RUT_CLIENTE, RUT_
 import { depsDePrueba } from '../helpers/deps.js';
 
 const SEPT = parsePeriodo('2026-09');
-const VALORES = valores({ '538': 199_500, '537': 19_000 });
+const VALORES = valores({ '538': 199_500, '537': 19_000, '89': 180_500 });
 
 /** Un mes ya sincronizado una vez: ventas y compras con documentos, y el F29 presentado con sus valores. */
 async function mesGuardado() {
@@ -189,5 +189,58 @@ describe('sincronizar ante respuestas vacías del F29', () => {
 
     expect(r.periodos[0]!.errores).toEqual([]);
     expect(store.declaracionesF29(RUT_EMPRESA, SEPT.texto)).toEqual([]);
+  });
+});
+
+describe('sincronizar ante un F29 leído que no cuadra', () => {
+  const INCOHERENTE = valores({ '538': 199_500, '537': 19_000, '89': 5_000 });
+
+  it('una lectura incoherente del mismo folio no reemplaza una coherente: queda LECTURA_INCOHERENTE y un diagnóstico', async () => {
+    const { deps, store, sii, db, diagnosticos } = await mesGuardado();
+    sii.valores.set('2026-09|555001', INCOHERENTE);
+
+    const r = await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT, ['f29']);
+
+    expect(r.periodos[0]!.errores).toHaveLength(1);
+    expect(r.periodos[0]!.errores[0]).toMatchObject({ superficie: 'f29.valores', codigo: 'LECTURA_INCOHERENTE' });
+    expect(r.periodos[0]!.errores[0]!.mensaje).toContain('555001');
+    expect(store.valoresF29(RUT_EMPRESA, SEPT.texto, 555_001)).toEqual(VALORES);
+    expect(ultimaSync(db, 'f29.valores')).toEqual({ estado: 'error', error_codigo: 'LECTURA_INCOHERENTE' });
+    expect(diagnosticos.map((d) => d.nombre)).toEqual(['22222222-2-2026-09-f29.valores.json']);
+    const diagnostico = JSON.parse(diagnosticos[0]!.contenido);
+    expect(diagnostico.error.codigo).toBe('LECTURA_INCOHERENTE');
+    expect(diagnostico.detalle.valoresNuevos).toEqual(INCOHERENTE.valores);
+  });
+
+  it('sin lectura coherente guardada, la incoherente se guarda y avisa en el período', async () => {
+    const { deps, store, sii } = depsDePrueba();
+    store.guardarContribuyente(perfilEmpresa());
+    sii.declaraciones.set('2026-09', [declaracion()]);
+    sii.valores.set('2026-09|555001', INCOHERENTE);
+
+    const r = await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT, ['f29']);
+
+    expect(r.periodos[0]!.errores).toEqual([]);
+    expect(r.periodos[0]!.avisos).toHaveLength(1);
+    expect(r.periodos[0]!.avisos[0]).toMatch(/^F29 2026-09: la lectura no cuadra \(el 89 /);
+    expect(store.valoresF29(RUT_EMPRESA, SEPT.texto, 555_001)).toEqual(INCOHERENTE);
+  });
+
+  it('una lectura coherente nueva reemplaza sin aviso, y una incoherente sobre otra incoherente también reemplaza', async () => {
+    const { deps, store, sii } = await mesGuardado();
+    const otra = valores({ '538': 199_500, '537': 19_000, '89': 180_500, '504': 3 });
+    sii.valores.set('2026-09|555001', otra);
+    const r1 = await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT, ['f29']);
+    expect(r1.periodos[0]!.errores).toEqual([]);
+    expect(r1.periodos[0]!.avisos).toEqual([]);
+    expect(store.valoresF29(RUT_EMPRESA, SEPT.texto, 555_001)).toEqual(otra);
+
+    store.guardarF29(store.iniciarSincronizacion(RUT_EMPRESA, 'f29', SEPT.texto, 't'), RUT_EMPRESA, SEPT.texto, [declaracion()], [INCOHERENTE], 't');
+    const peor = valores({ '538': 199_500, '537': 19_000, '89': 7 });
+    sii.valores.set('2026-09|555001', peor);
+    const r2 = await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT, ['f29']);
+    expect(r2.periodos[0]!.errores).toEqual([]);
+    expect(r2.periodos[0]!.avisos).toHaveLength(1);
+    expect(store.valoresF29(RUT_EMPRESA, SEPT.texto, 555_001)).toEqual(peor);
   });
 });

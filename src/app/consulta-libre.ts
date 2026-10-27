@@ -179,6 +179,8 @@ const DESCRIPCION_CODIGO_F29: Readonly<Record<keyof typeof CODIGO_F29, string>> 
   REMANENTE_MES_ANTERIOR: 'remanente del mes anterior',
   REMANENTE_PERIODO_SIGUIENTE: 'remanente para el período siguiente',
   TOTAL_A_PAGAR: 'total a pagar',
+  IVA_DETERMINADO: 'IVA determinado',
+  TOTAL_DETERMINADO: 'total determinado',
 };
 
 function reglas(): readonly string[] {

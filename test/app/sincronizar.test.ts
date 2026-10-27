@@ -23,7 +23,7 @@ function mesCompleto() {
   p.sii.resumenes.set('2026-09|COMPRA|PENDIENTE', [fila(33, 50_000, 9_500, 1)]);
   p.sii.detalles.set('2026-09|COMPRA|PENDIENTE|33', [documento({ folio: 11, estado: 'PENDIENTE' })]);
   p.sii.declaraciones.set('2026-09', [declaracion()]);
-  p.sii.valores.set('2026-09|555001', valores({ '538': 199_500, '537': 19_000 }));
+  p.sii.valores.set('2026-09|555001', valores({ '538': 199_500, '537': 19_000, '89': 180_500 }));
   return p;
 }
 
@@ -285,7 +285,7 @@ describe('sincronizar', () => {
 
     expect(r.abortado).toBeNull();
     expect(r.periodos[0]!.f29Folio).toBe(555_001);
-    expect(store.valoresF29(RUT_EMPRESA, SEPT.texto, 555_001)).toEqual(valores({ '538': 199_500, '537': 19_000 }));
+    expect(store.valoresF29(RUT_EMPRESA, SEPT.texto, 555_001)).toEqual(valores({ '538': 199_500, '537': 19_000, '89': 180_500 }));
     expect(store.valoresF29(RUT_EMPRESA, SEPT.texto, anterior.folio)).toEqual(valoresAnterior);
     expect(store.valoresF29(RUT_EMPRESA, SEPT.texto, retirado.folio)).toBeNull();
     expect(store.declaracionesF29(RUT_EMPRESA, SEPT.texto)).toEqual([anterior, declaracion()]);
@@ -304,7 +304,7 @@ describe('sincronizar', () => {
     expect(r.abortado).toBeNull();
     expect(r.periodos[0]!.f29Folio).toBe(555_002);
     expect(r.periodos[0]!.errores[0]?.codigo).toBe('PORTAL_CAMBIO');
-    expect(store.valoresF29(RUT_EMPRESA, SEPT.texto, 555_001)).toEqual(valores({ '538': 199_500, '537': 19_000 }));
+    expect(store.valoresF29(RUT_EMPRESA, SEPT.texto, 555_001)).toEqual(valores({ '538': 199_500, '537': 19_000, '89': 180_500 }));
     expect(store.valoresF29(RUT_EMPRESA, SEPT.texto, 555_002)).toBeNull();
   });
 });

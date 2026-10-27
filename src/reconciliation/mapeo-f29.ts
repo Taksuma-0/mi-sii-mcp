@@ -1,6 +1,6 @@
 import type { F29Valores, Lado, RcvResumen } from '../domain/tipos.js';
 
-export const VERSION_REGLAS = 'iva-2026.10.2';
+export const VERSION_REGLAS = 'iva-2026.10.3';
 
 export const CODIGO_F29 = {
   TOTAL_DEBITOS: '538',
@@ -8,6 +8,8 @@ export const CODIGO_F29 = {
   REMANENTE_MES_ANTERIOR: '504',
   REMANENTE_PERIODO_SIGUIENTE: '77',
   TOTAL_A_PAGAR: '91',
+  IVA_DETERMINADO: '89',
+  TOTAL_DETERMINADO: '547',
 } as const;
 
 /** Códigos que suman en el 538 pero no vienen del RCV. Se calibra con un F29 real (Tarea 23). */

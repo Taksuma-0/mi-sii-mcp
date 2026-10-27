@@ -20,7 +20,7 @@
       }
     ],
     "declaraciones": [{ "rut": "22222222-2", "periodo": "2026-09", "folio": 555001, "estado": "Vigente", "fechaPresentacion": "2026-10-15", "codigoInterno": 9001, "totalAPagar": 213000 }],
-    "valores": { "rut": "22222222-2", "periodo": "2026-09", "folio": 555001, "valores": { "538": 270000, "537": 67000, "504": 10000, "77": 0, "91": 213000 } },
+    "valores": { "rut": "22222222-2", "periodo": "2026-09", "folio": 555001, "valores": { "538": 270000, "537": 67000, "504": 10000, "89": 203000, "77": 0, "91": 213000 } },
     "valoresAnterior": { "rut": "22222222-2", "periodo": "2026-08", "folio": 554000, "valores": { "77": 12000 } },
     "snapshots": [],
     "toleranciaPesos": 0

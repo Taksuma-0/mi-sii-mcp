@@ -55,14 +55,14 @@ describe('verificación local', () => {
     e.store.guardarContribuyente(perfilEmpresa({ alias: 'Alias propio', representa: ['11111111-1'] }));
     e.sii.resumenes.set('2026-09|VENTA|REGISTRO', [fila(39, 100_000, 19_000)]);
     e.sii.declaraciones.set('2026-09', [declaracion()]);
-    e.sii.valores.set('2026-09|555001', valores({ '538': 19_000, '537': 0 }));
+    e.sii.valores.set('2026-09|555001', valores({ '538': 19_000, '537': 0, '89': 19_000 }));
     const r = await verificar(entrada, e.fabrica);
     expect(e.loginInteractivo).toHaveBeenCalledExactlyOnceWith('22222222-2', entrada.clave, false);
     expect(e.fabrica).toHaveBeenCalledWith({ secretos: expect.any(SecretosNulos) });
     expect(e.sii.llamadas).toContain('f29|2026-08');
     expect(e.sii.llamadas).toContain('f29|2026-09');
     expect(e.store.contribuyente('22222222-2')).toMatchObject({ alias: 'Alias propio', representa: ['11111111-1'], razonSocial: 'EMPRESA DEMO SPA' });
-    expect(r).toMatchObject({ estado: 'completo', codigosF29: { '538': 19_000, '537': 0 } });
+    expect(r).toMatchObject({ estado: 'completo', codigosF29: { '538': 19_000, '537': 0, '89': 19_000 } });
     expect(r.resumen).toContain('$19.000');
     expect(r.sincronizacion).toContain('2026-08');
     expect(r.plazos).toBeTypeOf('string');

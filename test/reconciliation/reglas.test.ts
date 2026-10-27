@@ -138,13 +138,13 @@ describe('conciliarPeriodo', () => {
   it('un mes cuadrado no tiene hallazgos y expone las comparaciones', () => {
     const r = conciliarPeriodo(entrada());
     expect(r.hallazgos).toEqual([]);
-    expect(r.versionReglas).toBe('iva-2026.10.2');
+    expect(r.versionReglas).toBe('iva-2026.10.3');
     expect(r.comparaciones).toEqual({ debitoRcv: 190_000, debitoF29: 190_000, creditoRcv: 19_000, creditoF29: 19_000, remanenteAnterior77: 5_000, remanenteActual504: 5_000 });
   });
 
   it('compara con cero las líneas ausentes de F29 leídos y deja sin dato los F29 no leídos', () => {
     const anterior = valores({ '91': 1 }, { periodo: '2026-08', folio: 554_000 });
-    const leidos = conciliarPeriodo(entrada({ valores: valores({ '538': 190_000, '537': 19_000, '91': 171_000 }), valoresAnterior: anterior }));
+    const leidos = conciliarPeriodo(entrada({ valores: valores({ '538': 190_000, '537': 19_000, '89': 171_000, '91': 171_000 }), valoresAnterior: anterior }));
     expect(leidos.comparaciones).toMatchObject({ debitoF29: 190_000, creditoF29: 19_000, remanenteAnterior77: 0, remanenteActual504: 0 });
     expect(leidos.hallazgos).toEqual([]);
     const sinLeer = conciliarPeriodo(entrada({ valores: null, valoresAnterior: null }));

@@ -2,6 +2,8 @@ import { ERRORES_FATALES, ErrorImpuestocl, esErrorImpuestocl, type CodigoError }
 import { declaracionVigente, f29Presentada } from '../domain/f29.js';
 import { rangoPeriodos, type Periodo } from '../domain/periodo.js';
 import { parseRut } from '../domain/rut.js';
+import { verificarCoherenciaF29 } from '../reconciliation/coherencia-f29.js';
+import { f29Leido } from '../reconciliation/mapeo-f29.js';
 import { ESTADOS_RCV, type DocumentoRcv, type EstadoRcv, type F29Declaracion, type Lado, type RcvResumen, type RespuestaCruda } from '../domain/tipos.js';
 import type { SiiReader } from '../ports/index.js';
 import type { DepsApp } from './deps.js';
@@ -158,6 +160,18 @@ export async function sincronizar(
           revisarCancelacion(signal);
           await registrar(deps, rut, 'f29.valores', periodo.texto, buffer, res, signal, async (id, ahora) => {
             const v = await sii.f29Valores(rut, vigente);
+            const incoherencias = verificarCoherenciaF29(v);
+            if (incoherencias.length > 0) {
+              const guardados = f29.valoresPrevios.find((anterior) => anterior.folio === vigente.folio);
+              if (guardados && f29Leido(guardados) && verificarCoherenciaF29(guardados).length === 0) {
+                throw new ErrorImpuestocl(
+                  'LECTURA_INCOHERENTE',
+                  `F29 ${periodo.texto}: la lectura del folio ${vigente.folio} no cuadra (${incoherencias.join('; ')}); se conserva la lectura guardada.`,
+                  { detalle: { folio: vigente.folio, incoherencias, valoresNuevos: v.valores } },
+                );
+              }
+              res.avisos.push(`F29 ${periodo.texto}: la lectura no cuadra (${incoherencias.join('; ')})`);
+            }
             const otrosValores = f29.valoresPrevios.filter((anterior) => anterior.folio !== vigente.folio);
             deps.store.guardarF29(id, rut, periodo.texto, f29.declaraciones, [...otrosValores, v], ahora);
           });
@@ -241,7 +255,7 @@ async function registrar<T>(
       throw e;
     }
     deps.store.terminarSincronizacion(id, deps.reloj.ahora().toISOString(), 'error', { codigo: e.codigo, detalle: e.message });
-    if (e.codigo === 'PORTAL_CAMBIO') {
+    if (e.codigo === 'PORTAL_CAMBIO' || e.codigo === 'LECTURA_INCOHERENTE') {
       deps.diagnostico?.(`${rut}-${periodo}-${superficie}.json`, JSON.stringify({ error: e.toJSON(), detalle: e.detalle ?? null, respuestas: buffer }, null, 2));
     }
     if (ERRORES_FATALES.has(e.codigo)) throw e;

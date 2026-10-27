@@ -5,6 +5,7 @@ import {
   reglaCredito,
   reglaDebito,
   reglaF29Faltante,
+  reglaF29Incoherente,
   reglaIvaEspecial,
   reglaReclamo,
   reglaRemanente,
@@ -26,7 +27,7 @@ export interface ResultadoConciliacion {
   readonly versionReglas: string;
 }
 
-const REGLAS = [reglaDebito, reglaCredito, reglaRemanente, reglaF29Faltante, reglaReclamo, reglaCambiosPostF29, reglaIvaEspecial] as const;
+const REGLAS = [reglaDebito, reglaCredito, reglaRemanente, reglaF29Faltante, reglaF29Incoherente, reglaReclamo, reglaCambiosPostF29, reglaIvaEspecial] as const;
 
 export function conciliarPeriodo(e: EntradaConciliacion): ResultadoConciliacion {
   return {

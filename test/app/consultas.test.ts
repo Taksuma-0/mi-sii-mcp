@@ -17,7 +17,7 @@ const SEPT: DatosMes = {
     resumen({ lado: 'COMPRA', estado: 'PENDIENTE', filas: [fila(33, 50_000, 9_500, 1)] }),
   ],
   declaraciones: [declaracion()],
-  valores: [valores({ '538': 190_000, '537': 24_000, '504': 5_000, '77': 0, '91': 166_000 })],
+  valores: [valores({ '538': 190_000, '537': 24_000, '504': 5_000, '89': 166_000, '77': 0, '91': 166_000 })],
 };
 const AGO: DatosMes = {
   declaraciones: [declaracion({ periodo: '2026-08', folio: 554_000 })],
@@ -120,9 +120,17 @@ describe('resumenIva', () => {
   it('guarda los hallazgos que encuentra', () => {
     const { deps, store } = conEmpresa();
     sembrarMes(store, '2026-08', AGO);
-    sembrarMes(store, '2026-09', { ...SEPT, valores: [valores({ '538': 200_000, '537': 24_000, '504': 5_000 })] });
+    sembrarMes(store, '2026-09', { ...SEPT, valores: [valores({ '538': 200_000, '537': 24_000, '504': 5_000, '89': 176_000 })] });
     expect(resumenIva(deps, RUT_EMPRESA, '2026-09').hallazgos.map((h) => h.regla)).toEqual(['IVA-01']);
     expect(store.hallazgos(RUT_EMPRESA).map((h) => h.regla)).toEqual(['IVA-01']);
+  });
+
+  it('persiste el hallazgo F29-01 cuando el F29 leído no cuadra', () => {
+    const { deps, store } = conEmpresa();
+    sembrarMes(store, '2026-08', AGO);
+    sembrarMes(store, '2026-09', { ...SEPT, valores: [valores({ '538': 190_000, '537': 24_000, '504': 5_000, '89': 100_000, '77': 0 })] });
+    expect(resumenIva(deps, RUT_EMPRESA, '2026-09').hallazgos.map((h) => h.regla)).toEqual(['F29-01']);
+    expect(store.hallazgos(RUT_EMPRESA)).toMatchObject([{ regla: 'F29-01', severidad: 'advertencia', naturaleza: 'HECHO', evidencia: ['F29:555001'] }]);
   });
 
   it('exige un perfil existente', async () => {

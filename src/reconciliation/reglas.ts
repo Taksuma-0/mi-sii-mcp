@@ -4,6 +4,7 @@ import { diasEntre, fechaEnSantiago } from '../domain/fechas.js';
 import { formatearClp, nombreTipoDocumento } from '../domain/formato.js';
 import { compararPeriodos, periodoAnterior, periodoDeFecha, type Periodo } from '../domain/periodo.js';
 import { claveDocumento, type DisponibilidadFuentes, type DocumentoRcv, type F29Declaracion, type F29Valores, type Hallazgo, type Lado, type RcvResumen, type SnapshotRcv, type TipoContribuyente } from '../domain/tipos.js';
+import { verificarCoherenciaF29 } from './coherencia-f29.js';
 import { CODIGO_F29, creditoDocumentosF29, creditoRcv, debitoF29, debitoRcv, f29Leido, montoF29 } from './mapeo-f29.js';
 
 export interface EntradaConciliacion {
@@ -121,6 +122,23 @@ export function reglaRemanente(e: EntradaConciliacion): Hallazgo[] {
     [`F29:${e.valoresAnterior.folio}`, `F29:${e.valores.folio}`],
     Math.max(e.toleranciaPesos, REAJUSTE_UTM_REMANENTE * esperado),
   );
+}
+
+/** F29-01: el F29 leído debe cumplir las relaciones internas entre sus totales; si no, la lectura es sospechosa. */
+export function reglaF29Incoherente(e: EntradaConciliacion): Hallazgo[] {
+  const incoherencias = verificarCoherenciaF29(e.valores);
+  if (!e.valores || incoherencias.length === 0) return [];
+  return [
+    hallazgo(e, {
+      regla: 'F29-01',
+      severidad: 'advertencia',
+      naturaleza: 'HECHO',
+      titulo: 'El F29 leído no cuadra',
+      detalle: `En el F29 folio ${e.valores.folio}: ${incoherencias.join('; ')}. Puede que el PDF se haya leído mal o que el SII haya cambiado el formulario.`,
+      montos: null,
+      evidencia: [`F29:${e.valores.folio}`],
+    }),
+  ];
 }
 
 /** Días antes del vencimiento del plazo de reclamo en que se avisa. */
