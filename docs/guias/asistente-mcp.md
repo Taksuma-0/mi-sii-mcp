@@ -121,7 +121,7 @@ Qué puede cambiar el estado local: `perfil_sincronizar` reemplaza a quién repr
 
 **Qué se sincroniza por defecto.** `sincronizar` trae solo `rcv` y `f29` si no indicas superficies: la propuesta y las boletas de honorarios son opcionales porque cada una agrega consultas al SII por mes. Pídelas expresamente («incluye las boletas de honorarios»). La renta y el perfil tienen su propia herramienta.
 
-**Errores y reintentos.** Si un error se marca como reintentable, el asistente puede volver a intentarlo; si no, no. Si falta sesión, te mostrará el comando de login para que lo ejecutes tú.
+**Errores y reintentos.** Cada error trae una línea «Reintentar: ahora mismo», «Reintentar: más tarde» o «Reintentar: no», y una sincronización parcial lista los «Reintentables más tarde». El asistente solo vuelve a intentar lo que dice «ahora mismo» o «más tarde»; con «no», repetirlo igual no lo resuelve y sigue la acción indicada. Si falta sesión, te mostrará el comando de login para que lo ejecutes tú.
 
 Los resultados de las herramientas pasan a la conversación con el asistente, igual que cualquier cosa que le muestres. Pregunta solo por los contribuyentes que estés dispuesto a comentar en ese chat.
 
@@ -165,7 +165,7 @@ Si el archivo ya tiene otros servidores, agrega solo la entrada `impuestocl` den
   npm.cmd run build
   ```
 
-- **Una consulta al SII tarda demasiado y se corta**: cada petición HTTP tiene un plazo de 60 segundos por defecto. Se puede cambiar con la variable de entorno `IMPUESTOCL_PLAZO_HTTP_MS` (en milisegundos; se acota entre 10 000 y el máximo del programa). En Claude Code se define en el registro con `--env`, y en Claude Desktop en un bloque `env` de la entrada `impuestocl`.
+- **Una consulta al SII tarda demasiado y se corta**: cada petición HTTP tiene un plazo de 60 segundos por defecto. Se puede cambiar con la variable de entorno `IMPUESTOCL_PLAZO_HTTP_MS` (en milisegundos; se acota entre 10 000 y el máximo del programa). En Claude Code se define al registrar el servidor, por ejemplo: `claude mcp add --scope user --env IMPUESTOCL_PLAZO_HTTP_MS=120000 impuestocl -- node "<ruta>\dist\interfaces\cli\bin.js" mcp` (si ya estaba registrado, quítalo antes; ver sección 8). En Claude Desktop se agrega un bloque `"env": { "IMPUESTOCL_PLAZO_HTTP_MS": "120000" }` a la entrada `impuestocl`.
 - **Respaldo de la base**: antes de migrar el esquema de la base a una versión nueva (por ejemplo, tras actualizar impuestocl), el programa guarda una copia íntegra junto a ella, con el nombre `impuestocl-antes-v<N>.db`, en la carpeta `.impuestocl`. Si la copia falla, la migración no se aplica y verás el error `RESPALDO_FALLIDO`. Las copias contienen tus datos: bórralas cuando ya no las necesites.
 - **`node` debe estar en el PATH, versión 22.12 o superior.** Compruébalo en una terminal nueva con `node --version`. Esto vale también para Claude Desktop: lanza `node` con el PATH de Windows, así que reinícialo por completo después de instalar o actualizar Node.
 - **No encuentras «Abrir impuestocl.cmd»**: está en la carpeta del proyecto, `C:\ruta\a\mi-sii-mcp\Abrir impuestocl.cmd`. Haz doble clic para abrir la interfaz local (ver `docs/guias/interfaz-local.md`).

@@ -166,6 +166,7 @@ describe('esquemaDatos', () => {
     }
     expect(texto).toMatch(/Cobertura: el RCV.*F29.*propuesta.*honorarios.*renta anual \(F22\)/);
     expect(texto).not.toMatch(/solo el RCV/i);
+    expect(texto).toMatch(/razon_social puede ser el nombre de una persona/);
     expect(texto).toMatch(/pueden quedar desfasados tras perfil_sincronizar/);
     expect(texto).toContain(`'${CODIGO_F29.TOTAL_CREDITOS}' menos ${CODIGOS_CREDITO_FUERA_RCV.map((c) => `'${c}'`).join(' y ')}`);
     // Igual que las reglas de IVA: en un F29 con valores leídos, el PDF compacto omite las líneas en cero y se guarda
