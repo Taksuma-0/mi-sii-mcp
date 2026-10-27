@@ -32,12 +32,9 @@ export class LectorPorRepresentacion implements SiiReader {
     return (await this.lector()).rcvDetalle(rut, periodo, lado, tipoDoc, estado);
   }
 
-  /** Abre una vez la sesión de quien accede; si falla, la próxima consulta lo vuelve a intentar. */
+  /** Abre una sola vez la sesión de quien accede; si falla, el mismo error vale para el resto de la llamada (un único login con la clave guardada). */
   private lector(): Promise<SiiReader> {
-    this.base ??= this.abrir().catch((e: unknown) => {
-      this.base = null;
-      throw e;
-    });
+    this.base ??= this.abrir();
     return this.base;
   }
 

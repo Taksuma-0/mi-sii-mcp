@@ -28,16 +28,17 @@ describe('LectorPorRepresentacion', () => {
     expect(aperturas).toBe(1);
   });
 
-  it('si abrir la sesión de quien accede falla, la siguiente consulta del RCV lo vuelve a intentar', async () => {
-    const base = new SiiFalso();
+  it('si abrir la sesión de quien accede falla, las siguientes consultas de la misma llamada no vuelven a abrirla', async () => {
     let aperturas = 0;
     const lector = new LectorPorRepresentacion(async () => {
-      if (++aperturas === 1) throw new ErrorImpuestocl('SESION_REQUERIDA', 'sin sesión');
-      return base;
+      aperturas++;
+      throw new ErrorImpuestocl('PORTAL_CAMBIO', 'el portal cambió');
     }, PERSONA);
-    expect(await codigoDe(lector.rcvResumen(EMPRESA, SEPT, 'VENTA', 'REGISTRO'))).toBe('SESION_REQUERIDA');
-    await lector.rcvResumen(EMPRESA, SEPT, 'VENTA', 'REGISTRO');
-    expect(aperturas).toBe(2);
+    expect(await codigoDe(lector.rcvResumen(EMPRESA, SEPT, 'VENTA', 'REGISTRO'))).toBe('PORTAL_CAMBIO');
+    expect(await codigoDe(lector.rcvResumen(EMPRESA, SEPT, 'COMPRA', 'REGISTRO'))).toBe('PORTAL_CAMBIO');
+    expect(await codigoDe(lector.rcvDetalle(EMPRESA, SEPT, 'COMPRA', 33, 'REGISTRO'))).toBe('PORTAL_CAMBIO');
+    // Un solo intento de login por llamada: la clave guardada no se envía una y otra vez al SII.
+    expect(aperturas).toBe(1);
   });
 
   it.each([
