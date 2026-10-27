@@ -172,9 +172,35 @@ CREATE TABLE f29_propuesta_valor (
 );
 `;
 
+/**
+ * Boletas de honorarios electrónicas recibidas, por receptor, emisor y folio (una boleta pertenece a un solo mes). Sin
+ * código de barras ni comuna del emisor.
+ */
+const V5 = `
+CREATE TABLE bhe_recibida (
+  rut TEXT NOT NULL,
+  periodo TEXT NOT NULL,
+  rut_emisor TEXT NOT NULL,
+  folio INTEGER NOT NULL,
+  nombre_emisor TEXT,
+  fecha TEXT,
+  bruto INTEGER NOT NULL,
+  retencion INTEGER NOT NULL,
+  liquido INTEGER NOT NULL,
+  sociedad_profesional INTEGER NOT NULL CHECK (sociedad_profesional IN (0, 1)),
+  anulada INTEGER NOT NULL CHECK (anulada IN (0, 1)),
+  fecha_anulacion TEXT,
+  sincronizacion_id INTEGER NOT NULL REFERENCES sincronizacion (id),
+  obtenido_en TEXT NOT NULL,
+  PRIMARY KEY (rut, rut_emisor, folio)
+);
+CREATE INDEX ix_bhe_recibida ON bhe_recibida (rut, periodo);
+`;
+
 export const MIGRACIONES: readonly Migracion[] = [
   { version: 1, sql: V1 },
   { version: 2, sql: V2 },
   { version: 3, sql: V3 },
   { version: 4, sql: V4 },
+  { version: 5, sql: V5 },
 ];

@@ -96,6 +96,18 @@ describe('esquemaDatos', () => {
     expect(regla).toMatch(/no trae débito ni total a pagar/);
   });
 
+  it('documenta las boletas de honorarios recibidas: tabla, superficie, anuladas y el cruce de la retención con el 151', () => {
+    const { tablas, reglas } = esquemaDatos();
+    expect(tablas.map((t) => t.nombre)).toContain('bhe_recibida');
+    const columna = (tabla: string, nombre: string) => tablas.find((t) => t.nombre === tabla)?.columnas.find((c) => c.nombre === nombre)?.significado ?? '';
+    expect(columna('bhe_recibida', 'anulada')).toMatch(/1.*anulada/);
+    expect(columna('sincronizacion', 'superficie')).toContain('bhe.recibidas');
+    const regla = reglas.find((r) => r.includes('bhe_recibida'));
+    expect(regla).toBeDefined();
+    expect(regla).toContain('anulada = 0');
+    expect(regla).toContain(`'${CODIGO_F29.RETENCION_HONORARIOS}'`);
+  });
+
   it('describe cada tabla y cada columna con tipo y significado', () => {
     for (const tabla of esquemaDatos().tablas) {
       expect(tabla.descripcion.length, tabla.nombre).toBeGreaterThan(10);

@@ -1,7 +1,8 @@
 import type { Periodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
-import type { DocumentoRcv, EstadoRcv, F29Declaracion, F29Valores, Lado, PropuestaF29, RcvResumen } from '../../domain/tipos.js';
+import type { DocumentoRcv, EstadoRcv, F29Declaracion, F29Valores, InformeBhe, Lado, PropuestaF29, RcvResumen } from '../../domain/tipos.js';
 import type { LectorPdfF29, SiiReader, SumideroRespuestas } from '../../ports/index.js';
+import { bheRecibidas } from './bhe.js';
 import { f29Declaraciones, f29Valores } from './f29.js';
 import { lectorPdfF29 } from './f29-pdf.js';
 import type { Http } from './http.js';
@@ -35,5 +36,9 @@ export class LectorPortalSii implements SiiReader {
 
   f29Propuesta(rut: string, periodo: Periodo): Promise<PropuestaF29 | null> {
     return f29Propuesta(this.http, this.sumidero, parseRut(rut), periodo);
+  }
+
+  bheRecibidas(rut: string, periodo: Periodo): Promise<InformeBhe | null> {
+    return bheRecibidas(this.http, this.sumidero, parseRut(rut), periodo);
   }
 }

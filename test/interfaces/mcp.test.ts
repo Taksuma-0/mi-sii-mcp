@@ -4,7 +4,7 @@ import { esquemaDatos } from '../../src/app/consulta-libre.js';
 import type { DepsApp } from '../../src/app/deps.js';
 import { ErrorImpuestocl, type CodigoError } from '../../src/domain/errores.js';
 import { crearServidorMcp, HERRAMIENTAS, INSTRUCCIONES_MCP, type OpcionesMcp } from '../../src/interfaces/mcp/servidor.js';
-import { declaracion, fila, perfilEmpresa, propuesta, resumen, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
+import { boleta, declaracion, fila, perfilEmpresa, propuesta, resumen, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
 import { depsDePrueba } from '../helpers/deps.js';
 import { guardarPdfF29, pdfFalso } from '../helpers/lector-falso.js';
 import { sembrarMes, T_SEMBRADO } from '../helpers/sembrar.js';
@@ -130,15 +130,54 @@ describe('servidor MCP', () => {
     expect(textoDe(r)).toContain('2026-09: propuesta con datos');
     expect(sii.llamadas).toEqual(['propuesta|2026-09']);
     expect(store.propuestaF29(RUT_EMPRESA, '2026-09')).toEqual(propuesta());
-    const mala = await cliente.callTool({ name: 'sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026-09', superficies: ['bhe'] } });
+    const mala = await cliente.callTool({ name: 'sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026-09', superficies: ['f22'] } });
     expect(esError(mala)).toBe(true);
     await cliente.close();
   });
 
-  it('consulta_sql menciona la propuesta de F29 entre los datos que consulta', async () => {
+  it('sincronizar acepta la superficie bhe (boletas de honorarios recibidas) y la describe', async () => {
+    const { deps, store, sii } = depsDePrueba();
+    store.guardarContribuyente(perfilEmpresa());
+    sii.bhe.set('2026-09', { boletas: [boleta()], totales: { total: 1, bruto: 1_000_000, retencion: 152_500, liquido: 847_500 } });
+    const cliente = await conectar(deps);
+    const { tools } = await cliente.listTools();
+    const herramienta = tools.find((t) => t.name === 'sincronizar')!;
+    expect(JSON.stringify(herramienta.inputSchema)).toContain('"bhe"');
+    expect(herramienta.description).toMatch(/«bhe».*boletas de honorarios recibidas/i);
+    expect(tools.find((t) => t.name === 'f29_historial')?.description).toMatch(/boletas de honorarios.*151/);
+
+    const r = await cliente.callTool({ name: 'sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026-09', superficies: ['bhe'] } });
+
+    expect(esError(r)).toBe(false);
+    expect(textoDe(r)).toContain('2026-09: 1 boletas de honorarios');
+    expect(sii.llamadas).toEqual(['bhe|2026-09']);
+    expect(store.boletasHonorarios(RUT_EMPRESA, '2026-09')).toEqual([boleta()]);
+    await cliente.close();
+  });
+
+  it('sii_panorama agrega un sufijo solo si algún mes tiene boletas de honorarios consultadas', async () => {
+    const { deps, store } = depsDePrueba();
+    store.guardarContribuyente(perfilEmpresa());
+    sembrarMes(store, '2026-08');
+    sembrarMes(store, '2026-09');
+    const cliente = await conectar(deps);
+    const base = 'Panorama local: 2 meses. Fuentes: RCV (compras y ventas) y F29. Cobertura: ventas 2/2, compras 2/2 y F29 2/2 meses consultados.';
+    expect(textoDe(await cliente.callTool({ name: 'sii_panorama', arguments: { rut: RUT_EMPRESA } })).split('\n\n')[0]).toBe(base);
+    const id = store.iniciarSincronizacion(RUT_EMPRESA, 'bhe.recibidas', '2026-09', T_SEMBRADO);
+    store.reemplazarBhe(id, RUT_EMPRESA, '2026-09', [boleta()], T_SEMBRADO);
+    store.terminarSincronizacion(id, T_SEMBRADO, 'ok');
+
+    const r = await cliente.callTool({ name: 'sii_panorama', arguments: { rut: RUT_EMPRESA } });
+
+    expect(textoDe(r).split('\n\n')[0]).toBe(`${base} Boletas de honorarios recibidas: 1/2 meses consultados.`);
+    await cliente.close();
+  });
+
+  it('consulta_sql menciona la propuesta de F29 y las boletas de honorarios entre los datos que consulta', async () => {
     const cliente = await conectar(depsDePrueba().deps);
     const { tools } = await cliente.listTools();
     expect(tools.find((t) => t.name === 'consulta_sql')?.description).toMatch(/propuesta de F29/);
+    expect(tools.find((t) => t.name === 'consulta_sql')?.description).toMatch(/boletas de honorarios recibidas/);
     await cliente.close();
   });
 
@@ -392,7 +431,7 @@ describe('servidor MCP', () => {
   });
 
   describe('datos_esquema', () => {
-    it('lista las 10 tablas con sus columnas y las reglas de interpretación', async () => {
+    it('lista las 11 tablas con sus columnas y las reglas de interpretación', async () => {
       const cliente = await conectar(depsDePrueba().deps);
 
       const r = await cliente.callTool({ name: 'datos_esquema', arguments: {} });
@@ -400,9 +439,9 @@ describe('servidor MCP', () => {
       expect(esError(r)).toBe(false);
       const texto = textoDe(r);
       const datos = JSON.parse(texto.slice(texto.indexOf('\n\n') + 2));
-      expect(datos.tablas.map((t: { nombre: string }) => t.nombre)).toEqual(['contribuyente', 'rcv_resumen', 'rcv_documento', 'f29_declaracion', 'f29_valor', 'f29_lectura', 'f29_propuesta', 'f29_propuesta_valor', 'hallazgo', 'sincronizacion']);
+      expect(datos.tablas.map((t: { nombre: string }) => t.nombre)).toEqual(['contribuyente', 'rcv_resumen', 'rcv_documento', 'f29_declaracion', 'f29_valor', 'f29_lectura', 'f29_propuesta', 'f29_propuesta_valor', 'bhe_recibida', 'hallazgo', 'sincronizacion']);
       expect(datos).toEqual(JSON.parse(JSON.stringify(esquemaDatos())));
-      expect(texto.split('\n\n')[0]).toContain('10 tablas');
+      expect(texto.split('\n\n')[0]).toContain('11 tablas');
       await cliente.close();
     });
 

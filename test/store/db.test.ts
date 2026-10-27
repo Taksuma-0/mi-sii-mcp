@@ -56,6 +56,23 @@ describe('db', () => {
     expect(() => db.prepare("INSERT INTO f29_propuesta_valor (rut, periodo, lista, codigo, valor) VALUES ('1', '2026-09', 'propuesto', '520', 6)").run()).toThrow();
   });
 
+  it('la migración 5 crea bhe_recibida con clave por receptor, emisor y folio, e índice por rut y periodo', () => {
+    const db = nuevaDb();
+    expect(MIGRACIONES.find((m) => m.version === 5)?.sql).toContain('bhe_recibida');
+    db.prepare("INSERT INTO sincronizacion (rut, superficie, periodo, iniciado_en) VALUES ('1', 'bhe.recibidas', '2026-09', 't')").run();
+    const insertar = (folio: number, anulada = 0) =>
+      db
+        .prepare(
+          `INSERT INTO bhe_recibida (rut, periodo, rut_emisor, folio, nombre_emisor, fecha, bruto, retencion, liquido, sociedad_profesional, anulada, fecha_anulacion, sincronizacion_id, obtenido_en)
+           VALUES ('1', '2026-09', '55555555-5', ?, NULL, NULL, 100, 15, 85, 0, ?, NULL, 1, 't')`,
+        )
+        .run(folio, anulada);
+    insertar(1);
+    expect(() => insertar(1)).toThrow();
+    expect(() => insertar(2, 2)).toThrow();
+    expect(db.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'bhe_recibida' AND sql LIKE '%rut, periodo%'").all()).toHaveLength(1);
+  });
+
   it('migra una base v1 con datos a la v2 agregando estado_id', () => {
     const db = new Database(':memory:');
     aplicarMigraciones(db, [MIGRACIONES[0]!]);

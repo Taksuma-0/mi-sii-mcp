@@ -1,4 +1,4 @@
-import type { DocumentoRcv, F29Declaracion, F29Valores, Perfil, PropuestaF29, RcvResumen, RcvResumenFila } from '../../src/domain/tipos.js';
+import type { BoletaHonorarios, DocumentoRcv, F29Declaracion, F29Valores, Perfil, PropuestaF29, RcvResumen, RcvResumenFila } from '../../src/domain/tipos.js';
 
 export const RUT_EMPRESA = '22222222-2';
 export const RUT_PERSONA = '11111111-1';
@@ -94,5 +94,23 @@ export const propuesta = (o: Partial<PropuestaF29> = {}): PropuestaF29 => ({
   propuestos: { '511': 900_000, '520': 950_000, '519': 50_000, '504': 120_000, '151': 30_000 },
   administrativos: { '9114': 1 },
   sinPropuesta: false,
+  ...o,
+});
+
+export const RUT_HONORARIOS = '55555555-5';
+
+export const boleta = (o: Partial<BoletaHonorarios> = {}): BoletaHonorarios => ({
+  rut: RUT_EMPRESA,
+  periodo: '2026-09',
+  rutEmisor: RUT_HONORARIOS,
+  folio: 101,
+  nombreEmisor: 'Profesional Ficticio',
+  fecha: '2026-09-05',
+  bruto: 1_000_000,
+  retencion: 152_500,
+  liquido: 847_500,
+  sociedadProfesional: false,
+  anulada: false,
+  fechaAnulacion: null,
   ...o,
 });

@@ -1,11 +1,13 @@
 import type { Periodo } from '../domain/periodo.js';
 import type {
+  BoletaHonorarios,
   DisponibilidadFuentes,
   DocumentoRcv,
   EstadoRcv,
   F29Declaracion,
   F29Valores,
   Hallazgo,
+  InformeBhe,
   Lado,
   LecturaF29,
   LecturaFolioF29,
@@ -16,6 +18,7 @@ import type {
   Severidad,
   SnapshotRcv,
   TipoContribuyente,
+  TotalesBheMes,
 } from '../domain/tipos.js';
 
 /** Recibe cada respuesta cruda del SII, para guardarla como evidencia. */
@@ -28,6 +31,8 @@ export interface SiiReader {
   f29Valores(rut: string, declaracion: F29Declaracion): Promise<F29Valores>;
   /** Propuesta de F29 del SII para el mes, o null si el SII no devolvió datos. */
   f29Propuesta(rut: string, periodo: Periodo): Promise<PropuestaF29 | null>;
+  /** Boletas de honorarios recibidas del mes (todas las páginas), o null si el SII respondió vacío sin confirmar que no hay boletas. */
+  bheRecibidas(rut: string, periodo: Periodo): Promise<InformeBhe | null>;
 }
 
 /** Lee los códigos del PDF compacto del F29. La sincronización y la relectura usan el mismo, así su versión dice qué lector se usó. */
@@ -176,6 +181,11 @@ export interface Store {
   /** Reemplaza la propuesta F29 del mes (cabecera y valores) en una transacción. */
   reemplazarPropuestaF29(sincronizacionId: number, rut: string, periodo: string, propuesta: PropuestaF29, obtenidoEn: string): void;
   propuestaF29(rut: string, periodo: string): PropuestaF29 | null;
+  /** Reemplaza las boletas de honorarios recibidas del mes en una transacción. */
+  reemplazarBhe(sincronizacionId: number, rut: string, periodo: string, boletas: readonly BoletaHonorarios[], obtenidoEn: string): void;
+  boletasHonorarios(rut: string, periodo: string): BoletaHonorarios[];
+  /** Cantidad de boletas guardadas del mes (con anuladas) y montos de las no anuladas. */
+  totalesBhe(rut: string, periodo: string): TotalesBheMes;
   snapshotsRcv(rut: string, periodo: string): SnapshotRcv[];
   disponibilidadFuentes(rut: string, periodo: string): DisponibilidadFuentes;
   frescura(rut: string, periodo: string): Frescura;

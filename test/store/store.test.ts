@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { DocumentoRcv, Hallazgo, Lado, PropuestaF29, RcvResumen } from '../../src/domain/tipos.js';
+import type { BoletaHonorarios, DocumentoRcv, Hallazgo, Lado, PropuestaF29, RcvResumen } from '../../src/domain/tipos.js';
 import { abrirDb, type Db } from '../../src/store/sqlite/db.js';
 import { huellaDocumento, SqliteStore } from '../../src/store/sqlite/store.js';
-import { declaracion, documento, fila, propuesta, perfilEmpresa, perfilPersona, resumen, RUT_EMPRESA, RUT_PERSONA, valores } from '../helpers/fabricas.js';
+import { boleta, declaracion, documento, fila, propuesta, perfilEmpresa, perfilPersona, resumen, RUT_EMPRESA, RUT_PERSONA, valores } from '../helpers/fabricas.js';
 import { guardarPdfF29, pdfFalso } from '../helpers/lector-falso.js';
 import { medirLecturas } from '../helpers/lecturas-sqlite.js';
 
@@ -430,5 +430,69 @@ describe('SqliteStore: propuesta F29', () => {
   it('la propuesta guardada no cambia la disponibilidad hasta que una sincronización ok la registra', () => {
     guardar(propuesta());
     expect(store.disponibilidadFuentes(RUT_EMPRESA, '2026-09')).toMatchObject({ propuestaF29: true, f29: false });
+  });
+});
+
+describe('SqliteStore: boletas de honorarios recibidas', () => {
+  function guardar(boletas: readonly BoletaHonorarios[], periodo = '2026-09', obtenidoEn = T): number {
+    const id = store.iniciarSincronizacion(RUT_EMPRESA, 'bhe.recibidas', periodo, obtenidoEn);
+    store.reemplazarBhe(id, RUT_EMPRESA, periodo, boletas, obtenidoEn);
+    store.terminarSincronizacion(id, obtenidoEn, 'ok');
+    return id;
+  }
+
+  it('sin datos guardados no hay boletas y los totales son cero', () => {
+    expect(store.boletasHonorarios(RUT_EMPRESA, '2026-09')).toEqual([]);
+    expect(store.totalesBhe(RUT_EMPRESA, '2026-09')).toEqual({ cantidad: 0, anuladas: 0, bruto: 0, retencion: 0, liquido: 0 });
+  });
+
+  it('guarda y devuelve las boletas del mes ordenadas por fecha, emisor y folio, con nulos y booleanos', () => {
+    const b1 = boleta({ folio: 102, fecha: '2026-09-20' });
+    const b2 = boleta({ folio: 7, rutEmisor: '44444444-4', nombreEmisor: null, fecha: null, sociedadProfesional: true, anulada: true, fechaAnulacion: '2026-09-15' });
+    const b3 = boleta({ folio: 101, fecha: '2026-09-05' });
+    guardar([b1, b2, b3]);
+
+    expect(store.boletasHonorarios(RUT_EMPRESA, '2026-09')).toEqual([b2, b3, b1]);
+  });
+
+  it('los totales del mes cuentan todas las boletas y suman solo las no anuladas', () => {
+    guardar([
+      boleta({ folio: 1, bruto: 1_000_000, retencion: 152_500, liquido: 847_500 }),
+      boleta({ folio: 2, bruto: 200_000, retencion: 30_500, liquido: 169_500, anulada: true, fechaAnulacion: '2026-09-15' }),
+      boleta({ folio: 3, bruto: 500_000, retencion: 76_250, liquido: 423_750 }),
+    ]);
+
+    expect(store.totalesBhe(RUT_EMPRESA, '2026-09')).toEqual({ cantidad: 3, anuladas: 1, bruto: 1_500_000, retencion: 228_750, liquido: 1_271_250 });
+  });
+
+  it('reemplaza las boletas del mes sin tocar otros meses; una vacía las borra', () => {
+    guardar([boleta({ folio: 1 }), boleta({ folio: 2 })]);
+    guardar([boleta({ periodo: '2026-08', folio: 50 })], '2026-08');
+    guardar([boleta({ folio: 3 })], '2026-09', '2026-10-22T10:00:00.000Z');
+    expect(store.boletasHonorarios(RUT_EMPRESA, '2026-09').map((b) => b.folio)).toEqual([3]);
+    expect(store.boletasHonorarios(RUT_EMPRESA, '2026-08').map((b) => b.folio)).toEqual([50]);
+
+    guardar([], '2026-09', '2026-10-23T10:00:00.000Z');
+    expect(store.boletasHonorarios(RUT_EMPRESA, '2026-09')).toEqual([]);
+    expect(store.boletasHonorarios(RUT_EMPRESA, '2026-08')).toHaveLength(1);
+  });
+
+  it('una boleta que ya estaba en otro mes pasa al mes que la trae ahora', () => {
+    guardar([boleta({ periodo: '2026-08', folio: 1 })], '2026-08');
+    guardar([boleta({ folio: 1 })]);
+    expect(store.boletasHonorarios(RUT_EMPRESA, '2026-08')).toEqual([]);
+    expect(store.boletasHonorarios(RUT_EMPRESA, '2026-09').map((b) => b.folio)).toEqual([1]);
+  });
+
+  it('revierte el reemplazo si falla una inserción', () => {
+    guardar([boleta({ folio: 1 })]);
+    expect(() => guardar([boleta({ folio: 2 }), boleta({ folio: 3, bruto: NaN })], '2026-09', '2026-10-22T10:00:00.000Z')).toThrow();
+    expect(store.boletasHonorarios(RUT_EMPRESA, '2026-09').map((b) => b.folio)).toEqual([1]);
+  });
+
+  it('una sincronización ok de bhe.recibidas marca la fuente disponible y su frescura', () => {
+    guardar([]);
+    expect(store.disponibilidadFuentes(RUT_EMPRESA, '2026-09')).toMatchObject({ bheRecibidas: true, f29: false });
+    expect(store.frescura(RUT_EMPRESA, '2026-09').bhe).toBe(T);
   });
 });

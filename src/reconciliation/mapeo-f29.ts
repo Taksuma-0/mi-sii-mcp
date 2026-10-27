@@ -10,6 +10,7 @@ export const CODIGO_F29 = {
   TOTAL_A_PAGAR: '91',
   IVA_DETERMINADO: '89',
   TOTAL_DETERMINADO: '547',
+  RETENCION_HONORARIOS: '151',
 } as const;
 
 /** Códigos que suman en el 538 pero no vienen del RCV. Se calibra con un F29 real (Tarea 23). */

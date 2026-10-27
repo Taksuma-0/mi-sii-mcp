@@ -1,0 +1,45 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<title>Informe Mensual de Boletas de Honorarios Electrónicas Recibidas</title>
+<script language="JavaScript">
+var arr_informe_mensual = new Array();
+var xml_values = new Array();
+xml_values['anio_consulta'] = "2026";
+xml_values['mes_consulta'] = "09";
+xml_values['nombre_contribuyente'] = "EMPRESA DEMO SPA";
+xml_values['porcentaje_retencion'] = "15,25";
+xml_values['cant_boletas'] = 1;
+xml_values['total_boletas'] = 3;
+xml_values['pagina_solicitada'] = 1;
+xml_values['pagina_sig_codigo'] = "";
+xml_values['pagina_med_codigo'] = "";
+xml_values['pagina_ant_codigo'] = "0";
+xml_values['pagina_actual'] = 1;
+xml_values['pagina_lista'] = "0,1";
+xml_values['suma_honorarios'] = 1500000;
+xml_values['suma_retencion_receptor'] = 228750;
+xml_values['suma_liquido'] = 1271250;
+xml_values['suma_retencion_emisor'] = 0;
+
+arr_informe_mensual['nroboleta_1'] = "102";
+arr_informe_mensual['rutemisor_1'] = "33333333";
+arr_informe_mensual['dvemisor_1'] = "3";
+arr_informe_mensual['nombre_emisor_1'] = "José Ñúñez Peñaloza";
+arr_informe_mensual['fecha_boleta_1'] = "20/09/2026";
+arr_informe_mensual['totalhonorarios_1'] = formatMiles("500000",'.');
+arr_informe_mensual['honorariosliquidos_1'] = formatMiles("423750",'.');
+arr_informe_mensual['es_soc_profesional_1'] = "NO";
+arr_informe_mensual['cod_comuna_1'] = "13101";
+arr_informe_mensual['retencion_receptor_1'] = formatMiles("76250",'.');
+arr_informe_mensual['estado_1'] = "N";
+arr_informe_mensual['fechaanulacion_1'] = "";
+arr_informe_mensual['codigobarras_1'] = "BHE0102FICTICIO";
+</script>
+</head>
+<body onload="cargarInforme();">
+<form name="formulario" method="post" action="TMBCOC_InformeMensualBheRec.cgi">
+<table id="tabla_informe"></table>
+</form>
+</body>
+</html>

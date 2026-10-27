@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ErrorImpuestocl } from '../../src/domain/errores.js';
 import { leerLineaStdin, pedirClaveOculta } from '../../src/interfaces/cli/clave.js';
 import { crearPrograma, type ContenedorCli, type IoCli, type SesionesCli } from '../../src/interfaces/cli/programa.js';
-import { declaracion, documento, fila, perfilEmpresa, propuesta, resumen, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
+import { boleta, declaracion, documento, fila, perfilEmpresa, propuesta, resumen, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
 import { depsDePrueba } from '../helpers/deps.js';
 import { guardarPdfF29, pdfFalso } from '../helpers/lector-falso.js';
 import { sembrarMes, T_SEMBRADO } from '../helpers/sembrar.js';
@@ -140,10 +140,20 @@ describe('CLI', () => {
     expect(e.sii.llamadas.some((l) => l.startsWith('propuesta'))).toBe(false);
   });
 
+  it('sync --solo bhe trae solo las boletas de honorarios recibidas', async () => {
+    const e = entorno();
+    e.store.guardarContribuyente(perfilEmpresa());
+    e.sii.bhe.set('2026-09', { boletas: [boleta()], totales: { total: 1, bruto: 1_000_000, retencion: 152_500, liquido: 847_500 } });
+    expect(await e.correr('sync', RUT_EMPRESA, '--desde', '2026-09', '--solo', 'bhe')).toBe(0);
+    expect(e.sii.llamadas).toEqual(['bhe|2026-09']);
+    expect(e.salidaTexto.at(-1)).toContain('2026-09: 1 boletas de honorarios');
+    expect(e.store.boletasHonorarios(RUT_EMPRESA, '2026-09')).toEqual([boleta()]);
+  });
+
   it('sync --solo con una superficie desconocida se rechaza', async () => {
     const e = entorno();
     e.store.guardarContribuyente(perfilEmpresa());
-    await expect(e.correr('sync', RUT_EMPRESA, '--desde', '2026-09', '--solo', 'bhe')).rejects.toMatchObject({ code: 'commander.invalidArgument' });
+    await expect(e.correr('sync', RUT_EMPRESA, '--desde', '2026-09', '--solo', 'f22')).rejects.toMatchObject({ code: 'commander.invalidArgument' });
     expect(e.sii.llamadas).toEqual([]);
   });
 

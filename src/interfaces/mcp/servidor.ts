@@ -141,7 +141,11 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
         const f29 = r.periodos.filter((p) => p.disponibilidad.f29).length;
         // La propuesta es opt-in: el sufijo aparece solo si algún mes la tiene guardada.
         const conPropuesta = r.periodos.filter((p) => p.propuesta !== undefined);
-        const sufijo = conPropuesta.length > 0 ? ` Propuesta del SII: ${conPropuesta.length}/${meses} meses consultados, ${conPropuesta.filter((p) => p.propuesta?.sinPropuesta === false).length} con propuesta.` : '';
+        const sufijoPropuesta = conPropuesta.length > 0 ? ` Propuesta del SII: ${conPropuesta.length}/${meses} meses consultados, ${conPropuesta.filter((p) => p.propuesta?.sinPropuesta === false).length} con propuesta.` : '';
+        // Las boletas de honorarios también son opt-in: su sufijo aparece solo si algún mes las consultó.
+        const conBoletas = r.periodos.filter((p) => p.honorarios !== undefined).length;
+        const sufijoBoletas = conBoletas > 0 ? ` Boletas de honorarios recibidas: ${conBoletas}/${meses} meses consultados.` : '';
+        const sufijo = `${sufijoPropuesta}${sufijoBoletas}`;
         return respuesta(`Panorama local: ${meses} meses. Fuentes: RCV (compras y ventas) y F29. Cobertura: ventas ${ventas}/${meses}, compras ${compras}/${meses} y F29 ${f29}/${meses} meses consultados.${sufijo}`, r);
       }, rut),
   );
@@ -151,8 +155,8 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
     {
       title: 'Sincronizar con el SII',
       description:
-        'Trae desde el portal del SII el RCV (compras y ventas) y el F29 de un rango de meses y los guarda en la base local. Solo lee el SII: nunca presenta ni modifica nada allí. Por defecto trae rcv y f29; con superficies puedes elegir, y «propuesta» (opcional, no va por defecto) agrega la propuesta de F29 del SII: crédito, remanente y retención propuestos, sin débito ni total a pagar. Admite hasta 120 meses por llamada; para historia larga llama por tramos de 12 meses, así avanzas por partes y evitas que el cliente agote el plazo de espera. Si no hay sesión, la respuesta trae el comando de login para que la persona lo ejecute en su terminal (o conecte desde «Abrir impuestocl.cmd»); nunca pidas la clave en el chat.',
-      inputSchema: z.object({ rut: RUT, desde: PERIODO, hasta: PERIODO.optional(), superficies: z.array(z.enum(['rcv', 'f29', 'propuesta'])).optional() }),
+        'Trae desde el portal del SII el RCV (compras y ventas) y el F29 de un rango de meses y los guarda en la base local. Solo lee el SII: nunca presenta ni modifica nada allí. Por defecto trae rcv y f29; con superficies puedes elegir, y «propuesta» (opcional, no va por defecto) agrega la propuesta de F29 del SII: crédito, remanente y retención propuestos, sin débito ni total a pagar; «bhe» (opcional, no va por defecto) agrega las boletas de honorarios recibidas del mes, con su retención, que se cruza con el código 151 del F29. Admite hasta 120 meses por llamada; para historia larga llama por tramos de 12 meses, así avanzas por partes y evitas que el cliente agote el plazo de espera. Si no hay sesión, la respuesta trae el comando de login para que la persona lo ejecute en su terminal (o conecte desde «Abrir impuestocl.cmd»); nunca pidas la clave en el chat.',
+      inputSchema: z.object({ rut: RUT, desde: PERIODO, hasta: PERIODO.optional(), superficies: z.array(z.enum(['rcv', 'f29', 'propuesta', 'bhe'])).optional() }),
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
     async ({ rut, desde, hasta, superficies }, ctx) =>
@@ -243,7 +247,7 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
     'f29_historial',
     {
       title: 'Historial del F29',
-      description: 'Por cada mes del rango: si el F29 está presentado, folio, débitos, créditos y total a pagar.',
+      description: 'Por cada mes del rango: si el F29 está presentado, folio, débitos, créditos y total a pagar; si se sincronizaron las boletas de honorarios recibidas del mes, también la retención declarada (código 151) junto a la de esas boletas.',
       inputSchema: z.object({ rut: RUT, desde: PERIODO, hasta: PERIODO }),
       annotations: SOLO_LECTURA,
     },
@@ -273,7 +277,7 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
     'consulta_sql',
     {
       title: 'Consulta SQL libre',
-      description: `Ejecuta una sola sentencia SELECT (o WITH … SELECT) de solo lectura sobre una copia de los datos locales (RCV, F29, propuesta de F29, hallazgos y bitácora de sincronización). Llama antes una vez a datos_esquema: describe tablas, columnas y reglas (signo de las notas de crédito, estados del RCV, códigos del F29). Sin parámetros: escribe los valores como literales. Devuelve como máximo ${LIMITES_CONSULTA.filas} filas y ${LIMITES_CONSULTA.caracteres} caracteres: filtra por RUT y período, agrupa o usa LIMIT.`,
+      description: `Ejecuta una sola sentencia SELECT (o WITH … SELECT) de solo lectura sobre una copia de los datos locales (RCV, F29, propuesta de F29, boletas de honorarios recibidas, hallazgos y bitácora de sincronización). Llama antes una vez a datos_esquema: describe tablas, columnas y reglas (signo de las notas de crédito, estados del RCV, códigos del F29). Sin parámetros: escribe los valores como literales. Devuelve como máximo ${LIMITES_CONSULTA.filas} filas y ${LIMITES_CONSULTA.caracteres} caracteres: filtra por RUT y período, agrupa o usa LIMIT.`,
       inputSchema: z.object({ sql: z.string().describe('Una sola sentencia SELECT o WITH … SELECT') }),
       annotations: SOLO_LECTURA,
     },

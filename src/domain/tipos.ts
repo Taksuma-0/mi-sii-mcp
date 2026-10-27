@@ -170,3 +170,47 @@ export interface PropuestaF29 {
   /** El SII no armó una propuesta para el mes: ambas listas vienen vacías. */
   readonly sinPropuesta: boolean;
 }
+
+/** Boleta de honorarios electrónica recibida por el contribuyente (`rut`), según el informe mensual del SII. */
+export interface BoletaHonorarios {
+  /** RUT del receptor: el contribuyente que consulta. */
+  readonly rut: string;
+  readonly periodo: string;
+  readonly rutEmisor: string;
+  readonly folio: number;
+  readonly nombreEmisor: string | null;
+  /** Fecha de la boleta (`AAAA-MM-DD`); null si el SII no la informó. */
+  readonly fecha: string | null;
+  /** Total de honorarios (bruto). */
+  readonly bruto: number;
+  /** Retención que hace el receptor. */
+  readonly retencion: number;
+  readonly liquido: number;
+  readonly sociedadProfesional: boolean;
+  readonly anulada: boolean;
+  /** Fecha de anulación (`AAAA-MM-DD`); null si no está anulada o no se informó. */
+  readonly fechaAnulacion: string | null;
+}
+
+/** Totales que informa el SII junto a las boletas: cantidad de boletas y sumas de bruto, retención y líquido. */
+export interface TotalesBhe {
+  readonly total: number;
+  readonly bruto: number;
+  readonly retencion: number;
+  readonly liquido: number;
+}
+
+/** Informe mensual de boletas de honorarios recibidas: todas las páginas, sin repetidas. */
+export interface InformeBhe {
+  readonly boletas: readonly BoletaHonorarios[];
+  readonly totales: TotalesBhe;
+}
+
+/** Boletas de honorarios guardadas de un mes: cantidad (con anuladas) y montos de las no anuladas. */
+export interface TotalesBheMes {
+  readonly cantidad: number;
+  readonly anuladas: number;
+  readonly bruto: number;
+  readonly retencion: number;
+  readonly liquido: number;
+}

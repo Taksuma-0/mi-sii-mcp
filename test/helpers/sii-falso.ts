@@ -1,6 +1,6 @@
 import { ErrorImpuestocl } from '../../src/domain/errores.js';
 import type { Periodo } from '../../src/domain/periodo.js';
-import type { DocumentoRcv, EstadoRcv, F29Declaracion, F29Valores, Lado, PropuestaF29, RcvResumen, RcvResumenFila } from '../../src/domain/tipos.js';
+import type { DocumentoRcv, EstadoRcv, F29Declaracion, F29Valores, InformeBhe, Lado, PropuestaF29, RcvResumen, RcvResumenFila } from '../../src/domain/tipos.js';
 import type { SiiReader, SumideroRespuestas } from '../../src/ports/index.js';
 
 /**
@@ -10,6 +10,7 @@ import type { SiiReader, SumideroRespuestas } from '../../src/ports/index.js';
  * - declaraciones: `periodo`
  * - valores: `periodo|folio`
  * - propuestas: `periodo` (null = el SII respondió sin datos)
+ * - bhe: `periodo` (null = vacío ambiguo; sin entrada = mes sin boletas)
  * Cada llamada queda en `llamadas` (p. ej. `resumen|2026-09|VENTA|REGISTRO`); `fallas` usa ese mismo texto.
  * `alLlamar` corre en cada llamada, antes de responder (por ejemplo, para cancelar a mitad de camino).
  * Un resumen sin filas llega con "sin movimientos" explícito (código 3), salvo con `vaciosAmbiguos`.
@@ -23,6 +24,7 @@ export class SiiFalso implements SiiReader {
   readonly declaraciones = new Map<string, F29Declaracion[]>();
   readonly valores = new Map<string, F29Valores>();
   readonly propuestas = new Map<string, PropuestaF29 | null>();
+  readonly bhe = new Map<string, InformeBhe | null>();
   readonly fallas = new Map<string, Error>();
   alLlamar: (llamada: string) => void | Promise<void> = () => {};
   /** Entrega los resúmenes vacíos sin la marca `sinMovimientos`, como un vacío ambiguo del SII. */
@@ -64,5 +66,11 @@ export class SiiFalso implements SiiReader {
   async f29Propuesta(_rut: string, periodo: Periodo): Promise<PropuestaF29 | null> {
     await this.registrar(`propuesta|${periodo.texto}`);
     return this.propuestas.get(periodo.texto) ?? null;
+  }
+
+  async bheRecibidas(_rut: string, periodo: Periodo): Promise<InformeBhe | null> {
+    await this.registrar(`bhe|${periodo.texto}`);
+    const informe = this.bhe.get(periodo.texto);
+    return informe === undefined ? { boletas: [], totales: { total: 0, bruto: 0, retencion: 0, liquido: 0 } } : informe;
   }
 }

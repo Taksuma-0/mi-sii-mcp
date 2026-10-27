@@ -16,6 +16,7 @@ import {
   type Perfil,
   type Plazo,
   type RcvResumenFila,
+  type TotalesBheMes,
 } from '../domain/tipos.js';
 import type { FiltroDocumentos, FiltroHallazgos, Frescura, HallazgoGuardado } from '../ports/index.js';
 import { conciliarPeriodo, type Comparaciones } from '../reconciliation/conciliar.js';
@@ -44,6 +45,8 @@ export interface ResumenIva {
     readonly remanente: number | null;
     readonly retencion: number | null;
   } | null;
+  /** Boletas de honorarios recibidas del mes (cantidad con anuladas; montos sin ellas), solo si se consultaron. */
+  readonly honorarios: TotalesBheMes | null;
   readonly venceF29: string;
   readonly comparaciones: Comparaciones;
   readonly hallazgos: readonly Hallazgo[];
@@ -59,6 +62,10 @@ export interface FilaHistorialF29 {
   readonly totalAPagar: number | null;
   readonly debitos: number | null;
   readonly creditos: number | null;
+  /** Retención declarada en el código 151 del F29 vigente; null si no se leyó. */
+  readonly retencion151: number | null;
+  /** Retención de las boletas de honorarios recibidas no anuladas del mes; null si no se consultaron. */
+  readonly retencionBoletas: number | null;
   /** Último momento en que se consultó el F29 de ese mes, o null si nunca. */
   readonly sincronizado: string | null;
 }
@@ -125,6 +132,7 @@ export function resumenIva(deps: DepsApp, rutTexto: string, periodoTexto: string
       ? { folio: vigente.folio, estado: vigente.estado, fechaPresentacion: vigente.fechaPresentacion, totalAPagar: vigente.totalAPagar, valores: entrada.valores?.valores ?? {} }
       : null,
     propuesta: propuesta ? { tipo: propuesta.tipoPropuesta, sinPropuesta: propuesta.sinPropuesta, ...montosPropuesta(propuesta) } : null,
+    honorarios: disponibilidad.bheRecibidas ? deps.store.totalesBhe(perfil.rut, periodo.texto) : null,
     venceF29: vencimientoF29(periodo),
     comparaciones: resultado.comparaciones,
     hallazgos: resultado.hallazgos,
@@ -206,6 +214,8 @@ export function f29Historial(deps: DepsApp, rutTexto: string, desde: string, has
       totalAPagar: vigente?.totalAPagar ?? null,
       debitos: montoF29(valores, CODIGO_F29.TOTAL_DEBITOS),
       creditos: montoF29(valores, CODIGO_F29.TOTAL_CREDITOS),
+      retencion151: montoF29(valores, CODIGO_F29.RETENCION_HONORARIOS),
+      retencionBoletas: deps.store.disponibilidadFuentes(perfil.rut, periodo.texto).bheRecibidas ? deps.store.totalesBhe(perfil.rut, periodo.texto).retencion : null,
       sincronizado: deps.store.frescura(perfil.rut, periodo.texto).f29,
     };
   });

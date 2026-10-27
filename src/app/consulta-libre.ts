@@ -180,6 +180,27 @@ const TABLAS: readonly TablaEsquema[] = [
     ],
   },
   {
+    nombre: 'bhe_recibida',
+    descripcion:
+      'Boletas de honorarios electrónicas recibidas por el contribuyente (rut), una fila por emisor y folio, solo si se sincronizó la superficie bhe. Incluye las anuladas (anulada = 1).',
+    columnas: [
+      col('rut', 'TEXT', 'RUT del contribuyente que recibió la boleta, sin puntos y con guion (22222222-2)'),
+      PERIODO,
+      col('rut_emisor', 'TEXT', 'RUT de quien emitió la boleta, sin puntos y con guion'),
+      col('folio', 'INTEGER', 'Número de la boleta del emisor'),
+      col('nombre_emisor', 'TEXT', 'Nombre de quien emitió la boleta; puede ser NULL'),
+      col('fecha', 'TEXT', 'Fecha de la boleta AAAA-MM-DD; puede ser NULL'),
+      col('bruto', 'INTEGER', 'Total de honorarios (bruto), en pesos'),
+      col('retencion', 'INTEGER', 'Retención que hace quien recibe la boleta, en pesos'),
+      col('liquido', 'INTEGER', 'Honorarios líquidos (bruto menos retención), en pesos'),
+      col('sociedad_profesional', 'INTEGER', '1 si el emisor es una sociedad de profesionales; 0 si no'),
+      col('anulada', 'INTEGER', '1 si la boleta está anulada (no cuenta en los montos); 0 si está vigente'),
+      col('fecha_anulacion', 'TEXT', 'Fecha de anulación AAAA-MM-DD; NULL si no está anulada'),
+      SINCRONIZACION_ID,
+      OBTENIDO_EN,
+    ],
+  },
+  {
     nombre: 'hallazgo',
     descripcion:
       'Resultados de la conciliación IVA (RCV contra F29) y avisos de plazos, por rut y periodo. Se recalculan al pedir iva_resumen o iva_hallazgos: una tabla vacía no prueba que no haya diferencias.',
@@ -204,7 +225,7 @@ const TABLAS: readonly TablaEsquema[] = [
     columnas: [
       col('id', 'INTEGER', 'Identificador; mayor id = intento más reciente'),
       RUT,
-      col('superficie', 'TEXT', 'rcv.VENTA, rcv.COMPRA, f29 (listado de declaraciones), f29.valores (detalle de la vigente; no se repite si f29_lectura ya tiene una lectura coherente del folio con la misma versión del lector, así que puede no haber un intento reciente) o f29.propuesta (propuesta del SII; solo si se pidió)'),
+      col('superficie', 'TEXT', 'rcv.VENTA, rcv.COMPRA, f29 (listado de declaraciones), f29.valores (detalle de la vigente; no se repite si f29_lectura ya tiene una lectura coherente del folio con la misma versión del lector, así que puede no haber un intento reciente) , f29.propuesta (propuesta del SII; solo si se pidió) o bhe.recibidas (boletas de honorarios recibidas; solo si se pidió)'),
       PERIODO,
       col('iniciado_en', 'TEXT', 'Instante ISO UTC de inicio'),
       col('terminado_en', 'TEXT', 'Instante ISO UTC de término; NULL si sigue en curso'),
@@ -222,6 +243,7 @@ const DESCRIPCION_CODIGO_F29: Readonly<Record<keyof typeof CODIGO_F29, string>> 
   TOTAL_A_PAGAR: 'total a pagar',
   IVA_DETERMINADO: 'IVA determinado',
   TOTAL_DETERMINADO: 'total determinado',
+  RETENCION_HONORARIOS: 'retención de honorarios',
 };
 
 function reglas(): readonly string[] {
@@ -245,8 +267,9 @@ function reglas(): readonly string[] {
     `F29: f29_valor.codigo es texto (codigo = '538'). Códigos clave: ${codigosF29}. El crédito del F29 comparable con el RCV es '${CODIGO_F29.TOTAL_CREDITOS}' menos ${fueraDelRcv}. El PDF compacto del F29 omite las líneas vacías e impuestocl guarda cada línea con valor de la tabla del formulario, así que si el folio tiene filas en f29_valor un código ausente vale 0. Excepción, los totales: ${totalesAnulados}; si no, falta por una lectura fallida y queda sin dato. Si el folio no tiene ninguna fila, sus valores no se leyeron.`,
     "Un período puede tener varias declaraciones F29 (folios; por ejemplo rectificatorias). La vigente: solo cuentan las presentadas (folio > 0 y ni guardadas ni rechazadas ni anuladas: estado_id fuera de 10 y 70 y estado sin «guardad», «rechazad» ni «anulad»; un estado desconocido cuenta como presentado); si alguna tiene un estado con «vigente», se consideran solo esas y si no, todas las presentadas; gana la de fecha_presentacion más reciente (NULL es la más antigua) y, si empatan, el folio más alto. En SQL: `SELECT * FROM f29_declaracion WHERE rut = '<RUT>' AND periodo = '<AAAA-MM>' AND folio > 0 AND COALESCE(estado_id, 0) NOT IN (10, 70) AND estado NOT LIKE '%guardad%' AND estado NOT LIKE '%rechazad%' AND estado NOT LIKE '%anulad%' ORDER BY (estado LIKE '%vigente%') DESC, COALESCE(fecha_presentacion, '') DESC, folio DESC LIMIT 1`. Une sus valores por rut, periodo y folio.",
     "Propuesta del SII (f29_propuesta y f29_propuesta_valor, solo si se sincronizó la superficie propuesta): lo que el SII propone antes de declarar. Trae el crédito propuesto ('520'; '511' es el crédito neto por documentos), el remanente ('504') y la retención ('151'); no trae débito ni total a pagar, así que no sirve para saber si el F29 llevará pago. Con sin_propuesta = 1 el SII no propuso nada. No reemplaza al F29 declarado.",
+    `Boletas de honorarios recibidas (bhe_recibida, solo si se sincronizó la superficie bhe): para montos usa solo las vigentes (anulada = 0). La retención del mes (SUM(retencion) con anulada = 0) se compara con el código '${CODIGO_F29.RETENCION_HONORARIOS}' (retención de honorarios) del F29 del mismo periodo; puede diferir si alguna boleta se pagó en otro mes o si el F29 incluye otras retenciones.`,
     'Que no haya filas no significa cero: un período no sincronizado no tiene filas. Revisa sincronizacion (el intento más reciente por rut, superficie y periodo): estado ok sin filas = el SII no tenía documentos o declaraciones; sin fila o con estado error = se desconoce, y los datos pueden estar incompletos o ser de un intento anterior.',
-    'Cobertura: solo el RCV (compras y ventas) y el F29 traídos por impuestocl. No hay otros impuestos ni trámites del SII, y esto no es asesoría tributaria.',
+    'Cobertura: solo el RCV (compras y ventas), el F29, la propuesta del F29 y las boletas de honorarios recibidas traídos por impuestocl. No hay otros impuestos ni trámites del SII, y esto no es asesoría tributaria.',
   ];
 }
 

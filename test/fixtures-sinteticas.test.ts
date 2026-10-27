@@ -26,6 +26,10 @@ describe('fixtures sintéticas', () => {
         for (const m of texto.matchAll(/"(?:detRutDoc|rutDoc|rutEmisor|rut|rutContribuyente|usrEmpRut|rutemisor_\d+|rut_arrastre)"\s*:\s*"?(\d{7,8})"?/g)) {
           if (!CUERPOS_PERMITIDOS.has(m[1]!)) extranos.push(`${archivo}: ${m[1]}`);
         }
+        // Páginas HTML del SII: asignaciones JS (`arr_informe_mensual['rutemisor_1'] = "…"`) y parámetros de URL (`rut_arrastre=…`).
+        for (const m of texto.matchAll(/(?:\[\s*['"](?:rutemisor_\d+|rut_arrastre)['"]\s*\]\s*=\s*["']?|\brut_arrastre=)(\d{7,8})/g)) {
+          if (!CUERPOS_PERMITIDOS.has(m[1]!)) extranos.push(`${archivo}: ${m[1]}`);
+        }
       }
     }
     expect(extranos).toEqual([]);

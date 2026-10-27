@@ -11,8 +11,11 @@ import { motivoParaConservar } from './releer-f29.js';
 
 export { SINCRONIZACION_CANCELADA, type ErrorSuperficie, type ResultadoPeriodo };
 
-/** `propuesta` (propuesta de F29 del SII) es opt-in: no forma parte de la sincronización por defecto. */
-export type Superficie = 'rcv' | 'f29' | 'propuesta';
+/**
+ * `propuesta` (propuesta de F29 del SII) y `bhe` (boletas de honorarios recibidas) son opt-in: no forman parte de la
+ * sincronización por defecto.
+ */
+export type Superficie = 'rcv' | 'f29' | 'propuesta' | 'bhe';
 
 export interface ResultadoSync {
   readonly rut: string;
@@ -161,6 +164,21 @@ export async function sincronizar(
           }
           deps.store.reemplazarPropuestaF29(id, rut, periodo.texto, propuesta, ahora);
           res.propuesta = propuesta.sinPropuesta ? 'sin_propuesta' : 'con_datos';
+        });
+      }
+      if (superficies.includes('bhe')) {
+        revisarCancelacion(signal);
+        await registrar(deps, rut, 'bhe.recibidas', periodo.texto, buffer, res, signal, async (id, ahora) => {
+          const informe = await sii.bheRecibidas(rut, periodo);
+          if (informe === null) {
+            if (deps.store.boletasHonorarios(rut, periodo.texto).length > 0) {
+              throw new ErrorImpuestocl('RESPUESTA_VACIA', `Boletas de honorarios ${periodo.texto}: el SII respondió sin boletas ni total; se conservan las boletas guardadas.`);
+            }
+            res.boletasHonorarios = null;
+            return;
+          }
+          deps.store.reemplazarBhe(id, rut, periodo.texto, informe.boletas, ahora);
+          res.boletasHonorarios = informe.boletas.length;
         });
       }
       enCurso = null;

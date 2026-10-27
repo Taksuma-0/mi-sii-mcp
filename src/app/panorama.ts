@@ -1,5 +1,5 @@
 import { declaracionVigente, montosPropuesta, type MontosPropuesta } from '../domain/f29.js';
-import type { DisponibilidadFuentes, Lado, Perfil, RcvResumen } from '../domain/tipos.js';
+import type { DisponibilidadFuentes, Lado, Perfil, RcvResumen, TotalesBheMes } from '../domain/tipos.js';
 import type { Frescura } from '../ports/index.js';
 import { creditoRcv, debitoRcv, signoTipoDoc } from '../reconciliation/mapeo-f29.js';
 import { perfilExistente } from './consultas.js';
@@ -29,6 +29,8 @@ export interface PeriodoPanorama {
   };
   /** Propuesta del SII del mes; solo existe si se sincronizó y trajo datos. */
   readonly propuesta?: MontosPropuesta & { readonly sinPropuesta: boolean };
+  /** Boletas de honorarios recibidas del mes (cantidad con anuladas; montos sin ellas); solo existe si se consultaron. */
+  readonly honorarios?: TotalesBheMes;
 }
 
 export interface PanoramaSii {
@@ -84,6 +86,7 @@ export function panorama(deps: DepsApp, rutTexto: string): PanoramaSii {
         valores: valores?.valores ?? {},
       },
       ...(propuesta ? { propuesta: { sinPropuesta: propuesta.sinPropuesta, ...montosPropuesta(propuesta) } } : {}),
+      ...(disponibilidad.bheRecibidas ? { honorarios: deps.store.totalesBhe(perfil.rut, periodo) } : {}),
     };
   });
   return {

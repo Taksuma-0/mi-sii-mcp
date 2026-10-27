@@ -20,6 +20,12 @@ function lineaPropuesta(p: ResumenIva['propuesta']): string {
   return `Propuesta del SII: crédito ${monto(p.credito)} · remanente ${monto(p.remanente)} · retención ${monto(p.retencion)}`;
 }
 
+function lineaHonorarios(h: NonNullable<ResumenIva['honorarios']>): string {
+  if (h.cantidad === 0) return 'Boletas de honorarios recibidas: ninguna';
+  const anuladas = h.anuladas === 0 ? '' : ` (${h.anuladas} ${h.anuladas === 1 ? 'anulada' : 'anuladas'})`;
+  return `Boletas de honorarios recibidas: ${h.cantidad}${anuladas} · bruto ${monto(h.bruto)} · retención ${monto(h.retencion)}`;
+}
+
 export function textoResumenIva(r: ResumenIva): string {
   const c = r.comparaciones;
   const faltantes = [!r.disponibilidad.ventasRcv && 'ventas RCV', !r.disponibilidad.comprasRcv && 'compras RCV', !r.disponibilidad.f29 && 'F29'].filter(Boolean);
@@ -32,11 +38,12 @@ export function textoResumenIva(r: ResumenIva): string {
       ? `F29: folio ${r.f29.folio} (${r.f29.estado}), presentado ${r.f29.fechaPresentacion ?? 'sin fecha'}, total a pagar ${monto(r.f29.totalAPagar)}`
       : `F29: ${r.disponibilidad.f29 ? 'no presentado' : 'sin sincronizar'} — vence ${r.venceF29}`,
     ...(r.disponibilidad.propuestaF29 ? [lineaPropuesta(r.propuesta)] : []),
+    ...(r.honorarios ? [lineaHonorarios(r.honorarios)] : []),
     `Compras pendientes de aceptar o reclamar: ${r.compras.pendientes ?? 'sin dato'} · reclamadas: ${r.compras.reclamados ?? 'sin dato'}`,
     ...(faltantes.length > 0 ? [`Falta sincronizar: ${faltantes.join(', ')}`] : []),
     `Hallazgos (${r.hallazgos.length}):`,
     textoHallazgos(r.hallazgos).replace(/^/gm, '  '),
-    `Datos: RCV al ${r.frescura.rcv ?? 'nunca'} · F29 al ${r.frescura.f29 ?? 'nunca'}${r.frescura.propuesta ? ` · propuesta al ${r.frescura.propuesta}` : ''}`,
+    `Datos: RCV al ${r.frescura.rcv ?? 'nunca'} · F29 al ${r.frescura.f29 ?? 'nunca'}${r.frescura.propuesta ? ` · propuesta al ${r.frescura.propuesta}` : ''}${r.frescura.bhe ? ` · boletas al ${r.frescura.bhe}` : ''}`,
   ].join('\n');
 }
 
@@ -82,12 +89,19 @@ const TEXTO_PROPUESTA: Readonly<Record<NonNullable<ResultadoPeriodo['propuesta']
   sin_traer: 'propuesta sin traer',
 };
 
+function textoBoletasSync(boletas: ResultadoPeriodo['boletasHonorarios']): string {
+  if (boletas === undefined) return 'boletas de honorarios sin traer';
+  if (boletas === null) return 'boletas de honorarios sin respuesta del SII';
+  return `${boletas} boletas de honorarios`;
+}
+
 export function textoSync(r: ResultadoSync): string {
   const lineas = r.periodos.map((p) => {
     const partes = [
       ...(r.superficies.includes('rcv') ? [`${p.documentos} documentos RCV`] : []),
       ...(r.superficies.includes('f29') ? [`F29 ${p.f29Folio ? `folio ${p.f29Folio}` : 'sin folio informado'}`] : []),
       ...(r.superficies.includes('propuesta') ? [TEXTO_PROPUESTA[p.propuesta ?? 'sin_traer']] : []),
+      ...(r.superficies.includes('bhe') ? [textoBoletasSync(p.boletasHonorarios)] : []),
     ];
     let linea = `${p.periodo}: ${partes.join(' · ')}`;
     if (p.errores.length > 0) linea += ` · errores: ${p.errores.map((e) => `${e.superficie} ${e.codigo}`).join(', ')}`;
@@ -122,11 +136,15 @@ export function textoReleerF29(r: ResultadoReleerF29): string {
 
 export function textoHistorialF29(filas: readonly FilaHistorialF29[]): string {
   return filas
-    .map((f) =>
-      f.presentado
+    .map((f) => {
+      const linea = f.presentado
         ? `${f.periodo}: folio ${f.folio} (${f.estado}) · débitos ${monto(f.debitos)} · créditos ${monto(f.creditos)} · a pagar ${monto(f.totalAPagar)}`
-        : `${f.periodo}: ${f.sincronizado ? 'no presentado' : 'sin sincronizar'}`,
-    )
+        : `${f.periodo}: ${f.sincronizado ? 'no presentado' : 'sin sincronizar'}`;
+      // La retención solo se muestra si se consultaron las boletas de honorarios del mes.
+      if (f.retencionBoletas === null) return linea;
+      const declarada = f.presentado ? ` · retención (151) ${monto(f.retencion151)}` : '';
+      return `${linea}${declarada} · retención de boletas de honorarios ${monto(f.retencionBoletas)}`;
+    })
     .join('\n');
 }
 

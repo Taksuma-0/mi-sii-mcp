@@ -16,6 +16,8 @@ export interface ResultadoPeriodo {
   f29Folio: number | null;
   /** Qué trajo la propuesta de F29; solo existe si se pidió esa superficie y terminó bien. */
   propuesta?: 'con_datos' | 'sin_propuesta' | 'sin_respuesta';
+  /** Boletas de honorarios recibidas guardadas del mes; null si el SII respondió vacío sin total. Solo existe si se pidió esa superficie y terminó bien. */
+  boletasHonorarios?: number | null;
 }
 
 /** Motivo de término cuando quien pidió la sincronización la cancela (p. ej. Esc en el cliente MCP). */

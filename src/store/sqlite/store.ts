@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import {
   claveDocumento,
+  type BoletaHonorarios,
   type DisponibilidadFuentes,
   type DocumentoRcv,
   type EstadoRcv,
@@ -20,6 +21,7 @@ import {
   type Severidad,
   type SnapshotRcv,
   type TipoContribuyente,
+  type TotalesBheMes,
 } from '../../domain/tipos.js';
 import type { DocumentosPaginados, FiltroDocumentos, FiltroHallazgos, Frescura, HallazgoGuardado, LecturaF29Guardada, PdfF29Guardado, Store } from '../../ports/index.js';
 import type { Db } from './db.js';
@@ -50,6 +52,18 @@ interface FilaContribuyente {
   tipo: TipoContribuyente;
   razon_social: string | null;
   representa_json: string;
+}
+interface FilaBhe {
+  rut_emisor: string;
+  folio: number;
+  nombre_emisor: string | null;
+  fecha: string | null;
+  bruto: number;
+  retencion: number;
+  liquido: number;
+  sociedad_profesional: number;
+  anulada: number;
+  fecha_anulacion: string | null;
 }
 interface FilaResumen {
   lado: Lado;
@@ -443,6 +457,71 @@ export class SqliteStore implements Store {
       administrativos: de('administrativo'),
       sinPropuesta: f.sin_propuesta === 1,
     };
+  }
+
+  // --- boletas de honorarios recibidas -----------------------------------------------------
+  reemplazarBhe(sincronizacionId: number, rut: string, periodo: string, boletas: readonly BoletaHonorarios[], obtenidoEn: string): void {
+    // Una boleta pertenece a un solo mes: si ya estaba guardada en otro, pasa al mes que la trae ahora.
+    const ins = this.db.prepare(
+      `INSERT OR REPLACE INTO bhe_recibida (rut, periodo, rut_emisor, folio, nombre_emisor, fecha, bruto, retencion, liquido, sociedad_profesional, anulada, fecha_anulacion, sincronizacion_id, obtenido_en)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    this.db.transaction(() => {
+      this.db.prepare('DELETE FROM bhe_recibida WHERE rut = ? AND periodo = ?').run(rut, periodo);
+      for (const b of boletas) {
+        ins.run(
+          rut,
+          periodo,
+          b.rutEmisor,
+          b.folio,
+          b.nombreEmisor,
+          b.fecha,
+          b.bruto,
+          b.retencion,
+          b.liquido,
+          b.sociedadProfesional ? 1 : 0,
+          b.anulada ? 1 : 0,
+          b.fechaAnulacion,
+          sincronizacionId,
+          obtenidoEn,
+        );
+      }
+    })();
+  }
+
+  boletasHonorarios(rut: string, periodo: string): BoletaHonorarios[] {
+    const filas = this.db
+      .prepare(
+        `SELECT rut_emisor, folio, nombre_emisor, fecha, bruto, retencion, liquido, sociedad_profesional, anulada, fecha_anulacion
+         FROM bhe_recibida WHERE rut = ? AND periodo = ? ORDER BY COALESCE(fecha, ''), rut_emisor, folio`,
+      )
+      .all(rut, periodo) as FilaBhe[];
+    return filas.map((f) => ({
+      rut,
+      periodo,
+      rutEmisor: f.rut_emisor,
+      folio: f.folio,
+      nombreEmisor: f.nombre_emisor,
+      fecha: f.fecha,
+      bruto: f.bruto,
+      retencion: f.retencion,
+      liquido: f.liquido,
+      sociedadProfesional: f.sociedad_profesional === 1,
+      anulada: f.anulada === 1,
+      fechaAnulacion: f.fecha_anulacion,
+    }));
+  }
+
+  totalesBhe(rut: string, periodo: string): TotalesBheMes {
+    return this.db
+      .prepare(
+        `SELECT COUNT(*) AS cantidad, COALESCE(SUM(anulada), 0) AS anuladas,
+           COALESCE(SUM(CASE WHEN anulada = 0 THEN bruto END), 0) AS bruto,
+           COALESCE(SUM(CASE WHEN anulada = 0 THEN retencion END), 0) AS retencion,
+           COALESCE(SUM(CASE WHEN anulada = 0 THEN liquido END), 0) AS liquido
+         FROM bhe_recibida WHERE rut = ? AND periodo = ?`,
+      )
+      .get(rut, periodo) as TotalesBheMes;
   }
 
   // --- frescura ---------------------------------------------------------------------------
