@@ -6,6 +6,14 @@ import { CODIGO_F29, montoF29 } from './mapeo-f29.js';
 const CODIGO_REBAJA_PAGO = '779';
 
 /**
+ * IVA postergado: el 755 (postergación del pago del IVA) baja el IVA determinado (89). El 779 (IVA postergado en 6 o 12
+ * cuotas) también lo baja en unos formularios y en otros solo baja el pago (91 bajo el 547) con el 89 intacto: se aceptan
+ * ambas formas.
+ */
+const CODIGO_POSTERGACION = '755';
+const CODIGO_POSTERGACION_CUOTAS = '779';
+
+/**
  * Autocontrol de un F29 leído: las relaciones que el formulario cumple siempre entre los totales y lo que arrastra o paga.
  * Devuelve las incoherencias en texto legible; vacío si cuadra o si no aplica (F29 no leído, o 538/537 sin dato). Un
  * código ausente en el PDF compacto vale 0 salvo el 91 y el 547, que solo se comparan si vienen ambos. Una incoherencia
@@ -19,10 +27,13 @@ export function verificarCoherenciaF29(v: F29Valores | null): string[] {
   const clp = formatearClp;
   const valor = (codigo: string): number => v.valores[codigo] ?? 0;
 
-  const determinado = Math.max(debitos - creditos, 0);
-  if (valor(CODIGO_F29.IVA_DETERMINADO) !== determinado) {
+  const bruto = debitos - creditos - valor(CODIGO_POSTERGACION);
+  const determinado = Math.max(bruto - valor(CODIGO_POSTERGACION_CUOTAS), 0);
+  const sinCuotas = Math.max(bruto, 0);
+  if (valor(CODIGO_F29.IVA_DETERMINADO) !== determinado && valor(CODIGO_F29.IVA_DETERMINADO) !== sinCuotas) {
+    const resta = valor(CODIGO_POSTERGACION) + valor(CODIGO_POSTERGACION_CUOTAS) > 0 ? ` menos el IVA postergado (${CODIGO_POSTERGACION} y ${CODIGO_POSTERGACION_CUOTAS})` : '';
     out.push(
-      `el ${CODIGO_F29.IVA_DETERMINADO} (IVA determinado) es ${clp(valor(CODIGO_F29.IVA_DETERMINADO))} y debería ser ${clp(determinado)} (${CODIGO_F29.TOTAL_DEBITOS} menos ${CODIGO_F29.TOTAL_CREDITOS}, sin bajar de 0)`,
+      `el ${CODIGO_F29.IVA_DETERMINADO} (IVA determinado) es ${clp(valor(CODIGO_F29.IVA_DETERMINADO))} y debería ser ${clp(determinado)} (${CODIGO_F29.TOTAL_DEBITOS} menos ${CODIGO_F29.TOTAL_CREDITOS}${resta}, sin bajar de 0)`,
     );
   }
 

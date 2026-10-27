@@ -13,7 +13,7 @@ describe('verificarCoherenciaF29', () => {
   it('declara los códigos nuevos y la versión de reglas', () => {
     expect(CODIGO_F29.IVA_DETERMINADO).toBe('89');
     expect(CODIGO_F29.TOTAL_DETERMINADO).toBe('547');
-    expect(VERSION_REGLAS).toBe('iva-2026.10.5');
+    expect(VERSION_REGLAS).toBe('iva-2026.10.6');
   });
 
   it('un F29 con pago coherente no tiene incoherencias', () => {
@@ -56,6 +56,24 @@ describe('verificarCoherenciaF29', () => {
   it('un 91 mayor que el 547 se detecta', () => {
     const r = verificarCoherenciaF29(v({ '538': 190_000, '537': 24_000, '89': 166_000, '547': 100_000, '91': 120_000 }));
     expect(r.some((t) => t.includes('91') && t.includes('547'))).toBe(true);
+  });
+
+  it.each(['755', '779'])('un IVA postergado (%s) que cubre el IVA determinado deja el 89 en 0 y es coherente', (codigo) => {
+    const postergado = { '538': 500_000, '537': 200_000, '89': 0 };
+    expect(verificarCoherenciaF29(v({ ...postergado, [codigo]: 300_000 }))).toEqual([]);
+    // Sin el código de postergación, el mismo F29 no cuadra.
+    expect(verificarCoherenciaF29(v(postergado)).some((t) => t.includes('89'))).toBe(true);
+  });
+
+  it('una postergación parcial reduce el IVA determinado; sumadas, 755 y 779 también', () => {
+    const base = { '538': 500_000, '537': 200_000 };
+    expect(verificarCoherenciaF29(v({ ...base, '755': 100_000, '89': 200_000 }))).toEqual([]);
+    expect(verificarCoherenciaF29(v({ ...base, '755': 100_000, '779': 200_000, '89': 0 }))).toEqual([]);
+    expect(verificarCoherenciaF29(v({ ...base, '755': 100_000, '89': 300_000 })).some((t) => t.includes('89'))).toBe(true);
+    // El 779 también se acepta con el 89 sin rebajar (solo baja el pago).
+    expect(verificarCoherenciaF29(v({ ...base, '779': 100_000, '89': 300_000 }))).toEqual([]);
+    // Una postergación mayor que el IVA no deja el 89 bajo 0.
+    expect(verificarCoherenciaF29(v({ ...base, '755': 900_000, '89': 0 }))).toEqual([]);
   });
 
   it('un 91 menor que el 547 solo es válido si hay 779 positivo', () => {
@@ -128,6 +146,6 @@ describe('F29-01', () => {
     expect(conciliarPeriodo(entrada()).hallazgos).toEqual([]);
     const r = conciliarPeriodo(entrada({ valores: valores(incoherente) }));
     expect(r.hallazgos.map((h) => h.regla)).toEqual(['F29-01']);
-    expect(r.versionReglas).toBe('iva-2026.10.5');
+    expect(r.versionReglas).toBe('iva-2026.10.6');
   });
 });

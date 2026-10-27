@@ -183,7 +183,7 @@ describe('conciliarPeriodo', () => {
   it('un mes cuadrado no tiene hallazgos y expone las comparaciones', () => {
     const r = conciliarPeriodo(entrada());
     expect(r.hallazgos).toEqual([]);
-    expect(r.versionReglas).toBe('iva-2026.10.5');
+    expect(r.versionReglas).toBe('iva-2026.10.6');
     expect(r.comparaciones).toEqual({ debitoRcv: 190_000, debitoF29: 190_000, creditoRcv: 19_000, creditoF29: 19_000, remanenteAnterior77: 5_000, remanenteActual504: 5_000 });
   });
 
