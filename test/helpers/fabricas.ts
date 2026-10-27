@@ -1,4 +1,4 @@
-import type { BoletaHonorarios, DocumentoRcv, EmpresaAutorizada, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, Perfil, PerfilTributario, PropuestaF29, RcvResumen, RcvResumenFila } from '../../src/domain/tipos.js';
+import type { BheEmitidaMes, BoletaHonorarios, DocumentoRcv, EmpresaAutorizada, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBheEmitidas, Perfil, PerfilTributario, PropuestaF29, RcvResumen, RcvResumenFila } from '../../src/domain/tipos.js';
 
 export const RUT_EMPRESA = '22222222-2';
 export const RUT_PERSONA = '11111111-1';
@@ -168,4 +168,24 @@ export const detalleF22 = (o: Partial<F22Detalle> = {}): F22Detalle => ({
   observaciones: [{ codigo: 'A01', descripcion: 'Observación ficticia', url: 'https://www.sii.cl/ayuda/ficticia.html' }],
   eventos: [{ orden: 1, codigoEvento: 'E01', nombre: 'Declaración recibida', fecha: '2026-04-15', tipo: 'INFO', codigoCarta: null }],
   ...o,
+});
+
+/** Un mes sin boletas emitidas, con los datos que se indiquen. */
+export const mesBheEmitida = (mes: number, o: Partial<BheEmitidaMes> = {}): BheEmitidaMes => ({
+  mes,
+  bruto: 0,
+  retencionTerceros: 0,
+  retencionPropia: 0,
+  vigentes: 0,
+  anuladas: 0,
+  folioInicial: null,
+  folioFinal: null,
+  ...o,
+});
+
+/** Informe anual de boletas emitidas: los 12 meses en 0 salvo los indicados por número de mes. */
+export const informeBheEmitidas = (anioComercial: number, meses: Readonly<Record<number, Partial<BheEmitidaMes>>> = {}): InformeBheEmitidas => ({
+  anioComercial,
+  sociedadProfesional: false,
+  meses: Array.from({ length: 12 }, (_, i) => mesBheEmitida(i + 1, meses[i + 1])),
 });

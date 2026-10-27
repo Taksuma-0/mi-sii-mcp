@@ -46,6 +46,7 @@ describe('LectorPorRepresentacion', () => {
     ['f29Valores', (l: LectorPorRepresentacion) => l.f29Valores(EMPRESA, declaracion())],
     ['f29Propuesta', (l: LectorPorRepresentacion) => l.f29Propuesta(EMPRESA, SEPT)],
     ['bheRecibidas', (l: LectorPorRepresentacion) => l.bheRecibidas(EMPRESA, SEPT)],
+    ['bheEmitidasAnual', (l: LectorPorRepresentacion) => l.bheEmitidasAnual(EMPRESA, 2025)],
     ['perfilTributario', (l: LectorPorRepresentacion) => l.perfilTributario(EMPRESA)],
     ['empresasAutorizadas', (l: LectorPorRepresentacion) => l.empresasAutorizadas()],
     ['f22Declaraciones', (l: LectorPorRepresentacion) => l.f22Declaraciones(EMPRESA, 2026)],

@@ -1,6 +1,6 @@
 import { ErrorImpuestocl } from '../../domain/errores.js';
 import type { Periodo } from '../../domain/periodo.js';
-import type { DocumentoRcv, EmpresaAutorizada, EstadoRcv, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBhe, Lado, PerfilTributario, PropuestaF29, RcvResumen } from '../../domain/tipos.js';
+import type { DocumentoRcv, EmpresaAutorizada, EstadoRcv, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBhe, InformeBheEmitidas, Lado, PerfilTributario, PropuestaF29, RcvResumen } from '../../domain/tipos.js';
 import type { SiiReader } from '../../ports/index.js';
 
 /** Sin la prueba con una sesión real (T21) no se sabe si el SII entrega el RCV de la empresa a su representante. */
@@ -52,6 +52,10 @@ export class LectorPorRepresentacion implements SiiReader {
 
   bheRecibidas(rut: string, _periodo: Periodo): Promise<InformeBhe | null> {
     return this.sinPermiso('las boletas de honorarios', rut);
+  }
+
+  bheEmitidasAnual(rut: string, _anioComercial: number): Promise<InformeBheEmitidas> {
+    return this.sinPermiso('las boletas de honorarios emitidas', rut);
   }
 
   perfilTributario(rut: string): Promise<PerfilTributario> {

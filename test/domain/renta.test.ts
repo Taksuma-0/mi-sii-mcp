@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { f22Vigente, parseAnioTributario, periodoRenta, rangoAnios } from '../../src/domain/renta.js';
+import { cruzarHonorariosF22, f22Vigente, hayBoletasEmitidas, parseAnioTributario, periodoRenta, rangoAnios, totalesBheEmitidas } from '../../src/domain/renta.js';
+import type { F22Valor } from '../../src/domain/tipos.js';
 import { ErrorImpuestocl } from '../../src/domain/errores.js';
-import { declaracionF22 } from '../helpers/fabricas.js';
+import { declaracionF22, informeBheEmitidas } from '../helpers/fabricas.js';
 
 /** Código del ErrorImpuestocl que lanza la función, o una descripción si no lanza así. */
 function codigoDe(fn: () => unknown): string {
@@ -58,5 +59,49 @@ describe('f22Vigente', () => {
     expect(f22Vigente([a, b, c])).toBe(c);
     expect(f22Vigente([declaracionF22({ vigente: false })])).toBeNull();
     expect(f22Vigente([])).toBeNull();
+  });
+});
+
+describe('cruzarHonorariosF22', () => {
+  const codigos = (c547: number | null | undefined, c492: number | null | undefined): F22Valor[] => [
+    ...(c547 === undefined ? [] : [{ codigo: '547', valor: c547, glosa: 'Total ingresos brutos ficticio' }]),
+    ...(c492 === undefined ? [] : [{ codigo: '492', valor: c492, glosa: 'Retención de honorarios ficticia' }]),
+  ];
+
+  it('cuadra si el F22 reajusta las boletas entre 0 % y 10 %, con el % de reajuste', () => {
+    const r = cruzarHonorariosF22({ bruto: 2_000_000, retencion: 290_000 }, codigos(2_012_600, 291_827));
+    expect(r.bruto).toEqual({ codigo: '547', boletas: 2_000_000, f22: 2_012_600, estado: 'cuadra', reajustePct: 0.63 });
+    expect(r.retencion).toEqual({ codigo: '492', boletas: 290_000, f22: 291_827, estado: 'cuadra', reajustePct: 0.63 });
+  });
+
+  it('los bordes 0 % y 10 % cuadran; bajo las boletas o sobre 10 % difiere', () => {
+    const estado = (f22: number) => cruzarHonorariosF22({ bruto: 1_000_000, retencion: 0 }, codigos(f22, null)).bruto.estado;
+    expect(estado(1_000_000)).toBe('cuadra');
+    expect(estado(1_100_000)).toBe('cuadra');
+    expect(estado(999_999)).toBe('difiere');
+    expect(estado(1_100_001)).toBe('difiere');
+    expect(cruzarHonorariosF22({ bruto: 1_000_000, retencion: 0 }, codigos(950_000, null)).bruto.reajustePct).toBe(-5);
+  });
+
+  it('con boletas y el código ausente, null o 0 es sin_declarar', () => {
+    expect(cruzarHonorariosF22({ bruto: 500_000, retencion: 76_250 }, codigos(undefined, undefined))).toMatchObject({
+      bruto: { estado: 'sin_declarar', f22: null, reajustePct: null },
+      retencion: { estado: 'sin_declarar', f22: null, reajustePct: null },
+    });
+    expect(cruzarHonorariosF22({ bruto: 500_000, retencion: 76_250 }, codigos(null, 0))).toMatchObject({ bruto: { estado: 'sin_declarar' }, retencion: { estado: 'sin_declarar', f22: 0 } });
+  });
+
+  it('sin boletas: F22 con monto difiere; ambos en 0 o ausentes es sin_datos', () => {
+    expect(cruzarHonorariosF22({ bruto: 0, retencion: 0 }, codigos(300_000, undefined))).toMatchObject({ bruto: { estado: 'difiere', reajustePct: null }, retencion: { estado: 'sin_datos' } });
+    expect(cruzarHonorariosF22({ bruto: 0, retencion: 0 }, codigos(0, null))).toMatchObject({ bruto: { estado: 'sin_datos' }, retencion: { estado: 'sin_datos' } });
+  });
+});
+
+describe('totalesBheEmitidas y hayBoletasEmitidas', () => {
+  it('suma los 12 meses; un año todo en 0 no tiene boletas, pero una sola anulada sí cuenta', () => {
+    const anio = informeBheEmitidas(2025, { 2: { bruto: 100_000, retencionTerceros: 14_500, vigentes: 1 }, 9: { bruto: 50_000, retencionPropia: 7_250, vigentes: 1, anuladas: 2 } });
+    expect(totalesBheEmitidas(anio.meses)).toEqual({ vigentes: 2, anuladas: 2, bruto: 150_000, retencionTerceros: 14_500, retencionPropia: 7_250 });
+    expect(hayBoletasEmitidas(totalesBheEmitidas(informeBheEmitidas(2025).meses))).toBe(false);
+    expect(hayBoletasEmitidas(totalesBheEmitidas(informeBheEmitidas(2025, { 4: { anuladas: 1 } }).meses))).toBe(true);
   });
 });

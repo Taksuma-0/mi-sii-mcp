@@ -63,4 +63,18 @@ describe('LectorPortalSii', () => {
     expect(JSON.parse(llamadas[1]!.body!).data).toMatchObject({ rut: '22222222', dv: '2', folio: '123456789' });
     expect(crudas.map((c) => c.superficie)).toEqual(['f22', 'f22.compacto', 'f22.observaciones', 'f22.eventos']);
   });
+
+  it('lee el informe anual de boletas de honorarios emitidas normalizando el RUT', async () => {
+    const { fetchFalso, llamadas } = crearFetchFalso({
+      'GET https://loa.sii.cl/cgi_IMT/TMBCOC_InformeAnualBhe.cgi': { headers: [['content-type', 'text/html']], body: readFileSync(join(import.meta.dirname, '..', 'fixtures', 'sii', 'bhe-emitidas-anual.html')) },
+    });
+    const crudas: RespuestaCruda[] = [];
+    const lector = new LectorPortalSii(new ClienteHttp(new CookieJar(), { fetch: fetchFalso, temporizador: sinEsperas }), (r) => void crudas.push(r));
+
+    const informe = await lector.bheEmitidasAnual('11.111.111-1', 2025);
+
+    expect(informe.meses).toHaveLength(12);
+    expect(new URL(llamadas[0]!.url).searchParams.get('rut_arrastre')).toBe('11111111');
+    expect(crudas.map((c) => c.superficie)).toEqual(['bhe.emitidas.anual']);
+  });
 });

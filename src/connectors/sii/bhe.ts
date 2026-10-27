@@ -11,9 +11,9 @@ const SUPERFICIE = 'bhe.recibidas.mensual';
 export const MAX_PAGINAS_BHE = 50;
 
 /** Valor de una asignación JS: texto entre comillas, `formatMiles("…", '.')` o un literal sin comillas. */
-const VALOR = String.raw`(?:formatMiles\(\s*(?:"([^"\n]*)"|'([^'\n]*)')\s*,\s*['"][^'"\n]*['"]\s*\)|"([^"\n]*)"|'([^'\n]*)'|([^;\n]*?))\s*(?:;|(?=\r?\n)|$)`;
+export const VALOR = String.raw`(?:formatMiles\(\s*(?:"([^"\n]*)"|'([^'\n]*)')\s*,\s*['"][^'"\n]*['"]\s*\)|"([^"\n]*)"|'([^'\n]*)'|([^;\n]*?))\s*(?:;|(?=\r?\n)|$)`;
 /** `=` de una asignación, no de una comparación (`==`, `===`). */
-const IGUAL = String.raw`\s*=(?!=)\s*`;
+export const IGUAL = String.raw`\s*=(?!=)\s*`;
 const ASIGNACION_FILA = new RegExp(String.raw`arr_informe_mensual\s*\[\s*['"]([A-Za-z_]+?)_(\d+)['"]\s*\]${IGUAL}${VALOR}`, 'g');
 const ASIGNACION_XML = new RegExp(String.raw`xml_values\s*\[\s*['"]([A-Za-z_]+)['"]\s*\]${IGUAL}${VALOR}`, 'g');
 
@@ -35,17 +35,19 @@ const ASIGNACION_PRIVADA_RESTANTE = new RegExp(
   String.raw`${CLAVE_PRIVADA}\s*=(?!=)|\b(?:codigobarras_\d+|cod_comuna_\d+|nombre_contribuyente)\b['"]?\s*(?::|=(?!=))`,
 );
 
-const valorDe = (m: RegExpExecArray, desde: number): string => (m[desde] ?? m[desde + 1] ?? m[desde + 2] ?? m[desde + 3] ?? m[desde + 4] ?? '').trim();
+/** Texto del valor capturado por `VALOR`, que empieza en el grupo `desde`; vacío si no vino. */
+export const valorDe = (m: RegExpExecArray, desde: number): string => (m[desde] ?? m[desde + 1] ?? m[desde + 2] ?? m[desde + 3] ?? m[desde + 4] ?? '').trim();
 
 /**
  * Evidencia de una página del informe: quita las asignaciones de `codigobarras_N`, `cod_comuna_N` y
  * `xml_values['nombre_contribuyente']`; sus lecturas en otras partes del script se quedan. Si queda alguna asignación
- * de esas claves (otra sintaxis), lanza PORTAL_CAMBIO: nunca se guarda sin sanear.
+ * de esas claves (otra sintaxis), lanza PORTAL_CAMBIO: nunca se guarda sin sanear. `informe` solo nombra lo que se
+ * saneaba en el mensaje de error (el informe anual de las emitidas usa el mismo saneamiento).
  */
-export function sanearBhe(html: string): string {
+export function sanearBhe(html: string, informe = 'las boletas de honorarios recibidas'): string {
   const saneado = html.replace(ASIGNACIONES_PRIVADAS, '');
   if (ASIGNACION_PRIVADA_RESTANTE.test(saneado)) {
-    throw new ErrorImpuestocl('PORTAL_CAMBIO', 'No se pudo sanear la evidencia de las boletas de honorarios recibidas.');
+    throw new ErrorImpuestocl('PORTAL_CAMBIO', `No se pudo sanear la evidencia de ${informe}.`);
   }
   return saneado;
 }

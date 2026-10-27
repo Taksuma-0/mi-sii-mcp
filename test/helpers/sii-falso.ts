@@ -1,6 +1,6 @@
 import { ErrorImpuestocl } from '../../src/domain/errores.js';
 import type { Periodo } from '../../src/domain/periodo.js';
-import type { DocumentoRcv, EmpresaAutorizada, EstadoRcv, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBhe, Lado, PerfilTributario, PropuestaF29, RcvResumen, RcvResumenFila } from '../../src/domain/tipos.js';
+import type { DocumentoRcv, EmpresaAutorizada, EstadoRcv, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBhe, InformeBheEmitidas, Lado, PerfilTributario, PropuestaF29, RcvResumen, RcvResumenFila } from '../../src/domain/tipos.js';
 import type { SiiReader, SumideroRespuestas } from '../../src/ports/index.js';
 
 /**
@@ -11,6 +11,7 @@ import type { SiiReader, SumideroRespuestas } from '../../src/ports/index.js';
  * - valores: `periodo|folio`
  * - propuestas: `periodo` (null = el SII respondió sin datos)
  * - bhe: `periodo` (null = vacío ambiguo; sin entrada = mes sin boletas)
+ * - bheEmitidas: año comercial (sin entrada = el año con los 12 meses en 0); llamada `bheemitidas|anio`
  * - perfil y empresas: una sola respuesta cada una (`perfil` null = Mi SII sin datos); las llamadas quedan como `perfil` y `empresas`
  * - f22: `anio` (sin entrada = sin declaraciones); f22Detalles: `anio|folio` (sin entrada = detalle vacío); llamadas `f22|anio` y `f22detalle|anio|folio`
  * Cada llamada queda en `llamadas` (p. ej. `resumen|2026-09|VENTA|REGISTRO`); `fallas` usa ese mismo texto.
@@ -29,6 +30,7 @@ export class SiiFalso implements SiiReader {
   readonly valores = new Map<string, F29Valores>();
   readonly propuestas = new Map<string, PropuestaF29 | null>();
   readonly bhe = new Map<string, InformeBhe | null>();
+  readonly bheEmitidas = new Map<number, InformeBheEmitidas>();
   readonly fallas = new Map<string, Error>();
   readonly f22 = new Map<number, F22Declaracion[]>();
   readonly f22Detalles = new Map<string, F22Detalle>();
@@ -80,6 +82,12 @@ export class SiiFalso implements SiiReader {
     await this.registrar(`bhe|${periodo.texto}`);
     const informe = this.bhe.get(periodo.texto);
     return informe === undefined ? { boletas: [], totales: { total: 0, bruto: 0, retencion: 0, liquido: 0 } } : informe;
+  }
+
+  async bheEmitidasAnual(_rut: string, anioComercial: number): Promise<InformeBheEmitidas> {
+    await this.registrar(`bheemitidas|${anioComercial}`);
+    const vacio = (mes: number) => ({ mes, bruto: 0, retencionTerceros: 0, retencionPropia: 0, vigentes: 0, anuladas: 0, folioInicial: null, folioFinal: null });
+    return this.bheEmitidas.get(anioComercial) ?? { anioComercial, sociedadProfesional: false, meses: Array.from({ length: 12 }, (_, i) => vacio(i + 1)) };
   }
 
   async perfilTributario(_rut: string): Promise<PerfilTributario> {

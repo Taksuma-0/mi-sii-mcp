@@ -218,6 +218,34 @@ export interface TotalesBheMes {
 }
 
 /**
+ * Un mes del informe anual de boletas de honorarios electrónicas emitidas por el contribuyente. Montos en pesos
+ * nominales; un mes sin boletas viene en 0 y sin folios.
+ */
+export interface BheEmitidaMes {
+  /** Mes del año comercial, 1 a 12. */
+  readonly mes: number;
+  /** Honorario bruto del mes según el informe (las anuladas no suman). */
+  readonly bruto: number;
+  /** Retención que hicieron quienes recibieron las boletas (retención de terceros). */
+  readonly retencionTerceros: number;
+  /** Retención que pagó el propio contribuyente por boletas a quienes no retienen. */
+  readonly retencionPropia: number;
+  readonly vigentes: number;
+  readonly anuladas: number;
+  /** Primer y último folio emitidos en el mes; null si el mes no tiene boletas. */
+  readonly folioInicial: number | null;
+  readonly folioFinal: number | null;
+}
+
+/** Informe anual de boletas de honorarios emitidas de un año comercial: siempre los 12 meses, en orden. */
+export interface InformeBheEmitidas {
+  readonly anioComercial: number;
+  /** El SII lo informa como sociedad de profesionales. */
+  readonly sociedadProfesional: boolean;
+  readonly meses: readonly BheEmitidaMes[];
+}
+
+/**
  * Atributo del contribuyente en Mi SII. `valor` solo existe para los códigos cuyo valor no es personal (ver
  * `connectors/sii/login.ts`); los demás llegan sin esa clave.
  */
