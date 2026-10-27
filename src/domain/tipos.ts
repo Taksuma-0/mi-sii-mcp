@@ -97,7 +97,7 @@ export interface LecturaF29 {
   readonly versionLector: string;
   readonly origen: OrigenLecturaF29;
   readonly leidoEn: string;
-  /** La lectura es confiable: leída, con 538 y 537 legibles y sin incoherencias (`lecturaConfiable`). */
+  /** El autocontrol del F29 se pudo aplicar (538 y 537 con dato; un total ausente sin sus líneas vale 0) y cuadró (`lecturaConfiable`). */
   readonly coherente: boolean;
 }
 
