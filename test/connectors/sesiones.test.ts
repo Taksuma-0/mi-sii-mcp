@@ -13,7 +13,7 @@ import { PAGINA_STUB, paginaDatosCntr, paginaErrorClave, paginaErrorLogin, RUTA_
 const RUT = '22222222-2';
 const DATOS_OK: DefRespuesta = { headers: HTML, body: paginaDatosCntr('22222222', '2', 'EMPRESA DEMO SPA') };
 const STUB: DefRespuesta = { headers: HTML, body: PAGINA_STUB };
-const dirTemporal = () => join(mkdtempSync(join(tmpdir(), 'impuestocl-')), 'sesiones');
+const dirTemporal = () => join(mkdtempSync(join(tmpdir(), 'mi-sii-mcp-')), 'sesiones');
 
 function gestor(dir: string, secretos: SecretosEnMemoria, rutas: Record<string, RutaFalsa>) {
   const { fetchFalso, llamadas } = crearFetchFalso(rutas);

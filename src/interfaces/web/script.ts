@@ -37,7 +37,7 @@ async function enviar(ruta, datos) {
   return resultado;
 }
 function fallo(error) {
-  informar(error instanceof TypeError ? 'Se perdió la conexión local. Vuelve a abrir «Abrir impuestocl.cmd».' : error instanceof ErrorPublico ? error.message : 'No se pudo completar la consulta. Vuelve a abrir «Abrir impuestocl.cmd» si el problema continúa.', 'error');
+  informar(error instanceof TypeError ? 'Se perdió la conexión local. Vuelve a abrir «Abrir mi-sii-mcp.cmd».' : error instanceof ErrorPublico ? error.message : 'No se pudo completar la consulta. Vuelve a abrir «Abrir mi-sii-mcp.cmd» si el problema continúa.', 'error');
 }
 function limpiarDocumentos() {
   paginaDocumentos = null; filtroDocumentos = null;

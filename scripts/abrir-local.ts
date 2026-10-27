@@ -49,7 +49,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     }
   } catch {
     // Sin errores crudos ni datos de autenticación en la salida.
-    process.stderr.write('No se pudo abrir impuestocl. Revisa la instalación de Node y vuelve a abrir el lanzador.\n');
+    process.stderr.write('No se pudo abrir mi-sii-mcp. Revisa la instalación de Node y vuelve a abrir el lanzador.\n');
     process.exitCode = 1;
   }
 }

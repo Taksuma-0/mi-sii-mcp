@@ -7,7 +7,7 @@ describe('ErrorImpuestocl', () => {
     expect(e).toBeInstanceOf(Error);
     expect(esErrorImpuestocl(e)).toBe(true);
     expect(e.codigo).toBe('SESION_REQUERIDA');
-    expect(e.accion).toContain('impuestocl login');
+    expect(e.accion).toContain('mi-sii-mcp login');
     expect(e.toJSON()).toEqual({ codigo: 'SESION_REQUERIDA', mensaje: 'Sin sesión', accion: e.accion });
   });
 

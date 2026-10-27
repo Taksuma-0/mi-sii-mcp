@@ -1,4 +1,4 @@
-# impuestocl
+# mi-sii-mcp
 
 Herramienta tributaria chilena de código abierto (CLI + MCP): trae tus datos desde el SII,
 los guarda en tu equipo y concilia el IVA mensual.

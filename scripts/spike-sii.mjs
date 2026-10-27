@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPIKE DESECHABLE — Tarea 1 del plan impuestocl v1. No es código de producto.
+// SPIKE DESECHABLE — Tarea 1 del plan mi-sii-mcp v1. No es código de producto.
 // Verifica en vivo: login con clave tributaria, RCV por estado, F29 (estados y PDF compacto).
 // Uso:  node scripts/spike-sii.mjs <RUT> [AAAA-MM]
 // Hace UN solo intento de login: cada intento fallido acerca la cuenta al bloqueo del SII.

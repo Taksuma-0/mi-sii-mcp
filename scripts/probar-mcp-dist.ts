@@ -57,7 +57,7 @@ async function probar(home: string): Promise<void> {
   }
 }
 
-const home = mkdtempSync(join(tmpdir(), 'impuestocl-probar-mcp-'));
+const home = mkdtempSync(join(tmpdir(), 'mi-sii-mcp-probar-mcp-'));
 try {
   await probar(home);
   process.exitCode = 0;

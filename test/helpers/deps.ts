@@ -44,7 +44,7 @@ export function depsDePrueba(o: { ahora?: string; tolerancia?: number; fallaAlAb
   return { deps, store, db, sii, lector, diagnosticos, persistidos };
 }
 
-/** Las mismas dependencias con otra versión del lector de PDF del F29, como tras actualizar impuestocl. */
+/** Las mismas dependencias con otra versión del lector de PDF del F29, como tras actualizar mi-sii-mcp. */
 export function conLector(deps: DepsApp, version: string): DepsApp {
   return { ...deps, lectorPdfF29: new LectorPdfFalso(version) };
 }

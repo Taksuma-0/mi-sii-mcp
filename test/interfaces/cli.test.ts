@@ -46,7 +46,7 @@ function entorno(o: { claveStdin?: string; fallaAlAbrir?: Error; falloNavegador?
     const { programa, salida } = crearPrograma(io, () => contenedor, () => {
       contadores.mcp++;
     });
-    await programa.parseAsync(['node', 'impuestocl', ...args]);
+    await programa.parseAsync(['node', 'mi-sii-mcp', ...args]);
     return salida.codigo;
   };
   return { ...p, correr, salidaTexto, errores, logins, navegador, contadores };

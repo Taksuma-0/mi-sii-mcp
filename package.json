@@ -1,11 +1,11 @@
 {
-  "name": "impuestocl",
+  "name": "mi-sii-mcp",
   "version": "0.1.0",
-  "description": "Herramienta tributaria chilena (CLI + MCP): IVA mensual conciliado con datos del SII",
+  "description": "mi-sii-mcp: MCP no oficial para consultar y cuadrar tus datos del SII (IVA, boletas de honorarios, renta)",
   "type": "module",
   "license": "MIT",
   "bin": {
-    "impuestocl": "dist/interfaces/cli/bin.js"
+    "mi-sii-mcp": "dist/interfaces/cli/bin.js"
   },
   "files": [
     "dist",

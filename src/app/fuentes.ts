@@ -1,5 +1,5 @@
 /**
- * Dónde consultar los datos públicos de la renta (docs/decisiones/0007-datos-publicos-renta.md). impuestocl no guarda
+ * Dónde consultar los datos públicos de la renta (docs/decisiones/0007-datos-publicos-renta.md). mi-sii-mcp no guarda
  * esos valores: cambian cada año y copiados en el código se desactualizan sin aviso. Aquí solo hay páginas oficiales
  * (abiertas y revisadas el 27/10/2026) y qué buscar en cada una; quien estima los consulta allí.
  */

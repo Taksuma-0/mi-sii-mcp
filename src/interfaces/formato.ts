@@ -251,7 +251,7 @@ function lineasAnioRenta(a: AnioRenta): string[] {
 /** Renta (F22) guardada por año tributario: folio vigente, conclusión, códigos clave, observaciones y eventos. */
 export function textoResumenRenta(r: ResumenRenta): string {
   if (r.anios.length === 0) {
-    return `No hay renta (F22) guardada de ${r.rut}. Tráela con renta_sincronizar (o \`impuestocl renta sync <rut> --desde AAAA\`); el año tributario es el año comercial + 1.`;
+    return `No hay renta (F22) guardada de ${r.rut}. Tráela con renta_sincronizar (o \`mi-sii-mcp renta sync <rut> --desde AAAA\`); el año tributario es el año comercial + 1.`;
   }
   return [`Renta (F22) ${r.rut} — ${plural(r.anios.length, 'año tributario guardado', 'años tributarios guardados')}`, ...r.anios.flatMap(lineasAnioRenta)].join('\n');
 }
@@ -267,7 +267,7 @@ function lineaCuenta(c: CuentaSii): string {
 }
 
 export function textoPerfiles(perfiles: readonly PerfilConSesion[]): string {
-  if (perfiles.length === 0) return 'No hay perfiles. Agrega uno con `impuestocl perfil agregar <rut> --alias <nombre> --tipo empresa`.';
+  if (perfiles.length === 0) return 'No hay perfiles. Agrega uno con `mi-sii-mcp perfil agregar <rut> --alias <nombre> --tipo empresa`.';
   return perfiles
     .map((p) => {
       const navegador =
@@ -276,7 +276,7 @@ export function textoPerfiles(perfiles: readonly PerfilConSesion[]): string {
           : p.sesion.renuevaSola === true
             ? ' (se renueva sola)'
             : p.sesion.renuevaSola === false
-              ? ' (sin clave guardada: cuando venza, hay que conectar de nuevo en «Abrir impuestocl.cmd»)'
+              ? ' (sin clave guardada: cuando venza, hay que conectar de nuevo en «Abrir mi-sii-mcp.cmd»)'
               : '';
       const sesion = p.sesion.bloqueado ? 'BLOQUEADA (clave rechazada)' : p.sesion.tieneSesion ? `guardada ${p.sesion.guardadaEn}${navegador}` : 'sin sesión';
       const acceso = p.accedeCon ? ` · accede con ${p.accedeCon}` : '';
@@ -405,7 +405,7 @@ export function textoDocumentos(p: PaginaDocumentos): string {
 /** Dónde consultar los datos públicos de la renta y, si se pidió, la regla para estimar el F22 de una persona. */
 export function textoFuentes(fuentes: readonly FuenteOficial[], conRegla: boolean): string {
   const lineas = [
-    'Datos públicos: impuestocl no los guarda. Consúltalos en la página oficial del año que se calcula y cita la fuente.',
+    'Datos públicos: mi-sii-mcp no los guarda. Consúltalos en la página oficial del año que se calcula y cita la fuente.',
     ...(fuentes.length === 0 ? ['Ninguna fuente calza con la búsqueda; pide la lista completa sin filtro.'] : []),
     ...fuentes.flatMap((f) => [`- ${f.parametro}: ${f.urls.join(' · ')}`, `  Qué buscar: ${f.buscar}`]),
   ];

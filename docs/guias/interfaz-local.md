@@ -1,6 +1,6 @@
-# Usar impuestocl en tu navegador
+# Usar mi-sii-mcp en tu navegador
 
-Haz doble clic en **Abrir impuestocl.cmd**, en la raíz del proyecto. Se abrirá el navegador predeterminado en una dirección local `http://127.0.0.1:…`. Requiere la instalación existente de Node y las dependencias del proyecto; la interfaz no agrega dependencias ni publica un servicio.
+Haz doble clic en **Abrir mi-sii-mcp.cmd**, en la raíz del proyecto. Se abrirá el navegador predeterminado en una dirección local `http://127.0.0.1:…`. Requiere la instalación existente de Node y las dependencias del proyecto; la interfaz no agrega dependencias ni publica un servicio.
 
 1. Ingresa el RUT del contribuyente, con o sin puntos, y su clave tributaria. Pulsa **Conectar**. No necesitas elegir un mes y no se inicia un análisis ni una descarga de historial al entrar. El envío es explícito y no se reintenta automáticamente.
 2. **Vista general** reúne todos los meses guardados localmente para ese contribuyente, sus totales y la cobertura separada de RCV ventas, RCV compras y F29. Actualmente esas son las fuentes disponibles; la vista no representa todos los datos del portal del SII. **Sin datos** es un importe desconocido; **$0** es un cero conocido. Los totales indican cuántos meses tienen importe y cuántos no. F29 distingue **Sin consultar**, **Sin presentación** y la declaración vigente guardada. **Total declarado en F29** no confirma una deuda ni un pago. La fecha RCV no certifica igual actualización de ambos registros.
@@ -10,13 +10,13 @@ Haz doble clic en **Abrir impuestocl.cmd**, en la raíz del proyecto. Se abrirá
 6. **Cambiar contribuyente** borra inmediatamente la identidad, los resultados y los filtros de esta pestaña, desconecta su contexto y vuelve al acceso. Cada pestaña tiene su propio contexto. Desconectar la interfaz no borra los datos tributarios ni las cookies locales de sesión. Al refrescar o volver a abrir la página se requiere **Conectar** otra vez; no se recupera el contexto del navegador.
 7. Al terminar, pulsa **Cerrar aplicación** y después cierra la pestaña. Esto detiene el servidor local para todas sus pestañas; no borra los datos ni las cookies guardadas. La aplicación también se cierra tras 30 minutos de inactividad, sin cortar una consulta en curso.
 
-La clave se envía al SII para iniciar sesión. El formulario la borra al enviar y al finalizar; esta interfaz no la guarda en el navegador ni consulta el llavero. Los datos tributarios y las cookies de sesión pueden persistir en el almacenamiento local habitual de impuestocl. El navegador puede ofrecer sus propias funciones de contraseñas.
+La clave se envía al SII para iniciar sesión. El formulario la borra al enviar y al finalizar; esta interfaz no la guarda en el navegador ni consulta el llavero. Los datos tributarios y las cookies de sesión pueden persistir en el almacenamiento local habitual de mi-sii-mcp. El navegador puede ofrecer sus propias funciones de contraseñas.
 
-Si aparece un error, revisa los datos y decide cuándo volver a enviarlos. Si se perdió la conexión local, vuelve a abrir **Abrir impuestocl.cmd**. Si ya estaba abierta, el lanzador reutiliza esa instancia. No hay reintentos automáticos.
+Si aparece un error, revisa los datos y decide cuándo volver a enviarlos. Si se perdió la conexión local, vuelve a abrir **Abrir mi-sii-mcp.cmd**. Si ya estaba abierta, el lanzador reutiliza esa instancia. No hay reintentos automáticos.
 
 ## Consultas libres con un asistente MCP
 
-Para pedir cruces e históricos en lenguaje natural, usa un cliente MCP conectado al servidor que inicia `impuestocl mcp`. La configuración depende de ese cliente. Esta página no incorpora un chat y una conversación con un asistente no queda conectada automáticamente por abrir la interfaz.
+Para pedir cruces e históricos en lenguaje natural, usa un cliente MCP conectado al servidor que inicia `mi-sii-mcp mcp`. La configuración depende de ese cliente. Esta página no incorpora un chat y una conversación con un asistente no queda conectada automáticamente por abrir la interfaz.
 
 Con un cliente conectado puedes pedir, por ejemplo:
 
@@ -25,7 +25,7 @@ Con un cliente conectado puedes pedir, por ejemplo:
 - «Compara los débitos y créditos RCV con F29 durante ese rango».
 - «Busca documentos de compras pendientes de septiembre de 2026».
 
-El asistente utiliza las herramientas MCP disponibles y los datos locales. Si necesita sesión, conéctate desde **Abrir impuestocl.cmd** o mediante `impuestocl login <rut>` en la terminal. Nunca entregues la clave tributaria al chat ni como argumento de una herramienta MCP.
+El asistente utiliza las herramientas MCP disponibles y los datos locales. Si necesita sesión, conéctate desde **Abrir mi-sii-mcp.cmd** o mediante `mi-sii-mcp login <rut>` en la terminal. Nunca entregues la clave tributaria al chat ni como argumento de una herramienta MCP.
 
 La interfaz se verifica con datos ficticios. La calibración real sigue pendiente del ingreso manual del usuario; sus resultados no constituyen una validación fiscal.
 

@@ -122,7 +122,7 @@ export const F29_COMPACTO_SINTETICO: readonly TextoPdf[] = [
   ...linea(202.7, [[281.3, 'Ver Formulario Completo']]),
 ];
 
-/** Lo que debe leer impuestocl de `F29_COMPACTO_SINTETICO`: cada celda con valor de la tabla, con el valor de esa celda. */
+/** Lo que debe leer mi-sii-mcp de `F29_COMPACTO_SINTETICO`: cada celda con valor de la tabla, con el valor de esa celda. */
 export const F29_COMPACTO_SINTETICO_CODIGOS: Readonly<Record<string, number>> = {
   '503': 5,
   '502': 300_000,

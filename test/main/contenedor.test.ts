@@ -21,7 +21,7 @@ describe('configuración y contenedor', () => {
   let home: string;
 
   beforeEach(() => {
-    home = mkdtempSync(join(tmpdir(), 'impuestocl-'));
+    home = mkdtempSync(join(tmpdir(), 'mi-sii-mcp-'));
   });
 
   afterEach(() => {

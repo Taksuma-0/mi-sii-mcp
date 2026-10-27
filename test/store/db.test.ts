@@ -201,7 +201,7 @@ describe('db', () => {
 describe('respaldo antes de migrar', () => {
   const dirs: string[] = [];
   const carpeta = (): string => {
-    const d = mkdtempSync(join(tmpdir(), 'impuestocl-db-'));
+    const d = mkdtempSync(join(tmpdir(), 'mi-sii-mcp-db-'));
     dirs.push(d);
     return d;
   };

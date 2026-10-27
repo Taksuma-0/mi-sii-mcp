@@ -10,7 +10,7 @@ describe('formato', () => {
       { rut: '22222222-2', alias: 'Pyme', tipo: 'empresa', representa: [], razonSocial: null, sesion: { ...sesion, renuevaSola: false } },
     ]).split('\n');
     expect(texto[0]).toContain('(se renueva sola)');
-    expect(texto[1]).toContain('sin clave guardada: cuando venza, hay que conectar de nuevo en «Abrir impuestocl.cmd»');
+    expect(texto[1]).toContain('sin clave guardada: cuando venza, hay que conectar de nuevo en «Abrir mi-sii-mcp.cmd»');
   });
 
   it('textoPerfiles dice con qué sesión se entra y si la sesión es del navegador', () => {

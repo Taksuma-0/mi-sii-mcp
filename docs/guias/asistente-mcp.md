@@ -1,10 +1,10 @@
-# Usar impuestocl con un asistente (MCP)
+# Usar mi-sii-mcp con un asistente (MCP)
 
-Con esta guía, Claude (Claude Code o Claude Desktop) puede traer tus datos del SII a tu equipo, cruzarlos entre meses y contrapartes, y responder preguntas como «¿cómo evolucionó mi remanente de IVA en los últimos tres años?». Tú preguntas en lenguaje natural; el asistente usa las herramientas de impuestocl para hacer el trabajo.
+Con esta guía, Claude (Claude Code o Claude Desktop) puede traer tus datos del SII a tu equipo, cruzarlos entre meses y contrapartes, y responder preguntas como «¿cómo evolucionó mi remanente de IVA en los últimos tres años?». Tú preguntas en lenguaje natural; el asistente usa las herramientas de mi-sii-mcp para hacer el trabajo.
 
 Qué hace cada parte:
 
-- **impuestocl** descarga tus datos desde el SII (RCV, F29 y más; ver la cobertura abajo), los guarda en tu equipo y responde consultas de solo lectura sobre ellos.
+- **mi-sii-mcp** descarga tus datos desde el SII (RCV, F29 y más; ver la cobertura abajo), los guarda en tu equipo y responde consultas de solo lectura sobre ellos.
 - **El asistente** decide qué consultar, escribe las consultas y te explica el resultado.
 - **Tú** inicias sesión en el SII una sola vez, en tu propia terminal. La clave tributaria no se escribe nunca en el chat y ninguna herramienta del asistente la recibe.
 
@@ -38,7 +38,7 @@ Debe terminar con una línea que empieza con `OK`. La prueba usa una carpeta tem
 ## 2. Registrar el servidor en Claude Code
 
 ```powershell
-claude mcp add --scope user impuestocl -- node "C:\ruta\a\mi-sii-mcp\dist\interfaces\cli\bin.js" mcp
+claude mcp add --scope user mi-sii-mcp -- node "C:\ruta\a\mi-sii-mcp\dist\interfaces\cli\bin.js" mcp
 ```
 
 `--scope user` lo deja disponible en cualquier carpeta y sesión de Claude Code, no solo dentro del proyecto. Se usa `node` con la ruta completa, así que no hace falta instalar nada de forma global.
@@ -49,7 +49,7 @@ Comprueba que quedó conectado:
 claude mcp list
 ```
 
-Debe aparecer `impuestocl` con `✔ Connected`. Dentro de una sesión de Claude Code, `/mcp` muestra lo mismo y deja reconectar.
+Debe aparecer `mi-sii-mcp` con `✔ Connected`. Dentro de una sesión de Claude Code, `/mcp` muestra lo mismo y deja reconectar.
 
 Una sesión de Claude Code que ya estaba abierta no ve las herramientas nuevas hasta que la reinicies o ejecutes `/mcp` para reconectar.
 
@@ -65,8 +65,8 @@ Reemplaza `<tu RUT>` por el RUT del contribuyente, con o sin puntos. El programa
 
 Qué implica `--guardar-clave`:
 
-- La clave queda guardada en el **Administrador de credenciales de Windows**, bajo el servicio `impuestocl` (en la lista aparece una entrada cuyo nombre contiene `impuestocl`). No se guarda en archivos del proyecto ni en la base de datos.
-- Con la clave guardada, cuando la sesión del SII vence, impuestocl inicia una nueva sola. No tienes que volver a la terminal cada vez que expire.
+- La clave queda guardada en el **Administrador de credenciales de Windows**, bajo el servicio `mi-sii-mcp` (en la lista aparece una entrada cuyo nombre contiene `mi-sii-mcp`). No se guarda en archivos del proyecto ni en la base de datos.
+- Con la clave guardada, cuando la sesión del SII vence, mi-sii-mcp inicia una nueva sola. No tienes que volver a la terminal cada vez que expire.
 - Quien use tu cuenta de Windows podría usar esa clave guardada. Si prefieres no guardarla, omite `--guardar-clave`: cuando la sesión venza, tendrás que repetir el login.
 - Para olvidarla en cualquier momento:
 
@@ -84,7 +84,7 @@ Si entras al SII con ClaveÚnica, usa en tu terminal:
 node "C:\ruta\a\mi-sii-mcp\dist\interfaces\cli\bin.js" login-navegador --rut <tu RUT>
 ```
 
-- Se abre una ventana de Microsoft Edge o Google Chrome en la página real del SII, con un perfil temporal que no guarda contraseñas. Entras ahí como siempre (ClaveÚnica o clave tributaria). impuestocl no ve ni guarda lo que escribes: espera a que el SII inicie la sesión, toma solo las cookies de `sii.cl`, cierra la ventana y borra el perfil temporal.
+- Se abre una ventana de Microsoft Edge o Google Chrome en la página real del SII, con un perfil temporal que no guarda contraseñas. Entras ahí como siempre (ClaveÚnica o clave tributaria). mi-sii-mcp no ve ni guarda lo que escribes: espera a que el SII inicie la sesión, toma solo las cookies de `sii.cl`, cierra la ventana y borra el perfil temporal.
 - `--rut` es opcional: si lo indicas y entras con otra identidad, la sesión no se guarda. Sin él, la sesión queda con el RUT con que entraste (puede ser una persona natural) y ese perfil se registra.
 - Tienes 10 minutos para entrar. Se cambia con la variable de entorno `IMPUESTOCL_PLAZO_NAVEGADOR_MS` (en milisegundos, entre 1 y 30 minutos).
 - Si Edge o Chrome no están en las carpetas habituales, indica la ruta del navegador con la variable de entorno `IMPUESTOCL_NAVEGADOR` (por ejemplo, la ruta completa de `chrome.exe`).
@@ -98,9 +98,9 @@ Si entras con tu persona (por ejemplo, con ClaveÚnica) y quieres consultar una 
 node "C:\ruta\a\mi-sii-mcp\dist\interfaces\cli\bin.js" perfil agregar <RUT de la empresa> --alias <nombre> --tipo empresa --accede-con <tu RUT>
 ```
 
-Mientras la empresa no tenga sesión propia, impuestocl usa la tuya **solo para el RCV**, y cada mes sincronizado lleva el aviso «lectura por representación sin confirmar en vivo»: todavía no se comprobó con una sesión real que el SII entregue así el RCV de la empresa. El F29, la propuesta, las boletas, la renta F22, el perfil y las empresas autorizadas exigen la sesión de la propia empresa (`SIN_PERMISO`, sin consultar al SII). `perfiles_listar` muestra «accede con <rut>». Si la empresa entra con su propia clave, se usa esa sesión. Para quitar el acceso, vuelve a ejecutar `perfil agregar` sin `--accede-con`.
+Mientras la empresa no tenga sesión propia, mi-sii-mcp usa la tuya **solo para el RCV**, y cada mes sincronizado lleva el aviso «lectura por representación sin confirmar en vivo»: todavía no se comprobó con una sesión real que el SII entregue así el RCV de la empresa. El F29, la propuesta, las boletas, la renta F22, el perfil y las empresas autorizadas exigen la sesión de la propia empresa (`SIN_PERMISO`, sin consultar al SII). `perfiles_listar` muestra «accede con <rut>». Si la empresa entra con su propia clave, se usa esa sesión. Para quitar el acceso, vuelve a ejecutar `perfil agregar` sin `--accede-con`.
 
-Si el asistente necesita sesión y no hay una válida, te mostrará este mismo comando con tu RUT para que lo ejecutes tú (y el de `login-navegador`, si entras con ClaveÚnica). También sirve entrar por **Abrir impuestocl.cmd** (ver `docs/guias/interfaz-local.md`): esa interfaz no guarda la clave, pero el asistente toma la sesión nueva sin reiniciarse. Si el SII rechazó una clave, impuestocl bloquea ese RUT localmente hasta que hagas un login correcto, para no seguir intentando con una clave incorrecta.
+Si el asistente necesita sesión y no hay una válida, te mostrará este mismo comando con tu RUT para que lo ejecutes tú (y el de `login-navegador`, si entras con ClaveÚnica). También sirve entrar por **Abrir mi-sii-mcp.cmd** (ver `docs/guias/interfaz-local.md`): esa interfaz no guarda la clave, pero el asistente toma la sesión nueva sin reiniciarse. Si el SII rechazó una clave, mi-sii-mcp bloquea ese RUT localmente hasta que hagas un login correcto, para no seguir intentando con una clave incorrecta.
 
 ## 4. Qué puedes preguntar
 
@@ -124,7 +124,7 @@ Cómo trabaja el asistente: para los cálculos de IVA, retenciones y plazos usa 
 
 Una ausencia de filas no significa cero: puede ser un mes que nunca se descargó. Pídele que lo distinga con la bitácora de sincronización.
 
-Si un F29 leído no cuadra, o tras actualizar impuestocl, pídele «relee mis F29 guardados»: `f29_releer` vuelve a leer los PDF ya descargados con el lector actual, sin entrar al SII (en la terminal, `releer-f29 <tu RUT>`).
+Si un F29 leído no cuadra, o tras actualizar mi-sii-mcp, pídele «relee mis F29 guardados»: `f29_releer` vuelve a leer los PDF ya descargados con el lector actual, sin entrar al SII (en la terminal, `releer-f29 <tu RUT>`).
 
 ### Herramientas (14)
 
@@ -156,7 +156,7 @@ Si usas Claude Desktop en vez de Claude Code, agrega el servidor a su archivo de
 ```json
 {
   "mcpServers": {
-    "impuestocl": {
+    "mi-sii-mcp": {
       "command": "node",
       "args": ["C:\\ruta\\a\\mi-sii-mcp\\dist\\interfaces\\cli\\bin.js", "mcp"]
     }
@@ -164,23 +164,23 @@ Si usas Claude Desktop en vez de Claude Code, agrega el servidor a su archivo de
 }
 ```
 
-Si el archivo ya tiene otros servidores, agrega solo la entrada `impuestocl` dentro de `mcpServers`. Reinicia Claude Desktop por completo para que lo cargue. El login (sección 3) se hace igual, en tu terminal.
+Si el archivo ya tiene otros servidores, agrega solo la entrada `mi-sii-mcp` dentro de `mcpServers`. Reinicia Claude Desktop por completo para que lo cargue. El login (sección 3) se hace igual, en tu terminal.
 
 ## 6. Cuidados al usarlo
 
-- **No sincronices el mismo RUT desde dos lugares a la vez**, por ejemplo la interfaz de **Abrir impuestocl.cmd** y el asistente. Cada uno coordina sus descargas por separado y dos descargas simultáneas del mismo RUT pueden pisarse. Espera a que termine una antes de iniciar la otra.
+- **No sincronices el mismo RUT desde dos lugares a la vez**, por ejemplo la interfaz de **Abrir mi-sii-mcp.cmd** y el asistente. Cada uno coordina sus descargas por separado y dos descargas simultáneas del mismo RUT pueden pisarse. Espera a que termine una antes de iniciar la otra.
 - Los datos están al día hasta la última sincronización. Si necesitas cifras recientes, pide primero que sincronice el rango que te interesa.
 - Las cifras y los hallazgos son una ayuda para revisar tu información, no asesoría tributaria. Contrástalos con el SII o con tu contador antes de declarar o pagar.
 
 ## 7. Si algo falla
 
-- **`claude mcp list` muestra un error en `impuestocl`** (o la conexión se cae al abrir Claude): ejecuta el servidor a mano para ver el mensaje real.
+- **`claude mcp list` muestra un error en `mi-sii-mcp`** (o la conexión se cae al abrir Claude): ejecuta el servidor a mano para ver el mensaje real.
 
   ```powershell
   node "C:\ruta\a\mi-sii-mcp\dist\interfaces\cli\bin.js" mcp
   ```
 
-  Si todo está bien, escribe «impuestocl: servidor MCP listo (stdio).» y queda esperando: cierra con Ctrl+C. Si hay un problema, imprime el error y termina.
+  Si todo está bien, escribe «mi-sii-mcp: servidor MCP listo (stdio).» y queda esperando: cierra con Ctrl+C. Si hay un problema, imprime el error y termina.
 - **Actualizaste Node a otra versión mayor** (por ejemplo, de 22 a 24): el módulo nativo de la base de datos hay que reconstruirlo y volver a compilar el proyecto.
 
   ```powershell
@@ -189,18 +189,18 @@ Si el archivo ya tiene otros servidores, agrega solo la entrada `impuestocl` den
   npm.cmd run build
   ```
 
-- **Una consulta al SII tarda demasiado y se corta**: cada petición HTTP tiene un plazo de 60 segundos por defecto. Se puede cambiar con la variable de entorno `IMPUESTOCL_PLAZO_HTTP_MS` (en milisegundos; se acota entre 10 000 y el máximo del programa). En Claude Code se define al registrar el servidor, por ejemplo: `claude mcp add --scope user --env IMPUESTOCL_PLAZO_HTTP_MS=120000 impuestocl -- node "<ruta>\dist\interfaces\cli\bin.js" mcp` (si ya estaba registrado, quítalo antes; ver sección 8). En Claude Desktop se agrega un bloque `"env": { "IMPUESTOCL_PLAZO_HTTP_MS": "120000" }` a la entrada `impuestocl`.
-- **Respaldo de la base**: antes de migrar el esquema de la base a una versión nueva (por ejemplo, tras actualizar impuestocl), el programa guarda una copia íntegra junto a ella, con el nombre `impuestocl-antes-v<N>.db`, en la carpeta `.impuestocl`. Si la copia falla, la migración no se aplica y verás el error `RESPALDO_FALLIDO`. Las copias contienen tus datos: bórralas cuando ya no las necesites.
+- **Una consulta al SII tarda demasiado y se corta**: cada petición HTTP tiene un plazo de 60 segundos por defecto. Se puede cambiar con la variable de entorno `IMPUESTOCL_PLAZO_HTTP_MS` (en milisegundos; se acota entre 10 000 y el máximo del programa). En Claude Code se define al registrar el servidor, por ejemplo: `claude mcp add --scope user --env IMPUESTOCL_PLAZO_HTTP_MS=120000 mi-sii-mcp -- node "<ruta>\dist\interfaces\cli\bin.js" mcp` (si ya estaba registrado, quítalo antes; ver sección 8). En Claude Desktop se agrega un bloque `"env": { "IMPUESTOCL_PLAZO_HTTP_MS": "120000" }` a la entrada `mi-sii-mcp`.
+- **Respaldo de la base**: antes de migrar el esquema de la base a una versión nueva (por ejemplo, tras actualizar mi-sii-mcp), el programa guarda una copia íntegra junto a ella, con el nombre `impuestocl-antes-v<N>.db`, en la carpeta `.impuestocl`. Si la copia falla, la migración no se aplica y verás el error `RESPALDO_FALLIDO`. Las copias contienen tus datos: bórralas cuando ya no las necesites.
 - **`node` debe estar en el PATH, versión 22.12 o superior.** Compruébalo en una terminal nueva con `node --version`. Esto vale también para Claude Desktop: lanza `node` con el PATH de Windows, así que reinícialo por completo después de instalar o actualizar Node.
-- **No encuentras «Abrir impuestocl.cmd»**: está en la carpeta del proyecto, `C:\ruta\a\mi-sii-mcp\Abrir impuestocl.cmd`. Haz doble clic para abrir la interfaz local (ver `docs/guias/interfaz-local.md`).
+- **No encuentras «Abrir mi-sii-mcp.cmd»**: está en la carpeta del proyecto, `C:\ruta\a\mi-sii-mcp\Abrir mi-sii-mcp.cmd`. Haz doble clic para abrir la interfaz local (ver `docs/guias/interfaz-local.md`).
 
 ## 8. Quitar el registro
 
 ```powershell
-claude mcp remove --scope user impuestocl
+claude mcp remove --scope user mi-sii-mcp
 ```
 
-Esto desconecta al asistente. No borra tus datos guardados ni tu clave: para la clave, usa `logout <tu RUT> --olvidar-clave` (sección 3). Tus datos locales están en la carpeta `.impuestocl` de tu usuario de Windows. En Claude Desktop, borra la entrada `impuestocl` del archivo de configuración y reinicia la aplicación.
+Esto desconecta al asistente. No borra tus datos guardados ni tu clave: para la clave, usa `logout <tu RUT> --olvidar-clave` (sección 3). Tus datos locales están en la carpeta `.impuestocl` de tu usuario de Windows. En Claude Desktop, borra la entrada `mi-sii-mcp` del archivo de configuración y reinicia la aplicación.
 
 ## 9. Actualizar el código
 

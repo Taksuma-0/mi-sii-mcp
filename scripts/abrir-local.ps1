@@ -6,5 +6,5 @@ try {
     Start-Process -FilePath $nodeLocal -ArgumentList @('--import', 'tsx', 'scripts/abrir-local.ts') -WorkingDirectory $raizProyecto -WindowStyle Hidden
 } catch {
     Add-Type -AssemblyName System.Windows.Forms
-    [System.Windows.Forms.MessageBox]::Show('No se pudo abrir impuestocl. Comprueba Node y vuelve a intentarlo.', 'impuestocl') | Out-Null
+    [System.Windows.Forms.MessageBox]::Show('No se pudo abrir mi-sii-mcp. Comprueba Node y vuelve a intentarlo.', 'mi-sii-mcp') | Out-Null
 }

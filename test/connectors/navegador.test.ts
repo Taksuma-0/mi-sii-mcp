@@ -134,7 +134,7 @@ describe('capturarCookiesSii', () => {
   let base: string;
 
   beforeEach(() => {
-    base = mkdtempSync(join(tmpdir(), 'impuestocl-prueba-navegador-'));
+    base = mkdtempSync(join(tmpdir(), 'mi-sii-mcp-prueba-navegador-'));
   });
 
   afterEach(() => {
@@ -296,7 +296,7 @@ describe('limpiarPerfilesViejos', () => {
   let base: string;
 
   beforeEach(() => {
-    base = mkdtempSync(join(tmpdir(), 'impuestocl-prueba-limpieza-'));
+    base = mkdtempSync(join(tmpdir(), 'mi-sii-mcp-prueba-limpieza-'));
   });
 
   afterEach(() => {

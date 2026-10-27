@@ -382,7 +382,7 @@ describe('servidor MCP', () => {
     expect(instrucciones).toBe(INSTRUCCIONES_MCP);
     expect(instrucciones.length).toBeGreaterThan(0);
     expect(instrucciones.length).toBeLessThanOrEqual(1_500);
-    for (const clave of ['perfiles_listar', 'sii_panorama', 'sincronizar', '12 meses', 'iva_resumen', 'iva_hallazgos', 'f29_historial', 'plazos_proximos', 'datos_esquema', 'consulta_sql', 'f29_releer', 'perfil_sincronizar', 'renta_sincronizar', 'renta_resumen', 'propuesta', 'bhe', 'Reintentar: ahora mismo', 'Reintentables más tarde', 'SESION_REQUERIDA', 'login-navegador', 'Abrir impuestocl.cmd', 'RCV', 'F29', 'F22']) {
+    for (const clave of ['perfiles_listar', 'sii_panorama', 'sincronizar', '12 meses', 'iva_resumen', 'iva_hallazgos', 'f29_historial', 'plazos_proximos', 'datos_esquema', 'consulta_sql', 'f29_releer', 'perfil_sincronizar', 'renta_sincronizar', 'renta_resumen', 'propuesta', 'bhe', 'Reintentar: ahora mismo', 'Reintentables más tarde', 'SESION_REQUERIDA', 'login-navegador', 'Abrir mi-sii-mcp.cmd', 'RCV', 'F29', 'F22']) {
       expect(instrucciones).toContain(clave);
     }
     expect(instrucciones).toMatch(/boletas de honorarios recibidas y emitidas/);
@@ -391,7 +391,7 @@ describe('servidor MCP', () => {
     expect(instrucciones).toMatch(/empresas autorizadas/);
     expect(instrucciones).not.toMatch(/solo RCV/i);
     expect(instrucciones).toMatch(/nunca pidas la clave/i);
-    expect(instrucciones).toMatch(/no es asesoría tributaria/i);
+    expect(instrucciones).toMatch(/no es oficial del SII ni asesoría tributaria/i);
     await cliente.close();
   });
 
@@ -503,20 +503,20 @@ describe('servidor MCP', () => {
       const texto = textoDe(r);
       expect(texto).toContain(`[${codigo}]`);
       expect(texto).toContain('LOGIN 22222222-2');
-      expect(texto).toContain('Abrir impuestocl.cmd');
+      expect(texto).toContain('Abrir mi-sii-mcp.cmd');
       expect(texto).toMatch(/nunca pidas la clave en el chat/i);
-      expect(texto).not.toContain('impuestocl login');
+      expect(texto).not.toContain('mi-sii-mcp login');
       await cliente.close();
     });
 
-    it('sin opciones usa impuestocl login con --guardar-clave', async () => {
+    it('sin opciones usa mi-sii-mcp login con --guardar-clave', async () => {
       const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorImpuestocl('SESION_REQUERIDA', 'Sin sesión.') });
       store.guardarContribuyente(perfilEmpresa());
       const cliente = await conectar(deps);
 
       const r = await cliente.callTool({ name: 'sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026-09' } });
 
-      expect(textoDe(r)).toContain('`impuestocl login 22222222-2 --guardar-clave`');
+      expect(textoDe(r)).toContain('`mi-sii-mcp login 22222222-2 --guardar-clave`');
       await cliente.close();
     });
 
@@ -531,18 +531,18 @@ describe('servidor MCP', () => {
       expect(texto).toContain('LOGIN 22222222-2');
       expect(texto).toContain('`NAVEGADOR 22222222-2`');
       expect(texto).toContain('ClaveÚnica');
-      expect(texto).not.toContain('impuestocl login');
+      expect(texto).not.toContain('mi-sii-mcp login');
       await cliente.close();
     });
 
-    it('sin opciones el login con navegador es impuestocl login-navegador --rut', async () => {
+    it('sin opciones el login con navegador es mi-sii-mcp login-navegador --rut', async () => {
       const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorImpuestocl('SESION_REQUERIDA', 'Sin sesión.') });
       store.guardarContribuyente(perfilEmpresa());
       const cliente = await conectar(deps);
 
       const r = await cliente.callTool({ name: 'sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026-09' } });
 
-      expect(textoDe(r)).toContain('`impuestocl login-navegador --rut 22222222-2`');
+      expect(textoDe(r)).toContain('`mi-sii-mcp login-navegador --rut 22222222-2`');
       await cliente.close();
     });
 
@@ -565,9 +565,9 @@ describe('servidor MCP', () => {
       expect(esError(r)).toBe(false);
       const texto = textoDe(r);
       expect(texto).toContain('LOGIN <rut>');
-      expect(texto).toContain('Abrir impuestocl.cmd');
+      expect(texto).toContain('Abrir mi-sii-mcp.cmd');
       expect(texto).toMatch(/nunca pidas la clave en el chat/i);
-      expect(texto).not.toContain('impuestocl perfil');
+      expect(texto).not.toContain('mi-sii-mcp perfil');
       await cliente.close();
     });
 
@@ -582,7 +582,7 @@ describe('servidor MCP', () => {
       expect(texto).toContain('LOGIN 22222222-2');
       expect(texto).toMatch(/crea su perfil/);
       expect(texto).toMatch(/nunca pidas la clave en el chat/i);
-      expect(texto).not.toContain('impuestocl perfil');
+      expect(texto).not.toContain('mi-sii-mcp perfil');
       expect(texto).not.toContain('Acción sugerida');
       await cliente.close();
     });
@@ -616,7 +616,7 @@ describe('servidor MCP', () => {
       expect(texto).toContain('f29 SIN_PERMISO');
       expect(texto.split('LOGIN 22222222-2')).toHaveLength(2);
       expect(texto).toMatch(/clave de ese contribuyente/);
-      expect(texto).not.toContain('impuestocl login');
+      expect(texto).not.toContain('mi-sii-mcp login');
       await cliente.close();
     });
 
@@ -638,8 +638,8 @@ describe('servidor MCP', () => {
       const descripcion = tools.find((t) => t.name === 'sincronizar')?.description ?? '';
       expect(descripcion).toMatch(/120 meses/);
       expect(descripcion).toMatch(/tramos de 12 meses/);
-      expect(descripcion).toContain('Abrir impuestocl.cmd');
-      expect(descripcion).not.toContain('impuestocl login');
+      expect(descripcion).toContain('Abrir mi-sii-mcp.cmd');
+      expect(descripcion).not.toContain('mi-sii-mcp login');
       expect(descripcion).toMatch(/por defecto trae rcv y f29/i);
       expect(descripcion).toMatch(/«propuesta».*no va por defecto/i);
       expect(descripcion).toMatch(/«bhe».*no va por defecto/i);

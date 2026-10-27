@@ -22,7 +22,7 @@ interface ArchivoSesion {
 export type CapturaNavegador = (opciones: { readonly signal?: AbortSignal }) => Promise<readonly CookieNavegador[]>;
 
 const accionLoginNavegador = (rut: string): string =>
-  `La sesión se tomó del navegador y no se renueva sola. Ejecuta \`impuestocl login-navegador --rut ${rut}\` y entra de nuevo en la ventana que se abre.`;
+  `La sesión se tomó del navegador y no se renueva sola. Ejecuta \`mi-sii-mcp login-navegador --rut ${rut}\` y entra de nuevo en la ventana que se abre.`;
 
 /** Cookie de tough-cookie y la URL desde donde se carga: sin punto inicial vale solo para ese host. */
 function cookieDeNavegador(c: CookieNavegador): { cookie: Cookie; url: string } {
@@ -106,7 +106,7 @@ export class GestorSesiones implements ConsultaSesiones {
     if (esperado !== null && identidad.rut !== esperado) {
       await cerrarSesion(http);
       throw new ErrorImpuestocl('SIN_PERMISO', `En el navegador se inició sesión como ${identidad.rut}, no como ${esperado}.`, {
-        accion: `Ejecuta \`impuestocl login-navegador --rut ${esperado}\` y entra con la identidad de ${esperado}, o configura el acceso con \`impuestocl perfil agregar ${esperado} … --accede-con ${identidad.rut}\`.`,
+        accion: `Ejecuta \`mi-sii-mcp login-navegador --rut ${esperado}\` y entra con la identidad de ${esperado}, o configura el acceso con \`mi-sii-mcp perfil agregar ${esperado} … --accede-con ${identidad.rut}\`.`,
       });
     }
     this.pendientes.delete(identidad.rut);

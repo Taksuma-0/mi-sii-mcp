@@ -39,7 +39,7 @@ afterEach(() => {
 });
 
 function carpetaTemporal(): string {
-  const carpeta = mkdtempSync(join(tmpdir(), 'impuestocl-consulta-'));
+  const carpeta = mkdtempSync(join(tmpdir(), 'mi-sii-mcp-consulta-'));
   carpetas.push(carpeta);
   return carpeta;
 }

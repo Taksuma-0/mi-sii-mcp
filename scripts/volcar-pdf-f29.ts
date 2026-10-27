@@ -1,4 +1,4 @@
-// Muestra cómo lee impuestocl un PDF compacto real del F29, para calibrar el lector.
+// Muestra cómo lee mi-sii-mcp un PDF compacto real del F29, para calibrar el lector.
 // Uso: npx tsx scripts/volcar-pdf-f29.ts .spike/<rut>/f29-AAAA-MM-compacto.pdf
 import { readFileSync } from 'node:fs';
 import { extractTextItems } from 'unpdf';

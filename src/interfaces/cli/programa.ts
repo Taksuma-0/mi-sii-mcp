@@ -48,7 +48,7 @@ export function crearPrograma(
   iniciarMcp: (c: ContenedorCli) => void | Promise<void>,
 ): { programa: Command; salida: { codigo: number } } {
   const salida = { codigo: 0 };
-  const programa = new Command('impuestocl')
+  const programa = new Command('mi-sii-mcp')
     .description('IVA mensual conciliado con datos del SII. Herramienta no oficial; no es asesoría tributaria.')
     .version(VERSION)
     .exitOverride()
@@ -133,13 +133,13 @@ export function crearPrograma(
 
   programa
     .command('login-navegador')
-    .description('Inicia sesión en el SII desde tu navegador (Edge o Chrome), con ClaveÚnica o clave tributaria; impuestocl no ve la clave')
+    .description('Inicia sesión en el SII desde tu navegador (Edge o Chrome), con ClaveÚnica o clave tributaria; mi-sii-mcp no ve la clave')
     .option('--rut <rut>', 'RUT con que esperas entrar; si entras con otro, no se guarda la sesión')
     .action(
       ejecutar(async (c, o: { rut?: string }) => {
         const minutos = Math.round(c.config.plazoNavegadorMs / 60_000);
         io.escribir(
-          `Se abrirá una ventana del navegador en la página del SII. Entra ahí con tu ClaveÚnica o tu clave tributaria; impuestocl no ve ni guarda tu clave. Tienes ${minutos} minutos; la ventana se cierra sola al terminar.`,
+          `Se abrirá una ventana del navegador en la página del SII. Entra ahí con tu ClaveÚnica o tu clave tributaria; mi-sii-mcp no ve ni guarda tu clave. Tienes ${minutos} minutos; la ventana se cierra sola al terminar.`,
         );
         const identidad = await c.sesiones.loginNavegador(o.rut);
         registrarIdentidad(c.deps, identidad);
@@ -300,7 +300,7 @@ export function crearPrograma(
     .action(
       ejecutar((c, o: { json?: boolean }) => {
         const datos = { version: VERSION, home: c.config.home, baseDeDatos: c.config.rutaDb, perfiles: listarPerfiles(c.deps) };
-        mostrar(o.json, datos, [`impuestocl ${VERSION}`, `Datos: ${c.config.home}`, `Base: ${c.config.rutaDb}`, textoPerfiles(datos.perfiles)].join('\n'));
+        mostrar(o.json, datos, [`mi-sii-mcp ${VERSION}`, `Datos: ${c.config.home}`, `Base: ${c.config.rutaDb}`, textoPerfiles(datos.perfiles)].join('\n'));
       }),
     );
 

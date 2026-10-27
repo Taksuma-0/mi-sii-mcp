@@ -71,7 +71,7 @@ const PREFIJO_PERFIL = 'impuestocl-navegador-';
 const ANTIGUEDAD_PERFIL_VIEJO_MS = 2 * PLAZO_MAXIMO_LOGIN_NAVEGADOR_MS;
 /** El perfil temporal no ofrece guardar contraseñas. */
 const PREFERENCIAS = { credentials_enable_service: false, profile: { password_manager_enabled: false } };
-const ACCION_REINTENTO = 'Vuelve a ejecutar `impuestocl login-navegador` e inicia sesión en la ventana que se abre (ClaveÚnica o clave tributaria).';
+const ACCION_REINTENTO = 'Vuelve a ejecutar `mi-sii-mcp login-navegador` e inicia sesión en la ventana que se abre (ClaveÚnica o clave tributaria).';
 
 const sinPunto = (dominio: string): string => dominio.trim().toLowerCase().replace(/^\./, '');
 
@@ -99,7 +99,7 @@ const temporizadorCierre: Temporizador = {
 /** Lanza el navegador con el CDP por los descriptores 3 (órdenes) y 4 (respuestas). Nunca durante las pruebas. */
 function lanzarNavegador(ejecutable: string, argumentos: readonly string[]): NavegadorLanzado {
   if (process.env['VITEST']) {
-    throw new ErrorImpuestocl('NAVEGADOR_NO_DISPONIBLE', 'impuestocl no lanza un navegador real durante las pruebas.');
+    throw new ErrorImpuestocl('NAVEGADOR_NO_DISPONIBLE', 'mi-sii-mcp no lanza un navegador real durante las pruebas.');
   }
   const hijo = spawn(ejecutable, argumentos, { stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe'] });
   let vivo = true;
@@ -161,7 +161,7 @@ const sinTerminar = (texto: string, cause?: unknown) => new ErrorImpuestocl('SES
 
 /**
  * Abre el navegador instalado en la página de login del SII con un perfil temporal (sin gestor de contraseñas ni
- * sincronización) y el CDP por tubería, sin puerto de depuración. La persona entra ahí (ClaveÚnica o clave): impuestocl no
+ * sincronización) y el CDP por tubería, sin puerto de depuración. La persona entra ahí (ClaveÚnica o clave): mi-sii-mcp no
  * ve ni guarda la clave ni lo escrito en los formularios; solo lee las cookies con `Storage.getCookies` hasta ver la cookie
  * TOKEN del SII y devuelve únicamente las de `sii.cl`. Pase lo que pase (éxito, error, plazo, Ctrl+C o cierre de la
  * consola) cierra el navegador y borra el perfil temporal.

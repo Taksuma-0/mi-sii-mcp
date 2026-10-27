@@ -24,7 +24,7 @@ describe('fuentes oficiales de datos públicos', () => {
   it('el texto lista fuente y qué buscar, y agrega la regla solo si se pide', () => {
     const [utm] = fuentesOficiales('utm');
     const sin = textoFuentes([utm!], false);
-    expect(sin).toContain('impuestocl no los guarda');
+    expect(sin).toContain('mi-sii-mcp no los guarda');
     expect(sin).toContain('https://www.sii.cl/valores_y_fechas/utm/utm2026.htm');
     expect(sin).toContain('Qué buscar:');
     expect(sin).not.toContain('Regla para estimar');

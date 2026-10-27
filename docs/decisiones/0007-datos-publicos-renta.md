@@ -4,7 +4,7 @@ Fecha: 27 de octubre de 2026. Estado: decidido; las URL de la tabla se abrieron 
 
 ## Decisión
 
-impuestocl **no guarda parámetros públicos de la renta** (UTM/UTA, tramos y tasas, IMM, porcentajes de retención o de cobertura, comisiones, tasa del SIS, topes). Las herramientas que estimen el F22 los reciben **como argumentos**. En su descripción dicen de qué página oficial sale cada uno, para que quien las llame (la persona o el asistente vía MCP) los consulte allí y los pase.
+mi-sii-mcp **no guarda parámetros públicos de la renta** (UTM/UTA, tramos y tasas, IMM, porcentajes de retención o de cobertura, comisiones, tasa del SIS, topes). Las herramientas que estimen el F22 los reciben **como argumentos**. En su descripción dicen de qué página oficial sale cada uno, para que quien las llame (la persona o el asistente vía MCP) los consulte allí y los pase.
 
 Razones: los valores cambian cada año, y a veces dentro del año, por ley, licitación o reajuste. Si quedan copiados en el código, se desactualizan sin que nadie lo note. Además, las fuentes no siempre coinciden entre sí. Por ejemplo, la tasa del SIS que se usa en la Operación Renta no es la vigente en el mes en que se paga. Es mejor que la cifra venga siempre de la fuente oficial del año que se calcula.
 

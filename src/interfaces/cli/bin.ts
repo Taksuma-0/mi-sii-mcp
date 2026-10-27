@@ -10,7 +10,7 @@ import { crearPrograma } from './programa.js';
 
 let contenedor: Contenedor | null = null;
 
-/** `impuestocl` no está en el PATH del asistente: el comando de login apunta a este mismo archivo compilado. */
+/** `mi-sii-mcp` no está en el PATH del asistente: el comando de login apunta a este mismo archivo compilado. */
 const comandoLoginReal = (rut: string): string => `node "${fileURLToPath(import.meta.url)}" login ${rut} --guardar-clave`;
 const comandoLoginNavegadorReal = (rut: string): string => `node "${fileURLToPath(import.meta.url)}" login-navegador --rut ${rut}`;
 

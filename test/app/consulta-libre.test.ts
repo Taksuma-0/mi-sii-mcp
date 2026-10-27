@@ -229,7 +229,7 @@ describe('esquemaDatos', () => {
     // Igual que las reglas de IVA: en un F29 con valores leídos, el PDF compacto omite las líneas en cero y se guarda
     // cada línea con valor de la tabla; un total que falta junto a sus líneas es una lectura fallida.
     expect(texto).toMatch(/F29.*código ausente vale 0/);
-    expect(texto).toContain('impuestocl guarda cada línea con valor de la tabla del formulario');
+    expect(texto).toContain('mi-sii-mcp guarda cada línea con valor de la tabla del formulario');
     const citar = (codigos: readonly string[]): string => codigos.map((c) => `'${c}'`).join(' + ');
     for (const [total, { suman, restan }] of Object.entries(LINEAS_DE_TOTALES)) {
       expect(texto).toContain(`'${total}' ausente vale 0 solo si ${citar(restan)} ≥ ${citar(suman)}`);
