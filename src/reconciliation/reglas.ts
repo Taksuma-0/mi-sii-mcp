@@ -191,7 +191,8 @@ function explicacionesNoPresentadas(declaraciones: readonly F29Declaracion[]): s
 /**
  * IVA-04: período cerrado sin F29 presentado. Las empresas declaran aunque no tengan movimiento. Sin F29 ni dato de pago el
  * monto es desconocido, así que se gradúa por los vencimientos oficiales (docs/decisiones/0004-plazos-f29.md): hasta el día
- * de pago, pendiente; después y hasta el 28 (sin pago), posiblemente vencido; después del 28, vencido.
+ * de pago, pendiente; después y hasta el 28 (sin pago), posiblemente vencido; después del 28, vencido. Si una declaración
+ * rechazada o guardada del período ya tiene un monto a pagar, el pago es conocido: el plazo duro es el del día de pago.
  */
 export function reglaF29Faltante(e: EntradaConciliacion): Hallazgo[] {
   if (e.disponibilidad?.f29 === false) return [];
@@ -200,6 +201,7 @@ export function reglaF29Faltante(e: EntradaConciliacion): Hallazgo[] {
   const hayMovimiento = e.resumenes.some((r) => r.estado === 'REGISTRO' && r.filas.some((f) => f.cantidad > 0));
   if (e.tipo !== 'empresa' && !hayMovimiento) return [];
   const { conPago, sinPago } = vencimientosF29(e.periodo, { autorizadoDia20: e.autorizadoDia20 ?? null });
+  const pagoConocido = e.declaraciones.some((d) => (f29Rechazada(d) || f29Guardada(d)) && (d.totalAPagar ?? 0) > 0);
   const motivo = [
     hayMovimiento ? 'El período tiene movimiento en el RCV.' : 'Aunque no haya movimiento, el F29 se declara igual.',
     ...explicacionesNoPresentadas(e.declaraciones),
@@ -207,6 +209,19 @@ export function reglaF29Faltante(e: EntradaConciliacion): Hallazgo[] {
   const evidencia = [`F29:${e.periodo.texto}`];
   const diasConPago = diasEntre(e.hoy, conPago);
   const diasSinPago = diasEntre(e.hoy, sinPago);
+  if (pagoConocido && diasConPago < 0) {
+    return [
+      hallazgo(e, {
+        regla: 'IVA-04',
+        severidad: 'critico',
+        naturaleza: 'DERIVADO',
+        titulo: 'F29 no presentado y vencido',
+        detalle: `El F29 de ${e.periodo.texto} venció el ${conPago} (hace ${-diasConPago} día(s)): la declaración sin presentar de este período ya tiene un monto a pagar, así que el plazo es el de con pago. ${motivo}`,
+        montos: null,
+        evidencia,
+      }),
+    ];
+  }
   if (diasSinPago < 0) {
     return [
       hallazgo(e, {
@@ -233,13 +248,14 @@ export function reglaF29Faltante(e: EntradaConciliacion): Hallazgo[] {
       }),
     ];
   }
+  const plazos = pagoConocido ? `vence el ${conPago} (en ${diasConPago} día(s)): la declaración sin presentar ya tiene un monto a pagar` : `vence el ${conPago} con pago (en ${diasConPago} día(s)); sin pago, el ${sinPago}`;
   return [
     hallazgo(e, {
       regla: 'IVA-04',
       severidad: 'advertencia',
       naturaleza: 'DERIVADO',
       titulo: 'F29 pendiente de presentar',
-      detalle: `El F29 de ${e.periodo.texto} vence el ${conPago} con pago (en ${diasConPago} día(s)); sin pago, el ${sinPago}. ${motivo}`,
+      detalle: `El F29 de ${e.periodo.texto} ${plazos}. ${motivo}`,
       montos: null,
       evidencia,
     }),

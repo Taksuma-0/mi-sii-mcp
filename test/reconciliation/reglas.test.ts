@@ -52,6 +52,28 @@ describe('IVA-04 F29 faltante', () => {
     expect(h!.detalle).toContain('El SII rechazó el folio 555009 (Rechazada por pago inconcluso).');
   });
 
+  it.each([
+    ['rechazada', { folio: 555_009, estadoId: 70, estado: 'Rechazada por pago inconcluso', totalAPagar: 120_000 }],
+    ['guardada', { folio: 0, estadoId: 10, estado: 'Guardada', totalAPagar: 120_000 }],
+  ] as const)('con una declaración %s con monto a pagar el pago es conocido: el plazo duro es el de con pago', (_caso, datos) => {
+    const declaraciones = [declaracion(datos)];
+    // 2026-10-21: pasó el día 20 (con pago) y todavía no el 28 (sin pago).
+    const [h] = reglaF29Faltante(entrada({ declaraciones, valores: null, hoy: '2026-10-21' }));
+    expect(h).toMatchObject({ regla: 'IVA-04', severidad: 'critico', titulo: 'F29 no presentado y vencido' });
+    expect(h!.detalle).toContain('2026-10-20');
+    expect(h!.detalle).not.toContain('sin dato de pago');
+    expect(h!.detalle).not.toContain('sin pago vence');
+    // Hasta el día de pago sigue pendiente, también con el pago conocido.
+    const [antes] = reglaF29Faltante(entrada({ declaraciones, valores: null, hoy: '2026-10-20' }));
+    expect(antes).toMatchObject({ severidad: 'advertencia', titulo: 'F29 pendiente de presentar' });
+    expect(antes!.detalle).not.toContain('dato de pago');
+  });
+
+  it('una declaración rechazada sin monto a pagar no cambia la graduación', () => {
+    const declaraciones = [declaracion({ folio: 555_009, estadoId: 70, estado: 'Rechazada', totalAPagar: 0 })];
+    expect(reglaF29Faltante(entrada({ declaraciones, valores: null, hoy: '2026-10-21' }))[0]).toMatchObject({ severidad: 'advertencia', titulo: 'F29 posiblemente vencido' });
+  });
+
   it('si solo hay una declaración guardada lo dice en el detalle', () => {
     const guardada = declaracion({ folio: 0, estadoId: 10, estado: 'Guardada' });
     const [h] = reglaF29Faltante(entrada({ declaraciones: [guardada], valores: null }));
