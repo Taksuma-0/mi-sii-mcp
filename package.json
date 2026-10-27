@@ -1,9 +1,19 @@
 {
   "name": "mi-sii-mcp",
   "version": "0.1.0",
-  "description": "mi-sii-mcp: MCP no oficial para consultar y cuadrar tus datos del SII (IVA, boletas de honorarios, renta)",
+  "mcpName": "io.github.Taksuma-0/mi-sii-mcp",
+  "description": "Servidor MCP para el SII de Chile: conecta Claude, Codex, Cursor o Gemini CLI con tu IVA, F29, F22, boletas de honorarios y renta. Solo lectura, datos locales y conciliación tributaria.",
   "type": "module",
   "license": "MIT",
+  "author": "Welinton Barrera (https://github.com/Taksuma-0)",
+  "homepage": "https://taksuma-0.github.io/mi-sii-mcp/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Taksuma-0/mi-sii-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Taksuma-0/mi-sii-mcp/issues"
+  },
   "bin": {
     "mi-sii-mcp": "dist/interfaces/cli/bin.js"
   },
@@ -17,13 +27,25 @@
     "node": ">=22.12.0"
   },
   "keywords": [
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
     "sii",
+    "sii-chile",
     "chile",
     "impuestos",
+    "tributario",
     "iva",
     "f29",
+    "f22",
     "rcv",
-    "mcp"
+    "renta",
+    "boletas-de-honorarios",
+    "claude",
+    "codex",
+    "cursor",
+    "gemini-cli",
+    "ai-agents"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
