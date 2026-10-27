@@ -6,7 +6,7 @@ import { parseRut, type Rut } from '../../domain/rut.js';
 import type { DocumentoRcv, EstadoRcv, Lado, RcvResumen, RcvResumenFila } from '../../domain/tipos.js';
 import type { SumideroRespuestas } from '../../ports/index.js';
 import { entero, primero, texto } from './campos.js';
-import type { ClienteHttp } from './http.js';
+import type { Http } from './http.js';
 import { HOST_SDI, postSdi } from './sdi.js';
 
 const BASE = `${HOST_SDI}/consdcvinternetui/services/data/facadeService`;
@@ -58,7 +58,7 @@ function filasDelSobre(crudo: unknown, superficie: string): Record<string, unkno
 const sufijo = (lado: Lado): string => (lado === 'COMPRA' ? 'Compra' : 'Venta');
 
 export async function rcvResumen(
-  http: ClienteHttp,
+  http: Http,
   sumidero: SumideroRespuestas,
   rut: Rut,
   periodo: Periodo,
@@ -88,7 +88,7 @@ export async function rcvResumen(
 }
 
 export async function rcvDetalle(
-  http: ClienteHttp,
+  http: Http,
   sumidero: SumideroRespuestas,
   rut: Rut,
   periodo: Periodo,

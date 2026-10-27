@@ -8,6 +8,8 @@ export interface Config {
   readonly dirDiagnostico: string;
   readonly toleranciaPesos: number;
   readonly intervaloMinMs: number;
+  /** Plazo de cada consulta HTTP al SII. */
+  readonly plazoHttpMs: number;
 }
 
 const numeroNoNegativo = (valor: string | undefined, porDefecto: number): number => {
@@ -25,5 +27,6 @@ export function cargarConfig(env: Readonly<Record<string, string | undefined>> =
     dirDiagnostico: join(home, 'diagnostico'),
     toleranciaPesos: numeroNoNegativo(env['IMPUESTOCL_TOLERANCIA'], 0),
     intervaloMinMs: Math.max(1000, numeroNoNegativo(env['IMPUESTOCL_INTERVALO_MS'], 1000)),
+    plazoHttpMs: Math.max(10_000, numeroNoNegativo(env['IMPUESTOCL_PLAZO_HTTP_MS'], 60_000)),
   };
 }

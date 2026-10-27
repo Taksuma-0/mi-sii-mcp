@@ -1,6 +1,6 @@
 import { CookieJar } from 'tough-cookie';
 import { describe, expect, it, vi } from 'vitest';
-import { ClienteHttp, decodificar, esMuroLogin, exigirSesion, type RespuestaHttp } from '../../src/connectors/sii/http.js';
+import { ClienteHttp, conSenal, decodificar, esMuroLogin, exigirSesion, type RespuestaHttp } from '../../src/connectors/sii/http.js';
 import { codigoDe } from '../helpers/errores.js';
 import { crearFetchFalso, HTML, sinEsperas, temporizadorFalso, type DefRespuesta } from '../helpers/http-falso.js';
 
@@ -195,10 +195,111 @@ describe('ClienteHttp', () => {
     expect((await http.solicitar('https://zeusr.sii.cl/x')).texto).toBe('código');
   });
 
+  it('sin charset en el encabezado usa el de <meta charset>', async () => {
+    const latin1 = Uint8Array.from(Buffer.from('<html><head><meta charset="ISO-8859-1"></head><body>código</body></html>', 'latin1'));
+    expect(decodificar(latin1, 'text/html')).toContain('código');
+    const { fetchFalso } = crearFetchFalso({ 'GET https://zeusr.sii.cl/x': { body: latin1, headers: [['content-type', 'text/html']] } });
+    const http = new ClienteHttp(new CookieJar(), { fetch: fetchFalso, temporizador: sinEsperas });
+    expect((await http.solicitar('https://zeusr.sii.cl/x')).texto).toContain('código');
+  });
+
+  it('sin charset en el encabezado usa el de <meta http-equiv="Content-Type">', () => {
+    const html = "<HTML><HEAD><META HTTP-EQUIV='Content-Type' CONTENT='text/html; charset=windows-1252'></HEAD><BODY>Señor</BODY></HTML>";
+    expect(decodificar(Uint8Array.from(Buffer.from(html, 'latin1')), null)).toContain('Señor');
+  });
+
+  it('el charset del encabezado manda sobre el de <meta>', () => {
+    const bytes = new TextEncoder().encode('<meta charset="ISO-8859-1">código');
+    expect(decodificar(bytes, 'text/html; charset=utf-8')).toBe('<meta charset="ISO-8859-1">código');
+  });
+
   it('usa UTF-8 si falta charset o el charset no es reconocido', () => {
     const bytes = new TextEncoder().encode('código');
     expect(decodificar(bytes, null)).toBe('código');
     expect(decodificar(bytes, 'text/html; charset=inexistente')).toBe('código');
+  });
+});
+
+describe('plazo y cancelación', () => {
+  const COLGADA: DefRespuesta = { colgada: true };
+
+  it('cada fetch lleva una señal aunque nadie la pida', async () => {
+    const { fetchFalso, llamadas } = crearFetchFalso({ 'GET https://www4.sii.cl/x': OK });
+    const http = new ClienteHttp(new CookieJar(), { fetch: fetchFalso, temporizador: sinEsperas });
+    await http.solicitar('https://www4.sii.cl/x');
+    expect(llamadas[0]!.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('una consulta colgada vence el plazo, se reintenta y termina en SII_NO_DISPONIBLE', async () => {
+    const { fetchFalso, llamadas } = crearFetchFalso({ 'GET https://www4.sii.cl/x': COLGADA });
+    const http = new ClienteHttp(new CookieJar(), { fetch: fetchFalso, temporizador: sinEsperas, plazoMs: 20 });
+    const error = await http.solicitar('https://www4.sii.cl/x').catch((e: unknown) => e);
+    expect(error).toMatchObject({ codigo: 'SII_NO_DISPONIBLE', message: 'El SII no respondió en 0.02 s (www4.sii.cl).' });
+    expect(llamadas).toHaveLength(3);
+  });
+
+  it('una consulta colgada que luego responde se recupera en el reintento', async () => {
+    const { fetchFalso, llamadas } = crearFetchFalso({ 'GET https://www4.sii.cl/x': (_l, n) => (n === 1 ? COLGADA : OK) });
+    const http = new ClienteHttp(new CookieJar(), { fetch: fetchFalso, temporizador: sinEsperas, plazoMs: 20 });
+    expect((await http.solicitar('https://www4.sii.cl/x')).status).toBe(200);
+    expect(llamadas).toHaveLength(2);
+  });
+
+  it('el POST del login colgado no se reintenta', async () => {
+    const { fetchFalso, llamadas } = crearFetchFalso({ 'POST https://zeusr.sii.cl/login': COLGADA });
+    const http = new ClienteHttp(new CookieJar(), { fetch: fetchFalso, temporizador: sinEsperas, plazoMs: 20 });
+    const error = await http.solicitar('https://zeusr.sii.cl/login', { method: 'POST', reintentar: false }).catch((e: unknown) => e);
+    expect(error).toMatchObject({ codigo: 'SII_NO_DISPONIBLE', message: 'El SII no respondió en 0.02 s (zeusr.sii.cl).' });
+    expect(llamadas).toHaveLength(1);
+  });
+
+  it('abortar la señal corta la consulta en curso sin reintentar', async () => {
+    const cancelar = new AbortController();
+    const { fetchFalso, llamadas } = crearFetchFalso({
+      'GET https://www4.sii.cl/x': () => {
+        setTimeout(() => cancelar.abort(), 1);
+        return COLGADA;
+      },
+    });
+    const { esperas, temporizador } = temporizadorFalso();
+    const http = new ClienteHttp(new CookieJar(), { fetch: fetchFalso, temporizador });
+    const error = await http.solicitar('https://www4.sii.cl/x', { signal: cancelar.signal }).catch((e: unknown) => e);
+    expect(error).toMatchObject({ name: 'AbortError' });
+    expect(llamadas).toHaveLength(1);
+    expect(esperas).toEqual([]);
+  });
+
+  it('con la señal ya abortada no consulta', async () => {
+    const { fetchFalso, llamadas } = crearFetchFalso({ 'GET https://www4.sii.cl/x': OK });
+    const http = new ClienteHttp(new CookieJar(), { fetch: fetchFalso, temporizador: sinEsperas });
+    const error = await http.solicitar('https://www4.sii.cl/x', { signal: AbortSignal.abort() }).catch((e: unknown) => e);
+    expect(error).toMatchObject({ name: 'AbortError' });
+    expect(llamadas).toEqual([]);
+  });
+
+  it('conSenal agrega la señal a cada consulta y conserva las cookies del cliente', async () => {
+    const cancelar = new AbortController();
+    const { fetchFalso, llamadas } = crearFetchFalso({
+      'GET https://www4.sii.cl/a': { headers: [['set-cookie', 'TOKEN=abc; Domain=.sii.cl; Path=/']] },
+      'GET https://www4.sii.cl/b': () => {
+        cancelar.abort();
+        return COLGADA;
+      },
+    });
+    const http = conSenal(new ClienteHttp(new CookieJar(), { fetch: fetchFalso, temporizador: sinEsperas }), cancelar.signal);
+    await http.solicitar('https://www4.sii.cl/a');
+    expect(await http.cookie('https://www4.sii.cl/', 'TOKEN')).toBe('abc');
+    expect(await codigoDe(http.solicitar('https://www4.sii.cl/b'))).toContain('AbortError');
+    expect(llamadas).toHaveLength(2);
+  });
+
+  it('conSenal respeta también la señal propia de la consulta', async () => {
+    const propia = new AbortController();
+    const { fetchFalso, llamadas } = crearFetchFalso({ 'GET https://www4.sii.cl/x': OK });
+    const http = conSenal(new ClienteHttp(new CookieJar(), { fetch: fetchFalso, temporizador: sinEsperas }), new AbortController().signal);
+    propia.abort();
+    expect(await codigoDe(http.solicitar('https://www4.sii.cl/x', { signal: propia.signal }))).toContain('AbortError');
+    expect(llamadas).toEqual([]);
   });
 });
 

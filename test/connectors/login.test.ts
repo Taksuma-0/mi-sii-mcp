@@ -46,6 +46,13 @@ describe('iniciarSesion', () => {
     expect(llamadas.filter((l) => l.method === 'POST')).toHaveLength(1);
   });
 
+  it('un login colgado vence el plazo una sola vez: SII_NO_DISPONIBLE sin reenviar la clave', async () => {
+    const { fetchFalso, llamadas } = crearFetchFalso({ ...rutasLoginOk(), [RUTA_POST]: { colgada: true } });
+    const http = new ClienteHttp(new CookieJar(), { fetch: fetchFalso, temporizador: sinEsperas, plazoMs: 20 });
+    expect(await codigoDe(iniciarSesion(http, parseRut('22222222-2'), 'x'))).toBe('SII_NO_DISPONIBLE');
+    expect(llamadas.filter((l) => l.method === 'POST')).toHaveLength(1);
+  });
+
   it('sin cookie TOKEN tras el login es PORTAL_CAMBIO', async () => {
     const { fetchFalso } = crearFetchFalso({ ...rutasLoginOk(), [RUTA_POST]: { headers: HTML, body: '<html></html>' } });
     expect(await codigoDe(iniciarSesion(cliente(fetchFalso), parseRut('22222222-2'), 'x'))).toBe('PORTAL_CAMBIO');

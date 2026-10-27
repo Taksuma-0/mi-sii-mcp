@@ -3,13 +3,13 @@ import { parseRut } from '../../domain/rut.js';
 import type { DocumentoRcv, EstadoRcv, F29Declaracion, F29Valores, Lado, RcvResumen } from '../../domain/tipos.js';
 import type { SiiReader, SumideroRespuestas } from '../../ports/index.js';
 import { f29Declaraciones, f29Valores } from './f29.js';
-import type { ClienteHttp } from './http.js';
+import type { Http } from './http.js';
 import { rcvDetalle, rcvResumen } from './rcv.js';
 
 /** Lee el portal del SII con una sesión ya iniciada (clave tributaria). */
 export class LectorPortalSii implements SiiReader {
   constructor(
-    private readonly http: ClienteHttp,
+    private readonly http: Http,
     private readonly sumidero: SumideroRespuestas,
   ) {}
 

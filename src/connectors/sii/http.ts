@@ -22,6 +22,8 @@ export interface OpcionesHttp {
   readonly intervaloMinMs?: number;
   /** Reintentos ante 5xx o error de red (por defecto 2). */
   readonly reintentos?: number;
+  /** Plazo de cada fetch (por defecto 60000 ms); vencido cuenta como error de red. */
+  readonly plazoMs?: number;
 }
 
 export interface SolicitudHttp {
@@ -32,6 +34,8 @@ export interface SolicitudHttp {
   readonly reintentar?: boolean;
   /** false para el login: una redirección no puede volver a enviar su POST. */
   readonly reenviarPostEnRedireccion?: boolean;
+  /** Cancelación de quien pidió la consulta: corta el fetch en curso y nunca se reintenta. */
+  readonly signal?: AbortSignal;
 }
 
 export interface RespuestaHttp {
@@ -43,8 +47,34 @@ export interface RespuestaHttp {
   readonly texto: string;
 }
 
+/** Lo que usan los conectores de una sesión: consultar y leer sus cookies. */
+export interface Http {
+  solicitar(url: string, solicitud?: SolicitudHttp): Promise<RespuestaHttp>;
+  cookie(url: string, nombre: string): Promise<string | null>;
+}
+
+/** Agrega `signal` a cada consulta de `http`, junto a la señal propia de la consulta si la trae. */
+export function conSenal(http: Http, signal: AbortSignal | undefined): Http {
+  if (!signal) return http;
+  return {
+    solicitar: (url, solicitud = {}) =>
+      http.solicitar(url, { ...solicitud, signal: solicitud.signal ? AbortSignal.any([solicitud.signal, signal]) : signal }),
+    cookie: (url, nombre) => http.cookie(url, nombre),
+  };
+}
+
+/** Bytes que se revisan buscando un `<meta>` con charset cuando el encabezado no lo trae. */
+const BYTES_BUSQUEDA_META = 2048;
+
+/** `<meta charset="…">` o `<meta http-equiv="Content-Type" content="…; charset=…">`. */
+function charsetDeMeta(bytes: Uint8Array): string | undefined {
+  const inicio = new TextDecoder('latin1').decode(bytes.subarray(0, BYTES_BUSQUEDA_META));
+  return /<meta\b[^>]*?charset\s*=\s*["']?\s*([\w.:-]+)/i.exec(inicio)?.[1];
+}
+
 export function decodificar(bytes: Uint8Array, contentType: string | null): string {
-  const charset = /charset=([^;]+)/i.exec(contentType ?? '')?.[1]?.trim().replace(/["']/g, '').toLowerCase() ?? 'utf-8';
+  const delEncabezado = /charset=([^;]+)/i.exec(contentType ?? '')?.[1]?.trim().replace(/["']/g, '');
+  const charset = (delEncabezado || charsetDeMeta(bytes) || 'utf-8').toLowerCase();
   try {
     return new TextDecoder(charset).decode(bytes);
   } catch {
@@ -52,13 +82,16 @@ export function decodificar(bytes: Uint8Array, contentType: string | null): stri
   }
 }
 
-export class ClienteHttp {
+const esPlazoVencido = (e: unknown): boolean => e instanceof DOMException && e.name === 'TimeoutError';
+
+export class ClienteHttp implements Http {
   private ultimoMs = Number.NEGATIVE_INFINITY;
   private colaTurnos: Promise<void> = Promise.resolve();
   private readonly fetchFn: typeof fetch;
   private readonly temporizador: Temporizador;
   private readonly intervaloMinMs: number;
   private readonly reintentos: number;
+  private readonly plazoMs: number;
 
   constructor(
     readonly jar: CookieJar = new CookieJar(),
@@ -68,6 +101,7 @@ export class ClienteHttp {
     this.temporizador = opciones.temporizador ?? temporizadorReal;
     this.intervaloMinMs = opciones.intervaloMinMs ?? 1000;
     this.reintentos = opciones.reintentos ?? 2;
+    this.plazoMs = opciones.plazoMs ?? 60_000;
   }
 
   async cookie(url: string, nombre: string): Promise<string | null> {
@@ -79,6 +113,7 @@ export class ClienteHttp {
     const intentos = solicitud.reintentar === false ? 1 : this.reintentos + 1;
     let ultimoError: unknown;
     for (let intento = 1; intento <= intentos; intento++) {
+      solicitud.signal?.throwIfAborted();
       try {
         const r = await this.unaVez(url, solicitud);
         if (r.status >= 500) {
@@ -90,12 +125,18 @@ export class ClienteHttp {
         }
         return r;
       } catch (e) {
+        // La cancelación de quien pidió la consulta no es un error de red: se relanza tal cual, sin reintentar.
+        solicitud.signal?.throwIfAborted();
         if (e instanceof ErrorImpuestocl) throw e;
         ultimoError = e;
         if (intento < intentos) await this.temporizador.dormir(2000 * intento);
       }
     }
-    throw new ErrorImpuestocl('SII_NO_DISPONIBLE', `No se pudo conectar con el SII (${new URL(url).hostname}).`, { cause: ultimoError });
+    const host = new URL(url).hostname;
+    const mensaje = esPlazoVencido(ultimoError)
+      ? `El SII no respondió en ${this.plazoMs / 1000} s (${host}).`
+      : `No se pudo conectar con el SII (${host}).`;
+    throw new ErrorImpuestocl('SII_NO_DISPONIBLE', mensaje, { cause: ultimoError });
   }
 
   private esperarTurno(): Promise<void> {
@@ -118,7 +159,9 @@ export class ClienteHttp {
       const cookies = await this.jar.getCookieString(actual);
       if (cookies) headers['Cookie'] = cookies;
       await this.esperarTurno();
-      const res = await this.fetchFn(actual, { method, headers, body, redirect: 'manual' });
+      const plazo = AbortSignal.timeout(this.plazoMs);
+      const signal = solicitud.signal ? AbortSignal.any([plazo, solicitud.signal]) : plazo;
+      const res = await this.fetchFn(actual, { method, headers, body, redirect: 'manual', signal });
       for (const setCookie of res.headers.getSetCookie()) {
         await this.jar.setCookie(setCookie, actual, { ignoreError: true });
       }

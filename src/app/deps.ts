@@ -4,8 +4,11 @@ export interface DepsApp {
   readonly store: Store;
   /** SQL libre de solo lectura sobre una copia curada de la base; la aplicación valida, el adaptador ejecuta aislado. */
   readonly consultaLibre: ConsultaLibre;
-  /** Lector del SII con sesión activa para el RUT; cada respuesta cruda va al sumidero. */
-  readonly abrirSii: (rut: string, sumidero: SumideroRespuestas) => Promise<SiiReader>;
+  /**
+   * Lector del SII con sesión activa para el RUT; cada respuesta cruda va al sumidero. `signal` corta las consultas en
+   * curso del lector al cancelarse.
+   */
+  readonly abrirSii: (rut: string, sumidero: SumideroRespuestas, signal?: AbortSignal) => Promise<SiiReader>;
   readonly sesiones: ConsultaSesiones;
   readonly reloj: Reloj;
   readonly toleranciaPesos: number;

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { ErrorImpuestocl } from '../../domain/errores.js';
 import type { SumideroRespuestas } from '../../ports/index.js';
-import { exigirSesion, type ClienteHttp } from './http.js';
+import { exigirSesion, type Http } from './http.js';
 
 export const HOST_SDI = 'https://www4.sii.cl';
 
@@ -16,7 +16,7 @@ export interface PedidoSdi {
 }
 
 /** POST JSON a las fachadas SDI de www4 (RCV, F29). Guarda la respuesta cruda antes de interpretarla. */
-export async function postSdi(http: ClienteHttp, sumidero: SumideroRespuestas, pedido: PedidoSdi): Promise<unknown> {
+export async function postSdi(http: Http, sumidero: SumideroRespuestas, pedido: PedidoSdi): Promise<unknown> {
   const conversationId = (await http.cookie(`${HOST_SDI}/`, 'TOKEN')) ?? '';
   const metaData: Record<string, unknown> = { namespace: pedido.namespace, conversationId, transactionId: randomUUID() };
   if (pedido.conPage) metaData['page'] = null;

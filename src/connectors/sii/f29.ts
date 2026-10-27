@@ -7,7 +7,7 @@ import type { F29Declaracion, F29Valores } from '../../domain/tipos.js';
 import type { SumideroRespuestas } from '../../ports/index.js';
 import { esObjeto, numero, primero, texto } from './campos.js';
 import { extraerCodigosF29 } from './f29-pdf.js';
-import { exigirSesion, type ClienteHttp } from './http.js';
+import { exigirSesion, type Http } from './http.js';
 import { HOST_SDI, postSdi } from './sdi.js';
 
 const BASE = `${HOST_SDI}/propuestaf29ui/services/data/facadeAdapterService`;
@@ -28,7 +28,7 @@ function mensajeDeError(errores: unknown): string | null {
   return texto(errores);
 }
 
-export async function f29Declaraciones(http: ClienteHttp, sumidero: SumideroRespuestas, rut: Rut, periodo: Periodo): Promise<F29Declaracion[]> {
+export async function f29Declaraciones(http: Http, sumidero: SumideroRespuestas, rut: Rut, periodo: Periodo): Promise<F29Declaracion[]> {
   const crudo = await postSdi(http, sumidero, {
     superficie: 'f29.estados',
     url: `${BASE}/getDeclaracionConEstados`,
@@ -58,7 +58,7 @@ export function urlFormCompacto(rut: Rut, folio: number, codigoInterno: number):
 }
 
 /** Valores por código del F29 presentado, leídos del PDF compacto que entrega el SII. */
-export async function f29Valores(http: ClienteHttp, sumidero: SumideroRespuestas, rut: Rut, d: F29Declaracion): Promise<F29Valores> {
+export async function f29Valores(http: Http, sumidero: SumideroRespuestas, rut: Rut, d: F29Declaracion): Promise<F29Valores> {
   if (d.folio <= 0 || d.codigoInterno === null) {
     throw new ErrorImpuestocl('SII_RECHAZO', `El F29 de ${d.periodo} no tiene un folio presentado.`);
   }

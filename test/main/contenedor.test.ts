@@ -37,6 +37,16 @@ describe('configuración y contenedor', () => {
     expect(c.intervaloMinMs).toBe(2500);
   });
 
+  it('cargarConfig usa 60 s de plazo HTTP por defecto y respeta IMPUESTOCL_PLAZO_HTTP_MS', () => {
+    expect(cargarConfig({ IMPUESTOCL_HOME: home }).plazoHttpMs).toBe(60_000);
+    expect(cargarConfig({ IMPUESTOCL_HOME: home, IMPUESTOCL_PLAZO_HTTP_MS: '90000' }).plazoHttpMs).toBe(90_000);
+    expect(cargarConfig({ IMPUESTOCL_HOME: home, IMPUESTOCL_PLAZO_HTTP_MS: 'abc' }).plazoHttpMs).toBe(60_000);
+  });
+
+  it.each(['0', '500', '9999'])('cargarConfig exige al menos 10000 ms de plazo HTTP si IMPUESTOCL_PLAZO_HTTP_MS es %s', (plazo) => {
+    expect(cargarConfig({ IMPUESTOCL_HOME: home, IMPUESTOCL_PLAZO_HTTP_MS: plazo }).plazoHttpMs).toBe(10_000);
+  });
+
   it('crearContenedor arma la base, las sesiones y el diagnóstico sin tocar la red', () => {
     const c = crearContenedor({ config: cargarConfig({ IMPUESTOCL_HOME: home }), secretos: new SecretosEnMemoria() });
     try {

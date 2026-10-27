@@ -179,6 +179,50 @@ describe('sincronizar', () => {
       expect(textoSync(r)).toContain('2026-09: 2 documentos RCV · F29 sin folio informado\n    avisos: incompleto: la sincronización se canceló antes de terminar este mes');
     });
 
+    it('cancelada a mitad de una superficie: fila CANCELADO con su evidencia, sin escribir esa superficie', async () => {
+      const { deps, store, sii, db } = mesCompleto();
+      await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT);
+      const { previas } = db.prepare('SELECT MAX(id) AS previas FROM sincronizacion').get() as { previas: number };
+      const cancelar = new AbortController();
+      sii.alLlamar = (llamada) => {
+        if (llamada === 'detalle|2026-09|VENTA|REGISTRO|33') {
+          // Así termina un fetch en curso cuando se aborta su señal.
+          cancelar.abort();
+          throw cancelar.signal.reason;
+        }
+      };
+      sii.llamadas.length = 0;
+      sii.resumenes.set('2026-09|VENTA|REGISTRO', [fila(33, 0, 0, 1)]);
+
+      const r = await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT, undefined, cancelar.signal);
+
+      expect(r.abortado).toEqual(CANCELADA);
+      expect(r.periodos).toEqual([{ periodo: '2026-09', errores: [], avisos: [AVISO_MES_CANCELADO], documentos: 0, f29Folio: null }]);
+      expect(sii.llamadas).toEqual(['resumen|2026-09|VENTA|REGISTRO', 'detalle|2026-09|VENTA|REGISTRO|33']);
+      expect(store.documentosRcv(RUT_EMPRESA, SEPT.texto, { lado: 'VENTA' })).toHaveLength(2);
+      const filas = db.prepare('SELECT id, superficie, estado, error_codigo FROM sincronizacion WHERE id > ? ORDER BY id').all(previas) as { id: number }[];
+      expect(filas.map(({ id: _id, ...resto }) => resto)).toEqual([{ superficie: 'rcv.VENTA', estado: 'error', error_codigo: 'CANCELADO' }]);
+      const evidencia = db.prepare('SELECT superficie FROM respuesta_cruda WHERE sincronizacion_id = ? ORDER BY id').all(filas[0]!.id);
+      expect(evidencia).toEqual([{ superficie: 'resumen|2026-09|VENTA|REGISTRO' }, { superficie: 'detalle|2026-09|VENTA|REGISTRO|33' }]);
+    });
+
+    it('entrega la señal al abrir el SII', async () => {
+      const { deps } = mesCompleto();
+      const abrir = deps.abrirSii;
+      const recibidas: (AbortSignal | undefined)[] = [];
+      const cancelar = new AbortController();
+      const r = await sincronizar(
+        { ...deps, abrirSii: (rut, sumidero, signal) => { recibidas.push(signal); return abrir(rut, sumidero, signal); } },
+        RUT_EMPRESA,
+        SEPT,
+        SEPT,
+        undefined,
+        cancelar.signal,
+      );
+      expect(r.abortado).toBeNull();
+      expect(recibidas).toEqual([cancelar.signal]);
+    });
+
     it('con la señal ya cancelada no abre la sesión del SII ni consulta ningún período', async () => {
       const { deps, store, sii } = depsDePrueba({ fallaAlAbrir: new Error('No debe abrir el SII') });
       store.guardarContribuyente(perfilEmpresa());

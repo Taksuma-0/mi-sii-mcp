@@ -45,10 +45,15 @@ export const SINCRONIZACION_CANCELADA: ErrorSuperficie = {
   mensaje: 'Sincronización cancelada; se conservan los meses ya traídos.',
 };
 
+const DETALLE_SUPERFICIE_CANCELADA = 'La cancelación cortó la consulta al SII; esta superficie no escribió datos.';
+
 /** Aviso del mes que la cancelación dejó a medias: sus superficies guardadas están completas, pero faltan otras. */
 export const AVISO_MES_CANCELADO = 'incompleto: la sincronización se canceló antes de terminar este mes';
 
-/** Se lanza entre superficies, nunca dentro de una: lo ya guardado queda completo. */
+/**
+ * Se lanza entre superficies o cuando la cancelación corta una consulta en curso; en ese caso la superficie no escribe
+ * nada: lo ya guardado queda completo.
+ */
 class Cancelada extends Error {}
 
 const revisarCancelacion = (signal: AbortSignal | undefined): void => {
@@ -56,8 +61,8 @@ const revisarCancelacion = (signal: AbortSignal | undefined): void => {
 };
 
 /**
- * `signal` se revisa antes de abrir la sesión del SII, de cada período y de cada superficie; al cancelarse devuelve lo
- * traído y `abortado`.
+ * `signal` se revisa antes de abrir la sesión del SII, de cada período y de cada superficie, y corta la consulta al SII en
+ * curso; al cancelarse devuelve lo traído y `abortado`.
  */
 export async function sincronizar(
   deps: DepsApp,
@@ -76,9 +81,13 @@ export async function sincronizar(
   let enCurso: ResultadoPeriodo | null = null;
   try {
     revisarCancelacion(signal);
-    const sii = await deps.abrirSii(rut, (r) => {
-      buffer.push(r);
-    });
+    const sii = await deps.abrirSii(
+      rut,
+      (r) => {
+        buffer.push(r);
+      },
+      signal,
+    );
     for (const periodo of periodos) {
       revisarCancelacion(signal);
       const res: ResultadoPeriodo = { periodo: periodo.texto, errores: [], avisos: [], documentos: 0, f29Folio: null };
@@ -87,7 +96,7 @@ export async function sincronizar(
       if (superficies.includes('rcv')) {
         for (const lado of LADOS) {
           revisarCancelacion(signal);
-          await registrar(deps, rut, `rcv.${lado}`, periodo.texto, buffer, res, async (id, ahora) => {
+          await registrar(deps, rut, `rcv.${lado}`, periodo.texto, buffer, res, signal, async (id, ahora) => {
             const { resumenes, documentos, avisos } = await traerRcv(sii, rut, periodo, lado, (aviso) => res.avisos.push(aviso));
             if (avisos.length > 0) return DATOS_INCOMPLETOS_RCV;
             deps.store.reemplazarRcv(id, rut, periodo.texto, lado, resumenes, documentos, ahora);
@@ -97,7 +106,7 @@ export async function sincronizar(
       }
       if (superficies.includes('f29')) {
         revisarCancelacion(signal);
-        const f29 = await registrar(deps, rut, 'f29', periodo.texto, buffer, res, async (id, ahora) => {
+        const f29 = await registrar(deps, rut, 'f29', periodo.texto, buffer, res, signal, async (id, ahora) => {
           const declaraciones = await sii.f29Declaraciones(rut, periodo);
           const valoresPrevios = declaraciones.flatMap((d) => {
             const valores = deps.store.valoresF29(rut, periodo.texto, d.folio);
@@ -110,7 +119,7 @@ export async function sincronizar(
         const vigente = f29?.vigente;
         if (f29 && vigente && vigente.codigoInterno !== null) {
           revisarCancelacion(signal);
-          await registrar(deps, rut, 'f29.valores', periodo.texto, buffer, res, async (id, ahora) => {
+          await registrar(deps, rut, 'f29.valores', periodo.texto, buffer, res, signal, async (id, ahora) => {
             const v = await sii.f29Valores(rut, vigente);
             const otrosValores = f29.valoresPrevios.filter((anterior) => anterior.folio !== vigente.folio);
             deps.store.guardarF29(id, rut, periodo.texto, f29.declaraciones, [...otrosValores, v], ahora);
@@ -156,7 +165,10 @@ async function traerRcv(sii: SiiReader, rut: string, periodo: Periodo, lado: Lad
   return { resumenes, documentos, avisos };
 }
 
-/** Ejecuta una superficie dentro de su registro de sincronización. Devuelve null si falló de forma no fatal. */
+/**
+ * Ejecuta una superficie dentro de su registro de sincronización. Devuelve null si falló de forma no fatal. Si la
+ * superficie falla con `signal` cancelada, su registro queda como `CANCELADO` y se lanza `Cancelada`.
+ */
 async function registrar<T>(
   deps: DepsApp,
   rut: string,
@@ -164,6 +176,7 @@ async function registrar<T>(
   periodo: string,
   buffer: RespuestaCruda[],
   res: ResultadoPeriodo,
+  signal: AbortSignal | undefined,
   trabajo: (sincronizacionId: number, ahora: string) => Promise<T | typeof DATOS_INCOMPLETOS_RCV>,
 ): Promise<T | null> {
   const ahora = deps.reloj.ahora().toISOString();
@@ -182,6 +195,10 @@ async function registrar<T>(
     return valor;
   } catch (e) {
     volcar(deps, id, buffer);
+    if (signal?.aborted) {
+      deps.store.terminarSincronizacion(id, deps.reloj.ahora().toISOString(), 'error', { codigo: SINCRONIZACION_CANCELADA.codigo, detalle: DETALLE_SUPERFICIE_CANCELADA });
+      throw new Cancelada();
+    }
     if (!esErrorImpuestocl(e)) {
       deps.store.terminarSincronizacion(id, deps.reloj.ahora().toISOString(), 'error', { codigo: 'ERROR_INTERNO', detalle: String(e) });
       throw e;
