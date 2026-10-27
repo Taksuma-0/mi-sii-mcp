@@ -1,20 +1,23 @@
 # Usar mi-sii-mcp con un asistente (MCP)
 
-Con esta guía, Claude (Claude Code o Claude Desktop) puede traer tus datos del SII a tu equipo, cruzarlos entre meses y contrapartes, y responder preguntas como «¿cómo evolucionó mi remanente de IVA en los últimos tres años?». Tú preguntas en lenguaje natural; el asistente usa las herramientas de mi-sii-mcp para hacer el trabajo.
+Con esta guía, tu asistente compatible con MCP (Claude Code, Claude Desktop, Cursor, VS Code con Copilot, Gemini CLI, Codex CLI, Windsurf, Cline u otro) puede traer tus datos del SII a tu equipo, cruzarlos entre meses y contrapartes, y responder preguntas como «¿cómo evolucionó mi remanente de IVA en los últimos tres años?». Tú preguntas en lenguaje natural; el asistente usa las herramientas de mi-sii-mcp para hacer el trabajo.
 
 Qué hace cada parte:
 
 - **mi-sii-mcp** descarga tus datos desde el SII (RCV, F29 y más; ver la cobertura abajo), los guarda en tu equipo y responde consultas de solo lectura sobre ellos.
 - **El asistente** decide qué consultar, escribe las consultas y te explica el resultado.
-- **Tú** inicias sesión en el SII una sola vez, en tu propia terminal. La clave tributaria no se escribe nunca en el chat y ninguna herramienta del asistente la recibe.
+- **Tú** inicias sesión en el SII una sola vez, en la página local «Abrir mi-sii-mcp.cmd» o en tu propia terminal. La clave tributaria no se escribe nunca en el chat y ninguna herramienta del asistente la recibe.
 
 Cobertura actual:
 
 - **RCV** (compras y ventas) y **F29** (declaraciones presentadas, con sus códigos).
 - **Propuesta de F29** del SII: crédito, remanente y retención propuestos; no trae débito ni total a pagar.
-- **Boletas de honorarios recibidas**, con su retención, que se cruza con el código 151 del F29.
+- **Boletas de honorarios recibidas**, con su retención, que se cruza con el código 151 del F29, y **emitidas** (resumen anual y detalle por boleta), que se cruzan con la renta.
+- **Lo informado por terceros** (declaraciones juradas de pagadores y empleadores), cruzado con tus boletas y tu F22.
 - **Renta anual (F22)** por año tributario: declaraciones, conclusión del SII, códigos con su glosa, observaciones y eventos.
 - **Perfil tributario** (si el SII autoriza declarar el F29 hasta el día 20, régimen, segmento) y **empresas autorizadas** de la cuenta.
+
+Los ejemplos de esta guía usan Claude Code; para registrar el servidor en otros clientes (Cursor, VS Code, Gemini CLI, Codex, Windsurf, Claude Desktop), mira la sección «Registrar el servidor en tu asistente» del [README](../../README.md#1-registrar-el-servidor-en-tu-asistente).
 
 No incluye carpeta tributaria, deuda en la Tesorería, otros impuestos ni otras áreas del portal, ni emite ni presenta nada en el SII: solo lee. Esta herramienta no es oficial, no está afiliada al SII y no es asesoría tributaria.
 

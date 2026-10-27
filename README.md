@@ -19,7 +19,7 @@
   <a href="docs/guias/asistente-mcp.md">Guía completa</a>
 </p>
 
-mi-sii-mcp es un servidor [MCP](https://modelcontextprotocol.io) que conecta un asistente (Claude Code, Claude Desktop u otro cliente MCP) con **tu cuenta del SII de Chile**. Trae tus datos tributarios, los guarda **solo en tu equipo** y los cruza para mostrarte qué cuadra, qué no y qué vence.
+mi-sii-mcp es un servidor [MCP](https://modelcontextprotocol.io) que conecta **cualquier asistente compatible con MCP** (Claude, Cursor, VS Code con Copilot, Gemini CLI, Codex, Windsurf, Cline y otros) con **tu cuenta del SII de Chile**. Trae tus datos tributarios, los guarda **solo en tu equipo** y los cruza para mostrarte qué cuadra, qué no y qué vence.
 
 > [!WARNING]
 > **No oficial.** No está afiliado al Servicio de Impuestos Internos ni es asesoría tributaria. Úsalo para revisar tu información; las decisiones tributarias son tuyas o de tu contador.
@@ -56,7 +56,14 @@ Los **datos públicos** (UTM, tablas de impuestos, tasas de cotización, comisio
 
 ```mermaid
 flowchart LR
-    P([Tú]) -- preguntas --> A[Asistente<br/>Claude Code / Desktop]
+    P([Tú]) -- preguntas --> A
+    subgraph A [Tu asistente con MCP]
+        direction TB
+        A1[Claude Code / Desktop]
+        A2[Cursor · Windsurf · Cline]
+        A3[VS Code + Copilot]
+        A4[Gemini CLI · Codex CLI]
+    end
     A <-- herramientas MCP --> M[mi-sii-mcp]
     M -- solo lectura --> S[(Portal del SII)]
     M <--> D[(Base local<br/>~/.mi-sii-mcp)]
@@ -80,7 +87,7 @@ flowchart LR
 ## Requisitos
 
 - [Node.js](https://nodejs.org) 22.12 o superior (probado con Node 24).
-- Un cliente MCP: [Claude Code](https://docs.claude.com/en/docs/claude-code) o Claude Desktop.
+- Cualquier cliente compatible con [MCP](https://modelcontextprotocol.io/clients) que ejecute servidores locales (stdio): Claude Code, Claude Desktop, Cursor, VS Code con Copilot, Gemini CLI, Codex CLI, Windsurf, Cline, entre otros.
 - Clave tributaria del SII (o ClaveÚnica, desde el navegador).
 - Windows es la plataforma probada; macOS y Linux deberían funcionar con el mismo código.
 
@@ -93,15 +100,62 @@ npm install
 npm run build
 ```
 
-### 1. Registrar el servidor en Claude Code
+### 1. Registrar el servidor en tu asistente
 
-Reemplaza la ruta por la carpeta donde clonaste el proyecto:
+El servidor se inicia con `node <carpeta>/dist/interfaces/cli/bin.js mcp`. Reemplaza `C:\ruta\a\mi-sii-mcp` por la carpeta donde clonaste el proyecto (en macOS/Linux, una ruta como `/home/tu-usuario/mi-sii-mcp`).
+
+<details open>
+<summary><b>Claude Code</b></summary>
 
 ```bash
 claude mcp add --scope user mi-sii-mcp -- node "C:\ruta\a\mi-sii-mcp\dist\interfaces\cli\bin.js" mcp
 ```
+</details>
 
-Para Claude Desktop, agrega el servidor en su archivo de configuración (ver la [guía del asistente](docs/guias/asistente-mcp.md#5-claude-desktop)).
+<details>
+<summary><b>Codex CLI</b> (<code>~/.codex/config.toml</code>)</summary>
+
+```toml
+[mcp_servers.mi-sii-mcp]
+command = "node"
+args = ["C:\\ruta\\a\\mi-sii-mcp\\dist\\interfaces\\cli\\bin.js", "mcp"]
+```
+</details>
+
+<details>
+<summary><b>VS Code con Copilot</b> (<code>.vscode/mcp.json</code> o la configuración de usuario)</summary>
+
+```json
+{
+  "servers": {
+    "mi-sii-mcp": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["C:\\ruta\\a\\mi-sii-mcp\\dist\\interfaces\\cli\\bin.js", "mcp"]
+    }
+  }
+}
+```
+</details>
+
+<details>
+<summary><b>Claude Desktop, Cursor, Windsurf, Cline, Gemini CLI</b> y otros con formato <code>mcpServers</code></summary>
+
+Agrega esto al archivo de configuración MCP de tu cliente (Claude Desktop: `claude_desktop_config.json`; Cursor: `~/.cursor/mcp.json`; Gemini CLI: `~/.gemini/settings.json`; Windsurf: `~/.codeium/windsurf/mcp_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "mi-sii-mcp": {
+      "command": "node",
+      "args": ["C:\\ruta\\a\\mi-sii-mcp\\dist\\interfaces\\cli\\bin.js", "mcp"]
+    }
+  }
+}
+```
+</details>
+
+El servidor trae sus propias instrucciones de uso para el asistente (por dónde empezar, cómo reintentar, que nunca pida la clave), así que funciona igual con cualquier cliente.
 
 ### 2. Conectar tu cuenta del SII
 
@@ -121,7 +175,7 @@ En otras plataformas, abre la página con `npm run local`, o inicia sesión desd
 
 ### 3. Preguntar
 
-En Claude Code escribe `/mcp` para cargar el servidor y luego pregunta, por ejemplo: «lista mis perfiles» o «trae mi renta de los últimos 3 años».
+Reinicia tu asistente (en Claude Code basta con `/mcp`) para que cargue el servidor y pregunta, por ejemplo: «lista mis perfiles» o «trae mi renta de los últimos 3 años».
 
 ## Herramientas del MCP
 
