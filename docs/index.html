@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mi-sii-mcp — Servidor MCP para el SII de Chile</title>
+<meta name="description" content="Servidor MCP open source para el SII de Chile: conecta Claude, Codex, Cursor o Gemini CLI con tu IVA, F29, F22 y boletas de honorarios. Solo lectura y local.">
+<link rel="canonical" href="https://taksuma-0.github.io/mi-sii-mcp/">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Welinton Barrera">
+<meta name="theme-color" content="#0f2a44">
+<link rel="icon" type="image/svg+xml" href="img/marca/kit/02_Favicons/favicon.svg">
+<link rel="alternate icon" href="img/marca/kit/02_Favicons/favicon.ico">
+<link rel="apple-touch-icon" href="img/marca/kit/02_Favicons/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="mi-sii-mcp">
+<meta property="og:locale" content="es_CL">
+<meta property="og:title" content="mi-sii-mcp — Servidor MCP para el SII de Chile">
+<meta property="og:description" content="Conecta tu asistente de IA (Claude, Codex, Cursor, Gemini CLI) con tu información del SII: IVA, F29, F22, boletas de honorarios y renta. Open source, solo lectura y local.">
+<meta property="og:url" content="https://taksuma-0.github.io/mi-sii-mcp/">
+<meta property="og:image" content="https://taksuma-0.github.io/mi-sii-mcp/img/marca/social-preview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="Logo de mi-sii-mcp: conecta tus datos tributarios con IA">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="mi-sii-mcp — Servidor MCP para el SII de Chile">
+<meta name="twitter:description" content="Conecta Claude, Codex, Cursor o Gemini CLI con tu IVA, F29, F22, boletas de honorarios y renta. Open source, solo lectura y local.">
+<meta name="twitter:image" content="https://taksuma-0.github.io/mi-sii-mcp/img/marca/social-preview.png">
+<meta name="twitter:image:alt" content="Logo de mi-sii-mcp: conecta tus datos tributarios con IA">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://taksuma-0.github.io/mi-sii-mcp/#sitio",
+      "url": "https://taksuma-0.github.io/mi-sii-mcp/",
+      "name": "mi-sii-mcp",
+      "inLanguage": "es-CL"
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://taksuma-0.github.io/mi-sii-mcp/#app",
+      "name": "mi-sii-mcp",
+      "alternateName": "Servidor MCP para el SII de Chile",
+      "description": "Servidor Model Context Protocol (MCP) de código abierto que conecta asistentes de IA como Claude, Codex, Cursor y Gemini CLI con la información tributaria del Servicio de Impuestos Internos (SII) de Chile: IVA, F29, F22, boletas de honorarios y declaraciones de terceros. Funciona en solo lectura y guarda los datos en el equipo del usuario.",
+      "url": "https://taksuma-0.github.io/mi-sii-mcp/",
+      "downloadUrl": "https://github.com/Taksuma-0/mi-sii-mcp",
+      "applicationCategory": "FinanceApplication",
+      "applicationSubCategory": "Servidor MCP (Model Context Protocol)",
+      "operatingSystem": "Windows, macOS, Linux",
+      "softwareRequirements": "Node.js 22.12 o superior y un cliente MCP",
+      "softwareVersion": "0.1.0",
+      "inLanguage": "es-CL",
+      "isAccessibleForFree": true,
+      "license": "https://opensource.org/licenses/MIT",
+      "image": "https://taksuma-0.github.io/mi-sii-mcp/img/marca/social-preview.png",
+      "author": { "@type": "Person", "name": "Welinton Barrera", "url": "https://github.com/Taksuma-0" },
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "featureList": [
+        "Lectura del Registro de Compras y Ventas (RCV) y del F29",
+        "Conciliación del IVA del RCV con el F29",
+        "Lectura de la renta anual F22 y sus eventos",
+        "Boletas de honorarios recibidas y emitidas, con detalle por boleta",
+        "Declaraciones juradas informadas por terceros",
+        "Vencimientos del F29 según el caso del contribuyente",
+        "Solo lectura: no presenta ni modifica nada en el SII",
+        "Datos guardados localmente en SQLite"
+      ]
+    },
+    {
+      "@type": "SoftwareSourceCode",
+      "@id": "https://taksuma-0.github.io/mi-sii-mcp/#codigo",
+      "name": "mi-sii-mcp",
+      "codeRepository": "https://github.com/Taksuma-0/mi-sii-mcp",
+      "programmingLanguage": "TypeScript",
+      "runtimePlatform": "Node.js",
+      "license": "https://opensource.org/licenses/MIT",
+      "targetProduct": { "@id": "https://taksuma-0.github.io/mi-sii-mcp/#app" }
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://taksuma-0.github.io/mi-sii-mcp/#preguntas",
+      "mainEntity": [
+        { "@type": "Question", "name": "¿Qué es mi-sii-mcp?", "acceptedAnswer": { "@type": "Answer", "text": "Es un servidor MCP de código abierto que permite que un asistente de IA consulte y concilie tu información tributaria del SII de Chile: IVA, F29, renta F22, boletas de honorarios y declaraciones de terceros." } },
+        { "@type": "Question", "name": "¿Qué es un servidor MCP para el SII?", "acceptedAnswer": { "@type": "Answer", "text": "MCP (Model Context Protocol) es un estándar abierto para que los asistentes de IA usen herramientas externas. Un servidor MCP para el SII le da a tu asistente herramientas para leer tus datos tributarios y aplicar reglas de conciliación, en vez de copiar y pegar información del portal." } },
+        { "@type": "Question", "name": "¿Cómo conecto Claude, Codex, Cursor o Gemini CLI al SII?", "acceptedAnswer": { "@type": "Answer", "text": "Instala mi-sii-mcp con git clone, npm install y npm run build, regístralo en tu cliente MCP con node dist/interfaces/cli/bin.js mcp y conecta tu cuenta del SII en la página local. Claude Code está probado; para los demás clientes se usa su formato MCP estándar." } },
+        { "@type": "Question", "name": "¿El asistente puede ver mi clave tributaria?", "acceptedAnswer": { "@type": "Answer", "text": "No. La clave se escribe solo en la página local o en la terminal, y ninguna herramienta del MCP la recibe. Si eliges mantener la sesión, la clave queda en el almacén de credenciales del sistema operativo." } },
+        { "@type": "Question", "name": "¿Dónde quedan mis datos tributarios?", "acceptedAnswer": { "@type": "Answer", "text": "En tu equipo, en una base SQLite en la carpeta ~/.mi-sii-mcp. Lo que preguntas y las respuestas sí pasan por tu asistente de IA, como cualquier conversación con él." } },
+        { "@type": "Question", "name": "¿Puede presentar mi F29 o emitir boletas?", "acceptedAnswer": { "@type": "Answer", "text": "No. mi-sii-mcp solo lee el portal del SII; no presenta declaraciones, no emite documentos ni modifica nada." } },
+        { "@type": "Question", "name": "¿Es una herramienta oficial del SII?", "acceptedAnswer": { "@type": "Answer", "text": "No. Es un proyecto independiente de código abierto con licencia MIT y no reemplaza la asesoría de un contador." } },
+        { "@type": "Question", "name": "¿Cuánto cuesta mi-sii-mcp?", "acceptedAnswer": { "@type": "Answer", "text": "Es gratuito y de código abierto. Solo necesitas un cliente MCP; el costo del asistente de IA depende de su proveedor." } }
+      ]
+    }
+  ]
+}
+</script>
+<style>
+:root{--marino:#0f2a44;--marino-2:#0b4f63;--turquesa:#3dd6c3;--turquesa-osc:#0f7f72;--azul:#7cb6fb;--azul-osc:#1764b6;--texto:#183047;--suave:#4f6276;--fondo:#f4f7fb;--borde:#dbe4ee;--blanco:#fff;color-scheme:light}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:72px}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--texto);background:var(--blanco);line-height:1.6;font-synthesis:none}
+a{color:var(--azul-osc)}a:focus-visible,button:focus-visible,summary:focus-visible{outline:3px solid var(--azul);outline-offset:3px;border-radius:6px}
+img{max-width:100%;height:auto;display:block}
+.saltar{position:absolute;left:-999px;top:8px;background:var(--marino);color:#fff;padding:8px 14px;border-radius:8px;z-index:20}.saltar:focus{left:12px}
+.contenedor{width:min(1120px,100% - 40px);margin-inline:auto}
+header.barra{position:sticky;top:0;z-index:10;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--borde)}
+.barra .contenedor{display:flex;align-items:center;justify-content:space-between;gap:16px;height:64px}
+.barra nav ul{display:flex;gap:20px;list-style:none;margin:0;padding:0}.barra nav a{color:var(--texto);text-decoration:none;font-size:15px;font-weight:600}.barra nav a:hover{color:var(--azul-osc)}
+.boton{display:inline-flex;align-items:center;gap:8px;padding:12px 20px;border-radius:999px;font-weight:700;text-decoration:none;font-size:15px;border:2px solid transparent;transition:transform .15s}
+.boton:hover{transform:translateY(-1px)}.boton.primario{background:var(--turquesa);color:var(--marino)}.boton.secundario{border-color:rgba(255,255,255,.5);color:#fff}.boton.oscuro{background:var(--marino);color:#fff;padding:8px 16px;font-size:14px}
+.heroe{background:radial-gradient(circle at 85% 0,#16485e 0,transparent 45%),linear-gradient(135deg,var(--marino),#10324f 60%,var(--marino-2));color:#fff;padding:72px 0 80px;overflow:hidden}
+.heroe .contenedor{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center}
+.etiqueta{display:inline-block;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--turquesa);margin-bottom:12px}
+.heroe h1{font-size:clamp(2.1rem,4.4vw,3.4rem);line-height:1.1;margin:0 0 18px;letter-spacing:-.02em}
+.heroe h1 span{color:var(--turquesa)}
+.heroe p.lead{font-size:1.15rem;color:#d6e4f2;margin:0 0 28px;max-width:560px}
+.acciones{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:28px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;list-style:none;padding:0;margin:0}.chips li{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);padding:6px 12px;border-radius:999px;font-size:14px}
+.demo{background:#fff;border-radius:18px;padding:10px;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+section{padding:80px 0}section.alterna{background:var(--fondo)}
+h2{font-size:clamp(1.7rem,3vw,2.3rem);line-height:1.2;margin:0 0 12px;letter-spacing:-.01em}
+.intro{color:var(--suave);font-size:1.08rem;max-width:760px;margin:0 0 40px}
+.grilla{display:grid;gap:20px}.g3{grid-template-columns:repeat(3,1fr)}.g2{grid-template-columns:repeat(2,1fr)}
+.tarjeta{background:#fff;border:1px solid var(--borde);border-radius:16px;padding:24px}
+.tarjeta h3{margin:0 0 8px;font-size:1.12rem}.tarjeta p{margin:0;color:var(--suave)}
+.icono{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:#e6f8f5;color:var(--turquesa-osc);font-size:22px;margin-bottom:14px}
+.pasos{counter-reset:paso;list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.pasos li{background:#fff;border:1px solid var(--borde);border-radius:16px;padding:24px;position:relative}
+.pasos li::before{counter-increment:paso;content:counter(paso);display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:var(--marino);color:#fff;font-weight:800;margin-bottom:12px}
+.pasos h3{margin:0 0 6px;font-size:1.08rem}.pasos p{margin:0;color:var(--suave)}
+table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--borde);border-radius:14px;overflow:hidden;font-size:15px}
+th,td{text-align:left;padding:14px 16px;border-bottom:1px solid var(--borde);vertical-align:top}th{background:#eef3f8;font-weight:700}tr:last-child td{border-bottom:0}
+.tabla{overflow-x:auto}
+.estado{display:inline-block;padding:3px 10px;border-radius:999px;font-size:13px;font-weight:700;white-space:nowrap}.estado.ok{background:#e2f3ec;color:#16645e}.estado.doc{background:#eaf2fd;color:#1d5a9e}
+.arquitectura{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;align-items:stretch;margin:8px 0 32px}
+.nodo{background:#fff;border:2px solid var(--borde);border-radius:14px;padding:16px;text-align:center;font-weight:700}.nodo small{display:block;font-weight:500;color:var(--suave);margin-top:4px}
+.nodo.mcp{border-color:var(--turquesa);background:#effbf9}.nodo.sii{border-style:dashed}
+.lista-check{list-style:none;padding:0;margin:0;display:grid;gap:12px}.lista-check li{padding-left:34px;position:relative}.lista-check li::before{content:"✓";position:absolute;left:0;top:0;width:24px;height:24px;border-radius:50%;background:#e2f3ec;color:#16645e;display:grid;place-items:center;font-weight:800;font-size:14px}
+.pregunta{font-weight:700;margin:0 0 6px}.consulta{font-size:1.02rem}.consulta q{font-weight:700;color:var(--texto)}
+pre{background:#0d1b2a;color:#e6edf5;padding:18px 20px;border-radius:12px;overflow-x:auto;font-size:14px;line-height:1.5;margin:0}
+code{font-family:ui-monospace,"Cascadia Code",Consolas,monospace}
+details.cliente{background:#fff;border:1px solid var(--borde);border-radius:12px;margin-bottom:12px}
+details.cliente summary{cursor:pointer;padding:14px 18px;font-weight:700;list-style-position:inside}
+details.cliente>div{padding:0 18px 18px}
+.faq details{border-bottom:1px solid var(--borde);padding:18px 0}.faq summary{cursor:pointer;font-weight:700;font-size:1.05rem}.faq p{margin:10px 0 0;color:var(--suave)}
+.captura{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center}.captura img{border-radius:16px;border:1px solid var(--borde);box-shadow:0 16px 40px rgba(15,42,68,.12)}
+.cta{background:linear-gradient(135deg,var(--marino),var(--marino-2));color:#fff;text-align:center}.cta p{color:#d6e4f2;max-width:640px;margin:0 auto 28px}
+footer{background:#0b1f33;color:#b9c8d8;padding:36px 0;font-size:14px}footer .contenedor{display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px}footer a{color:#fff}
+@media (max-width:900px){.heroe .contenedor,.captura{grid-template-columns:1fr}.g3,.pasos{grid-template-columns:1fr 1fr}.arquitectura{grid-template-columns:1fr 1fr}.barra nav{display:none}}
+@media (max-width:600px){.g3,.g2,.pasos,.arquitectura{grid-template-columns:1fr}section{padding:56px 0}.heroe{padding:48px 0 56px}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.boton{transition:none}}
+</style>
+</head>
+<body>
+<a class="saltar" href="#contenido">Saltar al contenido</a>
+<header class="barra">
+  <div class="contenedor">
+    <a href="./" aria-label="mi-sii-mcp, inicio"><img src="img/marca/logo-horizontal.svg" alt="mi-sii-mcp" width="168" height="40"></a>
+    <nav aria-label="Secciones">
+      <ul>
+        <li><a href="#que-es">Qué es</a></li>
+        <li><a href="#funciones">Funciones</a></li>
+        <li><a href="#compatibilidad">Compatibilidad</a></li>
+        <li><a href="#privacidad">Privacidad</a></li>
+        <li><a href="#instalacion">Instalación</a></li>
+        <li><a href="#preguntas">Preguntas</a></li>
+      </ul>
+    </nav>
+    <a class="boton oscuro" href="https://github.com/Taksuma-0/mi-sii-mcp">GitHub</a>
+  </div>
+</header>
+
+<main id="contenido">
+  <section class="heroe" aria-labelledby="titulo">
+    <div class="contenedor">
+      <div>
+        <span class="etiqueta">Open source · Model Context Protocol</span>
+        <h1 id="titulo">Servidor MCP para el <span>SII de Chile</span></h1>
+        <p class="lead">Conecta <strong>Claude, Codex, Cursor o Gemini CLI</strong> con tu IVA, tus F29, tu renta F22 y tus boletas de honorarios. mi-sii-mcp lee tu información del SII, la guarda en tu equipo y la concilia para mostrarte qué cuadra, qué no y qué vence.</p>
+        <div class="acciones">
+          <a class="boton primario" href="https://github.com/Taksuma-0/mi-sii-mcp">Ver en GitHub</a>
+          <a class="boton secundario" href="#instalacion">Cómo instalarlo</a>
+        </div>
+        <ul class="chips" aria-label="Características destacadas">
+          <li>Licencia MIT</li>
+          <li>Solo lectura</li>
+          <li>Datos en tu equipo</li>
+          <li>La clave no pasa por el chat</li>
+        </ul>
+      </div>
+      <div class="demo">
+        <img src="img/demo-conversacion.svg" width="960" height="600" alt="Demostración con datos ficticios: un asistente usa mi-sii-mcp para responder cuánto se ha retenido en boletas de honorarios, por pagador, y confirma que cuadra con lo informado al SII" fetchpriority="high">
+      </div>
+    </div>
+  </section>
+
+  <section id="que-es" aria-labelledby="que-es-titulo">
+    <div class="contenedor">
+      <h2 id="que-es-titulo">¿Qué es un servidor MCP para el SII?</h2>
+      <p class="intro"><strong>MCP (Model Context Protocol)</strong> es un estándar abierto para que los asistentes de inteligencia artificial usen herramientas externas. <strong>mi-sii-mcp</strong> es un servidor MCP que le entrega a tu asistente herramientas para leer tu información tributaria del Servicio de Impuestos Internos y aplicar reglas de conciliación. En vez de copiar y pegar datos del portal, le preguntas a tu asistente en lenguaje natural.</p>
+      <ol class="pasos">
+        <li><h3>Conectas tu cuenta</h3><p>Una sola vez, en una página local. Tu clave se escribe ahí, nunca en el chat.</p></li>
+        <li><h3>Tu asistente consulta</h3><p>Pide los datos al servidor MCP, que los lee del SII en solo lectura y los guarda en tu equipo.</p></li>
+        <li><h3>mi-sii-mcp concilia</h3><p>Cruza registros con reglas tributarias y responde con hallazgos claros: qué cuadra y qué revisar.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="funciones" class="alterna" aria-labelledby="funciones-titulo">
+    <div class="contenedor">
+      <h2 id="funciones-titulo">Funcionalidades tributarias</h2>
+      <p class="intro">Lo que mi-sii-mcp lee del SII y cómo lo concilia. Todo en solo lectura: nunca presenta, modifica ni emite nada.</p>
+      <div class="grilla g3">
+        <article class="tarjeta"><div class="icono" aria-hidden="true">🧾</div><h3>IVA y F29</h3><p>Registro de Compras y Ventas (RCV), F29 presentados con su PDF y propuesta de F29. Concilia el IVA del RCV con el F29 y detecta F29 faltantes y facturas por reclamar.</p></article>
+        <article class="tarjeta"><div class="icono" aria-hidden="true">📅</div><h3>Vencimientos</h3><p>Calcula el vencimiento del F29 según tu caso (día 12, 20 o 28) a partir de tu perfil tributario.</p></article>
+        <article class="tarjeta"><div class="icono" aria-hidden="true">📄</div><h3>Renta F22</h3><p>Declaraciones por año tributario, folio vigente, códigos, observaciones y eventos como devoluciones y giros.</p></article>
+        <article class="tarjeta"><div class="icono" aria-hidden="true">💼</div><h3>Boletas de honorarios</h3><p>Recibidas y emitidas, con detalle boleta por boleta. Cruza la retención con el F29 (código 151) y con la renta (códigos 547 y 492).</p></article>
+        <article class="tarjeta"><div class="icono" aria-hidden="true">🤝</div><h3>Informado por terceros</h3><p>Declaraciones juradas que otros presentan sobre ti, cruzadas con tus boletas y tu F22. Avisa si el SII observó la declaración de un informante.</p></article>
+        <article class="tarjeta"><div class="icono" aria-hidden="true">🔎</div><h3>Preguntas libres</h3><p>Consultas SQL de solo lectura sobre tus datos guardados y fuentes oficiales para los valores públicos (UTM, tablas, tasas).</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section id="compatibilidad" aria-labelledby="compatibilidad-titulo">
+    <div class="contenedor">
+      <h2 id="compatibilidad-titulo">Compatible con tu agente de IA</h2>
+      <p class="intro">mi-sii-mcp es un servidor MCP local (stdio): funciona con los clientes que ejecutan servidores MCP locales. El desarrollo y las pruebas en vivo se hicieron con Claude Code; para los demás se documenta su formato de configuración estándar.</p>
+      <div class="tabla">
+        <table>
+          <thead><tr><th scope="col">Cliente</th><th scope="col">Estado</th><th scope="col">Configuración</th></tr></thead>
+          <tbody>
+            <tr><td>Claude Code</td><td><span class="estado ok">Probado</span></td><td><code>claude mcp add</code></td></tr>
+            <tr><td>Claude Desktop</td><td><span class="estado doc">Documentado</span></td><td><code>claude_desktop_config.json</code></td></tr>
+            <tr><td>Codex CLI</td><td><span class="estado doc">Documentado</span></td><td><code>~/.codex/config.toml</code></td></tr>
+            <tr><td>Cursor</td><td><span class="estado doc">Documentado</span></td><td><code>~/.cursor/mcp.json</code></td></tr>
+            <tr><td>VS Code con GitHub Copilot</td><td><span class="estado doc">Documentado</span></td><td><code>.vscode/mcp.json</code></td></tr>
+            <tr><td>Gemini CLI</td><td><span class="estado doc">Documentado</span></td><td><code>~/.gemini/settings.json</code></td></tr>
+            <tr><td>Windsurf, Cline y otros</td><td><span class="estado doc">Documentado</span></td><td>Formato <code>mcpServers</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="privacidad" class="alterna" aria-labelledby="privacidad-titulo">
+    <div class="contenedor">
+      <h2 id="privacidad-titulo">Privacidad y arquitectura local</h2>
+      <p class="intro">Tu información tributaria no pasa por servidores de terceros: mi-sii-mcp corre en tu equipo y habla directamente con el SII.</p>
+      <div class="arquitectura" role="img" aria-label="Arquitectura: tú preguntas a tu asistente de IA, que usa mi-sii-mcp en tu equipo; mi-sii-mcp lee el SII en solo lectura y guarda los datos en una base local">
+        <div class="nodo">Tú<small>preguntas en lenguaje natural</small></div>
+        <div class="nodo">Tu asistente<small>Claude, Codex, Cursor…</small></div>
+        <div class="nodo mcp">mi-sii-mcp<small>en tu equipo + base SQLite local</small></div>
+        <div class="nodo sii">Portal del SII<small>solo lectura</small></div>
+      </div>
+      <ul class="lista-check">
+        <li><strong>Solo lectura:</strong> nunca presenta, modifica ni emite nada en el SII.</li>
+        <li><strong>Datos locales:</strong> todo se guarda en una base SQLite en <code>~/.mi-sii-mcp</code>.</li>
+        <li><strong>La clave no pasa por el chat:</strong> inicias sesión en una página local y ninguna herramienta del MCP recibe claves. Si eliges mantener la sesión, la clave queda en el almacén de credenciales del sistema operativo.</li>
+        <li><strong>Respaldos saneados:</strong> las respuestas del SII que se guardan no incluyen correos, direcciones, códigos de barra ni el token de la sesión.</li>
+        <li><strong>Transparencia:</strong> lo que consultas pasa a la conversación con tu asistente; el código es abierto y auditable.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="ejemplos" aria-labelledby="ejemplos-titulo">
+    <div class="contenedor">
+      <h2 id="ejemplos-titulo">Ejemplos de consultas</h2>
+      <p class="intro">Preguntas reales que tu asistente puede responder con mi-sii-mcp.</p>
+      <div class="grilla g2">
+        <article class="tarjeta consulta"><p class="pregunta"><q>¿Cuánto me han retenido este año en boletas de honorarios?</q></p><p>Suma la retención de tus boletas emitidas por mes y por pagador.</p></article>
+        <article class="tarjeta consulta"><p class="pregunta"><q>¿Cuadran mis boletas con lo que declaré en la renta?</q></p><p>Compara tus boletas con los códigos 547 y 492 del F22, considerando el reajuste por IPC.</p></article>
+        <article class="tarjeta consulta"><p class="pregunta"><q>¿Tengo algún F29 sin presentar o por vencer?</q></p><p>Revisa tus F29 y calcula cada vencimiento según tu caso.</p></article>
+        <article class="tarjeta consulta"><p class="pregunta"><q>¿Cuadra el IVA de compras y ventas con el F29 de septiembre?</q></p><p>Concilia el Registro de Compras y Ventas con el F29 del mes.</p></article>
+        <article class="tarjeta consulta"><p class="pregunta"><q>¿Qué informaron mis pagadores al SII sobre mí?</q></p><p>Lee las declaraciones juradas de terceros y las cruza con tus registros.</p></article>
+        <article class="tarjeta consulta"><p class="pregunta"><q>¿A quién le emití más boletas en 2026?</q></p><p>Consulta el detalle boleta por boleta guardado en tu equipo.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section id="instalacion" class="alterna" aria-labelledby="instalacion-titulo">
+    <div class="contenedor">
+      <h2 id="instalacion-titulo">Instalación y configuración</h2>
+      <p class="intro">Requiere <a href="https://nodejs.org">Node.js</a> 22.12 o superior, un cliente MCP y tu clave tributaria del SII.</p>
+      <h3>1. Descarga y compila</h3>
+<pre><code>git clone https://github.com/Taksuma-0/mi-sii-mcp.git
+cd mi-sii-mcp
+npm install
+npm run build</code></pre>
+      <h3>2. Registra el servidor en tu asistente</h3>
+      <p>Reemplaza <code>C:\ruta\a\mi-sii-mcp</code> por la carpeta donde clonaste el proyecto.</p>
+      <details class="cliente" open><summary>Claude Code</summary><div>
+<pre><code>claude mcp add --scope user mi-sii-mcp -- node "C:\ruta\a\mi-sii-mcp\dist\interfaces\cli\bin.js" mcp</code></pre></div></details>
+      <details class="cliente"><summary>Codex CLI (~/.codex/config.toml)</summary><div>
+<pre><code>[mcp_servers.mi-sii-mcp]
+command = "node"
+args = ["C:\\ruta\\a\\mi-sii-mcp\\dist\\interfaces\\cli\\bin.js", "mcp"]</code></pre></div></details>
+      <details class="cliente"><summary>VS Code con Copilot (.vscode/mcp.json)</summary><div>
+<pre><code>{
+  "servers": {
+    "mi-sii-mcp": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["C:\\ruta\\a\\mi-sii-mcp\\dist\\interfaces\\cli\\bin.js", "mcp"]
+    }
+  }
+}</code></pre></div></details>
+      <details class="cliente"><summary>Claude Desktop, Cursor, Gemini CLI, Windsurf, Cline (mcpServers)</summary><div>
+<pre><code>{
+  "mcpServers": {
+    "mi-sii-mcp": {
+      "command": "node",
+      "args": ["C:\\ruta\\a\\mi-sii-mcp\\dist\\interfaces\\cli\\bin.js", "mcp"]
+    }
+  }
+}</code></pre></div></details>
+      <div class="captura" style="margin-top:40px">
+        <div>
+          <h3>3. Conecta tu cuenta del SII</h3>
+          <p>En Windows, abre <code>Abrir mi-sii-mcp.cmd</code> (en macOS o Linux, <code>npm run local</code>). Escribe tu RUT —los puntos y el guion se ponen solos— y tu clave tributaria, deja marcado «Mantener conectada» y pulsa Conectar. Puedes conectar tu RUT personal y los de tus empresas.</p>
+          <h3>4. Pregunta</h3>
+          <p>Reinicia tu asistente y pregunta, por ejemplo, «lista mis perfiles» o «trae mi renta de los últimos 3 años».</p>
+          <p><a href="https://github.com/Taksuma-0/mi-sii-mcp/blob/main/docs/guias/asistente-mcp.md">Ver la guía completa de instalación →</a></p>
+        </div>
+        <img src="img/pagina-conectar.png" width="885" height="1030" loading="lazy" decoding="async" alt="Página local de mi-sii-mcp para conectar la cuenta del SII, con cuentas de ejemplo y el RUT formateado automáticamente">
+      </div>
+    </div>
+  </section>
+
+  <section id="preguntas" class="faq" aria-labelledby="preguntas-titulo">
+    <div class="contenedor">
+      <h2 id="preguntas-titulo">Preguntas frecuentes</h2>
+      <details><summary>¿Qué es mi-sii-mcp?</summary><p>Es un servidor MCP de código abierto que permite que un asistente de IA consulte y concilie tu información tributaria del SII de Chile: IVA, F29, renta F22, boletas de honorarios y declaraciones de terceros.</p></details>
+      <details><summary>¿Qué es un servidor MCP para el SII?</summary><p>MCP (Model Context Protocol) es un estándar abierto para que los asistentes de IA usen herramientas externas. Un servidor MCP para el SII le da a tu asistente herramientas para leer tus datos tributarios y aplicar reglas de conciliación, en vez de copiar y pegar información del portal.</p></details>
+      <details><summary>¿Cómo conecto Claude, Codex, Cursor o Gemini CLI al SII?</summary><p>Instala mi-sii-mcp con <code>git clone</code>, <code>npm install</code> y <code>npm run build</code>, regístralo en tu cliente MCP con <code>node dist/interfaces/cli/bin.js mcp</code> y conecta tu cuenta del SII en la página local. Claude Code está probado; para los demás clientes se usa su formato MCP estándar.</p></details>
+      <details><summary>¿El asistente puede ver mi clave tributaria?</summary><p>No. La clave se escribe solo en la página local o en la terminal, y ninguna herramienta del MCP la recibe. Si eliges mantener la sesión, la clave queda en el almacén de credenciales del sistema operativo.</p></details>
+      <details><summary>¿Dónde quedan mis datos tributarios?</summary><p>En tu equipo, en una base SQLite en la carpeta <code>~/.mi-sii-mcp</code>. Lo que preguntas y las respuestas sí pasan por tu asistente de IA, como cualquier conversación con él.</p></details>
+      <details><summary>¿Puede presentar mi F29 o emitir boletas?</summary><p>No. mi-sii-mcp solo lee el portal del SII; no presenta declaraciones, no emite documentos ni modifica nada.</p></details>
+      <details><summary>¿Es una herramienta oficial del SII?</summary><p>No. Es un proyecto independiente de código abierto con licencia MIT y no reemplaza la asesoría de un contador.</p></details>
+      <details><summary>¿Cuánto cuesta mi-sii-mcp?</summary><p>Es gratuito y de código abierto. Solo necesitas un cliente MCP; el costo del asistente de IA depende de su proveedor.</p></details>
+    </div>
+  </section>
+
+  <section class="cta" aria-labelledby="cta-titulo">
+    <div class="contenedor">
+      <h2 id="cta-titulo">Pregúntale a tu asistente por tus impuestos</h2>
+      <p>mi-sii-mcp es gratuito y de código abierto. Revisa el código, instálalo en minutos o contribuye con mejoras.</p>
+      <div class="acciones" style="justify-content:center">
+        <a class="boton primario" href="https://github.com/Taksuma-0/mi-sii-mcp">Ir al repositorio en GitHub</a>
+        <a class="boton secundario" href="https://github.com/Taksuma-0/mi-sii-mcp/tree/main/docs">Documentación</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="contenedor">
+    <p>© 2026 Welinton Barrera · <a href="https://github.com/Taksuma-0/mi-sii-mcp/blob/main/LICENSE">Licencia MIT</a> · <a href="https://github.com/Taksuma-0/mi-sii-mcp">Código fuente</a></p>
+    <p>Proyecto independiente; no está afiliado al Servicio de Impuestos Internos.</p>
+  </div>
+</footer>
+</body>
+</html>

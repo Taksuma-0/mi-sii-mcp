@@ -1,0 +1,51 @@
+# mi-sii-mcp
+
+> mi-sii-mcp es un servidor MCP (Model Context Protocol) de código abierto, licencia MIT, que conecta asistentes de inteligencia artificial —Claude, Codex, Cursor, Gemini CLI, VS Code con Copilot y otros clientes MCP— con la información tributaria del Servicio de Impuestos Internos (SII) de Chile. Lee el IVA, los F29, la renta F22, las boletas de honorarios y las declaraciones juradas de terceros; guarda los datos en el equipo del usuario y los concilia. Funciona en solo lectura y el asistente nunca recibe la clave tributaria.
+
+Proyecto independiente: no está afiliado al SII y no reemplaza la asesoría de un contador.
+
+## Qué problema resuelve
+
+Revisar la situación tributaria en el portal del SII exige navegar muchas pantallas y cruzar datos a mano. Con mi-sii-mcp, una persona o pyme chilena le pregunta a su asistente de IA en lenguaje natural («¿cuadra mi IVA con el F29?», «¿cuánto me han retenido en boletas?», «¿tengo F29 por vencer?») y el asistente usa herramientas que leen y concilian sus datos reales.
+
+## Funcionalidades
+
+- Registro de Compras y Ventas (RCV), F29 presentados (con su PDF) y propuesta de F29; conciliación del IVA del RCV con el F29, F29 faltantes y facturas por reclamar.
+- Vencimientos del F29 según el caso del contribuyente (día 12, 20 o 28).
+- Renta anual F22 por año tributario: folio vigente, códigos, observaciones y eventos (devoluciones, giros).
+- Boletas de honorarios recibidas y emitidas, con detalle por boleta; cruce de la retención con el F29 (código 151) y con la renta (códigos 547 y 492).
+- Declaraciones juradas informadas por terceros (p. ej. retenciones de honorarios), cruzadas con las boletas y el F22.
+- Perfil tributario y empresas autorizadas; varias cuentas (persona y empresas).
+- Consultas SQL de solo lectura sobre los datos guardados y fuentes oficiales para valores públicos (UTM, tablas, tasas).
+
+## Qué lo diferencia
+
+- La clave tributaria se escribe en una página local o en la terminal; ninguna herramienta del MCP la recibe.
+- Solo lectura: no presenta declaraciones ni emite documentos.
+- Datos locales en SQLite (`~/.mi-sii-mcp`), sin servidores intermedios.
+- Conciliación tributaria con reglas (no solo descarga de datos).
+- Código abierto con más de 1.300 pruebas automáticas que usan solo datos ficticios.
+
+## Compatibilidad
+
+Servidor MCP local (transporte stdio). Probado con Claude Code. Configuración documentada para Claude Desktop, Codex CLI, Cursor, VS Code con GitHub Copilot, Gemini CLI, Windsurf y Cline.
+
+## Instalación
+
+Requiere Node.js 22.12 o superior.
+
+```
+git clone https://github.com/Taksuma-0/mi-sii-mcp.git
+cd mi-sii-mcp
+npm install
+npm run build
+```
+
+Registrar en Claude Code: `claude mcp add --scope user mi-sii-mcp -- node "<carpeta>/dist/interfaces/cli/bin.js" mcp`. Luego conectar la cuenta del SII en la página local («Abrir mi-sii-mcp.cmd» en Windows o `npm run local`).
+
+## Enlaces
+
+- [Repositorio y README](https://github.com/Taksuma-0/mi-sii-mcp)
+- [Guía de uso con un asistente](https://github.com/Taksuma-0/mi-sii-mcp/blob/main/docs/guias/asistente-mcp.md)
+- [Sitio web](https://taksuma-0.github.io/mi-sii-mcp/)
+- [Licencia MIT](https://github.com/Taksuma-0/mi-sii-mcp/blob/main/LICENSE)

@@ -1,0 +1,7 @@
+# Sitio del proyecto mi-sii-mcp (GitHub Pages, ruta /mi-sii-mcp/).
+# Nota: los buscadores leen robots.txt solo en la raíz del dominio; este archivo
+# documenta la intención y el sitemap, que se registra en Google Search Console.
+User-agent: *
+Allow: /
+
+Sitemap: https://taksuma-0.github.io/mi-sii-mcp/sitemap.xml
