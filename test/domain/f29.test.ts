@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { declaracionVigente, f29Presentada } from '../../src/domain/f29.js';
+import { declaracionVigente, f29Presentada, montosPropuesta } from '../../src/domain/f29.js';
 import { claveDocumento } from '../../src/domain/tipos.js';
-import { declaracion, documento } from '../helpers/fabricas.js';
+import { declaracion, documento, propuesta } from '../helpers/fabricas.js';
 
 describe('declaracionVigente', () => {
   it('es null si no hay declaraciones o solo hay guardadas sin folio', () => {
@@ -54,5 +54,20 @@ describe('declaracionVigente con estados no presentados', () => {
 describe('claveDocumento', () => {
   it('combina lado, tipo, contraparte y folio', () => {
     expect(claveDocumento(documento({ folio: 7 }))).toBe('COMPRA:33:33333333-3:7');
+  });
+});
+
+describe('montosPropuesta', () => {
+  it('toma crédito del 520, remanente del 504 y retención del 151', () => {
+    expect(montosPropuesta(propuesta())).toEqual({ credito: 950_000, remanente: 120_000, retencion: 30_000 });
+  });
+
+  it('sin el 520 usa el crédito neto por documentos (511); sin ninguno queda null', () => {
+    expect(montosPropuesta(propuesta({ propuestos: { '511': 700 } })).credito).toBe(700);
+    expect(montosPropuesta(propuesta({ propuestos: { '504': 5 } }))).toEqual({ credito: null, remanente: 5, retencion: null });
+  });
+
+  it('una propuesta sin nada propuesto da todo null', () => {
+    expect(montosPropuesta(propuesta({ propuestos: {}, administrativos: {}, sinPropuesta: true }))).toEqual({ credito: null, remanente: null, retencion: null });
   });
 });

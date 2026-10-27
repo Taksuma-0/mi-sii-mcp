@@ -84,6 +84,18 @@ describe('esquemaDatos', () => {
     expect(columna('sincronizacion', 'superficie')).toMatch(/f29\.valores.*f29_lectura/);
   });
 
+  it('documenta la propuesta del SII: tablas, superficie y que trae crédito, remanente y retención pero no débito ni total a pagar', () => {
+    const { tablas, reglas } = esquemaDatos();
+    expect(tablas.map((t) => t.nombre)).toEqual(expect.arrayContaining(['f29_propuesta', 'f29_propuesta_valor']));
+    const columna = (tabla: string, nombre: string) => tablas.find((t) => t.nombre === tabla)?.columnas.find((c) => c.nombre === nombre)?.significado ?? '';
+    expect(columna('f29_propuesta_valor', 'lista')).toMatch(/propuesto.*administrativo/);
+    expect(columna('sincronizacion', 'superficie')).toContain('f29.propuesta');
+    const regla = reglas.find((r) => r.includes('f29_propuesta'));
+    expect(regla).toBeDefined();
+    expect(regla).toMatch(/crédito.*remanente.*retención/);
+    expect(regla).toMatch(/no trae débito ni total a pagar/);
+  });
+
   it('describe cada tabla y cada columna con tipo y significado', () => {
     for (const tabla of esquemaDatos().tablas) {
       expect(tabla.descripcion.length, tabla.nombre).toBeGreaterThan(10);

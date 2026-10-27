@@ -24,3 +24,14 @@ export function numero(v: unknown): number | null {
 }
 
 export const esObjeto = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+
+/** Texto de los errores de un sobre SDI (`metaData.errors`: lista, objeto o texto), o null si no hay. */
+export function mensajeDeError(errores: unknown): string | null {
+  if (errores === null || errores === undefined) return null;
+  if (Array.isArray(errores)) {
+    const textos = errores.map((e) => (esObjeto(e) ? texto(e['descripcion']) : texto(e))).filter((x): x is string => x !== null);
+    return textos.length > 0 ? textos.join('; ') : null;
+  }
+  if (esObjeto(errores)) return texto(errores['descripcion']);
+  return texto(errores);
+}

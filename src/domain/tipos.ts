@@ -152,3 +152,21 @@ export interface RespuestaCruda {
 /** Identificador estable de un documento: `LADO:tipo:rutContraparte:folio`. */
 export const claveDocumento = (d: Pick<DocumentoRcv, 'lado' | 'tipoDoc' | 'rutContraparte' | 'folio'>): string =>
   `${d.lado}:${d.tipoDoc}:${d.rutContraparte}:${d.folio}`;
+
+/**
+ * Propuesta de F29 que prepara el SII para un mes. Trae crédito, remanente y retención propuestos; no trae débito ni
+ * total a pagar. Los códigos van sin ceros a la izquierda y nunca incluyen los de identificación del contribuyente.
+ */
+export interface PropuestaF29 {
+  readonly rut: string;
+  readonly periodo: string;
+  /** Tipo de propuesta según el SII (40 con propuesta, 48 sin propuesta); null si no lo informó. */
+  readonly tipoPropuesta: number | null;
+  readonly descripcionTipo: string | null;
+  /** Estado del cálculo de la propuesta (5 cuando no hay propuesta); null si no lo informó. */
+  readonly estadoCalculo: number | null;
+  readonly propuestos: Readonly<Record<string, number>>;
+  readonly administrativos: Readonly<Record<string, number>>;
+  /** El SII no armó una propuesta para el mes: ambas listas vienen vacías. */
+  readonly sinPropuesta: boolean;
+}

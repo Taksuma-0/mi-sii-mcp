@@ -1,4 +1,4 @@
-import { declaracionVigente } from '../domain/f29.js';
+import { declaracionVigente, montosPropuesta, type MontosPropuesta } from '../domain/f29.js';
 import type { DisponibilidadFuentes, Lado, Perfil, RcvResumen } from '../domain/tipos.js';
 import type { Frescura } from '../ports/index.js';
 import { creditoRcv, debitoRcv, signoTipoDoc } from '../reconciliation/mapeo-f29.js';
@@ -27,6 +27,8 @@ export interface PeriodoPanorama {
     readonly totalAPagar: number | null;
     readonly valores: Readonly<Record<string, number>>;
   };
+  /** Propuesta del SII del mes; solo existe si se sincronizó y trajo datos. */
+  readonly propuesta?: MontosPropuesta & { readonly sinPropuesta: boolean };
 }
 
 export interface PanoramaSii {
@@ -64,6 +66,7 @@ export function panorama(deps: DepsApp, rutTexto: string): PanoramaSii {
     const resumenes = deps.store.resumenesRcv(perfil.rut, periodo);
     const vigente = disponibilidad.f29 ? declaracionVigente(deps.store.declaracionesF29(perfil.rut, periodo)) : null;
     const valores = vigente ? deps.store.valoresF29(perfil.rut, periodo, vigente.folio) : null;
+    const propuesta = disponibilidad.propuestaF29 ? deps.store.propuestaF29(perfil.rut, periodo) : null;
     return {
       periodo,
       disponibilidad,
@@ -80,6 +83,7 @@ export function panorama(deps: DepsApp, rutTexto: string): PanoramaSii {
         totalAPagar: vigente?.totalAPagar ?? null,
         valores: valores?.valores ?? {},
       },
+      ...(propuesta ? { propuesta: { sinPropuesta: propuesta.sinPropuesta, ...montosPropuesta(propuesta) } } : {}),
     };
   });
   return {

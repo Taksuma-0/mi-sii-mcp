@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ErrorImpuestocl } from '../../src/domain/errores.js';
 import { leerLineaStdin, pedirClaveOculta } from '../../src/interfaces/cli/clave.js';
 import { crearPrograma, type ContenedorCli, type IoCli, type SesionesCli } from '../../src/interfaces/cli/programa.js';
-import { declaracion, documento, fila, perfilEmpresa, resumen, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
+import { declaracion, documento, fila, perfilEmpresa, propuesta, resumen, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
 import { depsDePrueba } from '../helpers/deps.js';
 import { guardarPdfF29, pdfFalso } from '../helpers/lector-falso.js';
 import { sembrarMes, T_SEMBRADO } from '../helpers/sembrar.js';
@@ -115,6 +115,36 @@ describe('CLI', () => {
     expect(await e.correr('sync', RUT_EMPRESA, '--desde', '2026-09', '--solo', 'f29')).toBe(0);
     expect(e.salidaTexto.at(-1)).toContain('2026-09: F29 folio 555001');
     expect(e.salidaTexto.at(-1)).not.toContain('documentos RCV');
+  });
+
+  it('sync --solo acepta varias superficies, incluida la propuesta', async () => {
+    const e = entorno();
+    e.store.guardarContribuyente(perfilEmpresa());
+    e.sii.declaraciones.set('2026-09', [declaracion()]);
+    e.sii.valores.set('2026-09|555001', valores({ '538': 190_000, '537': 0 }));
+    e.sii.propuestas.set('2026-09', propuesta());
+    expect(await e.correr('sync', RUT_EMPRESA, '--desde', '2026-09', '--solo', 'f29', 'propuesta')).toBe(0);
+    expect(e.salidaTexto.at(-1)).toContain('2026-09: F29 folio 555001 · propuesta con datos');
+    expect(e.salidaTexto.at(-1)).not.toContain('documentos RCV');
+    expect(e.store.propuestaF29(RUT_EMPRESA, '2026-09')).toEqual(propuesta());
+  });
+
+  it('sync --solo propuesta trae solo la propuesta; sin --solo no la trae', async () => {
+    const e = entorno();
+    e.store.guardarContribuyente(perfilEmpresa());
+    e.sii.propuestas.set('2026-09', propuesta());
+    expect(await e.correr('sync', RUT_EMPRESA, '--desde', '2026-09', '--solo', 'propuesta')).toBe(0);
+    expect(e.sii.llamadas).toEqual(['propuesta|2026-09']);
+    e.sii.llamadas.length = 0;
+    expect(await e.correr('sync', RUT_EMPRESA, '--desde', '2026-09')).toBe(0);
+    expect(e.sii.llamadas.some((l) => l.startsWith('propuesta'))).toBe(false);
+  });
+
+  it('sync --solo con una superficie desconocida se rechaza', async () => {
+    const e = entorno();
+    e.store.guardarContribuyente(perfilEmpresa());
+    await expect(e.correr('sync', RUT_EMPRESA, '--desde', '2026-09', '--solo', 'bhe')).rejects.toMatchObject({ code: 'commander.invalidArgument' });
+    expect(e.sii.llamadas).toEqual([]);
   });
 
   it('releer-f29 relee los PDF guardados del rango sin abrir el SII', async () => {

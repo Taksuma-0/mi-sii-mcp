@@ -10,6 +10,7 @@ import type {
   LecturaF29,
   LecturaFolioF29,
   Perfil,
+  PropuestaF29,
   RcvResumen,
   RespuestaCruda,
   Severidad,
@@ -25,6 +26,8 @@ export interface SiiReader {
   rcvDetalle(rut: string, periodo: Periodo, lado: Lado, tipoDoc: number, estado: EstadoRcv): Promise<DocumentoRcv[]>;
   f29Declaraciones(rut: string, periodo: Periodo): Promise<F29Declaracion[]>;
   f29Valores(rut: string, declaracion: F29Declaracion): Promise<F29Valores>;
+  /** Propuesta de F29 del SII para el mes, o null si el SII no devolvió datos. */
+  f29Propuesta(rut: string, periodo: Periodo): Promise<PropuestaF29 | null>;
 }
 
 /** Lee los códigos del PDF compacto del F29. La sincronización y la relectura usan el mismo, así su versión dice qué lector se usó. */
@@ -170,6 +173,9 @@ export interface Store {
   documentosRcvPaginados(rut: string, periodo: string, filtro: FiltroDocumentos, pagina: number, tamano: number): DocumentosPaginados;
   declaracionesF29(rut: string, periodo: string): F29Declaracion[];
   valoresF29(rut: string, periodo: string, folio: number): F29Valores | null;
+  /** Reemplaza la propuesta F29 del mes (cabecera y valores) en una transacción. */
+  reemplazarPropuestaF29(sincronizacionId: number, rut: string, periodo: string, propuesta: PropuestaF29, obtenidoEn: string): void;
+  propuestaF29(rut: string, periodo: string): PropuestaF29 | null;
   snapshotsRcv(rut: string, periodo: string): SnapshotRcv[];
   disponibilidadFuentes(rut: string, periodo: string): DisponibilidadFuentes;
   frescura(rut: string, periodo: string): Frescura;

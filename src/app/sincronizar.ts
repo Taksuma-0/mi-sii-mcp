@@ -11,7 +11,8 @@ import { motivoParaConservar } from './releer-f29.js';
 
 export { SINCRONIZACION_CANCELADA, type ErrorSuperficie, type ResultadoPeriodo };
 
-export type Superficie = 'rcv' | 'f29';
+/** `propuesta` (propuesta de F29 del SII) es opt-in: no forma parte de la sincronización por defecto. */
+export type Superficie = 'rcv' | 'f29' | 'propuesta';
 
 export interface ResultadoSync {
   readonly rut: string;
@@ -146,6 +147,21 @@ export async function sincronizar(
             deps.store.guardarF29(id, rut, periodo.texto, f29.declaraciones, [...otrosValores, v], ahora, [lectura]);
           });
         }
+      }
+      if (superficies.includes('propuesta')) {
+        revisarCancelacion(signal);
+        await registrar(deps, rut, 'f29.propuesta', periodo.texto, buffer, res, signal, async (id, ahora) => {
+          const propuesta = await sii.f29Propuesta(rut, periodo);
+          if (propuesta === null) {
+            if (deps.store.propuestaF29(rut, periodo.texto) !== null) {
+              throw new ErrorImpuestocl('RESPUESTA_VACIA', `Propuesta F29 ${periodo.texto}: el SII respondió sin datos; se conservan los datos guardados.`);
+            }
+            res.propuesta = 'sin_respuesta';
+            return;
+          }
+          deps.store.reemplazarPropuestaF29(id, rut, periodo.texto, propuesta, ahora);
+          res.propuesta = propuesta.sinPropuesta ? 'sin_propuesta' : 'con_datos';
+        });
       }
       enCurso = null;
     }

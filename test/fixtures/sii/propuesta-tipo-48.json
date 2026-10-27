@@ -1,0 +1,18 @@
+{
+  "metaData": { "errors": null },
+  "data": {
+    "tipopropuesta": 48,
+    "tipopropuestadescrip": "Sin propuesta",
+    "listCondiciones": [],
+    "listCodPropuestos": [],
+    "listGlosasProp": [],
+    "listCodBase": [{ "codigo": "01", "valor": "EMPRESA DEMO SPA" }],
+    "listCodAdministrativos": [],
+    "estado": 0,
+    "descripcionEstado": "Sin propuesta",
+    "resultadoCalculoPP29": { "estado": 5, "glosaError": null, "traza": "TRAZA-FICTICIA-DE-CALCULO" },
+    "anotacion": null,
+    "tieneAnotaciones": "N",
+    "actividadesEco": [{ "codigo": 999999, "glosa": "ACTIVIDAD FICTICIA" }]
+  }
+}

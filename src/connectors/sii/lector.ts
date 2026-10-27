@@ -1,10 +1,11 @@
 import type { Periodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
-import type { DocumentoRcv, EstadoRcv, F29Declaracion, F29Valores, Lado, RcvResumen } from '../../domain/tipos.js';
+import type { DocumentoRcv, EstadoRcv, F29Declaracion, F29Valores, Lado, PropuestaF29, RcvResumen } from '../../domain/tipos.js';
 import type { LectorPdfF29, SiiReader, SumideroRespuestas } from '../../ports/index.js';
 import { f29Declaraciones, f29Valores } from './f29.js';
 import { lectorPdfF29 } from './f29-pdf.js';
 import type { Http } from './http.js';
+import { f29Propuesta } from './propuesta.js';
 import { rcvDetalle, rcvResumen } from './rcv.js';
 
 /** Lee el portal del SII con una sesión ya iniciada (clave tributaria). */
@@ -30,5 +31,9 @@ export class LectorPortalSii implements SiiReader {
 
   f29Valores(rut: string, declaracion: F29Declaracion): Promise<F29Valores> {
     return f29Valores(this.http, this.sumidero, parseRut(rut), declaracion, this.lectorPdf);
+  }
+
+  f29Propuesta(rut: string, periodo: Periodo): Promise<PropuestaF29 | null> {
+    return f29Propuesta(this.http, this.sumidero, parseRut(rut), periodo);
   }
 }

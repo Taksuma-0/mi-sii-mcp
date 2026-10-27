@@ -14,6 +14,8 @@ export interface ResultadoPeriodo {
   avisos: string[];
   documentos: number;
   f29Folio: number | null;
+  /** Qué trajo la propuesta de F29; solo existe si se pidió esa superficie y terminó bien. */
+  propuesta?: 'con_datos' | 'sin_propuesta' | 'sin_respuesta';
 }
 
 /** Motivo de término cuando quien pidió la sincronización la cancela (p. ej. Esc en el cliente MCP). */

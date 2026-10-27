@@ -1,4 +1,4 @@
-import type { DocumentoRcv, F29Declaracion, F29Valores, Perfil, RcvResumen, RcvResumenFila } from '../../src/domain/tipos.js';
+import type { DocumentoRcv, F29Declaracion, F29Valores, Perfil, PropuestaF29, RcvResumen, RcvResumenFila } from '../../src/domain/tipos.js';
 
 export const RUT_EMPRESA = '22222222-2';
 export const RUT_PERSONA = '11111111-1';
@@ -82,5 +82,17 @@ export const valores = (v: Record<string, number>, o: Partial<F29Valores> = {}):
   periodo: '2026-09',
   folio: 555_001,
   valores: v,
+  ...o,
+});
+
+export const propuesta = (o: Partial<PropuestaF29> = {}): PropuestaF29 => ({
+  rut: RUT_EMPRESA,
+  periodo: '2026-09',
+  tipoPropuesta: 40,
+  descripcionTipo: 'Propuesta con crédito de documentos',
+  estadoCalculo: 1,
+  propuestos: { '511': 900_000, '520': 950_000, '519': 50_000, '504': 120_000, '151': 30_000 },
+  administrativos: { '9114': 1 },
+  sinPropuesta: false,
   ...o,
 });

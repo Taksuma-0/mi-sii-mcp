@@ -1,6 +1,6 @@
 import { ErrorImpuestocl } from '../../src/domain/errores.js';
 import type { Periodo } from '../../src/domain/periodo.js';
-import type { DocumentoRcv, EstadoRcv, F29Declaracion, F29Valores, Lado, RcvResumen, RcvResumenFila } from '../../src/domain/tipos.js';
+import type { DocumentoRcv, EstadoRcv, F29Declaracion, F29Valores, Lado, PropuestaF29, RcvResumen, RcvResumenFila } from '../../src/domain/tipos.js';
 import type { SiiReader, SumideroRespuestas } from '../../src/ports/index.js';
 
 /**
@@ -9,6 +9,7 @@ import type { SiiReader, SumideroRespuestas } from '../../src/ports/index.js';
  * - detalles: `periodo|lado|estado|tipo`
  * - declaraciones: `periodo`
  * - valores: `periodo|folio`
+ * - propuestas: `periodo` (null = el SII respondió sin datos)
  * Cada llamada queda en `llamadas` (p. ej. `resumen|2026-09|VENTA|REGISTRO`); `fallas` usa ese mismo texto.
  * `alLlamar` corre en cada llamada, antes de responder (por ejemplo, para cancelar a mitad de camino).
  * Un resumen sin filas llega con "sin movimientos" explícito (código 3), salvo con `vaciosAmbiguos`.
@@ -21,6 +22,7 @@ export class SiiFalso implements SiiReader {
   readonly detalles = new Map<string, DocumentoRcv[]>();
   readonly declaraciones = new Map<string, F29Declaracion[]>();
   readonly valores = new Map<string, F29Valores>();
+  readonly propuestas = new Map<string, PropuestaF29 | null>();
   readonly fallas = new Map<string, Error>();
   alLlamar: (llamada: string) => void | Promise<void> = () => {};
   /** Entrega los resúmenes vacíos sin la marca `sinMovimientos`, como un vacío ambiguo del SII. */
@@ -57,5 +59,10 @@ export class SiiFalso implements SiiReader {
     if (!v) throw new ErrorImpuestocl('PORTAL_CAMBIO', 'El PDF del F29 no trajo valores.');
     if (Object.keys(v.valores).length === 0) throw new ErrorImpuestocl('PORTAL_CAMBIO', `El PDF del F29 de ${d.periodo} no trajo códigos legibles.`);
     return v;
+  }
+
+  async f29Propuesta(_rut: string, periodo: Periodo): Promise<PropuestaF29 | null> {
+    await this.registrar(`propuesta|${periodo.texto}`);
+    return this.propuestas.get(periodo.texto) ?? null;
   }
 }

@@ -4,7 +4,7 @@ import { esquemaDatos } from '../../src/app/consulta-libre.js';
 import type { DepsApp } from '../../src/app/deps.js';
 import { ErrorImpuestocl, type CodigoError } from '../../src/domain/errores.js';
 import { crearServidorMcp, HERRAMIENTAS, INSTRUCCIONES_MCP, type OpcionesMcp } from '../../src/interfaces/mcp/servidor.js';
-import { declaracion, fila, perfilEmpresa, resumen, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
+import { declaracion, fila, perfilEmpresa, propuesta, resumen, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
 import { depsDePrueba } from '../helpers/deps.js';
 import { guardarPdfF29, pdfFalso } from '../helpers/lector-falso.js';
 import { sembrarMes, T_SEMBRADO } from '../helpers/sembrar.js';
@@ -86,6 +86,59 @@ describe('servidor MCP', () => {
     const r = await cliente.callTool({ name: 'sii_panorama', arguments: { rut: RUT_EMPRESA } });
 
     expect(textoDe(r).split('\n\n')[0]).toBe('Panorama local: 0 meses. Fuentes: RCV (compras y ventas) y F29. Cobertura: ventas 0/0, compras 0/0 y F29 0/0 meses consultados.');
+    await cliente.close();
+  });
+
+  it('sii_panorama agrega un sufijo solo si hay propuestas del SII con datos', async () => {
+    const { deps, store } = depsDePrueba();
+    store.guardarContribuyente(perfilEmpresa());
+    sembrarMes(store, '2026-08');
+    sembrarMes(store, '2026-09');
+    const cliente = await conectar(deps);
+    const base = 'Panorama local: 2 meses. Fuentes: RCV (compras y ventas) y F29. Cobertura: ventas 2/2, compras 2/2 y F29 2/2 meses consultados.';
+    expect(textoDe(await cliente.callTool({ name: 'sii_panorama', arguments: { rut: RUT_EMPRESA } })).split('\n\n')[0]).toBe(base);
+
+    const guardar = (periodo: string, p: ReturnType<typeof propuesta>) => {
+      const id = store.iniciarSincronizacion(RUT_EMPRESA, 'f29.propuesta', periodo, T_SEMBRADO);
+      store.reemplazarPropuestaF29(id, RUT_EMPRESA, periodo, p, T_SEMBRADO);
+      store.terminarSincronizacion(id, T_SEMBRADO, 'ok');
+    };
+    guardar('2026-09', propuesta());
+    guardar('2026-08', propuesta({ periodo: '2026-08', propuestos: {}, administrativos: {}, sinPropuesta: true }));
+
+    const r = await cliente.callTool({ name: 'sii_panorama', arguments: { rut: RUT_EMPRESA } });
+    expect(textoDe(r).split('\n\n')[0]).toBe(`${base} Propuesta del SII: 2/2 meses consultados, 1 con propuesta.`);
+    const datos = JSON.parse(textoDe(r).slice(textoDe(r).indexOf('\n\n') + 2));
+    expect(datos.periodos[1].propuesta).toEqual({ sinPropuesta: false, credito: 950_000, remanente: 120_000, retencion: 30_000 });
+    await cliente.close();
+  });
+
+  it('sincronizar acepta la superficie propuesta y la describe', async () => {
+    const { deps, store, sii } = depsDePrueba();
+    store.guardarContribuyente(perfilEmpresa());
+    sii.propuestas.set('2026-09', propuesta());
+    const cliente = await conectar(deps);
+    const { tools } = await cliente.listTools();
+    const herramienta = tools.find((t) => t.name === 'sincronizar')!;
+    expect(JSON.stringify(herramienta.inputSchema)).toContain('"propuesta"');
+    expect(herramienta.description).toMatch(/propuesta/i);
+    expect(herramienta.description).toMatch(/crédito.*remanente.*retención/i);
+
+    const r = await cliente.callTool({ name: 'sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026-09', superficies: ['propuesta'] } });
+
+    expect(esError(r)).toBe(false);
+    expect(textoDe(r)).toContain('2026-09: propuesta con datos');
+    expect(sii.llamadas).toEqual(['propuesta|2026-09']);
+    expect(store.propuestaF29(RUT_EMPRESA, '2026-09')).toEqual(propuesta());
+    const mala = await cliente.callTool({ name: 'sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026-09', superficies: ['bhe'] } });
+    expect(esError(mala)).toBe(true);
+    await cliente.close();
+  });
+
+  it('consulta_sql menciona la propuesta de F29 entre los datos que consulta', async () => {
+    const cliente = await conectar(depsDePrueba().deps);
+    const { tools } = await cliente.listTools();
+    expect(tools.find((t) => t.name === 'consulta_sql')?.description).toMatch(/propuesta de F29/);
     await cliente.close();
   });
 
@@ -339,7 +392,7 @@ describe('servidor MCP', () => {
   });
 
   describe('datos_esquema', () => {
-    it('lista las 8 tablas con sus columnas y las reglas de interpretación', async () => {
+    it('lista las 10 tablas con sus columnas y las reglas de interpretación', async () => {
       const cliente = await conectar(depsDePrueba().deps);
 
       const r = await cliente.callTool({ name: 'datos_esquema', arguments: {} });
@@ -347,9 +400,9 @@ describe('servidor MCP', () => {
       expect(esError(r)).toBe(false);
       const texto = textoDe(r);
       const datos = JSON.parse(texto.slice(texto.indexOf('\n\n') + 2));
-      expect(datos.tablas.map((t: { nombre: string }) => t.nombre)).toEqual(['contribuyente', 'rcv_resumen', 'rcv_documento', 'f29_declaracion', 'f29_valor', 'f29_lectura', 'hallazgo', 'sincronizacion']);
+      expect(datos.tablas.map((t: { nombre: string }) => t.nombre)).toEqual(['contribuyente', 'rcv_resumen', 'rcv_documento', 'f29_declaracion', 'f29_valor', 'f29_lectura', 'f29_propuesta', 'f29_propuesta_valor', 'hallazgo', 'sincronizacion']);
       expect(datos).toEqual(JSON.parse(JSON.stringify(esquemaDatos())));
-      expect(texto.split('\n\n')[0]).toContain('8 tablas');
+      expect(texto.split('\n\n')[0]).toContain('10 tablas');
       await cliente.close();
     });
 

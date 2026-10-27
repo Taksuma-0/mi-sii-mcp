@@ -154,6 +154,32 @@ const TABLAS: readonly TablaEsquema[] = [
     ],
   },
   {
+    nombre: 'f29_propuesta',
+    descripcion:
+      'Propuesta de F29 que prepara el SII para el mes (una fila por rut y periodo), solo si se sincronizó la superficie propuesta. Sus montos están en f29_propuesta_valor. No es el F29 declarado: ver f29_declaracion y f29_valor.',
+    columnas: [
+      RUT,
+      PERIODO,
+      col('tipo_propuesta', 'INTEGER', 'Tipo de propuesta según el SII (40 con propuesta, 48 sin propuesta); NULL si no lo informó'),
+      col('descripcion_tipo', 'TEXT', 'Descripción del tipo según el SII; puede ser NULL'),
+      col('estado_calculo', 'INTEGER', 'Estado del cálculo de la propuesta según el SII (5 cuando no hay propuesta); NULL si no lo informó'),
+      col('sin_propuesta', 'INTEGER', '1 si el SII no armó una propuesta para el mes (sin códigos propuestos ni administrativos); 0 si trae códigos'),
+      SINCRONIZACION_ID,
+      OBTENIDO_EN,
+    ],
+  },
+  {
+    nombre: 'f29_propuesta_valor',
+    descripcion: 'Códigos de la propuesta de F29 del SII: una fila por rut, periodo, lista y codigo. No incluye los códigos de identificación del contribuyente.',
+    columnas: [
+      RUT,
+      PERIODO,
+      col('lista', 'TEXT', 'propuesto (monto que el SII propone para ese código) o administrativo (datos de control del SII, sin valor tributario directo)'),
+      col('codigo', 'TEXT', "Código del formulario, como texto y sin ceros a la izquierda: codigo = '520'"),
+      col('valor', 'REAL', 'Valor del código, en pesos'),
+    ],
+  },
+  {
     nombre: 'hallazgo',
     descripcion:
       'Resultados de la conciliación IVA (RCV contra F29) y avisos de plazos, por rut y periodo. Se recalculan al pedir iva_resumen o iva_hallazgos: una tabla vacía no prueba que no haya diferencias.',
@@ -178,7 +204,7 @@ const TABLAS: readonly TablaEsquema[] = [
     columnas: [
       col('id', 'INTEGER', 'Identificador; mayor id = intento más reciente'),
       RUT,
-      col('superficie', 'TEXT', 'rcv.VENTA, rcv.COMPRA, f29 (listado de declaraciones) o f29.valores (detalle de la vigente; no se repite si f29_lectura ya tiene una lectura coherente del folio con la misma versión del lector, así que puede no haber un intento reciente)'),
+      col('superficie', 'TEXT', 'rcv.VENTA, rcv.COMPRA, f29 (listado de declaraciones), f29.valores (detalle de la vigente; no se repite si f29_lectura ya tiene una lectura coherente del folio con la misma versión del lector, así que puede no haber un intento reciente) o f29.propuesta (propuesta del SII; solo si se pidió)'),
       PERIODO,
       col('iniciado_en', 'TEXT', 'Instante ISO UTC de inicio'),
       col('terminado_en', 'TEXT', 'Instante ISO UTC de término; NULL si sigue en curso'),
@@ -218,6 +244,7 @@ function reglas(): readonly string[] {
     `Tipos de documento (tipo_doc): ${tiposConNombre}. Otros códigos pueden aparecer sin nombre; rcv_resumen.descripcion trae el nombre del SII.`,
     `F29: f29_valor.codigo es texto (codigo = '538'). Códigos clave: ${codigosF29}. El crédito del F29 comparable con el RCV es '${CODIGO_F29.TOTAL_CREDITOS}' menos ${fueraDelRcv}. El PDF compacto del F29 omite las líneas vacías e impuestocl guarda cada línea con valor de la tabla del formulario, así que si el folio tiene filas en f29_valor un código ausente vale 0. Excepción, los totales: ${totalesAnulados}; si no, falta por una lectura fallida y queda sin dato. Si el folio no tiene ninguna fila, sus valores no se leyeron.`,
     "Un período puede tener varias declaraciones F29 (folios; por ejemplo rectificatorias). La vigente: solo cuentan las presentadas (folio > 0 y ni guardadas ni rechazadas ni anuladas: estado_id fuera de 10 y 70 y estado sin «guardad», «rechazad» ni «anulad»; un estado desconocido cuenta como presentado); si alguna tiene un estado con «vigente», se consideran solo esas y si no, todas las presentadas; gana la de fecha_presentacion más reciente (NULL es la más antigua) y, si empatan, el folio más alto. En SQL: `SELECT * FROM f29_declaracion WHERE rut = '<RUT>' AND periodo = '<AAAA-MM>' AND folio > 0 AND COALESCE(estado_id, 0) NOT IN (10, 70) AND estado NOT LIKE '%guardad%' AND estado NOT LIKE '%rechazad%' AND estado NOT LIKE '%anulad%' ORDER BY (estado LIKE '%vigente%') DESC, COALESCE(fecha_presentacion, '') DESC, folio DESC LIMIT 1`. Une sus valores por rut, periodo y folio.",
+    "Propuesta del SII (f29_propuesta y f29_propuesta_valor, solo si se sincronizó la superficie propuesta): lo que el SII propone antes de declarar. Trae el crédito propuesto ('520'; '511' es el crédito neto por documentos), el remanente ('504') y la retención ('151'); no trae débito ni total a pagar, así que no sirve para saber si el F29 llevará pago. Con sin_propuesta = 1 el SII no propuso nada. No reemplaza al F29 declarado.",
     'Que no haya filas no significa cero: un período no sincronizado no tiene filas. Revisa sincronizacion (el intento más reciente por rut, superficie y periodo): estado ok sin filas = el SII no tenía documentos o declaraciones; sin fila o con estado error = se desconoce, y los datos pueden estar incompletos o ser de un intento anterior.',
     'Cobertura: solo el RCV (compras y ventas) y el F29 traídos por impuestocl. No hay otros impuestos ni trámites del SII, y esto no es asesoría tributaria.',
   ];

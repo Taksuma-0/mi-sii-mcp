@@ -1,6 +1,6 @@
 import { vencimientoF29, vencimientoReclamo } from '../calendar/plazos.js';
 import { ErrorImpuestocl } from '../domain/errores.js';
-import { declaracionVigente } from '../domain/f29.js';
+import { declaracionVigente, montosPropuesta } from '../domain/f29.js';
 import { diasEntre, fechaEnSantiago } from '../domain/fechas.js';
 import { formatearClp, nombreTipoDocumento } from '../domain/formato.js';
 import { compararPeriodos, parsePeriodo, periodoAnterior, periodoDeFecha, rangoPeriodos, restarPeriodos, type Periodo } from '../domain/periodo.js';
@@ -35,6 +35,14 @@ export interface ResumenIva {
     readonly fechaPresentacion: string | null;
     readonly totalAPagar: number | null;
     readonly valores: Readonly<Record<string, number>>;
+  } | null;
+  /** Propuesta del SII del mes, si se sincronizó y trajo datos; no entra en la conciliación. */
+  readonly propuesta: {
+    readonly tipo: number | null;
+    readonly sinPropuesta: boolean;
+    readonly credito: number | null;
+    readonly remanente: number | null;
+    readonly retencion: number | null;
   } | null;
   readonly venceF29: string;
   readonly comparaciones: Comparaciones;
@@ -103,6 +111,7 @@ export function resumenIva(deps: DepsApp, rutTexto: string, periodoTexto: string
   const periodo = parsePeriodo(periodoTexto);
   const { entrada, resultado, vigente } = conciliarYGuardar(deps, perfil, periodo);
   const disponibilidad = entrada.disponibilidad;
+  const propuesta = disponibilidad.propuestaF29 ? deps.store.propuestaF29(perfil.rut, periodo.texto) : null;
   const filas = (lado: Lado, estado: EstadoRcv): RcvResumenFila[] =>
     entrada.resumenes.filter((r) => r.lado === lado && r.estado === estado).flatMap((r) => [...r.filas]);
   const cantidad = (estado: EstadoRcv): number | null => disponibilidad.comprasRcv ? filas('COMPRA', estado).reduce((s, f) => s + f.cantidad, 0) : null;
@@ -115,6 +124,7 @@ export function resumenIva(deps: DepsApp, rutTexto: string, periodoTexto: string
     f29: vigente
       ? { folio: vigente.folio, estado: vigente.estado, fechaPresentacion: vigente.fechaPresentacion, totalAPagar: vigente.totalAPagar, valores: entrada.valores?.valores ?? {} }
       : null,
+    propuesta: propuesta ? { tipo: propuesta.tipoPropuesta, sinPropuesta: propuesta.sinPropuesta, ...montosPropuesta(propuesta) } : null,
     venceF29: vencimientoF29(periodo),
     comparaciones: resultado.comparaciones,
     hallazgos: resultado.hallazgos,

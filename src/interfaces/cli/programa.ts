@@ -123,14 +123,14 @@ export function crearPrograma(
 
   programa
     .command('sync')
-    .description('Trae RCV y F29 del SII a la base local')
+    .description('Trae RCV y F29 del SII a la base local (con --solo propuesta, la propuesta de F29)')
     .argument('<rut>')
     .requiredOption('--desde <AAAA-MM>', 'primer mes')
     .option('--hasta <AAAA-MM>', 'último mes (por defecto, el mismo de --desde)')
-    .addOption(new Option('--solo <superficie>', 'rcv o f29').choices(['rcv', 'f29']))
+    .addOption(new Option('--solo <superficies...>', 'una o varias de: rcv, f29, propuesta (por defecto rcv y f29)').choices(['rcv', 'f29', 'propuesta']))
     .action(
-      ejecutar(async (c, rut: string, o: { desde: string; hasta?: string; solo?: Superficie }) => {
-        const r = await sincronizar(c.deps, rut, parsePeriodo(o.desde), parsePeriodo(o.hasta ?? o.desde), o.solo ? [o.solo] : ['rcv', 'f29']);
+      ejecutar(async (c, rut: string, o: { desde: string; hasta?: string; solo?: Superficie[] }) => {
+        const r = await sincronizar(c.deps, rut, parsePeriodo(o.desde), parsePeriodo(o.hasta ?? o.desde), o.solo ? [...new Set(o.solo)] : ['rcv', 'f29']);
         io.escribir(textoSync(r));
         if (r.abortado || r.periodos.some((p) => p.errores.length > 0)) salida.codigo = 1;
       }),

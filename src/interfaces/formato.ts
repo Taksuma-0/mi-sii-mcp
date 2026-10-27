@@ -1,7 +1,7 @@
 import type { FilaHistorialF29, PaginaDocumentos, ResumenIva } from '../app/consultas.js';
 import type { PerfilConSesion } from '../app/perfiles.js';
 import type { ResultadoReleerF29, ResultadoRelectura } from '../app/releer-f29.js';
-import { SINCRONIZACION_CANCELADA, type ResultadoSync } from '../app/sincronizar.js';
+import { SINCRONIZACION_CANCELADA, type ResultadoPeriodo, type ResultadoSync } from '../app/sincronizar.js';
 import { reintentoDe, type Reintento } from '../domain/errores.js';
 import { formatearClp, nombreTipoDocumento } from '../domain/formato.js';
 import type { Hallazgo, Plazo, Severidad } from '../domain/tipos.js';
@@ -12,6 +12,12 @@ const monto = (n: number | null): string => (n === null ? 'sin dato' : formatear
 export function textoHallazgos(hallazgos: readonly Hallazgo[]): string {
   if (hallazgos.length === 0) return 'Sin hallazgos.';
   return hallazgos.map((h) => `[${ETIQUETA[h.severidad]}] ${h.regla} ${h.periodo} — ${h.titulo}\n    ${h.detalle}`).join('\n');
+}
+
+function lineaPropuesta(p: ResumenIva['propuesta']): string {
+  if (p === null) return 'Propuesta del SII: sin datos';
+  if (p.sinPropuesta) return 'Propuesta del SII: sin propuesta para este mes';
+  return `Propuesta del SII: crédito ${monto(p.credito)} · remanente ${monto(p.remanente)} · retención ${monto(p.retencion)}`;
 }
 
 export function textoResumenIva(r: ResumenIva): string {
@@ -25,11 +31,12 @@ export function textoResumenIva(r: ResumenIva): string {
     r.f29
       ? `F29: folio ${r.f29.folio} (${r.f29.estado}), presentado ${r.f29.fechaPresentacion ?? 'sin fecha'}, total a pagar ${monto(r.f29.totalAPagar)}`
       : `F29: ${r.disponibilidad.f29 ? 'no presentado' : 'sin sincronizar'} — vence ${r.venceF29}`,
+    ...(r.disponibilidad.propuestaF29 ? [lineaPropuesta(r.propuesta)] : []),
     `Compras pendientes de aceptar o reclamar: ${r.compras.pendientes ?? 'sin dato'} · reclamadas: ${r.compras.reclamados ?? 'sin dato'}`,
     ...(faltantes.length > 0 ? [`Falta sincronizar: ${faltantes.join(', ')}`] : []),
     `Hallazgos (${r.hallazgos.length}):`,
     textoHallazgos(r.hallazgos).replace(/^/gm, '  '),
-    `Datos: RCV al ${r.frescura.rcv ?? 'nunca'} · F29 al ${r.frescura.f29 ?? 'nunca'}`,
+    `Datos: RCV al ${r.frescura.rcv ?? 'nunca'} · F29 al ${r.frescura.f29 ?? 'nunca'}${r.frescura.propuesta ? ` · propuesta al ${r.frescura.propuesta}` : ''}`,
   ].join('\n');
 }
 
@@ -68,11 +75,19 @@ export function textoReintentables(r: ResultadoSync): string | null {
   return lineas.length === 0 ? null : lineas.join('\n');
 }
 
+const TEXTO_PROPUESTA: Readonly<Record<NonNullable<ResultadoPeriodo['propuesta']> | 'sin_traer', string>> = {
+  con_datos: 'propuesta con datos',
+  sin_propuesta: 'sin propuesta del SII',
+  sin_respuesta: 'propuesta sin respuesta del SII',
+  sin_traer: 'propuesta sin traer',
+};
+
 export function textoSync(r: ResultadoSync): string {
   const lineas = r.periodos.map((p) => {
     const partes = [
       ...(r.superficies.includes('rcv') ? [`${p.documentos} documentos RCV`] : []),
       ...(r.superficies.includes('f29') ? [`F29 ${p.f29Folio ? `folio ${p.f29Folio}` : 'sin folio informado'}`] : []),
+      ...(r.superficies.includes('propuesta') ? [TEXTO_PROPUESTA[p.propuesta ?? 'sin_traer']] : []),
     ];
     let linea = `${p.periodo}: ${partes.join(' · ')}`;
     if (p.errores.length > 0) linea += ` · errores: ${p.errores.map((e) => `${e.superficie} ${e.codigo}`).join(', ')}`;

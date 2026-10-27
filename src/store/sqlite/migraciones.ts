@@ -148,8 +148,33 @@ CREATE TABLE f29_lectura (
 );
 `;
 
+/** Propuesta de F29 del SII por mes: cabecera y los códigos propuestos y administrativos (nunca los de identificación). */
+const V4 = `
+CREATE TABLE f29_propuesta (
+  rut TEXT NOT NULL,
+  periodo TEXT NOT NULL,
+  tipo_propuesta INTEGER,
+  descripcion_tipo TEXT,
+  estado_calculo INTEGER,
+  sin_propuesta INTEGER NOT NULL CHECK (sin_propuesta IN (0, 1)),
+  sincronizacion_id INTEGER NOT NULL REFERENCES sincronizacion (id),
+  obtenido_en TEXT NOT NULL,
+  PRIMARY KEY (rut, periodo)
+);
+
+CREATE TABLE f29_propuesta_valor (
+  rut TEXT NOT NULL,
+  periodo TEXT NOT NULL,
+  lista TEXT NOT NULL CHECK (lista IN ('propuesto', 'administrativo')),
+  codigo TEXT NOT NULL,
+  valor REAL NOT NULL,
+  PRIMARY KEY (rut, periodo, lista, codigo)
+);
+`;
+
 export const MIGRACIONES: readonly Migracion[] = [
   { version: 1, sql: V1 },
   { version: 2, sql: V2 },
   { version: 3, sql: V3 },
+  { version: 4, sql: V4 },
 ];

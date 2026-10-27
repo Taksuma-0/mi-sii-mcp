@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { DocumentoRcv, Hallazgo, Lado, RcvResumen } from '../../src/domain/tipos.js';
+import type { DocumentoRcv, Hallazgo, Lado, PropuestaF29, RcvResumen } from '../../src/domain/tipos.js';
 import { abrirDb, type Db } from '../../src/store/sqlite/db.js';
 import { huellaDocumento, SqliteStore } from '../../src/store/sqlite/store.js';
-import { declaracion, documento, fila, perfilEmpresa, perfilPersona, resumen, RUT_EMPRESA, RUT_PERSONA, valores } from '../helpers/fabricas.js';
+import { declaracion, documento, fila, propuesta, perfilEmpresa, perfilPersona, resumen, RUT_EMPRESA, RUT_PERSONA, valores } from '../helpers/fabricas.js';
 import { guardarPdfF29, pdfFalso } from '../helpers/lector-falso.js';
 import { medirLecturas } from '../helpers/lecturas-sqlite.js';
 
@@ -382,5 +382,53 @@ describe('SqliteStore: superficies anuales y no periódicas', () => {
     sincOk('f29', '2026-09');
     expect(store.disponibilidadFuentes(RUT_EMPRESA, '2026-09')).toMatchObject({ f29: true, propuestaF29: false });
     expect(store.frescura(RUT_EMPRESA, '2026-09')).toMatchObject({ f29: T, propuesta: null });
+  });
+});
+
+describe('SqliteStore: propuesta F29', () => {
+  function guardar(p: PropuestaF29, periodo = '2026-09', obtenidoEn = T): number {
+    const id = store.iniciarSincronizacion(RUT_EMPRESA, 'f29.propuesta', periodo, obtenidoEn);
+    store.reemplazarPropuestaF29(id, RUT_EMPRESA, periodo, p, obtenidoEn);
+    store.terminarSincronizacion(id, obtenidoEn, 'ok');
+    return id;
+  }
+
+  it('sin datos guardados devuelve null', () => {
+    expect(store.propuestaF29(RUT_EMPRESA, '2026-09')).toBeNull();
+  });
+
+  it('guarda y devuelve la propuesta con sus listas, incluidos decimales', () => {
+    const p = propuesta({ propuestos: { '520': 950_000.5, '504': 120_000 }, administrativos: { '9114': 1 } });
+    guardar(p);
+    expect(store.propuestaF29(RUT_EMPRESA, '2026-09')).toEqual(p);
+  });
+
+  it('conserva tipo, descripción y estado nulos y la marca sinPropuesta', () => {
+    const p = propuesta({ tipoPropuesta: null, descripcionTipo: null, estadoCalculo: null, propuestos: {}, administrativos: {}, sinPropuesta: true });
+    guardar(p);
+    expect(store.propuestaF29(RUT_EMPRESA, '2026-09')).toEqual(p);
+  });
+
+  it('reemplaza la propuesta anterior sin retener códigos viejos ni tocar otros meses', () => {
+    guardar(propuesta({ propuestos: { '520': 1, '504': 2 }, administrativos: { '9114': 3 } }));
+    guardar(propuesta({ periodo: '2026-08', propuestos: { '151': 9 } }), '2026-08');
+    guardar(propuesta({ tipoPropuesta: 48, propuestos: {}, administrativos: {}, sinPropuesta: true }), '2026-09', '2026-10-22T10:00:00.000Z');
+    expect(store.propuestaF29(RUT_EMPRESA, '2026-09')).toMatchObject({ tipoPropuesta: 48, propuestos: {}, administrativos: {}, sinPropuesta: true });
+    expect(store.propuestaF29(RUT_EMPRESA, '2026-08')).toMatchObject({ propuestos: { '151': 9 } });
+    expect(db.prepare("SELECT COUNT(*) AS n FROM f29_propuesta_valor WHERE periodo = '2026-09'").get()).toEqual({ n: 0 });
+  });
+
+  it('revierte el reemplazo si falla una inserción', () => {
+    const p = propuesta({ propuestos: { '520': 1 } });
+    guardar(p);
+    const mala = propuesta({ propuestos: { '520': NaN, '504': 2 }, administrativos: { '9114': 3 } });
+    // NaN llega a SQLite como NULL y viola NOT NULL: nada del reemplazo debe quedar escrito.
+    expect(() => guardar(mala, '2026-09', '2026-10-22T10:00:00.000Z')).toThrow();
+    expect(store.propuestaF29(RUT_EMPRESA, '2026-09')).toEqual(p);
+  });
+
+  it('la propuesta guardada no cambia la disponibilidad hasta que una sincronización ok la registra', () => {
+    guardar(propuesta());
+    expect(store.disponibilidadFuentes(RUT_EMPRESA, '2026-09')).toMatchObject({ propuestaF29: true, f29: false });
   });
 });

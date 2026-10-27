@@ -13,6 +13,7 @@ import {
   type Naturaleza,
   type OrigenLecturaF29,
   type Perfil,
+  type PropuestaF29,
   type RcvResumen,
   type RcvResumenFila,
   type RespuestaCruda,
@@ -406,6 +407,42 @@ export class SqliteStore implements Store {
     const filas = this.db.prepare('SELECT codigo, valor FROM f29_valor WHERE rut = ? AND periodo = ? AND folio = ?').all(rut, periodo, folio) as { codigo: string; valor: number }[];
     if (filas.length === 0) return null;
     return { rut, periodo, folio, valores: Object.fromEntries(filas.map((f) => [f.codigo, f.valor])) };
+  }
+
+  // --- propuesta F29 ---------------------------------------------------------------------
+  reemplazarPropuestaF29(sincronizacionId: number, rut: string, periodo: string, propuesta: PropuestaF29, obtenidoEn: string): void {
+    const insValor = this.db.prepare('INSERT INTO f29_propuesta_valor (rut, periodo, lista, codigo, valor) VALUES (?, ?, ?, ?, ?)');
+    this.db.transaction(() => {
+      this.db.prepare('DELETE FROM f29_propuesta WHERE rut = ? AND periodo = ?').run(rut, periodo);
+      this.db.prepare('DELETE FROM f29_propuesta_valor WHERE rut = ? AND periodo = ?').run(rut, periodo);
+      this.db
+        .prepare(
+          `INSERT INTO f29_propuesta (rut, periodo, tipo_propuesta, descripcion_tipo, estado_calculo, sin_propuesta, sincronizacion_id, obtenido_en)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(rut, periodo, propuesta.tipoPropuesta, propuesta.descripcionTipo, propuesta.estadoCalculo, propuesta.sinPropuesta ? 1 : 0, sincronizacionId, obtenidoEn);
+      for (const [codigo, valor] of Object.entries(propuesta.propuestos)) insValor.run(rut, periodo, 'propuesto', codigo, valor);
+      for (const [codigo, valor] of Object.entries(propuesta.administrativos)) insValor.run(rut, periodo, 'administrativo', codigo, valor);
+    })();
+  }
+
+  propuestaF29(rut: string, periodo: string): PropuestaF29 | null {
+    const f = this.db
+      .prepare('SELECT tipo_propuesta, descripcion_tipo, estado_calculo, sin_propuesta FROM f29_propuesta WHERE rut = ? AND periodo = ?')
+      .get(rut, periodo) as { tipo_propuesta: number | null; descripcion_tipo: string | null; estado_calculo: number | null; sin_propuesta: number } | undefined;
+    if (!f) return null;
+    const filas = this.db.prepare('SELECT lista, codigo, valor FROM f29_propuesta_valor WHERE rut = ? AND periodo = ?').all(rut, periodo) as { lista: string; codigo: string; valor: number }[];
+    const de = (lista: string): Record<string, number> => Object.fromEntries(filas.filter((v) => v.lista === lista).map((v) => [v.codigo, v.valor]));
+    return {
+      rut,
+      periodo,
+      tipoPropuesta: f.tipo_propuesta,
+      descripcionTipo: f.descripcion_tipo,
+      estadoCalculo: f.estado_calculo,
+      propuestos: de('propuesto'),
+      administrativos: de('administrativo'),
+      sinPropuesta: f.sin_propuesta === 1,
+    };
   }
 
   // --- frescura ---------------------------------------------------------------------------

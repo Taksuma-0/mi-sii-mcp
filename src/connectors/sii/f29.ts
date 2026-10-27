@@ -5,7 +5,7 @@ import type { Periodo } from '../../domain/periodo.js';
 import type { Rut } from '../../domain/rut.js';
 import type { F29Declaracion, F29Valores } from '../../domain/tipos.js';
 import type { LectorPdfF29, SumideroRespuestas } from '../../ports/index.js';
-import { esObjeto, numero, primero, texto } from './campos.js';
+import { mensajeDeError, numero, primero, texto } from './campos.js';
 import { lectorPdfF29 } from './f29-pdf.js';
 import { exigirSesion, type Http } from './http.js';
 import { HOST_SDI, postSdi } from './sdi.js';
@@ -17,16 +17,6 @@ const REFERER = `${HOST_SDI}/propuestaf29ui/`;
 const FORM_ID = '2';
 
 const Sobre = z.object({ metaData: z.object({ errors: z.unknown().nullish() }).loose().nullish(), data: z.array(z.record(z.string(), z.unknown())).nullable() }).loose();
-
-function mensajeDeError(errores: unknown): string | null {
-  if (errores === null || errores === undefined) return null;
-  if (Array.isArray(errores)) {
-    const textos = errores.map((e) => (esObjeto(e) ? texto(e['descripcion']) : texto(e))).filter((x): x is string => x !== null);
-    return textos.length > 0 ? textos.join('; ') : null;
-  }
-  if (esObjeto(errores)) return texto(errores['descripcion']);
-  return texto(errores);
-}
 
 export async function f29Declaraciones(http: Http, sumidero: SumideroRespuestas, rut: Rut, periodo: Periodo): Promise<F29Declaracion[]> {
   const crudo = await postSdi(http, sumidero, {

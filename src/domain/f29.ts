@@ -1,4 +1,4 @@
-import type { F29Declaracion } from './tipos.js';
+import type { F29Declaracion, PropuestaF29 } from './tipos.js';
 
 /** Estados del SII (`estadoDeclaracionId`) de una declaración que existe pero no se presentó. */
 const ESTADO_GUARDADA = 10;
@@ -31,4 +31,22 @@ export function declaracionVigente(declaraciones: readonly F29Declaracion[]): F2
     (a, b) => (b.fechaPresentacion ?? '').localeCompare(a.fechaPresentacion ?? '') || b.folio - a.folio,
   );
   return ordenadas[0] ?? null;
+}
+
+/** Montos que la propuesta del SII entrega para el IVA: crédito, remanente y retención. No trae débito ni total a pagar. */
+export interface MontosPropuesta {
+  /** Crédito propuesto (520); si falta, el crédito neto por documentos (511). */
+  readonly credito: number | null;
+  /** Remanente propuesto (504). */
+  readonly remanente: number | null;
+  /** Retención propuesta (151). */
+  readonly retencion: number | null;
+}
+
+export function montosPropuesta(p: PropuestaF29): MontosPropuesta {
+  return {
+    credito: p.propuestos['520'] ?? p.propuestos['511'] ?? null,
+    remanente: p.propuestos['504'] ?? null,
+    retencion: p.propuestos['151'] ?? null,
+  };
 }

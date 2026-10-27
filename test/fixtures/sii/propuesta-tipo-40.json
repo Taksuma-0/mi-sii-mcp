@@ -1,0 +1,38 @@
+{
+  "metaData": { "namespace": "cl.sii.sdi.lob.iva.propuestaf29.data.api.interfaces.FacadeAdapterService/getDeclaracionConCondicionesYTipoPropuesta", "conversationId": "TOKEN-FICTICIO-0000", "transactionId": "00000000-0000-0000-0000-000000000000", "errors": null },
+  "data": {
+    "tipopropuesta": 40,
+    "tipopropuestadescrip": "Propuesta con crédito de documentos",
+    "listCondiciones": [{ "codigo": "C1", "cumple": "S" }],
+    "listCodPropuestos": [
+      { "codigo": "511", "valor": "900000" },
+      { "codigo": "520", "valor": "950000" },
+      { "codigo": "519", "valor": "50000" },
+      { "codigo": "504", "valor": "120000" },
+      { "codigo": "151", "valor": "30000" }
+    ],
+    "listGlosasProp": ["Glosa ficticia de la propuesta"],
+    "listCodBase": [
+      { "codigo": "01", "valor": "EMPRESA DEMO SPA" },
+      { "codigo": "03", "valor": "CALLE FICTICIA 123" },
+      { "codigo": "55", "valor": "demo@example.invalid" }
+    ],
+    "listCodAdministrativos": [
+      { "codigo": "9114", "valor": "1" },
+      { "codigo": "9132", "valor": "2" },
+      { "codigo": "9137", "valor": "3" },
+      { "codigo": "9186", "valor": "4" }
+    ],
+    "estado": 1,
+    "descripcionEstado": "Propuesta disponible",
+    "resultadoCalculoPP29": { "estado": 1, "glosaError": null, "traza": "TRAZA-FICTICIA-DE-CALCULO" },
+    "anotacion": "Anotación ficticia con nombre de persona",
+    "tieneAnotaciones": "N",
+    "documentosDelGiro": [{ "giro": "GIRO FICTICIO" }],
+    "ppmo": { "monto": 77777 },
+    "vectores": [{ "v": 1 }],
+    "actividadesEco": [{ "codigo": 999999, "glosa": "ACTIVIDAD FICTICIA" }],
+    "inicioActividades": "01/01/2000",
+    "trabIndependiente": "N"
+  }
+}

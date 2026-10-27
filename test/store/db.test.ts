@@ -46,6 +46,16 @@ describe('db', () => {
     );
   });
 
+  it('la migración 4 crea la propuesta F29 y su lista solo admite propuesto o administrativo', () => {
+    const db = nuevaDb();
+    expect(MIGRACIONES.find((m) => m.version === 4)?.sql).toContain('f29_propuesta_valor');
+    db.prepare("INSERT INTO sincronizacion (rut, superficie, periodo, iniciado_en) VALUES ('1', 'f29.propuesta', '2026-09', 't')").run();
+    db.prepare("INSERT INTO f29_propuesta (rut, periodo, sin_propuesta, sincronizacion_id, obtenido_en) VALUES ('1', '2026-09', 0, 1, 't')").run();
+    db.prepare("INSERT INTO f29_propuesta_valor (rut, periodo, lista, codigo, valor) VALUES ('1', '2026-09', 'propuesto', '520', 5)").run();
+    expect(() => db.prepare("INSERT INTO f29_propuesta_valor (rut, periodo, lista, codigo, valor) VALUES ('1', '2026-09', 'otra', '520', 5)").run()).toThrow();
+    expect(() => db.prepare("INSERT INTO f29_propuesta_valor (rut, periodo, lista, codigo, valor) VALUES ('1', '2026-09', 'propuesto', '520', 6)").run()).toThrow();
+  });
+
   it('migra una base v1 con datos a la v2 agregando estado_id', () => {
     const db = new Database(':memory:');
     aplicarMigraciones(db, [MIGRACIONES[0]!]);
