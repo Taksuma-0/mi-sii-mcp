@@ -34,6 +34,8 @@ export interface RcvResumen {
   readonly lado: Lado;
   readonly estado: EstadoRcv;
   readonly filas: readonly RcvResumenFila[];
+  /** El SII confirmó que no hay movimientos (código 3 sin filas); un vacío sin esta marca es ambiguo. */
+  readonly sinMovimientos?: true;
 }
 
 export interface DocumentoRcv {

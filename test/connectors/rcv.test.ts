@@ -53,6 +53,20 @@ describe('rcvResumen', () => {
     expect((await rcvResumen(http, sumidero, EMPRESA, SEPT, 'VENTA', 'REGISTRO')).filas).toEqual([]);
   });
 
+  it('marca "sin movimientos" solo cuando el SII responde código 3 sin filas', async () => {
+    const { http, sumidero } = await preparar({ [RUTA_RESUMEN]: { headers: JSON_CT, body: fixture('rcv-resumen-sin-movimiento.json') } });
+    expect((await rcvResumen(http, sumidero, EMPRESA, SEPT, 'VENTA', 'REGISTRO')).sinMovimientos).toBe(true);
+  });
+
+  it.each([
+    ['código 0 sin filas', { data: [], respEstado: { codRespuesta: 0 } }],
+    ['sin código y sin filas', { data: null }],
+    ['código "3" con filas', { data: [{ rsmnTipoDocInteger: 33, rsmnTotDoc: 1 }], respEstado: { codRespuesta: '3' } }],
+  ])('no marca "sin movimientos" con %s', async (_caso, respuesta) => {
+    const { http, sumidero } = await preparar({ [RUTA_RESUMEN]: { headers: JSON_CT, body: JSON.stringify(respuesta) } });
+    expect(await rcvResumen(http, sumidero, EMPRESA, SEPT, 'VENTA', 'REGISTRO')).not.toHaveProperty('sinMovimientos');
+  });
+
   it('un rechazo por autorización es SIN_PERMISO', async () => {
     const { http, sumidero } = await preparar({ [RUTA_RESUMEN]: { headers: JSON_CT, body: fixture('rcv-rechazo.json') } });
     expect(await codigoDe(rcvResumen(http, sumidero, EMPRESA, SEPT, 'COMPRA', 'REGISTRO'))).toBe('SIN_PERMISO');

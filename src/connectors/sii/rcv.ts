@@ -26,6 +26,7 @@ const ACCION_RECAPTCHA: Readonly<Record<Lado, string>> = { COMPRA: 'RCV_DETC', V
 const TOKEN_RECAPTCHA = 't-o-k-e-n-web';
 /** El contrato trata 0 como OK y 3 como sin movimientos; la spike solo observó 3/data:null sin rechazo. */
 const CODIGOS_OK = new Set(['0', '3']);
+const CODIGO_SIN_MOVIMIENTOS = '3';
 
 const Sobre = z
   .object({
@@ -44,7 +45,13 @@ const Sobre = z
     message: 'El sobre del RCV no contiene data, datos ni respEstado.',
   });
 
-function filasDelSobre(crudo: unknown, superficie: string): Record<string, unknown>[] {
+interface Filas {
+  readonly filas: Record<string, unknown>[];
+  /** Código 3 del SII sin filas: confirma que no hay movimientos. */
+  readonly sinMovimientos: boolean;
+}
+
+function filasDelSobre(crudo: unknown, superficie: string): Filas {
   const sobre = Sobre.safeParse(crudo);
   if (!sobre.success) throw new ErrorImpuestocl('PORTAL_CAMBIO', `Respuesta inesperada del RCV (${superficie}).`, { detalle: sobre.error.message });
   const codigo = sobre.data.respEstado?.codRespuesta;
@@ -52,7 +59,8 @@ function filasDelSobre(crudo: unknown, superficie: string): Record<string, unkno
     const mensaje = sobre.data.respEstado?.msgeRespuesta ?? `código ${String(codigo)}`;
     throw new ErrorImpuestocl(/autoriza/i.test(mensaje) ? 'SIN_PERMISO' : 'SII_RECHAZO', `RCV: ${mensaje}`);
   }
-  return sobre.data.data ?? sobre.data.datos ?? [];
+  const filas = sobre.data.data ?? sobre.data.datos ?? [];
+  return { filas, sinMovimientos: filas.length === 0 && String(codigo) === CODIGO_SIN_MOVIMIENTOS };
 }
 
 const sufijo = (lado: Lado): string => (lado === 'COMPRA' ? 'Compra' : 'Venta');
@@ -73,7 +81,8 @@ export async function rcvResumen(
     conPage: true,
     data: { rutEmisor: String(rut.cuerpo), dvEmisor: rut.dv, ptributario: periodoSii(periodo), estadoContab: ESTADO_WIRE[estado], operacion: lado, busquedaInicial: true },
   });
-  const filas: RcvResumenFila[] = filasDelSobre(crudo, 'getResumen')
+  const sobre = filasDelSobre(crudo, 'getResumen');
+  const filas: RcvResumenFila[] = sobre.filas
     .map((f) => ({
       tipoDoc: entero(primero(f, ['rsmnTipoDocInteger', 'codTipoDoc', 'tipoDoc'])),
       descripcion: texto(primero(f, ['dcvNombreTipoDoc', 'descTipoDoc'])),
@@ -84,7 +93,7 @@ export async function rcvResumen(
       total: entero(primero(f, ['rsmnMntTotal', 'mntTotal'])),
     }))
     .filter((f) => f.tipoDoc > 0);
-  return { rut: rut.canonico, periodo: periodo.texto, lado, estado, filas };
+  return { rut: rut.canonico, periodo: periodo.texto, lado, estado, filas, ...(sobre.sinMovimientos ? { sinMovimientos: true as const } : {}) };
 }
 
 export async function rcvDetalle(
@@ -113,7 +122,7 @@ export async function rcvDetalle(
       tokenRecaptcha: TOKEN_RECAPTCHA,
     },
   });
-  return filasDelSobre(crudo, 'getDetalle').map((f) => aDocumento(f, rut, periodo, lado, estado, tipoDoc));
+  return filasDelSobre(crudo, 'getDetalle').filas.map((f) => aDocumento(f, rut, periodo, lado, estado, tipoDoc));
 }
 
 function rutContraparte(f: Record<string, unknown>): string {

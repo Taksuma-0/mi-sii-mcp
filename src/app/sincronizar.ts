@@ -1,8 +1,8 @@
 import { ERRORES_FATALES, ErrorImpuestocl, esErrorImpuestocl, type CodigoError } from '../domain/errores.js';
-import { declaracionVigente } from '../domain/f29.js';
+import { declaracionVigente, f29Presentada } from '../domain/f29.js';
 import { rangoPeriodos, type Periodo } from '../domain/periodo.js';
 import { parseRut } from '../domain/rut.js';
-import { ESTADOS_RCV, type DocumentoRcv, type EstadoRcv, type Lado, type RcvResumen, type RespuestaCruda } from '../domain/tipos.js';
+import { ESTADOS_RCV, type DocumentoRcv, type EstadoRcv, type F29Declaracion, type Lado, type RcvResumen, type RespuestaCruda } from '../domain/tipos.js';
 import type { SiiReader } from '../ports/index.js';
 import type { DepsApp } from './deps.js';
 
@@ -37,6 +37,26 @@ const ESTADOS_POR_LADO: Readonly<Record<Lado, readonly EstadoRcv[]>> = { VENTA: 
 export const SOLO_RESUMEN_VENTA: ReadonlySet<number> = new Set([35, 38, 39, 41, 48]);
 const CODIGO_DATOS_INCOMPLETOS: CodigoError = 'DATOS_INCOMPLETOS';
 const DATOS_INCOMPLETOS_RCV = Symbol('DATOS_INCOMPLETOS');
+
+/**
+ * Si un lado del RCV debe conservar lo guardado en vez de reemplazarlo: solo cuando todos sus estados vinieron vacíos,
+ * alguno sin la confirmación "sin movimientos" del SII, y había datos guardados de ese lado.
+ */
+export function conservarRcv(nuevos: readonly RcvResumen[], guardadoTieneDatos: boolean): boolean {
+  if (nuevos.some((r) => r.filas.length > 0)) return false;
+  if (nuevos.every((r) => r.sinMovimientos === true)) return false;
+  return guardadoTieneDatos;
+}
+
+/**
+ * Si el F29 del mes debe conservar lo guardado: falta en el listado nuevo un folio presentado guardado y el listado nuevo
+ * no trae ninguno presentado. Una rectificatoria (folio nuevo presentado) o un cambio de estado del mismo folio reemplazan.
+ */
+export function conservarF29(nuevas: readonly F29Declaracion[], guardadas: readonly F29Declaracion[]): boolean {
+  if (nuevas.some(f29Presentada)) return false;
+  const folios = new Set(nuevas.map((d) => d.folio));
+  return guardadas.some((d) => f29Presentada(d) && !folios.has(d.folio));
+}
 
 /** Motivo de término cuando quien pidió la sincronización la cancela (p. ej. Esc en el cliente MCP). */
 export const SINCRONIZACION_CANCELADA: ErrorSuperficie = {
@@ -99,6 +119,13 @@ export async function sincronizar(
           await registrar(deps, rut, `rcv.${lado}`, periodo.texto, buffer, res, signal, async (id, ahora) => {
             const { resumenes, documentos, avisos } = await traerRcv(sii, rut, periodo, lado, (aviso) => res.avisos.push(aviso));
             if (avisos.length > 0) return DATOS_INCOMPLETOS_RCV;
+            const guardadoTieneDatos = deps.store.resumenesRcv(rut, periodo.texto).some((r) => r.lado === lado && r.filas.length > 0);
+            if (conservarRcv(resumenes, guardadoTieneDatos)) {
+              throw new ErrorImpuestocl(
+                'RESPUESTA_VACIA',
+                `RCV ${lado} ${periodo.texto}: el SII respondió vacío sin confirmar que no hay movimientos; se conservan los datos guardados.`,
+              );
+            }
             deps.store.reemplazarRcv(id, rut, periodo.texto, lado, resumenes, documentos, ahora);
             res.documentos += documentos.length;
           });
@@ -108,6 +135,16 @@ export async function sincronizar(
         revisarCancelacion(signal);
         const f29 = await registrar(deps, rut, 'f29', periodo.texto, buffer, res, signal, async (id, ahora) => {
           const declaraciones = await sii.f29Declaraciones(rut, periodo);
+          const guardadas = deps.store.declaracionesF29(rut, periodo.texto);
+          if (conservarF29(declaraciones, guardadas)) {
+            const listados = new Set(declaraciones.map((d) => d.folio));
+            const faltan = guardadas.filter((d) => f29Presentada(d) && !listados.has(d.folio)).map((d) => d.folio);
+            const cuales = faltan.length === 1 ? 'el folio presentado' : 'los folios presentados';
+            throw new ErrorImpuestocl(
+              'RESPUESTA_VACIA',
+              `F29 ${periodo.texto}: el SII no listó ${cuales} ${faltan.join(', ')}; se conservan las declaraciones guardadas.`,
+            );
+          }
           const valoresPrevios = declaraciones.flatMap((d) => {
             const valores = deps.store.valoresF29(rut, periodo.texto, d.folio);
             return valores ? [valores] : [];

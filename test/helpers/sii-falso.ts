@@ -11,6 +11,8 @@ import type { SiiReader, SumideroRespuestas } from '../../src/ports/index.js';
  * - valores: `periodo|folio`
  * Cada llamada queda en `llamadas` (p. ej. `resumen|2026-09|VENTA|REGISTRO`); `fallas` usa ese mismo texto.
  * `alLlamar` corre en cada llamada, antes de responder (por ejemplo, para cancelar a mitad de camino).
+ * Un resumen sin filas llega con "sin movimientos" explícito (código 3), salvo con `vaciosAmbiguos`.
+ * Valores sin códigos fallan como el conector ante un PDF ilegible.
  */
 export class SiiFalso implements SiiReader {
   sumidero: SumideroRespuestas = () => {};
@@ -21,6 +23,8 @@ export class SiiFalso implements SiiReader {
   readonly valores = new Map<string, F29Valores>();
   readonly fallas = new Map<string, Error>();
   alLlamar: (llamada: string) => void | Promise<void> = () => {};
+  /** Entrega los resúmenes vacíos sin la marca `sinMovimientos`, como un vacío ambiguo del SII. */
+  vaciosAmbiguos = false;
 
   private async registrar(llamada: string): Promise<void> {
     this.llamadas.push(llamada);
@@ -32,7 +36,9 @@ export class SiiFalso implements SiiReader {
 
   async rcvResumen(rut: string, periodo: Periodo, lado: Lado, estado: EstadoRcv): Promise<RcvResumen> {
     await this.registrar(`resumen|${periodo.texto}|${lado}|${estado}`);
-    return { rut, periodo: periodo.texto, lado, estado, filas: this.resumenes.get(`${periodo.texto}|${lado}|${estado}`) ?? [] };
+    const filas = this.resumenes.get(`${periodo.texto}|${lado}|${estado}`) ?? [];
+    const sinMovimientos = filas.length === 0 && !this.vaciosAmbiguos;
+    return { rut, periodo: periodo.texto, lado, estado, filas, ...(sinMovimientos ? { sinMovimientos: true as const } : {}) };
   }
 
   async rcvDetalle(_rut: string, periodo: Periodo, lado: Lado, tipoDoc: number, estado: EstadoRcv): Promise<DocumentoRcv[]> {
@@ -49,6 +55,7 @@ export class SiiFalso implements SiiReader {
     await this.registrar(`f29valores|${d.periodo}|${d.folio}`);
     const v = this.valores.get(`${d.periodo}|${d.folio}`);
     if (!v) throw new ErrorImpuestocl('PORTAL_CAMBIO', 'El PDF del F29 no trajo valores.');
+    if (Object.keys(v.valores).length === 0) throw new ErrorImpuestocl('PORTAL_CAMBIO', `El PDF del F29 de ${d.periodo} no trajo códigos legibles.`);
     return v;
   }
 }

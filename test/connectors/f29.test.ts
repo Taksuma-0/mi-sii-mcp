@@ -101,6 +101,14 @@ describe('f29Valores', () => {
     expect(crudas[0]?.cuerpo).toBe(Buffer.from(truncado).toString('base64'));
   });
 
+  it('un PDF sin códigos legibles es PORTAL_CAMBIO y conserva evidencia', async () => {
+    const pdf = await pdfSintetico([{ x: 50, y: 760, t: 'FORMULARIO 29' }]);
+    const { http, crudas, sumidero } = await preparar({ [RUTA_COMPACTO]: { headers: [['content-type', 'application/pdf']], body: pdf } });
+    const error = await f29Valores(http, sumidero, EMPRESA, declaracion()).catch((e: unknown) => e);
+    expect(error).toMatchObject({ codigo: 'PORTAL_CAMBIO', message: 'El PDF del F29 de 2026-09 no trajo códigos legibles.' });
+    expect(crudas[0]?.cuerpo).toBe(Buffer.from(pdf).toString('base64'));
+  });
+
   it('una declaración sin folio no se puede descargar', async () => {
     const { http, sumidero } = await preparar({});
     expect(await codigoDe(f29Valores(http, sumidero, EMPRESA, declaracion({ folio: 0 })))).toBe('SII_RECHAZO');

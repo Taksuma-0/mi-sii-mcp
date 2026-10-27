@@ -78,5 +78,7 @@ export async function f29Valores(http: Http, sumidero: SumideroRespuestas, rut: 
   } catch (cause) {
     throw new ErrorImpuestocl('PORTAL_CAMBIO', `No se pudo leer el PDF del F29 de ${d.periodo}.`, { cause });
   }
+  // Un PDF en blanco o con otra maqueta da {}: reemplazar con eso borraría los valores guardados del folio.
+  if (Object.keys(valores).length === 0) throw new ErrorImpuestocl('PORTAL_CAMBIO', `El PDF del F29 de ${d.periodo} no trajo códigos legibles.`);
   return { rut: rut.canonico, periodo: d.periodo, folio: d.folio, valores };
 }
