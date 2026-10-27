@@ -49,8 +49,8 @@ describe('HTTP local', () => {
     expect(e.html).toContain('type="password"');
     expect(e.html).toContain('aria-live="polite"');
     expect(e.html).not.toMatch(/innerHTML|localStorage|sessionStorage|indexedDB|serviceWorker|https:\/\//);
-    // Incluye cuatro flujos, el acceso con navegador y tablas nativas, sin dependencias ni recursos externos.
-    expect(Buffer.byteLength(e.html)).toBeLessThanOrEqual(26 * 1024);
+    // Incluye cuatro flujos, el acceso con navegador, la lista de cuentas y tablas nativas, sin dependencias ni recursos externos.
+    expect(Buffer.byteLength(e.html)).toBeLessThanOrEqual(30 * 1024);
   });
 
   it('conecta sin mes y reserva las fechas y consultas para después de entrar', async () => {
@@ -58,7 +58,7 @@ describe('HTTP local', () => {
     const acceso = /<form id="formulario"[^>]*>([\s\S]*?)<\/form>/.exec(html);
     expect(acceso?.[0]).toContain('action="/conectar"');
     expect(acceso?.[0]).toContain('method="post"');
-    expect(acceso?.[1]?.match(/name="[^"]+"/g)).toEqual(['name="rut"', 'name="clave"']);
+    expect(acceso?.[1]?.match(/name="[^"]+"/g)).toEqual(['name="rut"', 'name="clave"', 'name="recordar"']);
     expect(acceso?.[1]).not.toContain('type="month"');
     expect(html).toMatch(/<section id="espacio"[^>]*hidden/);
     for (const titulo of ['Vista general', 'Cargar historial', 'Cruzar RCV con F29', 'Explorar documentos']) expect(html).toContain(titulo);
@@ -73,6 +73,19 @@ describe('HTTP local', () => {
     const acceso = /<section id="acceso"[\s\S]*?<\/section>/.exec(html)?.[0] ?? '';
     expect(acceso).toMatch(/<button id="entrar-navegador"[^>]*type="button"[^>]*>Entrar con el navegador \(ClaveÚnica o clave\)<\/button>/);
     expect(html).toContain("enviar('/conectar-navegador'");
+  });
+
+  it('guía a conectar la cuenta: mantener conectada marcada, cuentas del equipo y pantalla de listo que remite al asistente', async () => {
+    const { html } = await entorno();
+    const acceso = /<section id="acceso"[\s\S]*?<\/section>/.exec(html)?.[0] ?? '';
+    expect(acceso).toContain('Conecta tu cuenta del SII');
+    expect(acceso).toMatch(/<input id="recordar" name="recordar" type="checkbox" checked>/);
+    expect(acceso).toContain('Administrador de credenciales de Windows');
+    expect(acceso).toContain('id="cuentas"');
+    expect(html).toMatch(/<section id="listo"[^>]*hidden/);
+    expect(html).toContain("enviar('/cuentas', {})");
+    expect(html).toContain("recordar: $('recordar').checked");
+    for (const id of ['ver-datos', 'otra-cuenta', 'listo-identidad', 'listo-sesion']) expect(html).toContain(`id="${id}"`);
   });
 
   it('el aviso del login con navegador usa el plazo configurado', async () => {

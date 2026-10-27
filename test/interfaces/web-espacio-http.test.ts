@@ -11,8 +11,10 @@ const total = { monto: null, mesesConDatos: 0, mesesSinDatos: 0 };
 const panorama = { perfil: perfilEmpresa(), periodos: [], totales: { ventas: total, compras: total, ivaDebito: total, ivaCredito: total, f29: total } };
 const sincronizacion = { estado: 'completo' as const, sincronizacion: 'Resultado ficticio', panorama };
 const pagina = { documentos: [], total: 0, pagina: 1, tamano: 50 };
+const cuentas = [{ rut: '22222222-2', nombre: 'EMPRESA DEMO SPA', conectada: true, bloqueada: false, renuevaSola: true, guardadaEn: '2026-10-27T10:00:00.000Z' }];
 const casos = [
-  { ruta: '/conectar', metodo: 'conectar', datos: { rut: '22222222-2', clave: 'clave ficticia' }, args: [{ rut: '22222222-2', clave: 'clave ficticia' }], resultado: { contexto, panorama } },
+  { ruta: '/conectar', metodo: 'conectar', datos: { rut: '22222222-2', clave: 'clave ficticia' }, args: [{ rut: '22222222-2', clave: 'clave ficticia' }], resultado: { contexto, panorama, recordada: false } },
+  { ruta: '/cuentas', metodo: 'cuentas', datos: {}, args: [], resultado: { cuentas } },
   { ruta: '/panorama', metodo: 'panorama', datos: { contexto }, args: [contexto], resultado: panorama },
   { ruta: '/sincronizar', metodo: 'sincronizar', datos: { contexto, ...rango, superficies: ['f29'] }, args: [contexto, { ...rango, superficies: ['f29'] }], resultado: sincronizacion },
   { ruta: '/analizar', metodo: 'analizar', datos: { contexto, ...rango }, args: [contexto, rango], resultado: [] },
@@ -24,7 +26,8 @@ afterEach(async () => { for (const cerrar of cierres.splice(0)) await cerrar(); 
 
 async function entorno() {
   const espacio = {
-    conectar: vi.fn<OperacionesEspacio['conectar']>(async () => ({ contexto, panorama })),
+    conectar: vi.fn<OperacionesEspacio['conectar']>(async () => ({ contexto, panorama, recordada: false })),
+    cuentas: vi.fn<OperacionesEspacio['cuentas']>(async () => cuentas),
     panorama: vi.fn<OperacionesEspacio['panorama']>(async () => panorama),
     sincronizar: vi.fn<OperacionesEspacio['sincronizar']>(async () => sincronizacion),
     analizar: vi.fn<OperacionesEspacio['analizar']>(async () => []),
@@ -76,7 +79,7 @@ describe('rutas HTTP del espacio', () => {
     e.expectSinServicio();
   });
 
-  it.each(casos)('rechaza estructuras, campos desconocidos y tipos incorrectos en $ruta', async (caso) => {
+  it.each(casos.filter(caso => caso.ruta !== '/cuentas'))('rechaza estructuras, campos desconocidos y tipos incorrectos en $ruta', async (caso) => {
     const e = await entorno();
     const invalidos: unknown[] = [null, [], 'texto', 7, {}, { ...caso.datos, adicional: true }];
     for (const campo of Object.keys(caso.datos)) {
@@ -162,6 +165,19 @@ describe('rutas HTTP del espacio', () => {
     expect(await r.json()).toMatchObject({ codigo: 'ERROR_INTERNO', mensaje: expect.any(String) });
     expect((await fetch(e.s.url + caso.ruta)).status).toBe(404);
     expect(await (await fetch(e.s.url + '/estado')).json()).toEqual({ aplicacion: 'impuestocl-local-v1', ocupado: false });
+  });
+
+  it.each([true, false])('despacha /conectar con recordar=%s', async (recordar) => {
+    const e = await entorno();
+    expect((await e.post('/conectar', { rut: '22222222-2', clave: 'clave ficticia', recordar })).status).toBe(200);
+    expect(e.espacio.conectar).toHaveBeenCalledExactlyOnceWith({ rut: '22222222-2', clave: 'clave ficticia', recordar });
+  });
+
+  it('valida recordar como booleano y /cuentas sin campos', async () => {
+    const e = await entorno();
+    for (const recordar of ['si', 1, null, {}]) expect((await e.post('/conectar', { rut: '22222222-2', clave: 'clave ficticia', recordar })).status).toBe(400);
+    for (const datos of [null, [], 'texto', { contexto }, { adicional: true }]) expect((await e.post('/cuentas', datos)).status).toBe(400);
+    e.expectSinServicio();
   });
 
   it.each([[{}, {}], [{ rut: '22.222.222-2' }, { rut: '22.222.222-2' }]])('despacha /conectar-navegador con %j', async (datos, args) => {

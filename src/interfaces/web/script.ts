@@ -11,6 +11,7 @@ let contexto = null;
 let ocupado = false;
 let paginaDocumentos = null;
 let filtroDocumentos = null;
+let panoramaListo = null;
 function nodo(tipo, texto, clase) {
   const e = document.createElement(tipo);
   if (texto !== undefined) e.textContent = texto;
@@ -46,8 +47,8 @@ function limpiarConsultas() {
   $('resultado-sync').replaceChildren(); $('resultado-analisis').replaceChildren(); limpiarDocumentos();
 }
 function limpiarEspacio() {
-  contexto = null;
-  $('espacio').hidden = true; $('acceso').hidden = false;
+  contexto = null; panoramaListo = null;
+  $('espacio').hidden = true; $('listo').hidden = true; $('acceso').hidden = false;
   $('identidad').textContent = ''; $('totales').replaceChildren(); $('filas-panorama').replaceChildren();
   limpiarConsultas();
   for (const id of ['formulario', 'form-historial', 'form-analisis', 'form-documentos']) {
@@ -99,6 +100,33 @@ function mostrarPanorama(p) {
   $('vacio').hidden = p.periodos.length !== 0;
   $('tabla-panorama').hidden = p.periodos.length === 0;
 }
+function estadoCuenta(c) {
+  if (c.bloqueada) return ['error', 'El SII rechazó la clave: vuelve a conectar'];
+  if (!c.conectada) return ['error', 'Sin sesión: vuelve a conectar'];
+  return c.renuevaSola ? ['ok', 'Conectada · se mantiene sola'] : ['', 'Conectada · cuando venza, vuelve a conectar'];
+}
+async function cargarCuentas() {
+  try {
+    const r = await enviar('/cuentas', {});
+    $('cuentas').replaceChildren();
+    for (const c of r.cuentas) {
+      const [tipo, texto] = estadoCuenta(c), li = nodo('li'), info = nodo('div'), boton = nodo('button', 'Usar este RUT', 'secundario');
+      li.dataset.tipo = tipo; boton.type = 'button';
+      boton.addEventListener('click', () => { $('rut').value = c.rut; clave.focus(); });
+      info.append(nodo('strong', c.nombre), nodo('small', 'RUT ' + c.rut + ' · ' + texto));
+      li.append(info, boton); $('cuentas').append(li);
+    }
+    $('bloque-cuentas').hidden = r.cuentas.length === 0;
+  } catch { $('bloque-cuentas').hidden = true; }
+}
+function mostrarListo(r, sesion) {
+  const p = r.panorama;
+  contexto = r.contexto; panoramaListo = p;
+  $('listo-identidad').textContent = (p.perfil.razonSocial || p.perfil.alias || 'Contribuyente') + ' · RUT ' + p.perfil.rut;
+  $('listo-sesion').textContent = sesion;
+  $('acceso').hidden = true; $('espacio').hidden = true; $('listo').hidden = false;
+  informar('');
+}
 function rango(prefijo) { return { desde: $(prefijo + '-desde').value, hasta: $(prefijo + '-hasta').value }; }
 function validarRango(r) {
   if (r.desde > r.hasta) throw new ErrorPublico('El mes inicial debe ser anterior o igual al final.');
@@ -107,16 +135,14 @@ function validarRango(r) {
 }
 $('formulario').addEventListener('submit', async (evento) => {
   evento.preventDefault(); if (ocupado) return;
-  let datos = { rut: $('rut').value, clave: clave.value };
+  let datos = { rut: $('rut').value, clave: clave.value, recordar: $('recordar').checked };
   clave.value = ''; contexto = null; limpiarConsultas(); bloquear(true); informar('Conectando con el SII…');
   try {
     const pendiente = enviar('/conectar', datos); datos = null;
     const r = await pendiente;
-    mostrarPanorama(r.panorama); contexto = r.contexto; sugerirFechas();
-    $('acceso').hidden = true; $('espacio').hidden = false;
-    informar('Conectado. Revisa los datos locales o elige un historial para cargar.');
+    mostrarListo(r, r.recordada ? 'La sesión se mantiene sola: no tendrás que volver a conectar esta cuenta.' : 'La clave no quedó guardada: cuando la sesión venza, vuelve a conectar aquí.');
   } catch (error) { limpiarEspacio(); fallo(error); }
-  finally { datos = null; clave.value = ''; bloquear(false); }
+  finally { datos = null; clave.value = ''; await cargarCuentas(); bloquear(false); }
 });
 $('entrar-navegador').addEventListener('click', async () => {
   if (ocupado) return;
@@ -124,10 +150,22 @@ $('entrar-navegador').addEventListener('click', async () => {
   clave.value = ''; contexto = null; limpiarConsultas(); bloquear(true); informar('Entra en la ventana del SII que se abrió (hasta ' + document.querySelector('meta[name="plazo-navegador"]').content + ' minutos).');
   try {
     const r = await enviar('/conectar-navegador', rut ? { rut } : {});
-    mostrarPanorama(r.panorama); contexto = r.contexto; sugerirFechas();
-    $('acceso').hidden = true; $('espacio').hidden = false; informar('Conectado. Esta sesión no se renueva sola.');
+    mostrarListo(r, 'Esta sesión no se renueva sola: cuando venza, vuelve a entrar aquí.');
   } catch (error) { limpiarEspacio(); fallo(error); }
-  finally { bloquear(false); }
+  finally { await cargarCuentas(); bloquear(false); }
+});
+$('ver-datos').addEventListener('click', () => {
+  if (ocupado || !contexto || !panoramaListo) return;
+  mostrarPanorama(panoramaListo); sugerirFechas();
+  $('listo').hidden = true; $('espacio').hidden = false;
+  informar('Revisa los datos guardados o elige un historial para cargar.');
+});
+$('otra-cuenta').addEventListener('click', async () => {
+  if (ocupado) return;
+  const anterior = contexto;
+  limpiarEspacio(); informar('');
+  if (anterior) { bloquear(true); try { await enviar('/desconectar', { contexto: anterior }); } catch (error) { fallo(error); } finally { bloquear(false); } }
+  $('rut').focus();
 });
 $('form-historial').addEventListener('submit', async (evento) => {
   evento.preventDefault(); if (ocupado || !contexto) return;
@@ -209,7 +247,7 @@ $('cambiar').addEventListener('click', async () => {
   limpiarEspacio(); bloquear(true); informar('Desconectando el espacio anterior…');
   try { await enviar('/desconectar', { contexto: anterior }); informar('Espacio desconectado. Ingresa el contribuyente que quieras consultar.'); }
   catch (error) { fallo(error); }
-  finally { bloquear(false); $('rut').focus(); }
+  finally { await cargarCuentas(); bloquear(false); $('rut').focus(); }
 });
 $('cerrar').addEventListener('click', async () => {
   if (ocupado) return;
@@ -217,4 +255,5 @@ $('cerrar').addEventListener('click', async () => {
   try { await enviar('/cerrar', {}); informar('Aplicación cerrada. Puedes cerrar esta pestaña.'); }
   catch (error) { fallo(error); bloquear(false); }
 });
+void cargarCuentas();
 `.replace(/^ +/gm, '');

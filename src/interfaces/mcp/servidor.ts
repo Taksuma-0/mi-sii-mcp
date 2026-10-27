@@ -37,7 +37,7 @@ export const INSTRUCCIONES_MCP = [
   '2. Si falta o está viejo, usa sincronizar por tramos de hasta 12 meses e informa el avance en cada tramo. Trae rcv y f29 por defecto; propuesta y bhe (boletas de honorarios recibidas) son opcionales. renta_sincronizar trae el F22 por año tributario; perfil_sincronizar, el perfil y las empresas autorizadas.',
   '3. Para IVA, retenciones y plazos prefiere iva_resumen, iva_hallazgos, f29_historial y plazos_proximos: aplican las reglas del dominio. Para la renta, renta_resumen. Si un F29 no cuadra o se actualizó impuestocl, f29_releer relee los PDF ya guardados sin ir al SII.',
   '4. Para cruces y preguntas libres, llama una vez a datos_esquema y luego a consulta_sql (solo lectura).',
-  '5. Nunca pidas la clave tributaria ni intentes un login. Ante SESION_REQUERIDA (o CLAVE_RECHAZADA, RUT_BLOQUEADO_LOCAL), muestra a la persona el comando de login del mensaje (o el de login-navegador, para ClaveÚnica) para que lo ejecute en su terminal, o indícale «Abrir impuestocl.cmd»; después reintenta.',
+  '5. Nunca pidas la clave tributaria ni intentes un login. Ante SESION_REQUERIDA (o CLAVE_RECHAZADA, RUT_BLOQUEADO_LOCAL), indica a la persona que abra «Abrir impuestocl.cmd» (doble clic en la carpeta impuestocl) y conecte su cuenta ahí; solo si prefiere la terminal, dale el comando del mensaje (login-navegador para ClaveÚnica). Después reintenta.',
   '6. Reintenta solo si el mensaje dice «Reintentar: ahora mismo» o «más tarde» (o lista «Reintentables más tarde»); con «Reintentar: no», sigue la acción indicada.',
   '7. Cobertura: RCV (compras y ventas), F29, propuesta de F29, boletas de honorarios recibidas, renta F22, perfil tributario y empresas autorizadas. No es asesoría tributaria.',
 ].join('\n');
@@ -98,7 +98,7 @@ function guiaLogin(comandos: ComandosLogin, rutTexto: string | undefined, explic
   const navegador = comandos.navegador
     ? ` Si entra con ClaveÚnica, que ejecute \`${comandos.navegador(rut)}\`: abre la página real del SII en su navegador y la sesión no se renueva sola.`
     : '';
-  return `${antes}Pide a la persona que ejecute en su propia terminal: \`${comandos.clave(rut)}\` (con --guardar-clave la sesión se renueva sola), o que entre con «Abrir impuestocl.cmd».${navegador} Después reintenta. Nunca pidas la clave en el chat.`;
+  return `${antes}Pide a la persona que abra «Abrir impuestocl.cmd» (doble clic en la carpeta impuestocl), escriba ${rut} y su clave tributaria en la página y deje marcado «Mantener conectada»; también puede entrar ahí con ClaveÚnica. Si prefiere su propia terminal: \`${comandos.clave(rut)}\` (con --guardar-clave la sesión se renueva sola).${navegador} Después reintenta. Nunca pidas la clave en el chat.`;
 }
 
 /** La guía de login que corresponde a un código de error, o `null` si el error no se resuelve entrando. `codigo` es texto porque los errores de sincronización no lo tipan. */

@@ -1,13 +1,14 @@
 import { randomBytes } from 'node:crypto';
 import { documentos, resumenIva, type PaginaDocumentos, type ResumenIva } from '../../app/consultas.js';
 import { panorama, type PanoramaSii } from '../../app/panorama.js';
-import { registrarIdentidad } from '../../app/perfiles.js';
+import { listarPerfiles, registrarIdentidad } from '../../app/perfiles.js';
 import { sincronizar } from '../../app/sincronizar.js';
 import { ErrorImpuestocl, type CodigoError } from '../../domain/errores.js';
 import { parsePeriodo, rangoPeriodos } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
 import { ESTADOS_RCV, type EstadoRcv, type Lado } from '../../domain/tipos.js';
-import { crearContenedor } from '../../main/contenedor.js';
+import { crearContenedor, crearLlavero } from '../../main/contenedor.js';
+import type { SecretStore } from '../../ports/index.js';
 import { textoSync } from '../formato.js';
 import { errorPublico, SecretosNulos, type ContenedorWeb, type FabricaContenedorWeb } from './verificar.js';
 
@@ -17,11 +18,26 @@ export type SuperficieWeb = 'rcv' | 'f29';
 export interface RangoEspacio { readonly desde: string; readonly hasta: string }
 export interface EntradaSincronizacion extends RangoEspacio { readonly superficies?: readonly SuperficieWeb[] }
 export interface EntradaDocumentos { readonly periodo: string; readonly lado?: Lado; readonly estado?: EstadoRcv; readonly pagina?: number }
+export interface EntradaConexion { readonly rut: string; readonly clave: string; readonly recordar?: boolean }
+export interface ResultadoConexion { readonly contexto: string; readonly panorama: PanoramaSii; readonly recordada: boolean }
+/** Una cuenta guardada en este equipo, sin cookies ni claves: solo lo que la página necesita para mostrar su estado. */
+export interface CuentaLocal {
+  readonly rut: string;
+  readonly nombre: string;
+  readonly conectada: boolean;
+  readonly bloqueada: boolean;
+  /** Hay clave en el llavero del sistema y la sesión no vino del navegador: se renueva sola. */
+  readonly renuevaSola: boolean;
+  readonly guardadaEn: string | null;
+}
 export interface ResultadoSincronizacion { readonly estado: 'completo' | 'parcial'; readonly sincronizacion: string; readonly panorama: PanoramaSii }
 export interface OperacionesEspacio {
-  conectar(entrada: { readonly rut: string; readonly clave: string }): Promise<{ contexto: string; panorama: PanoramaSii }>;
+  /** Con `recordar`, la clave queda en el llavero del sistema y la sesión se renueva sola (como `login --guardar-clave`). */
+  conectar(entrada: EntradaConexion): Promise<ResultadoConexion>;
   /** Entra desde el navegador de la persona (ClaveÚnica o clave); `rut`, si viene, es el que se espera. */
   conectarNavegador(entrada: { readonly rut?: string }): Promise<{ contexto: string; panorama: PanoramaSii }>;
+  /** Cuentas con perfil en este equipo y el estado de su sesión. */
+  cuentas(): Promise<readonly CuentaLocal[]>;
   panorama(contexto: string): Promise<PanoramaSii>;
   sincronizar(contexto: string, entrada: EntradaSincronizacion): Promise<ResultadoSincronizacion>;
   analizar(contexto: string, entrada: RangoEspacio): Promise<readonly ResumenIva[]>;
@@ -29,8 +45,11 @@ export interface OperacionesEspacio {
   desconectar(contexto: string): Promise<void>;
 }
 
-/** Cada servidor conserva sólo las asociaciones de sus propias pestañas. */
-export function crearEspacioLocal(fabrica: FabricaContenedorWeb = crearContenedor): OperacionesEspacio {
+/**
+ * Cada servidor conserva sólo las asociaciones de sus propias pestañas. El llavero solo se usa cuando la persona marca
+ * «Mantener conectada» o para saber si una cuenta ya tiene clave guardada.
+ */
+export function crearEspacioLocal(fabrica: FabricaContenedorWeb = crearContenedor, llavero: SecretStore = crearLlavero()): OperacionesEspacio {
   const contextos = new Map<string, string>();
 
   function rutDeContexto(contexto: string): string {
@@ -39,8 +58,8 @@ export function crearEspacioLocal(fabrica: FabricaContenedorWeb = crearContenedo
     return rut;
   }
 
-  async function conContenedor<T>(operacion: (contenedor: ContenedorWeb) => T | Promise<T>): Promise<T> {
-    const contenedor = fabrica({ secretos: new SecretosNulos() });
+  async function conContenedor<T>(operacion: (contenedor: ContenedorWeb) => T | Promise<T>, secretos: SecretStore = new SecretosNulos()): Promise<T> {
+    const contenedor = fabrica({ secretos });
     try { return await operacion(contenedor); }
     finally { contenedor.cerrar(); }
   }
@@ -51,14 +70,15 @@ export function crearEspacioLocal(fabrica: FabricaContenedorWeb = crearContenedo
     async conectar(entrada) {
       const rut = parseRut(entrada.rut).canonico;
       if (typeof entrada.clave !== 'string' || entrada.clave.length === 0) throw new ErrorImpuestocl('CLAVE_RECHAZADA', 'Ingresa tu clave tributaria.');
-      const vista = await conContenedor(async (contenedor) => {
-        const login = await contenedor.sesiones.loginInteractivo(rut, entrada.clave, false);
+      const recordar = entrada.recordar === true;
+      const { vista, recordada } = await conContenedor(async (contenedor) => {
+        const login = await contenedor.sesiones.loginInteractivo(rut, entrada.clave, recordar);
         registrarIdentidad(contenedor.deps, login.identidad);
-        return panorama(contenedor.deps, rut);
-      });
+        return { vista: panorama(contenedor.deps, rut), recordada: login.claveGuardada };
+      }, recordar ? llavero : new SecretosNulos());
       const contexto = randomBytes(32).toString('hex');
       contextos.set(contexto, rut);
-      return { contexto, panorama: vista };
+      return { contexto, panorama: vista, recordada };
     },
     async conectarNavegador(entrada) {
       const esperado = entrada.rut === undefined ? undefined : parseRut(entrada.rut).canonico;
@@ -70,6 +90,17 @@ export function crearEspacioLocal(fabrica: FabricaContenedorWeb = crearContenedo
       const contexto = randomBytes(32).toString('hex');
       contextos.set(contexto, rut);
       return { contexto, panorama: vista };
+    },
+    async cuentas() {
+      const perfiles = await conContenedor(({ deps }) => listarPerfiles(deps));
+      return Promise.all(perfiles.map(async (p): Promise<CuentaLocal> => ({
+        rut: p.rut,
+        nombre: p.razonSocial || p.alias || p.rut,
+        conectada: p.sesion.tieneSesion,
+        bloqueada: p.sesion.bloqueado,
+        renuevaSola: p.sesion.origen !== 'navegador' && (await llavero.obtener(p.rut)) !== null,
+        guardadaEn: p.sesion.guardadaEn,
+      })));
     },
     async panorama(contexto) {
       const rut = rutDeContexto(contexto);

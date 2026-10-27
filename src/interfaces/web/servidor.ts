@@ -31,7 +31,7 @@ class ErrorHttp extends Error {
 }
 
 const LIMITE_BODY = 16 * 1024;
-const RUTAS_ESPACIO = new Set(['/conectar', '/conectar-navegador', '/panorama', '/sincronizar', '/analizar', '/documentos', '/desconectar']);
+const RUTAS_ESPACIO = new Set(['/conectar', '/conectar-navegador', '/cuentas', '/panorama', '/sincronizar', '/analizar', '/documentos', '/desconectar']);
 
 function leerJson(req: IncomingMessage): Promise<unknown> {
   return new Promise((resolve, reject) => {
@@ -75,10 +75,15 @@ function prepararOperacion(ruta: string, valor: unknown, espacio: OperacionesEsp
   const datos = valor as Record<string, unknown>;
   const campos = (permitidos: readonly string[]) => Object.keys(datos).every(campo => permitidos.includes(campo));
   if (ruta === '/conectar') {
-    const { rut, clave } = datos;
-    if (!campos(['rut', 'clave']) || !esTexto(rut) || !esTexto(clave)) throw invalida();
+    const { rut, clave, recordar } = datos;
+    if (!campos(['rut', 'clave', 'recordar']) || !esTexto(rut) || !esTexto(clave)) throw invalida();
+    if (recordar !== undefined && typeof recordar !== 'boolean') throw invalida();
     parseRut(rut);
-    return () => espacio.conectar({ rut, clave });
+    return () => espacio.conectar({ rut, clave, ...(recordar === undefined ? {} : { recordar }) });
+  }
+  if (ruta === '/cuentas') {
+    if (Object.keys(datos).length !== 0) throw invalida();
+    return async () => ({ cuentas: await espacio.cuentas() });
   }
   if (ruta === '/conectar-navegador') {
     const { rut } = datos;

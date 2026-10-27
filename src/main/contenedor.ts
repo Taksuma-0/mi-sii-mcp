@@ -30,6 +30,9 @@ export interface OpcionesContenedor {
   readonly capturarNavegador?: (opciones: OpcionesNavegador) => Promise<readonly CookieNavegador[]>;
 }
 
+/** El llavero del sistema (Credential Manager en Windows), para las interfaces que no deben importar conectores. */
+export const crearLlavero = (): SecretStore => new LlaveroSistema();
+
 export function crearContenedor(o: OpcionesContenedor = {}): Contenedor {
   const config = o.config ?? cargarConfig();
   mkdirSync(config.home, { recursive: true });

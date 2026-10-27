@@ -4,9 +4,17 @@ import { crearEspacioLocal } from '../../src/interfaces/web/espacio.js';
 import { errorPublico, SecretosNulos, type FabricaContenedorWeb } from '../../src/interfaces/web/verificar.js';
 import { ErrorImpuestocl, type CodigoError } from '../../src/domain/errores.js';
 import { resumenIva } from '../../src/app/consultas.js';
+import type { SecretStore } from '../../src/ports/index.js';
 import { depsDePrueba } from '../helpers/deps.js';
 import { documento, fila, perfilEmpresa, resumen } from '../helpers/fabricas.js';
 import { sembrarMes } from '../helpers/sembrar.js';
+
+class SecretosEnMemoria implements SecretStore {
+  readonly claves = new Map<string, string>();
+  async obtener(rut: string): Promise<string | null> { return this.claves.get(rut) ?? null; }
+  async guardar(rut: string, clave: string): Promise<void> { this.claves.set(rut, clave); }
+  async borrar(rut: string): Promise<void> { this.claves.delete(rut); }
+}
 
 const entrada = { rut: '22.222.222-2', clave: ' ficticia con espacios ' };
 const rango = { desde: '2026-08', hasta: '2026-09' };
@@ -22,7 +30,9 @@ function entorno() {
   }));
   const loginNavegador = vi.fn(async (_rut?: string) => ({ rut: '22222222-2', nombre: 'Empresa de prueba', razonSocial: 'EMPRESA DEMO SPA', tipo: 'empresa' as const }));
   const fabrica: FabricaContenedorWeb = vi.fn(() => ({ deps: p.deps, sesiones: { loginInteractivo, loginNavegador }, cerrar }));
-  return { ...p, fabrica, cerrar, loginInteractivo, loginNavegador, espacio: crearEspacioLocal(fabrica) };
+  // Nunca el Credential Manager real.
+  const llavero = new SecretosEnMemoria();
+  return { ...p, fabrica, cerrar, loginInteractivo, loginNavegador, llavero, espacio: crearEspacioLocal(fabrica, llavero) };
 }
 
 describe('espacio local por contexto', () => {
@@ -55,6 +65,38 @@ describe('espacio local por contexto', () => {
     expect(e.fabrica).toHaveBeenCalledTimes(2);
     expect(e.cerrar).toHaveBeenCalledTimes(2);
     expect(e.loginInteractivo).toHaveBeenCalledOnce();
+  });
+
+  it('con recordar entra con el llavero del sistema y pide guardar la clave', async () => {
+    const e = await entorno();
+    e.loginInteractivo.mockResolvedValueOnce({ identidad: { rut: '22222222-2', nombre: 'Empresa de prueba', razonSocial: 'EMPRESA DEMO SPA', tipo: 'empresa' }, claveGuardada: true });
+    const r = await e.espacio.conectar({ ...entrada, recordar: true });
+    expect(e.loginInteractivo).toHaveBeenCalledExactlyOnceWith('22222222-2', entrada.clave, true);
+    expect(e.fabrica).toHaveBeenCalledExactlyOnceWith({ secretos: e.llavero });
+    expect(r.recordada).toBe(true);
+    expect(JSON.stringify(r)).not.toContain(entrada.clave);
+  });
+
+  it('sin recordar no toca el llavero e informa que la clave no quedó guardada', async () => {
+    const e = entorno();
+    const r = await e.espacio.conectar({ ...entrada, recordar: false });
+    expect(e.loginInteractivo).toHaveBeenCalledExactlyOnceWith('22222222-2', entrada.clave, false);
+    expect(e.fabrica).toHaveBeenCalledWith({ secretos: expect.any(SecretosNulos) });
+    expect(r.recordada).toBe(false);
+  });
+
+  it('lista las cuentas locales con su sesión, sin cookies ni claves', async () => {
+    const e = entorno();
+    e.store.guardarContribuyente(perfilEmpresa({ alias: 'Alias propio' }));
+    e.store.guardarContribuyente(perfilEmpresa({ rut: '11111111-1', alias: 'Persona', razonSocial: null, tipo: 'persona' }));
+    await e.llavero.guardar('22222222-2', 'clave ficticia');
+    const cuentas = await e.espacio.cuentas();
+    expect(cuentas).toHaveLength(2);
+    const empresa = cuentas.find(c => c.rut === '22222222-2');
+    expect(empresa).toMatchObject({ conectada: expect.any(Boolean), bloqueada: false, renuevaSola: true });
+    expect(cuentas.find(c => c.rut === '11111111-1')).toMatchObject({ nombre: 'Persona', renuevaSola: false });
+    expect(JSON.stringify(cuentas)).not.toContain('clave ficticia');
+    expect(e.sii.llamadas).toEqual([]);
   });
 
   it('conecta con el navegador: registra la identidad y abre su espacio sin pedir clave', async () => {
