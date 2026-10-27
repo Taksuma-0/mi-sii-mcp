@@ -68,6 +68,10 @@ export class GestorSesiones implements ConsultaSesiones {
     };
   }
 
+  async claveGuardada(rutTexto: string): Promise<boolean> {
+    return (await this.secretos.obtener(parseRut(rutTexto).canonico)) !== null;
+  }
+
   /**
    * Login en el navegador de la persona (ClaveÚnica o clave, escrita solo ahí): abre el navegador, toma las cookies del SII
    * e importa la sesión. `rutEsperado` se valida antes de abrir el navegador. Devuelve solo la identidad, nunca cookies.

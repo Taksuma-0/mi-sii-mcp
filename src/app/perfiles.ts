@@ -46,6 +46,18 @@ export function listarPerfiles(deps: DepsApp): PerfilConSesion[] {
   });
 }
 
+/** Como `listarPerfiles`, y además dice si cada sesión se renueva sola (consulta el llavero sin leer la clave hacia afuera). */
+export async function listarPerfilesConRenovacion(deps: DepsApp): Promise<PerfilConSesion[]> {
+  const consultar = deps.sesiones.claveGuardada?.bind(deps.sesiones);
+  return Promise.all(
+    listarPerfiles(deps).map(async (p) => {
+      if (!consultar || !p.sesion.tieneSesion) return p;
+      const renuevaSola = p.sesion.origen !== 'navegador' && (await consultar(p.rut));
+      return { ...p, sesion: { ...p.sesion, renuevaSola } };
+    }),
+  );
+}
+
 /** Tras un login: crea el perfil si no existe o completa su razón social. */
 export function registrarIdentidad(deps: DepsApp, identidad: IdentidadSii): Perfil {
   const existente = deps.store.contribuyente(identidad.rut);

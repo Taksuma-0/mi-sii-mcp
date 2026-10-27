@@ -3,6 +3,16 @@ import type { ResultadoRelectura } from '../../src/app/releer-f29.js';
 import { textoHallazgos, textoPerfiles, textoPlazos, textoReleerF29, textoRenta, textoResumenRenta, textoSync } from '../../src/interfaces/formato.js';
 
 describe('formato', () => {
+  it('textoPerfiles dice si la sesión se renueva sola o habrá que conectar de nuevo en la página', () => {
+    const sesion = { tieneSesion: true, guardadaEn: '2026-10-27T10:00:00.000Z', bloqueado: false };
+    const texto = textoPerfiles([
+      { rut: '11111111-1', alias: 'Yo', tipo: 'persona', representa: [], razonSocial: null, sesion: { ...sesion, renuevaSola: true } },
+      { rut: '22222222-2', alias: 'Pyme', tipo: 'empresa', representa: [], razonSocial: null, sesion: { ...sesion, renuevaSola: false } },
+    ]).split('\n');
+    expect(texto[0]).toContain('(se renueva sola)');
+    expect(texto[1]).toContain('sin clave guardada: cuando venza, hay que conectar de nuevo en «Abrir impuestocl.cmd»');
+  });
+
   it('textoPerfiles dice con qué sesión se entra y si la sesión es del navegador', () => {
     const sesion = { tieneSesion: true, guardadaEn: '2026-10-27T10:00:00.000Z', bloqueado: false };
     const texto = textoPerfiles([
@@ -182,7 +192,7 @@ describe('formato: renta F22', () => {
         'AT2026 · folio 123456789 (vigente) de 2 declaraciones · ingreso 2026-04-15 · Conclusión ficticia',
         '  Impuesto pagado $1.234.567 · giro $0 · remanente solicitado $0 · devuelto $0',
         '  305 Resultado ficticio: -$250.000',
-        '  90 Saldo ficticio: sin dato',
+        '  Sin monto en el folio: 90',
         '  Observación A01: Observación ficticia',
         '  Evento 2026-04-15: Declaración recibida',
         '  3 códigos guardados (todos en f22_valor)',
@@ -190,5 +200,18 @@ describe('formato: renta F22', () => {
       ].join('\n'),
     );
     expect(textoResumenRenta({ rut: '22222222-2', anios: [] })).toMatch(/No hay renta \(F22\) guardada de 22222222-2/);
+  });
+
+  it('textoResumenRenta omite los montos que el SII no informó y el tipo impugnado 0', () => {
+    const anio = {
+      anioTributario: 2026, folio: 1, vigente: true, declaraciones: 1, codigoConclusion: null, conclusion: 'Devolución ficticia', fechaIngreso: null, tipoImpugnado: '0',
+      impuestoPagado: null, montoGiro: null, remanenteSolicitado: 100_000, remanenteDevuelto: 100_000, fechaVencimiento: null, codigos: 2,
+      codigosClave: [{ codigo: '87', valor: 100_000, glosa: 'Devolución ficticia' }, { codigo: '91', valor: null, glosa: 'Total ficticio' }],
+      observaciones: [], eventos: [], obtenidoEn: '2026-10-21T15:00:00.000Z',
+    };
+    const texto = textoResumenRenta({ rut: '11111111-1', anios: [anio] });
+    expect(texto).toContain('  remanente solicitado $100.000 · devuelto $100.000\n');
+    expect(texto).not.toMatch(/Impuesto pagado|giro|tipo impugnado|sin dato/);
+    expect(texto).toContain('  Sin monto en el folio: 91');
   });
 });

@@ -90,10 +90,14 @@ export interface EstadoSesion {
   readonly bloqueado: boolean;
   /** 'navegador' si la sesión se tomó del navegador (login-navegador): no se renueva sola. */
   readonly origen?: 'navegador';
+  /** Si la sesión se renueva sola cuando vence (hay clave guardada y no vino del navegador); ausente si no se averiguó. */
+  readonly renuevaSola?: boolean;
 }
 
 export interface ConsultaSesiones {
   estado(rut: string): EstadoSesion;
+  /** Si hay clave guardada en el llavero del sistema para el RUT (nunca devuelve la clave). */
+  claveGuardada?(rut: string): Promise<boolean>;
 }
 
 export interface IdentidadSii {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { agregarPerfil, listarPerfiles, registrarIdentidad } from '../../src/app/perfiles.js';
+import { agregarPerfil, listarPerfiles, listarPerfilesConRenovacion, registrarIdentidad } from '../../src/app/perfiles.js';
+import type { DepsApp } from '../../src/app/deps.js';
 import { depsDePrueba } from '../helpers/deps.js';
 import { perfilTributario } from '../helpers/fabricas.js';
 
@@ -59,5 +60,36 @@ describe('perfiles con acceso por otra identidad', () => {
     expect(() => agregarPerfil(deps, { rut: '22.222.222-2', alias: 'Pyme', tipo: 'empresa', accedeCon: '33.333.333-K' })).toThrowError(
       expect.objectContaining({ codigo: 'RUT_INVALIDO' }),
     );
+  });
+});
+
+describe('perfiles con renovación de sesión', () => {
+  it('dice si cada sesión se renueva sola: clave guardada sí, navegador o sin clave no, sin sesión no se averigua', async () => {
+    const { deps } = depsDePrueba();
+    for (const rut of ['11.111.111-1', '22.222.222-2', '33.333.333-3', '44.444.444-4']) agregarPerfil(deps, { rut, alias: rut, tipo: 'persona' });
+    const estados: Record<string, { tieneSesion: boolean; origen?: 'navegador' }> = {
+      '11111111-1': { tieneSesion: true },
+      '22222222-2': { tieneSesion: true, origen: 'navegador' },
+      '33333333-3': { tieneSesion: true },
+      '44444444-4': { tieneSesion: false },
+    };
+    const consultadas: string[] = [];
+    const conLlavero: DepsApp = {
+      ...deps,
+      sesiones: {
+        estado: (rut) => ({ guardadaEn: null, bloqueado: false, ...estados[rut]! }),
+        claveGuardada: async (rut) => { consultadas.push(rut); return rut !== '33333333-3'; },
+      },
+    };
+    const lista = await listarPerfilesConRenovacion(conLlavero);
+    const renueva = Object.fromEntries(lista.map((p) => [p.rut, p.sesion.renuevaSola]));
+    expect(renueva).toEqual({ '11111111-1': true, '22222222-2': false, '33333333-3': false, '44444444-4': undefined });
+    expect(consultadas).not.toContain('44444444-4');
+  });
+
+  it('sin forma de consultar el llavero deja la renovación sin averiguar', async () => {
+    const { deps } = depsDePrueba();
+    agregarPerfil(deps, { rut: '11.111.111-1', alias: 'Yo', tipo: 'persona' });
+    expect((await listarPerfilesConRenovacion(deps))[0]?.sesion).not.toHaveProperty('renuevaSola');
   });
 });

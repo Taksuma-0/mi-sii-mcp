@@ -2,7 +2,7 @@ import { Command, InvalidArgumentError, Option } from 'commander';
 import { documentos, f29Historial, hallazgos, plazos, resumenIva } from '../../app/consultas.js';
 import { sincronizarCuenta } from '../../app/cuenta.js';
 import type { DepsApp } from '../../app/deps.js';
-import { agregarPerfil, listarPerfiles, registrarIdentidad } from '../../app/perfiles.js';
+import { agregarPerfil, listarPerfiles, listarPerfilesConRenovacion, registrarIdentidad } from '../../app/perfiles.js';
 import { releerF29 } from '../../app/releer-f29.js';
 import { resumenRenta, sincronizarRenta } from '../../app/renta.js';
 import { sincronizar, type Superficie } from '../../app/sincronizar.js';
@@ -91,8 +91,8 @@ export function crearPrograma(
     .command('listar')
     .option('--json', 'salida en JSON')
     .action(
-      ejecutar((c, o: { json?: boolean }) => {
-        const ps = listarPerfiles(c.deps);
+      ejecutar(async (c, o: { json?: boolean }) => {
+        const ps = await listarPerfilesConRenovacion(c.deps);
         mostrar(o.json, ps, textoPerfiles(ps));
       }),
     );

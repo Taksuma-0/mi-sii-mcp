@@ -110,17 +110,24 @@ function lineasAnioRenta(a: AnioRenta): string[] {
     ...(a.fechaIngreso ? [`ingreso ${a.fechaIngreso}`] : []),
     ...(a.conclusion ? [a.conclusion] : a.codigoConclusion ? [`conclusión ${a.codigoConclusion}`] : []),
   ].join(' · ');
-  const montos = [
-    `Impuesto pagado ${monto(a.impuestoPagado)}`,
-    `giro ${monto(a.montoGiro)}`,
-    `remanente solicitado ${monto(a.remanenteSolicitado)}`,
-    `devuelto ${monto(a.remanenteDevuelto)}`,
-    ...(a.tipoImpugnado ? [`tipo impugnado ${a.tipoImpugnado}`] : []),
-  ].join(' · ');
+  // Solo los montos que el SII informó: «sin dato» en cada línea vacía tapaba lo importante. Tipo impugnado "0" es sin impugnación.
+  const montos = (
+    [
+      ['Impuesto pagado', a.impuestoPagado],
+      ['giro', a.montoGiro],
+      ['remanente solicitado', a.remanenteSolicitado],
+      ['devuelto', a.remanenteDevuelto],
+    ] as const
+  )
+    .filter(([, valor]) => valor !== null)
+    .map(([etiqueta, valor]) => `${etiqueta} ${monto(valor)}`);
+  if (a.tipoImpugnado && a.tipoImpugnado !== '0') montos.push(`tipo impugnado ${a.tipoImpugnado}`);
+  const sinMonto = a.codigosClave.filter((c) => c.valor === null).map((c) => c.codigo);
   return [
     cabecera,
-    `  ${montos}`,
-    ...a.codigosClave.map((c) => `  ${c.codigo} ${c.glosa ?? 'sin glosa'}: ${monto(c.valor)}`),
+    ...(montos.length > 0 ? [`  ${montos.join(' · ')}`] : []),
+    ...a.codigosClave.filter((c) => c.valor !== null).map((c) => `  ${c.codigo} ${c.glosa ?? 'sin glosa'}: ${monto(c.valor)}`),
+    ...(sinMonto.length > 0 ? [`  Sin monto en el folio: ${sinMonto.join(', ')}`] : []),
     ...a.observaciones.map((o) => `  Observación ${o.codigo}: ${o.descripcion ?? 'sin descripción'}`),
     ...a.eventos.map((e) => `  Evento ${e.fecha ?? 'sin fecha'}: ${e.nombre ?? e.codigoEvento ?? 'sin nombre'}`),
     a.codigos === 0 ? '  Sin detalle guardado del folio' : `  ${plural(a.codigos, 'código guardado', 'códigos guardados')} (todos en f22_valor)`,
@@ -149,7 +156,14 @@ export function textoPerfiles(perfiles: readonly PerfilConSesion[]): string {
   if (perfiles.length === 0) return 'No hay perfiles. Agrega uno con `impuestocl perfil agregar <rut> --alias <nombre> --tipo empresa`.';
   return perfiles
     .map((p) => {
-      const navegador = p.sesion.origen === 'navegador' ? ' (navegador, sin renovación automática)' : '';
+      const navegador =
+        p.sesion.origen === 'navegador'
+          ? ' (navegador, sin renovación automática)'
+          : p.sesion.renuevaSola === true
+            ? ' (se renueva sola)'
+            : p.sesion.renuevaSola === false
+              ? ' (sin clave guardada: cuando venza, hay que conectar de nuevo en «Abrir impuestocl.cmd»)'
+              : '';
       const sesion = p.sesion.bloqueado ? 'BLOQUEADA (clave rechazada)' : p.sesion.tieneSesion ? `guardada ${p.sesion.guardadaEn}${navegador}` : 'sin sesión';
       const acceso = p.accedeCon ? ` · accede con ${p.accedeCon}` : '';
       return `${p.rut}  ${p.alias} (${p.tipo})${p.razonSocial ? ` — ${p.razonSocial}` : ''} · sesión: ${sesion}${acceso}${p.cuenta ? lineaCuenta(p.cuenta) : ''}`;
