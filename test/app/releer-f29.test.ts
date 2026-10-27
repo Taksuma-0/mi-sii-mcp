@@ -96,6 +96,19 @@ describe('releerF29', () => {
     expect(store.lecturaF29(RUT_EMPRESA, '2026-09', 555_001)).toBeNull();
   });
 
+  it('una lectura que perdió el bloque de totales (sin 538 ni 537) no reemplaza la guardada que sí los traía', async () => {
+    const completos = { ...COHERENTES, '547': 180_500, '91': 180_500 };
+    const { deps, store } = mesGuardado(completos);
+    guardarPdfF29(store, { periodo: '2026-09', folio: 555_001, cuerpo: pdfFalso({ '547': 180_500, '91': 180_500 }), obtenidoEn: T_PDF });
+
+    const r = await releerF29(deps, RUT_EMPRESA);
+
+    expect(r.folios[0]).toMatchObject({ resultado: 'incoherente_conservado', codigosCambiados: [] });
+    expect(r.folios[0]!.mensaje).toMatch(/538.*537.*lectura guardada/);
+    expect(store.valoresF29(RUT_EMPRESA, '2026-09', 555_001)?.valores).toEqual(completos);
+    expect(store.lecturaF29(RUT_EMPRESA, '2026-09', 555_001)).toBeNull();
+  });
+
   it('una lectura incoherente reemplaza una guardada que tampoco era confiable, y lo avisa', async () => {
     const { deps, store } = mesGuardado({ '502': 199_500, '537': 19_000 });
     const nuevos = { '538': 199_500, '537': 19_000, '89': 5_000 };

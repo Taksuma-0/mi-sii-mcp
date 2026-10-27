@@ -77,6 +77,13 @@ describe('esquemaDatos', () => {
     expect(documentado.length).toBeGreaterThan(50);
   });
 
+  it('explica f29_lectura: coherente sin prometer 538/537 presentes, y que f29.valores no se repite si ya hay lectura coherente', () => {
+    const columna = (tabla: string, nombre: string) => esquemaDatos().tablas.find((t) => t.nombre === tabla)?.columnas.find((c) => c.nombre === nombre)?.significado ?? '';
+    expect(columna('f29_lectura', 'coherente')).not.toMatch(/legibles/);
+    expect(columna('f29_lectura', 'coherente')).toMatch(/ausente.*0/);
+    expect(columna('sincronizacion', 'superficie')).toMatch(/f29\.valores.*f29_lectura/);
+  });
+
   it('describe cada tabla y cada columna con tipo y significado', () => {
     for (const tabla of esquemaDatos().tablas) {
       expect(tabla.descripcion.length, tabla.nombre).toBeGreaterThan(10);

@@ -150,7 +150,7 @@ const TABLAS: readonly TablaEsquema[] = [
       col('origen', 'TEXT', 'sincronizacion (PDF recién bajado del SII) o relectura (PDF ya guardado, leído de nuevo sin volver al SII)'),
       col('leido_en', 'TEXT', 'Instante ISO UTC de la lectura'),
       col('codigos', 'INTEGER', 'Cantidad de códigos guardados del folio'),
-      col('coherente', 'INTEGER', '1 si la lectura trae 538 y 537 legibles y cuadra con el autocontrol del F29; 0 si no (revisa esos valores con cuidado)'),
+      col('coherente', 'INTEGER', '1 si el autocontrol del F29 se pudo aplicar (538 y 537 con dato; un total ausente sin sus líneas vale 0) y cuadró; 0 si no cuadró o no se pudo verificar (revisa esos valores con cuidado)'),
     ],
   },
   {
@@ -178,7 +178,7 @@ const TABLAS: readonly TablaEsquema[] = [
     columnas: [
       col('id', 'INTEGER', 'Identificador; mayor id = intento más reciente'),
       RUT,
-      col('superficie', 'TEXT', 'rcv.VENTA, rcv.COMPRA, f29 (listado de declaraciones) o f29.valores (detalle de la vigente)'),
+      col('superficie', 'TEXT', 'rcv.VENTA, rcv.COMPRA, f29 (listado de declaraciones) o f29.valores (detalle de la vigente; no se repite si f29_lectura ya tiene una lectura coherente del folio con la misma versión del lector, así que puede no haber un intento reciente)'),
       PERIODO,
       col('iniciado_en', 'TEXT', 'Instante ISO UTC de inicio'),
       col('terminado_en', 'TEXT', 'Instante ISO UTC de término; NULL si sigue en curso'),

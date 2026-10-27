@@ -1,6 +1,7 @@
 import { parsePeriodo } from '../domain/periodo.js';
 import type { F29Valores, LecturaF29 } from '../domain/tipos.js';
 import { lecturaConfiable, motivoNoConfiable } from '../reconciliation/coherencia-f29.js';
+import { CODIGO_F29 } from '../reconciliation/mapeo-f29.js';
 import { perfilExistente } from './consultas.js';
 import type { DepsApp } from './deps.js';
 
@@ -27,12 +28,18 @@ export interface ResultadoReleerF29 {
 }
 
 /**
- * Anti-regresión de la lectura de un folio, la misma en la sincronización y en la relectura: si la lectura nueva no es
- * confiable y la guardada sí, devuelve por qué la nueva no lo es (y se conserva la guardada); si no, null.
+ * Anti-regresión de la lectura de un folio, la misma en la sincronización y en la relectura. Solo protege una lectura
+ * guardada confiable, y la nueva no la reemplaza si no es confiable o si le faltan el 538 o el 537 que la guardada traía
+ * escritos: un total ausente vale 0 solo cuando tampoco vienen sus líneas, y eso también pasa si se perdió el bloque de
+ * totales. Devuelve por qué se conserva la guardada; null si la nueva puede reemplazarla.
  */
 export function motivoParaConservar(nueva: F29Valores, guardada: F29Valores | null): string | null {
+  if (guardada === null || !lecturaConfiable(guardada)) return null;
   const motivo = motivoNoConfiable(nueva);
-  return motivo !== null && lecturaConfiable(guardada) ? motivo : null;
+  if (motivo !== null) return motivo;
+  const perdidos = [CODIGO_F29.TOTAL_DEBITOS, CODIGO_F29.TOTAL_CREDITOS].filter((c) => c in guardada.valores && !(c in nueva.valores));
+  if (perdidos.length === 0) return null;
+  return `no trae ${perdidos.map((c) => `el ${c}`).join(' ni ')}, que la lectura guardada sí traía`;
 }
 
 function codigosCambiados(antes: Readonly<Record<string, number>>, despues: Readonly<Record<string, number>>): string[] {

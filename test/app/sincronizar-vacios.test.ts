@@ -232,6 +232,36 @@ describe('sincronizar ante un F29 leído que no cuadra', () => {
     expect(store.valoresF29(RUT_EMPRESA, SEPT.texto, 555_001)).toEqual(VALORES);
   });
 
+  it('una lectura nueva que perdió el bloque de totales (sin 538 ni 537) no reemplaza la guardada que sí los traía', async () => {
+    const { deps, store, sii, db } = depsDePrueba();
+    store.guardarContribuyente(perfilEmpresa());
+    sii.declaraciones.set('2026-09', [declaracion()]);
+    const completos = valores({ '538': 199_500, '537': 19_000, '89': 180_500, '547': 180_500, '91': 180_500 });
+    sii.valores.set('2026-09|555001', completos);
+    await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT, ['f29']);
+    sii.valores.set('2026-09|555001', valores({ '547': 180_500, '91': 180_500 }));
+
+    const r = await sincronizar(conLector(deps, LECTOR_NUEVO), RUT_EMPRESA, SEPT, SEPT, ['f29']);
+
+    expect(r.periodos[0]!.errores).toHaveLength(1);
+    expect(r.periodos[0]!.errores[0]).toMatchObject({ superficie: 'f29.valores', codigo: 'LECTURA_INCOHERENTE' });
+    expect(r.periodos[0]!.errores[0]!.mensaje).toMatch(/538.*537.*lectura guardada/);
+    expect(store.valoresF29(RUT_EMPRESA, SEPT.texto, 555_001)).toEqual(completos);
+    expect(ultimaSync(db, 'f29.valores')).toEqual({ estado: 'error', error_codigo: 'LECTURA_INCOHERENTE' });
+  });
+
+  it('avisa cuando guarda una lectura que no se puede verificar (sin 538/537 legibles)', async () => {
+    const { deps, store, sii } = depsDePrueba();
+    store.guardarContribuyente(perfilEmpresa());
+    sii.declaraciones.set('2026-09', [declaracion()]);
+    sii.valores.set('2026-09|555001', valores({ '502': 199_500, '537': 19_000, '89': 5 }));
+
+    const r = await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT, ['f29']);
+
+    expect(r.periodos[0]!.errores).toEqual([]);
+    expect(r.periodos[0]!.avisos).toEqual(['F29 2026-09: la lectura no trae el 538 y el 537 legibles para verificarla']);
+  });
+
   it('una lectura guardada sin 538/537 legibles no cuenta como coherente: la nueva incoherente la reemplaza con aviso', async () => {
     const { deps, store, sii } = depsDePrueba();
     store.guardarContribuyente(perfilEmpresa());
@@ -313,6 +343,19 @@ describe('sincronizar y la lectura guardada del F29', () => {
 
     expect(sii.llamadas).toEqual(['f29|2026-09', 'f29valores|2026-09|555001']);
     expect(store.lecturaF29(RUT_EMPRESA, SEPT.texto, 555_001)).toMatchObject({ versionLector: 'f29-prueba-2', coherente: true });
+  });
+
+  it('vuelve a bajar el PDF si los valores guardados del folio ya no son confiables aunque la lectura diga coherente', async () => {
+    const { deps, store, sii } = await mesGuardado();
+    // Valores reemplazados por otro camino: f29_lectura sigue diciendo coherente con la misma versión.
+    const id = store.iniciarSincronizacion(RUT_EMPRESA, 'f29', SEPT.texto, 't');
+    store.guardarF29(id, RUT_EMPRESA, SEPT.texto, [declaracion()], [valores({ '538': 199_500, '537': 19_000, '89': 5_000 })], 't');
+    expect(store.lecturaF29(RUT_EMPRESA, SEPT.texto, 555_001)).toMatchObject({ versionLector: VERSION_LECTOR_PRUEBA, coherente: true });
+
+    await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT, ['f29']);
+
+    expect(sii.llamadas).toEqual(['f29|2026-09', 'f29valores|2026-09|555001']);
+    expect(store.valoresF29(RUT_EMPRESA, SEPT.texto, 555_001)).toEqual(VALORES);
   });
 
   it('vuelve a bajar el PDF si la lectura guardada no era coherente', async () => {
