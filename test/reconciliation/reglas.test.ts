@@ -4,7 +4,7 @@ import type { SnapshotRcv } from '../../src/domain/tipos.js';
 import { conciliarPeriodo } from '../../src/reconciliation/conciliar.js';
 import { reglaCambiosPostF29, reglaF29Faltante, reglaIvaEspecial, reglaReclamo } from '../../src/reconciliation/reglas.js';
 import { entrada } from '../helpers/entrada.js';
-import { documento, fila, resumen, valores } from '../helpers/fabricas.js';
+import { declaracion, documento, fila, resumen, valores } from '../helpers/fabricas.js';
 
 const sinF29 = { declaraciones: [], valores: null } as const;
 const snap = (sincronizacionId: number, obtenidoEn: string, filas: [string, string][]): SnapshotRcv => ({
@@ -19,6 +19,19 @@ describe('IVA-04 F29 faltante', () => {
     const [h] = reglaF29Faltante(entrada(sinF29));
     expect(h).toMatchObject({ regla: 'IVA-04', severidad: 'critico', titulo: 'F29 no presentado y vencido' });
     expect(h!.detalle).toContain('2026-10-20');
+  });
+
+  it('si el SII rechazó el folio lo dice en el detalle', () => {
+    const rechazada = declaracion({ folio: 555_009, estadoId: 70, estado: 'Rechazada por pago inconcluso' });
+    const [h] = reglaF29Faltante(entrada({ declaraciones: [rechazada], valores: null }));
+    expect(h).toMatchObject({ regla: 'IVA-04', severidad: 'critico' });
+    expect(h!.detalle).toContain('El SII rechazó el folio 555009 (Rechazada por pago inconcluso).');
+  });
+
+  it('si solo hay una declaración guardada lo dice en el detalle', () => {
+    const guardada = declaracion({ folio: 0, estadoId: 10, estado: 'Guardada' });
+    const [h] = reglaF29Faltante(entrada({ declaraciones: [guardada], valores: null }));
+    expect(h!.detalle).toContain('Hay una declaración guardada sin presentar.');
   });
 
   it('es advertencia si aún está en plazo', () => {

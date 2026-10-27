@@ -188,6 +188,13 @@ describe('SqliteStore: F29, frescura y hallazgos', () => {
     expect(store.valoresF29(RUT_EMPRESA, '2026-09', 1)).toBeNull();
   });
 
+  it('conserva el id de estado de la declaración, también cuando es null', () => {
+    const id = store.iniciarSincronizacion(RUT_EMPRESA, 'f29', '2026-09', T);
+    const lista = [declaracion({ estadoId: 70, folio: 555_002 }), declaracion({ estadoId: null })];
+    store.guardarF29(id, RUT_EMPRESA, '2026-09', lista, [], T);
+    expect(store.declaracionesF29(RUT_EMPRESA, '2026-09')).toEqual([declaracion({ estadoId: null }), declaracion({ estadoId: 70, folio: 555_002 })]);
+  });
+
   it('informa frescura y períodos con datos', () => {
     syncRcv('VENTA', [], []);
     expect(store.frescura(RUT_EMPRESA, '2026-09')).toEqual({ rcv: T, f29: null });

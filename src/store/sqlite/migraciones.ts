@@ -128,4 +128,12 @@ CREATE TABLE hallazgo (
 CREATE INDEX ix_hallazgo ON hallazgo (rut, periodo);
 `;
 
-export const MIGRACIONES: readonly Migracion[] = [{ version: 1, sql: V1 }];
+/** Id del estado de la declaración según el SII (10 guardada, 70 rechazada, entre otros); NULL en lo ya guardado. */
+const V2 = `
+ALTER TABLE f29_declaracion ADD COLUMN estado_id INTEGER;
+`;
+
+export const MIGRACIONES: readonly Migracion[] = [
+  { version: 1, sql: V1 },
+  { version: 2, sql: V2 },
+];

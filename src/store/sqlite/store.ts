@@ -84,6 +84,7 @@ interface FilaDeclaracion {
   periodo: string;
   folio: number;
   estado: string;
+  estado_id: number | null;
   fecha_presentacion: string | null;
   codigo_interno: number | null;
   total_a_pagar: number | null;
@@ -136,6 +137,7 @@ const aDeclaracion = (f: FilaDeclaracion): F29Declaracion => ({
   periodo: f.periodo,
   folio: f.folio,
   estado: f.estado,
+  estadoId: f.estado_id,
   fechaPresentacion: f.fecha_presentacion,
   codigoInterno: f.codigo_interno,
   totalAPagar: f.total_a_pagar,
@@ -318,8 +320,8 @@ export class SqliteStore implements Store {
     obtenidoEn: string,
   ): void {
     const insDeclaracion = this.db.prepare(
-      `INSERT OR REPLACE INTO f29_declaracion (rut, periodo, folio, estado, fecha_presentacion, codigo_interno, total_a_pagar, sincronizacion_id, obtenido_en)
-       VALUES (@rut, @periodo, @folio, @estado, @fechaPresentacion, @codigoInterno, @totalAPagar, @sincronizacionId, @obtenidoEn)`,
+      `INSERT OR REPLACE INTO f29_declaracion (rut, periodo, folio, estado, estado_id, fecha_presentacion, codigo_interno, total_a_pagar, sincronizacion_id, obtenido_en)
+       VALUES (@rut, @periodo, @folio, @estado, @estadoId, @fechaPresentacion, @codigoInterno, @totalAPagar, @sincronizacionId, @obtenidoEn)`,
     );
     const insValor = this.db.prepare('INSERT OR REPLACE INTO f29_valor (rut, periodo, folio, codigo, valor) VALUES (?, ?, ?, ?, ?)');
     this.db.transaction(() => {

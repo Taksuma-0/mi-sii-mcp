@@ -44,6 +44,18 @@ describe('db', () => {
     );
   });
 
+  it('migra una base v1 con datos a la v2 agregando estado_id', () => {
+    const db = new Database(':memory:');
+    aplicarMigraciones(db, [MIGRACIONES[0]!]);
+    db.prepare("INSERT INTO sincronizacion (rut, superficie, periodo, iniciado_en) VALUES ('1', 'f29', '2026-09', 't')").run();
+    db.prepare("INSERT INTO f29_declaracion (rut, periodo, folio, estado, sincronizacion_id, obtenido_en) VALUES ('1', '2026-09', 5, 'Vigente', 1, 't')").run();
+    aplicarMigraciones(db);
+    expect(versionEsquema(db)).toBe(MIGRACIONES[MIGRACIONES.length - 1]!.version);
+    expect(MIGRACIONES.length).toBeGreaterThanOrEqual(2);
+    expect(db.prepare('SELECT folio, estado_id FROM f29_declaracion').get()).toEqual({ folio: 5, estado_id: null });
+    db.close();
+  });
+
   it('activa las claves foráneas y rechaza respuestas sin sincronización', () => {
     const db = nuevaDb();
     expect(db.pragma('foreign_keys', { simple: true })).toBe(1);

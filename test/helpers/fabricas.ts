@@ -70,6 +70,7 @@ export const declaracion = (o: Partial<F29Declaracion> = {}): F29Declaracion => 
   periodo: '2026-09',
   folio: 555_001,
   estado: 'Vigente',
+  estadoId: 1,
   fechaPresentacion: '2026-10-15',
   codigoInterno: 9001,
   totalAPagar: 171_000,

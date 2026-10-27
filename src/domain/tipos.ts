@@ -64,6 +64,8 @@ export interface F29Declaracion {
   /** 0 cuando la declaración solo está guardada, no presentada. */
   readonly folio: number;
   readonly estado: string;
+  /** `estadoDeclaracionId` del SII (10 guardada, 70 rechazada); null si no lo informó o es un dato anterior. */
+  readonly estadoId: number | null;
   readonly fechaPresentacion: string | null;
   /** `codigo` del portal, necesario para descargar el PDF compacto (`codInt`). */
   readonly codigoInterno: number | null;

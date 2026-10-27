@@ -140,6 +140,7 @@ describe('esquemaDatos', () => {
     expect(texto).toMatch(/folio > 0/);
     expect(texto).toMatch(/vigente/i);
     expect(texto).toMatch(/fecha_presentacion/);
+    expect(texto).toMatch(/estado_id/);
 
     // La consulta de ejemplo de las reglas debe elegir lo mismo que declaracionVigente en los casos límite.
     const ejemplo = /`(SELECT[^`]*f29_declaracion[^`]*)`/.exec(texto)?.[1];
@@ -151,6 +152,9 @@ describe('esquemaDatos', () => {
       '2026-04': [declaracion({ periodo: '2026-04', folio: 0, estado: 'Guardada', fechaPresentacion: '2026-05-30' }), declaracion({ periodo: '2026-04', folio: 40, estado: 'Presentada', fechaPresentacion: null })],
       '2026-05': [declaracion({ periodo: '2026-05', folio: 0, estado: 'Vigente', fechaPresentacion: '2026-06-01' })],
       '2026-06': [declaracion({ periodo: '2026-06', folio: 50, estado: 'VIGENTE', fechaPresentacion: null }), declaracion({ periodo: '2026-06', folio: 51, estado: 'Presentada', fechaPresentacion: '2026-07-10' })],
+      '2026-07': [declaracion({ periodo: '2026-07', folio: 60, estadoId: 1, estado: 'Presentada', fechaPresentacion: '2026-08-05' }), declaracion({ periodo: '2026-07', folio: 61, estadoId: 70, estado: 'Vigente', fechaPresentacion: '2026-08-12' })],
+      '2026-08': [declaracion({ periodo: '2026-08', folio: 70, estadoId: 1, estado: 'Presentada', fechaPresentacion: '2026-09-05' }), declaracion({ periodo: '2026-08', folio: 71, estadoId: 10, estado: 'Vigente', fechaPresentacion: '2026-09-12' })],
+      '2026-09': [declaracion({ periodo: '2026-09', folio: 80, estadoId: null, estado: 'Presentada', fechaPresentacion: '2026-10-05' }), declaracion({ periodo: '2026-09', folio: 81, estadoId: null, estado: 'Rechazada por pago inconcluso', fechaPresentacion: '2026-10-12' })],
     };
     const { deps, store } = depsDePrueba();
     store.guardarContribuyente(perfilEmpresa());

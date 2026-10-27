@@ -1,5 +1,5 @@
 import { vencimientoF29, vencimientoReclamo } from '../calendar/plazos.js';
-import { declaracionVigente } from '../domain/f29.js';
+import { declaracionVigente, f29Guardada, f29Rechazada } from '../domain/f29.js';
 import { diasEntre, fechaEnSantiago } from '../domain/fechas.js';
 import { formatearClp, nombreTipoDocumento } from '../domain/formato.js';
 import { compararPeriodos, periodoAnterior, periodoDeFecha, type Periodo } from '../domain/periodo.js';
@@ -126,6 +126,13 @@ export function reglaRemanente(e: EntradaConciliacion): Hallazgo[] {
 /** Días antes del vencimiento del plazo de reclamo en que se avisa. */
 export const DIAS_ALERTA_RECLAMO = 3;
 
+/** Por qué hay declaraciones del período que no cuentan como presentadas. */
+function explicacionesNoPresentadas(declaraciones: readonly F29Declaracion[]): string[] {
+  const out = declaraciones.filter(f29Rechazada).map((d) => `El SII rechazó el folio ${d.folio} (${d.estado}).`);
+  if (declaraciones.some((d) => f29Guardada(d) && !f29Rechazada(d))) out.push('Hay una declaración guardada sin presentar.');
+  return out;
+}
+
 /** IVA-04: período cerrado sin F29 presentado. Las empresas declaran aunque no tengan movimiento. */
 export function reglaF29Faltante(e: EntradaConciliacion): Hallazgo[] {
   if (e.disponibilidad?.f29 === false) return [];
@@ -135,7 +142,10 @@ export function reglaF29Faltante(e: EntradaConciliacion): Hallazgo[] {
   if (e.tipo !== 'empresa' && !hayMovimiento) return [];
   const vence = vencimientoF29(e.periodo);
   const dias = diasEntre(e.hoy, vence);
-  const motivo = hayMovimiento ? 'El período tiene movimiento en el RCV.' : 'Aunque no haya movimiento, el F29 se declara igual.';
+  const motivo = [
+    hayMovimiento ? 'El período tiene movimiento en el RCV.' : 'Aunque no haya movimiento, el F29 se declara igual.',
+    ...explicacionesNoPresentadas(e.declaraciones),
+  ].join(' ');
   const evidencia = [`F29:${e.periodo.texto}`];
   if (dias < 0) {
     return [

@@ -34,6 +34,19 @@ describe('f29Declaraciones', () => {
     expect(cuerpo.data).toEqual({ rut: '22222222', dv: '2', formId: '2', mes: '09', anno: '2026' });
   });
 
+  it('lee el id del estado y lo deja null cuando el SII no lo informa', async () => {
+    const cuerpo = JSON.stringify({
+      metaData: { errors: null },
+      data: [
+        { estadoDeclaracionId: 70, estado: 'Rechazada por pago inconcluso', folio: 555002, declFechaCreacion: '16/10/2026', codigo: 9002 },
+        { estado: 'Guardada', folio: 0 },
+      ],
+    });
+    const { http, sumidero } = await preparar({ [RUTA_ESTADOS]: { headers: JSON_CT, body: cuerpo } });
+    const r = await f29Declaraciones(http, sumidero, EMPRESA, parsePeriodo('2026-09'));
+    expect(r.map((d) => [d.folio, d.estadoId])).toEqual([[555002, 70], [0, null]]);
+  });
+
   it('sin declaraciones devuelve una lista vacía', async () => {
     const { http, sumidero } = await preparar({ [RUTA_ESTADOS]: { headers: JSON_CT, body: '{"metaData":{"errors":null},"data":[]}' } });
     expect(await f29Declaraciones(http, sumidero, EMPRESA, parsePeriodo('2026-09'))).toEqual([]);
