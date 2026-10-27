@@ -5,6 +5,7 @@ import { conLector, depsDePrueba } from '../helpers/deps.js';
 import { codigoDe } from '../helpers/errores.js';
 import { guardarPdfF29, pdfFalso, VERSION_LECTOR_PRUEBA } from '../helpers/lector-falso.js';
 import { sembrarMes } from '../helpers/sembrar.js';
+import { textoReleerF29 } from '../../src/interfaces/formato.js';
 
 const COHERENTES = { '538': 199_500, '537': 19_000, '89': 180_500 };
 const T_PDF = '2026-10-20T10:00:00.000Z';
@@ -63,6 +64,19 @@ describe('releerF29', () => {
     expect(lectura).toMatchObject({ versionLector: VERSION_LECTOR_PRUEBA, origen: 'relectura', coherente: true });
     expect(store.lecturaF29(RUT_EMPRESA, '2026-09', 555_001)).toEqual(lectura);
     expect(store.valoresF29(RUT_EMPRESA, '2026-09', 555_001)?.valores).toEqual(COHERENTES);
+  });
+
+  it('sin cambios pero con una lectura que no es confiable: el mensaje muestra la incoherencia', async () => {
+    const incoherentes = { '538': 199_500, '537': 19_000, '89': 5_000 };
+    const { deps, store } = mesGuardado(incoherentes);
+    guardarPdfF29(store, { periodo: '2026-09', folio: 555_001, cuerpo: pdfFalso(incoherentes), obtenidoEn: T_PDF });
+
+    const r = await releerF29(deps, RUT_EMPRESA);
+
+    expect(r.folios[0]).toMatchObject({ resultado: 'sin_cambios', codigosCambiados: [] });
+    expect(r.folios[0]!.mensaje).toMatch(/^La lectura .*no cuadra.*89/);
+    expect(textoReleerF29(r)).toMatch(/sin cambios — La lectura .*no cuadra.*89/);
+    expect(store.lecturaF29(RUT_EMPRESA, '2026-09', 555_001)?.coherente).toBe(false);
   });
 
   it.each([

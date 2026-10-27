@@ -86,18 +86,19 @@ export async function releerF29(deps: DepsApp, rutTexto: string, desde?: string,
     }
     const lectura: LecturaF29 = { versionLector: lector.version, origen: 'relectura', leidoEn: deps.reloj.ahora().toISOString(), coherente: lecturaConfiable(nueva) };
     const cambiados = codigosCambiados(guardada?.valores ?? {}, leidos);
+    const motivo = motivoNoConfiable(nueva);
+    const aviso = motivo === null ? null : `La lectura ${motivo}.`;
     if (cambiados.length === 0) {
       // Mismos valores: solo se anota la lectura si cambia lo que dice de ella, así repetir no escribe nada.
       const anterior = deps.store.lecturaF29(rut, periodo, folio);
       if (anterior === null || anterior.versionLector !== lectura.versionLector || anterior.coherente !== lectura.coherente) {
         deps.store.reemplazarValoresFolioF29(rut, periodo, folio, leidos, lectura);
       }
-      resultado('sin_cambios');
+      resultado('sin_cambios', aviso);
       continue;
     }
     deps.store.reemplazarValoresFolioF29(rut, periodo, folio, leidos, lectura);
-    const motivo = motivoNoConfiable(nueva);
-    resultado('actualizado', motivo === null ? null : `La lectura ${motivo}.`, cambiados);
+    resultado('actualizado', aviso, cambiados);
   }
   return { rut, versionLector: lector.version, folios };
 }
