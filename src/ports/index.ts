@@ -186,6 +186,8 @@ export interface Store {
   boletasHonorarios(rut: string, periodo: string): BoletaHonorarios[];
   /** Cantidad de boletas guardadas del mes (con anuladas) y montos de las no anuladas. */
   totalesBhe(rut: string, periodo: string): TotalesBheMes;
+  /** Estado y código de error del intento más reciente de una superficie en un mes; null si nunca se intentó. */
+  ultimaSincronizacion(rut: string, superficie: string, periodo: string): { readonly estado: 'en_curso' | 'ok' | 'error'; readonly errorCodigo: string | null } | null;
   snapshotsRcv(rut: string, periodo: string): SnapshotRcv[];
   disponibilidadFuentes(rut: string, periodo: string): DisponibilidadFuentes;
   frescura(rut: string, periodo: string): Frescura;

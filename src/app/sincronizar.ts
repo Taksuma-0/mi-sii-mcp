@@ -174,8 +174,9 @@ export async function sincronizar(
             if (deps.store.boletasHonorarios(rut, periodo.texto).length > 0) {
               throw new ErrorImpuestocl('RESPUESTA_VACIA', `Boletas de honorarios ${periodo.texto}: el SII respondió sin boletas ni total; se conservan las boletas guardadas.`);
             }
+            // Sin nada guardado tampoco se sabe si el mes no tiene boletas: no cuenta como consultado.
             res.boletasHonorarios = null;
-            return;
+            throw new ErrorImpuestocl('RESPUESTA_VACIA', `Boletas de honorarios ${periodo.texto}: el SII respondió sin boletas ni total; no hay boletas guardadas de este mes.`);
           }
           deps.store.reemplazarBhe(id, rut, periodo.texto, informe.boletas, ahora);
           res.boletasHonorarios = informe.boletas.length;

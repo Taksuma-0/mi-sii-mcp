@@ -35,6 +35,17 @@ arr_informe_mensual['retencion_receptor_1'] = formatMiles("76250",'.');
 arr_informe_mensual['estado_1'] = "N";
 arr_informe_mensual['fechaanulacion_1'] = "";
 arr_informe_mensual['codigobarras_1'] = "BHE0102FICTICIO";
+function cargarInforme() {
+  document.getElementById('contribuyente').innerText = xml_values['nombre_contribuyente'];
+  for (var i = 1; i <= xml_values['cant_boletas']; i++) {
+    if (arr_informe_mensual['codigobarras_' + i] != '') {
+      agregarFila(i, arr_informe_mensual['codigobarras_' + i], arr_informe_mensual['cod_comuna_' + i]);
+    }
+    var comuna = arr_informe_mensual['cod_comuna_' + i];
+    var barras = arr_informe_mensual['codigobarras_' + i];
+    verComuna(comuna, arr_informe_mensual['cod_comuna_' + i]);
+  }
+}
 </script>
 </head>
 <body onload="cargarInforme();">

@@ -136,3 +136,48 @@ describe('RET-01 con las boletas guardadas', () => {
     expect(h).toMatchObject({ severidad: 'info', montos: { esperado: 0, declarado: 228_750 } });
   });
 });
+
+describe('boletas de honorarios sin respuesta del SII', () => {
+  /** Como deja la sincronización un vacío ambiguo sin boletas guardadas: el intento queda con RESPUESTA_VACIA. */
+  function sembrarSinRespuesta(store: ReturnType<typeof depsDePrueba>['store'], periodo: string): void {
+    const id = store.iniciarSincronizacion(RUT_EMPRESA, 'bhe.recibidas', periodo, T_SEMBRADO);
+    store.terminarSincronizacion(id, T_SEMBRADO, 'error', { codigo: 'RESPUESTA_VACIA', detalle: 'sin boletas ni total' });
+  }
+
+  it('el resumen y el panorama dicen «sin respuesta del SII», nunca «ninguna», y no hay RET-01', () => {
+    const { deps, store } = conEmpresa();
+    sembrarMes(store, '2026-09', SEPT);
+    sembrarSinRespuesta(store, '2026-09');
+
+    const r = resumenIva(deps, RUT_EMPRESA, '2026-09');
+
+    expect(r.honorarios).toBe('sin_respuesta');
+    const texto = textoResumenIva(r);
+    expect(texto).toContain('Boletas de honorarios recibidas: sin respuesta del SII');
+    expect(texto).not.toContain('ninguna');
+    expect(r.hallazgos.some((h) => h.regla === 'RET-01')).toBe(false);
+    expect(panorama(deps, RUT_EMPRESA).periodos[0]!.honorarios).toBe('sin_respuesta');
+    expect(f29Historial(deps, RUT_EMPRESA, '2026-09', '2026-09')[0]!.retencionBoletas).toBeNull();
+  });
+
+  it('si antes hubo una consulta buena, se muestran las boletas guardadas', () => {
+    const { deps, store } = conEmpresa();
+    sembrarMes(store, '2026-09', SEPT);
+    sembrarBhe(store, '2026-09', BOLETAS);
+    sembrarSinRespuesta(store, '2026-09');
+
+    expect(resumenIva(deps, RUT_EMPRESA, '2026-09').honorarios).toMatchObject({ cantidad: 3 });
+  });
+
+  it('otro error (no RESPUESTA_VACIA) sin consulta buena no muestra las boletas', () => {
+    const { deps, store } = conEmpresa();
+    sembrarMes(store, '2026-09', SEPT);
+    const id = store.iniciarSincronizacion(RUT_EMPRESA, 'bhe.recibidas', '2026-09', T_SEMBRADO);
+    store.terminarSincronizacion(id, T_SEMBRADO, 'error', { codigo: 'PORTAL_CAMBIO', detalle: 'x' });
+
+    const r = resumenIva(deps, RUT_EMPRESA, '2026-09');
+
+    expect(r.honorarios).toBeNull();
+    expect(textoResumenIva(r)).not.toMatch(/honorarios/i);
+  });
+});

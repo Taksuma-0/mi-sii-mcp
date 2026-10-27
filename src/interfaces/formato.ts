@@ -21,6 +21,7 @@ function lineaPropuesta(p: ResumenIva['propuesta']): string {
 }
 
 function lineaHonorarios(h: NonNullable<ResumenIva['honorarios']>): string {
+  if (h === 'sin_respuesta') return 'Boletas de honorarios recibidas: sin respuesta del SII';
   if (h.cantidad === 0) return 'Boletas de honorarios recibidas: ninguna';
   const anuladas = h.anuladas === 0 ? '' : ` (${h.anuladas} ${h.anuladas === 1 ? 'anulada' : 'anuladas'})`;
   return `Boletas de honorarios recibidas: ${h.cantidad}${anuladas} · bruto ${monto(h.bruto)} · retención ${monto(h.retencion)}`;
@@ -92,7 +93,7 @@ const TEXTO_PROPUESTA: Readonly<Record<NonNullable<ResultadoPeriodo['propuesta']
 function textoBoletasSync(boletas: ResultadoPeriodo['boletasHonorarios']): string {
   if (boletas === undefined) return 'boletas de honorarios sin traer';
   if (boletas === null) return 'boletas de honorarios sin respuesta del SII';
-  return `${boletas} boletas de honorarios`;
+  return `${boletas} ${boletas === 1 ? 'boleta' : 'boletas'} de honorarios`;
 }
 
 export function textoSync(r: ResultadoSync): string {

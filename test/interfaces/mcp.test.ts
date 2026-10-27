@@ -150,7 +150,7 @@ describe('servidor MCP', () => {
     const r = await cliente.callTool({ name: 'sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026-09', superficies: ['bhe'] } });
 
     expect(esError(r)).toBe(false);
-    expect(textoDe(r)).toContain('2026-09: 1 boletas de honorarios');
+    expect(textoDe(r)).toContain('2026-09: 1 boleta de honorarios');
     expect(sii.llamadas).toEqual(['bhe|2026-09']);
     expect(store.boletasHonorarios(RUT_EMPRESA, '2026-09')).toEqual([boleta()]);
     await cliente.close();

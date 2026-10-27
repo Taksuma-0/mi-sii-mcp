@@ -146,7 +146,7 @@ describe('CLI', () => {
     e.sii.bhe.set('2026-09', { boletas: [boleta()], totales: { total: 1, bruto: 1_000_000, retencion: 152_500, liquido: 847_500 } });
     expect(await e.correr('sync', RUT_EMPRESA, '--desde', '2026-09', '--solo', 'bhe')).toBe(0);
     expect(e.sii.llamadas).toEqual(['bhe|2026-09']);
-    expect(e.salidaTexto.at(-1)).toContain('2026-09: 1 boletas de honorarios');
+    expect(e.salidaTexto.at(-1)).toContain('2026-09: 1 boleta de honorarios');
     expect(e.store.boletasHonorarios(RUT_EMPRESA, '2026-09')).toEqual([boleta()]);
   });
 

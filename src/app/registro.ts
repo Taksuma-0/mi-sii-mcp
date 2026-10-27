@@ -16,7 +16,7 @@ export interface ResultadoPeriodo {
   f29Folio: number | null;
   /** Qué trajo la propuesta de F29; solo existe si se pidió esa superficie y terminó bien. */
   propuesta?: 'con_datos' | 'sin_propuesta' | 'sin_respuesta';
-  /** Boletas de honorarios recibidas guardadas del mes; null si el SII respondió vacío sin total. Solo existe si se pidió esa superficie y terminó bien. */
+  /** Boletas de honorarios recibidas guardadas del mes; null si el SII respondió vacío sin total (queda RESPUESTA_VACIA). Solo existe si se pidió esa superficie y el SII respondió. */
   boletasHonorarios?: number | null;
 }
 

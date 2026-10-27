@@ -88,16 +88,19 @@ describe('sincronizar las boletas de honorarios recibidas', () => {
     expect(ultimaSync(db, 'bhe.recibidas')).toEqual({ estado: 'error', error_codigo: 'RESPUESTA_VACIA' });
   });
 
-  it('un vacío ambiguo sin nada guardado termina sin error y sin escribir', async () => {
+  it('un vacío ambiguo sin nada guardado no escribe ni cuenta como consultado: queda RESPUESTA_VACIA', async () => {
     const { deps, store, sii, db } = preparar();
     sii.bhe.set('2026-09', null);
 
     const r = await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT, ['bhe']);
 
-    expect(r.periodos[0]!.errores).toEqual([]);
+    expect(r.periodos[0]!.errores).toEqual([
+      { superficie: 'bhe.recibidas', codigo: 'RESPUESTA_VACIA', mensaje: 'Boletas de honorarios 2026-09: el SII respondió sin boletas ni total; no hay boletas guardadas de este mes.' },
+    ]);
     expect(r.periodos[0]!.boletasHonorarios).toBeNull();
     expect(store.boletasHonorarios(RUT_EMPRESA, '2026-09')).toEqual([]);
-    expect(ultimaSync(db, 'bhe.recibidas')).toEqual({ estado: 'ok', error_codigo: null });
+    expect(ultimaSync(db, 'bhe.recibidas')).toEqual({ estado: 'error', error_codigo: 'RESPUESTA_VACIA' });
+    expect(store.disponibilidadFuentes(RUT_EMPRESA, '2026-09').bheRecibidas).toBe(false);
   });
 
   it('datos incompletos del SII no reemplazan las boletas guardadas y no detienen los demás meses', async () => {
@@ -118,12 +121,19 @@ describe('sincronizar las boletas de honorarios recibidas', () => {
   it('el texto de la sincronización dice cuántas boletas trajo solo cuando se pidió', async () => {
     const { deps, sii } = preparar();
     sii.bhe.set('2026-09', informe([boleta({ folio: 1 }), boleta({ folio: 2 })]));
-    sii.bhe.set('2026-11', null);
+    sii.bhe.set('2026-10', informe([boleta({ periodo: '2026-10', folio: 3 })]));
+    sii.bhe.set('2026-12', null);
 
-    const r = await sincronizar(deps, RUT_EMPRESA, SEPT, parsePeriodo('2026-11'), ['bhe']);
+    const r = await sincronizar(deps, RUT_EMPRESA, SEPT, parsePeriodo('2026-12'), ['bhe']);
 
     expect(textoSync(r)).toBe(
-      ['Sincronización 22222222-2', '2026-09: 2 boletas de honorarios', '2026-10: 0 boletas de honorarios', '2026-11: boletas de honorarios sin respuesta del SII'].join('\n'),
+      [
+        'Sincronización 22222222-2',
+        '2026-09: 2 boletas de honorarios',
+        '2026-10: 1 boleta de honorarios',
+        '2026-11: 0 boletas de honorarios',
+        '2026-12: boletas de honorarios sin respuesta del SII · errores: bhe.recibidas RESPUESTA_VACIA',
+      ].join('\n'),
     );
     const sinPedir = await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT, ['f29']);
     expect(textoSync(sinPedir)).not.toContain('honorarios');

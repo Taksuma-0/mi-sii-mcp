@@ -22,38 +22,52 @@ interface FilaSintetica {
   readonly rutemisor?: string;
   readonly dv?: string;
   readonly retencion?: number;
+  readonly anulada?: boolean;
+  /** Campos que reemplazan a los por defecto (el valor va tal cual en el JS); null omite la asignación. */
+  readonly campos?: Readonly<Record<string, string | null>>;
 }
 
-/** Página sintética del informe: `total` es `total_boletas`; null lo omite. */
-function pagina(total: number | null, filas: readonly FilaSintetica[]): string {
+interface ExtraPagina {
+  /** `pagina_sig_codigo`, entre comillas. */
+  readonly sig?: string;
+  /** `suma_retencion_receptor`, tal cual (sin comillas). */
+  readonly sumaRetencion?: string;
+}
+
+/** Página sintética del informe: `total` es `total_boletas` (un texto va tal cual, sin comillas); null lo omite. */
+function pagina(total: number | string | null, filas: readonly FilaSintetica[], extra: ExtraPagina = {}): string {
   const xml = [
     ...(total === null ? [] : [`xml_values['total_boletas'] = ${total};`]),
     `xml_values['cant_boletas'] = ${filas.length};`,
     "xml_values['nombre_contribuyente'] = \"EMPRESA DEMO SPA\";",
+    ...(extra.sig === undefined ? [] : [`xml_values['pagina_sig_codigo'] = "${extra.sig}";`]),
+    ...(extra.sumaRetencion === undefined ? [] : [`xml_values['suma_retencion_receptor'] = ${extra.sumaRetencion};`]),
   ];
   const arr = filas.flatMap((f, i) => {
     const n = i + 1;
-    return [
-      `arr_informe_mensual['nroboleta_${n}'] = "${f.folio}";`,
-      `arr_informe_mensual['rutemisor_${n}'] = "${f.rutemisor ?? '33333333'}";`,
-      `arr_informe_mensual['dvemisor_${n}'] = "${f.dv ?? '3'}";`,
-      `arr_informe_mensual['nombre_emisor_${n}'] = "Emisor Ficticio";`,
-      `arr_informe_mensual['fecha_boleta_${n}'] = "01/09/2026";`,
-      `arr_informe_mensual['totalhonorarios_${n}'] = formatMiles("100000",'.');`,
-      `arr_informe_mensual['honorariosliquidos_${n}'] = formatMiles("84750",'.');`,
-      `arr_informe_mensual['es_soc_profesional_${n}'] = "NO";`,
-      `arr_informe_mensual['cod_comuna_${n}'] = "13101";`,
-      `arr_informe_mensual['retencion_receptor_${n}'] = formatMiles("${f.retencion ?? 15250}",'.');`,
-      `arr_informe_mensual['estado_${n}'] = "N";`,
-      `arr_informe_mensual['fechaanulacion_${n}'] = "";`,
-      `arr_informe_mensual['codigobarras_${n}'] = "BHE${f.folio}";`,
-    ];
+    const campos: Record<string, string | null> = {
+      nroboleta: `"${f.folio}"`,
+      rutemisor: `"${f.rutemisor ?? '33333333'}"`,
+      dvemisor: `"${f.dv ?? '3'}"`,
+      nombre_emisor: '"Emisor Ficticio"',
+      fecha_boleta: '"01/09/2026"',
+      totalhonorarios: `formatMiles("100000",'.')`,
+      honorariosliquidos: `formatMiles("84750",'.')`,
+      es_soc_profesional: '"NO"',
+      cod_comuna: '"13101"',
+      retencion_receptor: `formatMiles("${f.retencion ?? 15250}",'.')`,
+      estado: f.anulada ? '"S"' : '"N"',
+      fechaanulacion: f.anulada ? '"15/09/2026"' : '""',
+      codigobarras: `"BHE${f.folio}"`,
+      ...f.campos,
+    };
+    return Object.entries(campos).flatMap(([campo, valor]) => (valor === null ? [] : [`arr_informe_mensual['${campo}_${n}'] = ${valor};`]));
   });
   return `<html><head><meta charset="iso-8859-1"><script>\n${[...xml, ...arr].join('\n')}\n</script></head><body></body></html>`;
 }
 
-function preparar(ruta: DefRespuesta | ((n: number) => DefRespuesta)) {
-  const { fetchFalso, llamadas } = crearFetchFalso({ [RUTA]: typeof ruta === 'function' ? (_l, n) => ruta(n) : ruta });
+function preparar(ruta: DefRespuesta | ((n: number, pagina: string | null) => DefRespuesta)) {
+  const { fetchFalso, llamadas } = crearFetchFalso({ [RUTA]: typeof ruta === 'function' ? (l, n) => ruta(n, paginaDe(l.url)) : ruta });
   const http = new ClienteHttp(new CookieJar(), { fetch: fetchFalso, temporizador: sinEsperas });
   const crudas: RespuestaCruda[] = [];
   return { http, llamadas, crudas, sumidero: (r: RespuestaCruda) => void crudas.push(r) };
@@ -207,6 +221,89 @@ describe('bheRecibidas', () => {
     expect(await codigoDe(bheRecibidas(http, sumidero, EMPRESA, SEPT))).toBe('PORTAL_CAMBIO');
   });
 
+  it.each(['nroboleta', 'rutemisor', 'dvemisor', 'totalhonorarios', 'retencion_receptor', 'honorariosliquidos', 'estado'])(
+    'una boleta sin %s es PORTAL_CAMBIO: nunca vale 0 ni vigente por omisión',
+    async (campo) => {
+      const { http, sumidero } = preparar({ headers: HTML, body: pagina(2, [{ folio: 1 }, { folio: 2, campos: { [campo]: null } }]) });
+
+      expect(await codigoDe(bheRecibidas(http, sumidero, EMPRESA, SEPT))).toBe('PORTAL_CAMBIO');
+    },
+  );
+
+  it.each([
+    ['retención vacía', { retencion_receptor: '""' }],
+    ['bruto vacío en formatMiles', { totalhonorarios: `formatMiles("",'.')` }],
+    ['estado desconocido', { estado: '"X"' }],
+    ['estado vacío', { estado: '""' }],
+  ])('una boleta con %s es PORTAL_CAMBIO', async (_caso, campos) => {
+    const { http, sumidero } = preparar({ headers: HTML, body: pagina(1, [{ folio: 1, campos }]) });
+
+    expect(await codigoDe(bheRecibidas(http, sumidero, EMPRESA, SEPT))).toBe('PORTAL_CAMBIO');
+  });
+
+  it.each([
+    ['entre comillas', '""'],
+    ['sin valor', ''],
+  ])('total_boletas vacío (%s) sin boletas es ambiguo (null), no un mes sin boletas', async (_caso, total) => {
+    const { http, llamadas, sumidero } = preparar({ headers: HTML, body: pagina(total, []) });
+
+    expect(await bheRecibidas(http, sumidero, EMPRESA, SEPT)).toBeNull();
+    expect(llamadas).toHaveLength(1);
+  });
+
+  it('total_boletas vacío con boletas es PORTAL_CAMBIO', async () => {
+    const { http, sumidero } = preparar({ headers: HTML, body: pagina('""', [{ folio: 1 }]) });
+
+    expect(await codigoDe(bheRecibidas(http, sumidero, EMPRESA, SEPT))).toBe('PORTAL_CAMBIO');
+  });
+
+  it('si una página se repite y faltan boletas, sigue pagina_sig_codigo antes de rendirse', async () => {
+    const primera = pagina(3, [{ folio: 1 }, { folio: 2 }], { sig: '7' });
+    const { http, llamadas, sumidero } = preparar((_n, p) => ({ headers: HTML, body: p === '7' ? pagina(3, [{ folio: 3 }], { sig: '' }) : primera }));
+
+    const r = await bheRecibidas(http, sumidero, EMPRESA, SEPT);
+
+    expect(llamadas.map((l) => paginaDe(l.url))).toEqual(['0', '1', '7']);
+    expect(r?.boletas.map((b) => b.folio)).toEqual([1, 2, 3]);
+  });
+
+  it('una página repetida cuyo pagina_sig_codigo ya se pidió no se vuelve a pedir: DATOS_INCOMPLETOS', async () => {
+    const { http, llamadas, sumidero } = preparar({ headers: HTML, body: pagina(3, [{ folio: 1 }, { folio: 2 }], { sig: '1' }) });
+
+    expect(await codigoDe(bheRecibidas(http, sumidero, EMPRESA, SEPT))).toBe('DATOS_INCOMPLETOS');
+    expect(llamadas.map((l) => paginaDe(l.url))).toEqual(['0', '1']);
+  });
+
+  describe('control de la suma de retención del SII', () => {
+    // Vigentes: 15.250 + 30.000 = 45.250; con la anulada (10.000): 55.250.
+    const filas: readonly FilaSintetica[] = [{ folio: 1 }, { folio: 2, retencion: 30_000 }, { folio: 3, retencion: 10_000, anulada: true }];
+
+    it.each([
+      ['las vigentes', '45250'],
+      ['todas, con anuladas', '55250'],
+      ['sin dato numérico (se ignora)', '""'],
+    ])('acepta una suma que cuadra con %s', async (_caso, suma) => {
+      const { http, sumidero } = preparar({ headers: HTML, body: pagina(3, filas, { sumaRetencion: suma }) });
+
+      expect((await bheRecibidas(http, sumidero, EMPRESA, SEPT))?.boletas).toHaveLength(3);
+    });
+
+    it('una suma que no cuadra con las vigentes ni con todas es PORTAL_CAMBIO', async () => {
+      const { http, sumidero } = preparar({ headers: HTML, body: pagina(3, filas, { sumaRetencion: '99999' }) });
+
+      expect(await codigoDe(bheRecibidas(http, sumidero, EMPRESA, SEPT))).toBe('PORTAL_CAMBIO');
+    });
+
+    it('en un informe de varias páginas acepta la suma de solo la primera página', async () => {
+      const { http, sumidero } = preparar((n) => ({
+        headers: HTML,
+        body: n === 1 ? pagina(3, [{ folio: 1 }, { folio: 2, retencion: 30_000 }], { sumaRetencion: '45250' }) : pagina(3, [{ folio: 3, retencion: 5_000 }], { sumaRetencion: '5000' }),
+      }));
+
+      expect((await bheRecibidas(http, sumidero, EMPRESA, SEPT))?.boletas).toHaveLength(3);
+    });
+  });
+
   it('el muro de login es SESION_REQUERIDA', async () => {
     const crudas: RespuestaCruda[] = [];
     const { fetchFalso } = crearFetchFalso({
@@ -229,7 +326,12 @@ describe('bheRecibidas', () => {
       ['bhe.recibidas.mensual', 1],
     ]);
     for (const c of crudas) {
-      expect(c.cuerpo).not.toMatch(/codigobarras_\d|cod_comuna_\d|nombre_contribuyente|BHE0\d+FICTICIO|EMPRESA DEMO SPA|13101/);
+      // Como la página real, la fixture lee esas claves en otras partes del script: las lecturas se quedan, las asignaciones no.
+      expect(c.cuerpo).not.toMatch(/\[\s*'(?:codigobarras_\d+|cod_comuna_\d+|nombre_contribuyente)'\s*\]\s*=(?!=)/);
+      expect(c.cuerpo).not.toMatch(/BHE0\d+FICTICIO|EMPRESA DEMO SPA|13101|13114/);
+      expect(c.cuerpo).toContain("= xml_values['nombre_contribuyente'];");
+      expect(c.cuerpo).toContain("arr_informe_mensual['codigobarras_' + i]");
+      expect(c.cuerpo).toContain("arr_informe_mensual['cod_comuna_' + i]");
       expect(c.cuerpo).toContain("arr_informe_mensual['nroboleta_1']");
       expect(c.cuerpo).toContain("xml_values['total_boletas']");
     }
@@ -242,16 +344,33 @@ describe('sanearBhe', () => {
       'xml_values[\'nombre_contribuyente\']="EMPRESA; DEMO";',
       "arr_informe_mensual [ 'codigobarras_12' ]  =  \"X1\" ;",
       "arr_informe_mensual['cod_comuna_3'] = '13101';",
+      "arr_informe_mensual['cod_comuna_4'] =\n  \"13114\";",
       "arr_informe_mensual['nombre_emisor_3'] = \"Emisor Ficticio\";",
     ].join('\n');
 
     const saneado = sanearBhe(html);
 
-    expect(saneado).not.toMatch(/nombre_contribuyente|codigobarras|cod_comuna|EMPRESA|DEMO|X1|13101/);
+    expect(saneado).not.toMatch(/nombre_contribuyente|codigobarras|cod_comuna|EMPRESA|DEMO|X1|13101|13114/);
     expect(saneado).toContain("arr_informe_mensual['nombre_emisor_3'] = \"Emisor Ficticio\";");
   });
 
-  it('si queda alguna de esas claves sin poder quitarla, falla con PORTAL_CAMBIO en vez de guardarla', () => {
-    expect(() => sanearBhe('var fila = { codigobarras_1: "X1" };')).toThrow(expect.objectContaining({ codigo: 'PORTAL_CAMBIO' }));
+  it('deja las lecturas de esas claves (la página real las menciona fuera de las asignaciones)', () => {
+    const lecturas = [
+      "document.getElementById('nombre').innerText = xml_values['nombre_contribuyente'];",
+      "if (xml_values['nombre_contribuyente'] == '') { ocultar(); }",
+      "var barras = arr_informe_mensual['codigobarras_' + i];",
+      "verBoleta(arr_informe_mensual['codigobarras_1'], arr_informe_mensual['cod_comuna_1']);",
+      "var titulo = xml_values['nombre_contribuyente'] ? xml_values['nombre_contribuyente'] : '';",
+    ].join('\n');
+
+    expect(sanearBhe(lecturas)).toBe(lecturas);
+  });
+
+  it.each([
+    ['un objeto literal', 'var fila = { codigobarras_1: "X1" };'],
+    ['una variable suelta', 'nombre_contribuyente = "EMPRESA DEMO SPA"'],
+    ['una asignación con punto', 'arr_informe_mensual.codigobarras_1 = "X1";'],
+  ])('si queda una asignación de esas claves (%s), falla con PORTAL_CAMBIO en vez de guardarla', (_caso, html) => {
+    expect(() => sanearBhe(html)).toThrow(expect.objectContaining({ codigo: 'PORTAL_CAMBIO' }));
   });
 });

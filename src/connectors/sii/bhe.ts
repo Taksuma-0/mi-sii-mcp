@@ -12,26 +12,39 @@ export const MAX_PAGINAS_BHE = 50;
 
 /** Valor de una asignación JS: texto entre comillas, `formatMiles("…", '.')` o un literal sin comillas. */
 const VALOR = String.raw`(?:formatMiles\(\s*(?:"([^"\n]*)"|'([^'\n]*)')\s*,\s*['"][^'"\n]*['"]\s*\)|"([^"\n]*)"|'([^'\n]*)'|([^;\n]*?))\s*(?:;|(?=\r?\n)|$)`;
-const ASIGNACION_FILA = new RegExp(String.raw`arr_informe_mensual\s*\[\s*['"]([A-Za-z_]+?)_(\d+)['"]\s*\]\s*=\s*${VALOR}`, 'g');
-const ASIGNACION_XML = new RegExp(String.raw`xml_values\s*\[\s*['"]([A-Za-z_]+)['"]\s*\]\s*=\s*${VALOR}`, 'g');
+/** `=` de una asignación, no de una comparación (`==`, `===`). */
+const IGUAL = String.raw`\s*=(?!=)\s*`;
+const ASIGNACION_FILA = new RegExp(String.raw`arr_informe_mensual\s*\[\s*['"]([A-Za-z_]+?)_(\d+)['"]\s*\]${IGUAL}${VALOR}`, 'g');
+const ASIGNACION_XML = new RegExp(String.raw`xml_values\s*\[\s*['"]([A-Za-z_]+)['"]\s*\]${IGUAL}${VALOR}`, 'g');
 
-/** Asignaciones que no se guardan como evidencia: código de barras y comuna de cada boleta, y el nombre del contribuyente. */
+/** Claves que no se guardan como evidencia: código de barras y comuna de cada boleta, y el nombre del contribuyente. */
+const CLAVE_PRIVADA = String.raw`\[\s*['"](?:codigobarras_\d+|cod_comuna_\d+|nombre_contribuyente)['"]\s*\]`;
+/**
+ * Asignación completa de una clave privada. A diferencia de `VALOR`, un valor vacío solo se acepta si lo cierra un `;`:
+ * así un valor en la línea siguiente no queda suelto tras quitar la asignación.
+ */
 const ASIGNACIONES_PRIVADAS = new RegExp(
-  String.raw`(?:arr_informe_mensual\s*\[\s*['"](?:codigobarras|cod_comuna)_\d+['"]\s*\]|xml_values\s*\[\s*['"]nombre_contribuyente['"]\s*\])\s*=\s*${VALOR}`,
+  String.raw`(?:arr_informe_mensual|xml_values)\s*${CLAVE_PRIVADA}${IGUAL}(?:(?:formatMiles\([^)\n]*\)|"[^"\n]*"|'[^'\n]*'|[^;\s][^;\n]*?)\s*(?:;|(?=\r?\n)|$)|;)`,
   'g',
 );
-const RESTO_PRIVADO = /codigobarras_\d|cod_comuna_\d|nombre_contribuyente/;
+/**
+ * Una asignación de una clave privada que no se pudo quitar. Las lecturas (`x = xml_values['nombre_contribuyente']`,
+ * `arr_informe_mensual['codigobarras_' + i]`) no cuentan: la página real las tiene y no traen el dato.
+ */
+const ASIGNACION_PRIVADA_RESTANTE = new RegExp(
+  String.raw`${CLAVE_PRIVADA}\s*=(?!=)|\b(?:codigobarras_\d+|cod_comuna_\d+|nombre_contribuyente)\b['"]?\s*(?::|=(?!=))`,
+);
 
 const valorDe = (m: RegExpExecArray, desde: number): string => (m[desde] ?? m[desde + 1] ?? m[desde + 2] ?? m[desde + 3] ?? m[desde + 4] ?? '').trim();
 
 /**
  * Evidencia de una página del informe: quita las asignaciones de `codigobarras_N`, `cod_comuna_N` y
- * `xml_values['nombre_contribuyente']`. Si alguna de esas claves sigue en el texto (otra sintaxis), lanza
- * PORTAL_CAMBIO: nunca se guarda sin sanear.
+ * `xml_values['nombre_contribuyente']`; sus lecturas en otras partes del script se quedan. Si queda alguna asignación
+ * de esas claves (otra sintaxis), lanza PORTAL_CAMBIO: nunca se guarda sin sanear.
  */
 export function sanearBhe(html: string): string {
   const saneado = html.replace(ASIGNACIONES_PRIVADAS, '');
-  if (RESTO_PRIVADO.test(saneado)) {
+  if (ASIGNACION_PRIVADA_RESTANTE.test(saneado)) {
     throw new ErrorImpuestocl('PORTAL_CAMBIO', 'No se pudo sanear la evidencia de las boletas de honorarios recibidas.');
   }
   return saneado;
@@ -58,12 +71,16 @@ function leerPagina(html: string): PaginaBhe {
   return { filas, xml };
 }
 
-/** Monto entero en pesos; vacío vale 0 y acepta el punto de miles. null si no es un número. */
-function monto(v: string | undefined): number | null {
-  const t = (v ?? '').replace(/\./g, '').trim();
-  if (t === '') return 0;
-  return /^-?\d+$/.test(t) ? Number(t) : null;
+/** Entero no negativo con punto de miles opcional; ausente, vacío o ilegible → null (nunca 0 por omisión). */
+function entero(v: string | undefined): number | null {
+  const t = (v ?? '').trim();
+  return /^\d[\d.]*$/.test(t) ? Number(t.replace(/\./g, '')) : null;
 }
+
+/** Campos que cada boleta debe traer: sin ellos no se sabe el monto ni si está vigente. */
+const CAMPOS_OBLIGATORIOS = ['nroboleta', 'rutemisor', 'dvemisor', 'totalhonorarios', 'retencion_receptor', 'honorariosliquidos', 'estado'] as const;
+/** `estado` del SII: N vigente, S anulada. */
+const ESTADOS: Readonly<Record<string, boolean>> = { N: false, S: true };
 
 /** `DD/MM/AAAA` → `AAAA-MM-DD`; vacío o ilegible → null. */
 function fecha(v: string | undefined): string | null {
@@ -75,21 +92,24 @@ function inesperado(detalle: string): ErrorImpuestocl {
   return new ErrorImpuestocl('PORTAL_CAMBIO', `Boleta de honorarios inesperada en el informe del SII: ${detalle}.`);
 }
 
-function boleta(rut: Rut, periodo: Periodo, f: Readonly<Record<string, string>>): BoletaHonorarios {
-  const folio = monto(f['nroboleta']);
-  if (folio === null || folio <= 0) throw inesperado(`número de boleta "${f['nroboleta'] ?? ''}"`);
+function boleta(rut: Rut, periodo: Periodo, n: number, f: Readonly<Record<string, string>>): BoletaHonorarios {
+  const faltan = CAMPOS_OBLIGATORIOS.filter((campo) => f[campo] === undefined);
+  if (faltan.length > 0) throw inesperado(`a la fila ${n} le falta ${faltan.join(', ')}`);
+  const folio = entero(f['nroboleta']);
+  if (folio === null || folio <= 0) throw inesperado(`número de boleta "${f['nroboleta']}"`);
   let rutEmisor: string;
   try {
-    rutEmisor = parseRut(`${f['rutemisor'] ?? ''}-${f['dvemisor'] ?? ''}`).canonico;
+    rutEmisor = parseRut(`${f['rutemisor']}-${f['dvemisor']}`).canonico;
   } catch {
     throw inesperado(`RUT del emisor de la boleta ${folio}`);
   }
   const montoDe = (campo: string): number => {
-    const valor = monto(f[campo]);
-    if (valor === null) throw inesperado(`${campo} de la boleta ${folio}`);
+    const valor = entero(f[campo]);
+    if (valor === null) throw inesperado(`${campo} "${f[campo]}" de la boleta ${folio}`);
     return valor;
   };
-  const anulada = (f['estado'] ?? '').toUpperCase() === 'S';
+  const anulada = ESTADOS[f['estado']!.toUpperCase()];
+  if (anulada === undefined) throw inesperado(`estado "${f['estado']}" de la boleta ${folio}`);
   const nombre = (f['nombre_emisor'] ?? '').trim();
   return {
     rut: rut.canonico,
@@ -124,34 +144,73 @@ async function pedirPagina(http: Http, sumidero: SumideroRespuestas, rut: Rut, p
   return leerPagina(r.texto);
 }
 
+/** `total_boletas`: null si falta o viene vacío (ambiguo); PORTAL_CAMBIO si trae algo que no es un número. */
+function totalInformado(xml: Readonly<Record<string, string>>): number | null {
+  const informado = xml['total_boletas'];
+  if (informado === undefined || informado.trim() === '') return null;
+  const total = entero(informado);
+  if (total === null) throw new ErrorImpuestocl('PORTAL_CAMBIO', `El SII informó un total de boletas ilegible: "${informado}".`);
+  return total;
+}
+
+/** Número de página de `pagina_sig_codigo`; null si no viene o no es un número. */
+const paginaSiguiente = (xml: Readonly<Record<string, string>>): number | null => entero(xml['pagina_sig_codigo']);
+
+const sumaRetencion = (boletas: readonly BoletaHonorarios[], conAnuladas: boolean): number =>
+  boletas.filter((b) => conAnuladas || !b.anulada).reduce((suma, b) => suma + b.retencion, 0);
+
+/**
+ * Control de lo leído: si el SII informa `suma_retencion_receptor`, debe cuadrar con la retención de las boletas
+ * leídas. No se sabe si el SII suma solo las vigentes o también las anuladas, ni si la suma es del informe o de la
+ * página: se acepta cualquiera de esas cuatro sumas y solo una que no calce con ninguna es PORTAL_CAMBIO.
+ */
+function revisarSumaRetencion(periodo: Periodo, xml: Readonly<Record<string, string>>, todas: readonly BoletaHonorarios[], primeraPagina: readonly BoletaHonorarios[]): void {
+  const informada = entero(xml['suma_retencion_receptor']);
+  if (informada === null) return;
+  const aceptadas = [sumaRetencion(todas, false), sumaRetencion(todas, true), sumaRetencion(primeraPagina, false), sumaRetencion(primeraPagina, true)];
+  if (aceptadas.includes(informada)) return;
+  throw new ErrorImpuestocl(
+    'PORTAL_CAMBIO',
+    `Boletas de honorarios ${periodo.texto}: el SII informa una retención total de ${informada} y las boletas leídas suman ${aceptadas[0]} (vigentes) o ${aceptadas[1]} (con anuladas).`,
+  );
+}
+
 /**
  * Informe mensual de boletas de honorarios electrónicas recibidas: pide páginas (desde la 0) hasta juntar
- * `total_boletas` boletas distintas (por emisor y folio), hasta que una página no agregue ninguna nueva (el SII repite
- * la última) o hasta `MAX_PAGINAS_BHE`. Si faltan boletas, DATOS_INCOMPLETOS. Devuelve null si el SII respondió sin
- * boletas ni `total_boletas` (vacío ambiguo); con `total_boletas` 0 es un mes sin boletas.
+ * `total_boletas` boletas distintas (por emisor y folio). Una página que no agrega boletas nuevas (el SII repite la
+ * última cuando no hay más) corta la búsqueda, salvo que su `pagina_sig_codigo` apunte a una página aún no pedida.
+ * Nunca pide más de `MAX_PAGINAS_BHE`. Si faltan boletas, DATOS_INCOMPLETOS. Devuelve null si el SII respondió sin
+ * boletas y sin `total_boletas` (ausente o vacío: vacío ambiguo); con `total_boletas` 0 es un mes sin boletas.
  */
 export async function bheRecibidas(http: Http, sumidero: SumideroRespuestas, rut: Rut, periodo: Periodo): Promise<InformeBhe | null> {
   const boletas = new Map<string, BoletaHonorarios>();
-  let primera: PaginaBhe | null = null;
+  const pedidas = new Set<number>();
+  let primera: { readonly xml: Readonly<Record<string, string>>; readonly boletas: readonly BoletaHonorarios[] } | null = null;
   let total: number | null = null;
-  for (let pagina = 0; pagina < MAX_PAGINAS_BHE; pagina++) {
+  let pagina = 0;
+  while (pedidas.size < MAX_PAGINAS_BHE) {
+    pedidas.add(pagina);
     const leida = await pedirPagina(http, sumidero, rut, periodo, pagina);
+    const deLaPagina = [...leida.filas].map(([n, fila]) => boleta(rut, periodo, n, fila));
     if (primera === null) {
-      primera = leida;
-      const informado = leida.xml['total_boletas'];
-      total = informado === undefined ? null : monto(informado);
-      if (informado !== undefined && total === null) throw new ErrorImpuestocl('PORTAL_CAMBIO', `El SII informó un total de boletas ilegible: "${informado}".`);
+      primera = { xml: leida.xml, boletas: deLaPagina };
+      total = totalInformado(leida.xml);
     }
     let nuevas = 0;
-    for (const fila of leida.filas.values()) {
-      const b = boleta(rut, periodo, fila);
+    for (const b of deLaPagina) {
       const clave = `${b.rutEmisor}:${b.folio}`;
       if (boletas.has(clave)) continue;
       boletas.set(clave, b);
       nuevas++;
     }
-    if (total === null) break;
-    if (boletas.size >= total || nuevas === 0) break;
+    if (total === null || boletas.size >= total) break;
+    if (nuevas === 0) {
+      const siguiente = paginaSiguiente(leida.xml);
+      if (siguiente === null || pedidas.has(siguiente)) break;
+      pagina = siguiente;
+      continue;
+    }
+    while (pedidas.has(pagina)) pagina++;
   }
   if (total === null) {
     if (boletas.size === 0) return null;
@@ -161,9 +220,11 @@ export async function bheRecibidas(http: Http, sumidero: SumideroRespuestas, rut
     throw new ErrorImpuestocl('DATOS_INCOMPLETOS', `Boletas de honorarios ${periodo.texto}: el SII entregó ${boletas.size} de ${total} boletas.`);
   }
   const xml = primera?.xml ?? {};
-  const suma = (clave: string): number => monto(xml[clave]) ?? 0;
+  const todas = [...boletas.values()];
+  revisarSumaRetencion(periodo, xml, todas, primera?.boletas ?? []);
+  const suma = (clave: string): number => entero(xml[clave]) ?? 0;
   return {
-    boletas: [...boletas.values()],
+    boletas: todas,
     totales: { total, bruto: suma('suma_honorarios'), retencion: suma('suma_retencion_receptor'), liquido: suma('suma_liquido') },
   };
 }

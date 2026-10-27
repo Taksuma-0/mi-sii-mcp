@@ -143,7 +143,7 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
         const conPropuesta = r.periodos.filter((p) => p.propuesta !== undefined);
         const sufijoPropuesta = conPropuesta.length > 0 ? ` Propuesta del SII: ${conPropuesta.length}/${meses} meses consultados, ${conPropuesta.filter((p) => p.propuesta?.sinPropuesta === false).length} con propuesta.` : '';
         // Las boletas de honorarios también son opt-in: su sufijo aparece solo si algún mes las consultó.
-        const conBoletas = r.periodos.filter((p) => p.honorarios !== undefined).length;
+        const conBoletas = r.periodos.filter((p) => typeof p.honorarios === 'object').length;
         const sufijoBoletas = conBoletas > 0 ? ` Boletas de honorarios recibidas: ${conBoletas}/${meses} meses consultados.` : '';
         const sufijo = `${sufijoPropuesta}${sufijoBoletas}`;
         return respuesta(`Panorama local: ${meses} meses. Fuentes: RCV (compras y ventas) y F29. Cobertura: ventas ${ventas}/${meses}, compras ${compras}/${meses} y F29 ${f29}/${meses} meses consultados.${sufijo}`, r);

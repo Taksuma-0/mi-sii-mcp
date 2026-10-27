@@ -524,6 +524,13 @@ export class SqliteStore implements Store {
       .get(rut, periodo) as TotalesBheMes;
   }
 
+  ultimaSincronizacion(rut: string, superficie: string, periodo: string): { readonly estado: 'en_curso' | 'ok' | 'error'; readonly errorCodigo: string | null } | null {
+    const f = this.db
+      .prepare('SELECT estado, error_codigo FROM sincronizacion WHERE rut = ? AND superficie = ? AND periodo = ? ORDER BY id DESC LIMIT 1')
+      .get(rut, superficie, periodo) as { estado: 'en_curso' | 'ok' | 'error'; error_codigo: string | null } | undefined;
+    return f ? { estado: f.estado, errorCodigo: f.error_codigo } : null;
+  }
+
   // --- frescura ---------------------------------------------------------------------------
   disponibilidadFuentes(rut: string, periodo: string): DisponibilidadFuentes {
     const superficies = this.db.prepare(

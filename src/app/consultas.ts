@@ -45,8 +45,8 @@ export interface ResumenIva {
     readonly remanente: number | null;
     readonly retencion: number | null;
   } | null;
-  /** Boletas de honorarios recibidas del mes (cantidad con anuladas; montos sin ellas), solo si se consultaron. */
-  readonly honorarios: TotalesBheMes | null;
+  /** Boletas de honorarios recibidas del mes (ver `honorariosDelMes`). */
+  readonly honorarios: HonorariosMes;
   readonly venceF29: string;
   readonly comparaciones: Comparaciones;
   readonly hallazgos: readonly Hallazgo[];
@@ -85,6 +85,18 @@ export function perfilExistente(deps: DepsApp, rutTexto: string): Perfil {
 }
 
 const hoy = (deps: DepsApp): string => fechaEnSantiago(deps.reloj.ahora());
+
+/**
+ * Boletas de honorarios recibidas de un mes: sus totales (cantidad con anuladas; montos sin ellas) si alguna consulta
+ * al SII terminó bien; `sin_respuesta` si solo hubo respuestas vacías ambiguas (no se sabe si hay boletas); null si
+ * nunca se consultaron.
+ */
+export type HonorariosMes = TotalesBheMes | 'sin_respuesta' | null;
+
+export function honorariosDelMes(deps: DepsApp, rut: string, periodo: string, disponibilidad: DisponibilidadFuentes): HonorariosMes {
+  if (disponibilidad.bheRecibidas) return deps.store.totalesBhe(rut, periodo);
+  return deps.store.ultimaSincronizacion(rut, 'bhe.recibidas', periodo)?.errorCodigo === 'RESPUESTA_VACIA' ? 'sin_respuesta' : null;
+}
 
 function valoresVigentes(deps: DepsApp, rut: string, periodo: string): F29Valores | null {
   const vigente = declaracionVigente(deps.store.declaracionesF29(rut, periodo));
@@ -134,7 +146,7 @@ export function resumenIva(deps: DepsApp, rutTexto: string, periodoTexto: string
       ? { folio: vigente.folio, estado: vigente.estado, fechaPresentacion: vigente.fechaPresentacion, totalAPagar: vigente.totalAPagar, valores: entrada.valores?.valores ?? {} }
       : null,
     propuesta: propuesta ? { tipo: propuesta.tipoPropuesta, sinPropuesta: propuesta.sinPropuesta, ...montosPropuesta(propuesta) } : null,
-    honorarios: disponibilidad.bheRecibidas ? deps.store.totalesBhe(perfil.rut, periodo.texto) : null,
+    honorarios: honorariosDelMes(deps, perfil.rut, periodo.texto, disponibilidad),
     venceF29: vencimientoF29(periodo),
     comparaciones: resultado.comparaciones,
     hallazgos: resultado.hallazgos,

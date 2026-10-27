@@ -2,7 +2,7 @@ import { declaracionVigente, montosPropuesta, type MontosPropuesta } from '../do
 import type { DisponibilidadFuentes, Lado, Perfil, RcvResumen, TotalesBheMes } from '../domain/tipos.js';
 import type { Frescura } from '../ports/index.js';
 import { creditoRcv, debitoRcv, signoTipoDoc } from '../reconciliation/mapeo-f29.js';
-import { perfilExistente } from './consultas.js';
+import { honorariosDelMes, perfilExistente } from './consultas.js';
 import type { DepsApp } from './deps.js';
 
 export interface TotalPanorama {
@@ -29,8 +29,8 @@ export interface PeriodoPanorama {
   };
   /** Propuesta del SII del mes; solo existe si se sincronizó y trajo datos. */
   readonly propuesta?: MontosPropuesta & { readonly sinPropuesta: boolean };
-  /** Boletas de honorarios recibidas del mes (cantidad con anuladas; montos sin ellas); solo existe si se consultaron. */
-  readonly honorarios?: TotalesBheMes;
+  /** Boletas de honorarios recibidas del mes (cantidad con anuladas; montos sin ellas) o `sin_respuesta`; solo existe si se consultaron. */
+  readonly honorarios?: TotalesBheMes | 'sin_respuesta';
 }
 
 export interface PanoramaSii {
@@ -69,6 +69,7 @@ export function panorama(deps: DepsApp, rutTexto: string): PanoramaSii {
     const vigente = disponibilidad.f29 ? declaracionVigente(deps.store.declaracionesF29(perfil.rut, periodo)) : null;
     const valores = vigente ? deps.store.valoresF29(perfil.rut, periodo, vigente.folio) : null;
     const propuesta = disponibilidad.propuestaF29 ? deps.store.propuestaF29(perfil.rut, periodo) : null;
+    const honorarios = honorariosDelMes(deps, perfil.rut, periodo, disponibilidad);
     return {
       periodo,
       disponibilidad,
@@ -86,7 +87,7 @@ export function panorama(deps: DepsApp, rutTexto: string): PanoramaSii {
         valores: valores?.valores ?? {},
       },
       ...(propuesta ? { propuesta: { sinPropuesta: propuesta.sinPropuesta, ...montosPropuesta(propuesta) } } : {}),
-      ...(disponibilidad.bheRecibidas ? { honorarios: deps.store.totalesBhe(perfil.rut, periodo) } : {}),
+      ...(honorarios === null ? {} : { honorarios }),
     };
   });
   return {

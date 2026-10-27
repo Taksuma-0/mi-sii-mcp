@@ -225,7 +225,7 @@ const TABLAS: readonly TablaEsquema[] = [
     columnas: [
       col('id', 'INTEGER', 'Identificador; mayor id = intento más reciente'),
       RUT,
-      col('superficie', 'TEXT', 'rcv.VENTA, rcv.COMPRA, f29 (listado de declaraciones), f29.valores (detalle de la vigente; no se repite si f29_lectura ya tiene una lectura coherente del folio con la misma versión del lector, así que puede no haber un intento reciente) , f29.propuesta (propuesta del SII; solo si se pidió) o bhe.recibidas (boletas de honorarios recibidas; solo si se pidió)'),
+      col('superficie', 'TEXT', 'rcv.VENTA, rcv.COMPRA, f29 (listado de declaraciones), f29.valores (detalle de la vigente; no se repite si f29_lectura ya tiene una lectura coherente del folio con la misma versión del lector, así que puede no haber un intento reciente), f29.propuesta (propuesta del SII; solo si se pidió) o bhe.recibidas (boletas de honorarios recibidas; solo si se pidió)'),
       PERIODO,
       col('iniciado_en', 'TEXT', 'Instante ISO UTC de inicio'),
       col('terminado_en', 'TEXT', 'Instante ISO UTC de término; NULL si sigue en curso'),
