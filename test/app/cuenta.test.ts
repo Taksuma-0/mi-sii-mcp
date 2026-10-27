@@ -56,6 +56,21 @@ describe('sincronizarCuenta', () => {
     expect(store.contribuyente(RUT_EMPRESA)?.representa).toEqual([]);
   });
 
+  it('una lista vacía cuando había empresas guardadas se trata como respuesta vacía: se conserva lo guardado', async () => {
+    const { deps, store, sii, db } = preparar();
+    await sincronizarCuenta(deps, RUT_EMPRESA);
+    sii.empresas = [];
+
+    const r = await sincronizarCuenta(deps, RUT_EMPRESA);
+
+    expect(r.empresas).toBeNull();
+    expect(r.representa).toEqual(['33333333-3']);
+    expect(r.errores).toEqual([expect.objectContaining({ superficie: 'cuenta.empresas', codigo: 'RESPUESTA_VACIA' })]);
+    expect(store.empresasAutorizadas(RUT_EMPRESA)).toHaveLength(3);
+    expect(store.contribuyente(RUT_EMPRESA)?.representa).toEqual(['33333333-3']);
+    expect(bitacora(db).at(-1)).toMatchObject({ superficie: 'cuenta.empresas', estado: 'error', error_codigo: 'RESPUESTA_VACIA' });
+  });
+
   it('si el perfil falla igual lee las empresas, y deja el error en su superficie', async () => {
     const { deps, store, sii, db } = preparar();
     sii.fallas.set('perfil', new ErrorImpuestocl('PORTAL_CAMBIO', 'Mi SII cambió.'));

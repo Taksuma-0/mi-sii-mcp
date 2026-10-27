@@ -54,6 +54,9 @@ export async function sincronizarCuenta(deps: DepsApp, rutTexto: string, signal?
     revisarCancelacion(signal);
     empresas = await registrar(deps, rut, 'cuenta.empresas', PERIODO_CUENTA, buffer, res, signal, async (id, ahora) => {
       const lista = await sii.empresasAutorizadas();
+      if (lista.length === 0 && deps.store.empresasAutorizadas(rut).length > 0) {
+        throw new ErrorImpuestocl('RESPUESTA_VACIA', 'Empresas autorizadas: el SII respondió sin empresas; se conservan las guardadas.');
+      }
       deps.store.reemplazarEmpresasAutorizadas(id, rut, lista, ahora);
       const representa = lista.filter((e) => e.fechaDesautorizacion === null && e.rutEmpresa !== rut).map((e) => e.rutEmpresa);
       deps.store.guardarContribuyente({ ...(deps.store.contribuyente(rut) ?? existente), representa });
