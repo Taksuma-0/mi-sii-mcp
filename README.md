@@ -1,10 +1,32 @@
-# mi-sii-mcp
+<p align="center">
+  <img src="docs/img/banner.svg" alt="mi-sii-mcp: tus impuestos del SII, conversados con tu asistente" width="100%">
+</p>
 
-**Pregúntale a tu asistente por tus impuestos del SII, con tus datos reales.**
+<p align="center">
+  <a href="LICENSE"><img alt="Licencia MIT" src="https://img.shields.io/badge/licencia-MIT-0b4f63"></a>
+  <img alt="Node.js 22.12 o superior" src="https://img.shields.io/badge/node-%E2%89%A522.12-3c873a">
+  <a href="https://modelcontextprotocol.io"><img alt="Servidor MCP" src="https://img.shields.io/badge/MCP-servidor-1764b6"></a>
+  <img alt="Solo lectura" src="https://img.shields.io/badge/SII-solo%20lectura-16645e">
+  <img alt="No oficial" src="https://img.shields.io/badge/estado-no%20oficial-a12627">
+</p>
+
+<p align="center">
+  <b>Pregúntale a tu asistente por tus impuestos del SII, con tus datos reales.</b><br>
+  <a href="#instalación">Instalación</a> ·
+  <a href="#qué-lee-del-sii">Qué lee</a> ·
+  <a href="#seguridad-y-privacidad">Seguridad</a> ·
+  <a href="#herramientas-del-mcp">Herramientas</a> ·
+  <a href="docs/guias/asistente-mcp.md">Guía completa</a>
+</p>
 
 mi-sii-mcp es un servidor [MCP](https://modelcontextprotocol.io) que conecta un asistente (Claude Code, Claude Desktop u otro cliente MCP) con **tu cuenta del SII de Chile**. Trae tus datos tributarios, los guarda **solo en tu equipo** y los cruza para mostrarte qué cuadra, qué no y qué vence.
 
-> ⚠️ **No oficial.** No está afiliado al Servicio de Impuestos Internos ni es asesoría tributaria. Úsalo para revisar tu información; las decisiones tributarias son tuyas o de tu contador.
+> [!WARNING]
+> **No oficial.** No está afiliado al Servicio de Impuestos Internos ni es asesoría tributaria. Úsalo para revisar tu información; las decisiones tributarias son tuyas o de tu contador.
+
+<p align="center">
+  <img src="docs/img/demo-conversacion.svg" alt="Demo: el asistente responde cuánto se ha retenido en boletas de honorarios, por pagador, y confirma que cuadra con lo informado al SII (datos ficticios)" width="820">
+</p>
 
 ---
 
@@ -29,6 +51,22 @@ mi-sii-mcp es un servidor [MCP](https://modelcontextprotocol.io) que conecta un 
 | **Cuenta** | Perfil tributario (régimen, segmento, si declara el F29 hasta el día 20) y empresas autorizadas | Vencimientos del F29 según tu caso (día 12, 20 o 28) |
 
 Los **datos públicos** (UTM, tablas de impuestos, tasas de cotización, comisiones de AFP) no se guardan: la herramienta `fuentes_oficiales` indica en qué página oficial consultarlos para el año que corresponda.
+
+## Cómo funciona
+
+```mermaid
+flowchart LR
+    P([Tú]) -- preguntas --> A[Asistente<br/>Claude Code / Desktop]
+    A <-- herramientas MCP --> M[mi-sii-mcp]
+    M -- solo lectura --> S[(Portal del SII)]
+    M <--> D[(Base local<br/>~/.mi-sii-mcp)]
+    P -. conecta su cuenta .-> W[Página local<br/>Abrir mi-sii-mcp.cmd]
+    W --> M
+```
+
+1. **Conectas tu cuenta** una vez en una página local; la clave no pasa por el chat.
+2. **El asistente pide datos** al MCP, que los lee del SII y los guarda en tu equipo.
+3. **El MCP cruza la información** con reglas tributarias y responde con hallazgos claros.
 
 ## Seguridad y privacidad
 
@@ -72,6 +110,10 @@ En Windows, haz doble clic en **`Abrir mi-sii-mcp.cmd`** (en la carpeta del proy
 1. Escribes tu RUT (los puntos y el guion se ponen solos) y tu clave tributaria.
 2. Dejas marcado **Mantener conectada** para que la sesión se renueve sola.
 3. Pulsas **Conectar**.
+
+<p align="center">
+  <img src="docs/img/pagina-conectar.png" alt="Página local para conectar la cuenta del SII, con cuentas de ejemplo" width="560">
+</p>
 
 Puedes conectar varias cuentas (tu RUT personal y tus empresas). También puedes entrar con **ClaveÚnica** desde la misma página, aunque esa sesión no se renueva sola.
 
