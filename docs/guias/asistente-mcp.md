@@ -126,7 +126,7 @@ Una ausencia de filas no significa cero: puede ser un mes que nunca se descargó
 
 Si un F29 leído no cuadra, o tras actualizar mi-sii-mcp, pídele «relee mis F29 guardados»: `f29_releer` vuelve a leer los PDF ya descargados con el lector actual, sin entrar al SII (en la terminal, `releer-f29 <tu RUT>`).
 
-### Herramientas (14)
+### Herramientas (15)
 
 | Herramienta | Para qué sirve | ¿Va al SII? |
 | --- | --- | --- |
@@ -134,9 +134,10 @@ Si un F29 leído no cuadra, o tras actualizar mi-sii-mcp, pídele «relee mis F2
 | `sii_panorama` | Qué hay guardado por mes (y renta por año) para un RUT. | No |
 | `sincronizar` | Trae RCV y F29 de un rango de meses; con `superficies` agrega `propuesta` y `bhe`. Por defecto solo `rcv` y `f29`. | Sí (lee) |
 | `perfil_sincronizar` | Perfil tributario y empresas autorizadas. | Sí (lee) |
-| `renta_sincronizar` | F22 por año tributario (hasta 10 años por llamada). | Sí (lee) |
+| `renta_sincronizar` | F22 por año tributario (hasta 10 años por llamada), con las boletas emitidas de una persona y lo informado por terceros (declaraciones juradas). | Sí (lee) |
 | `iva_resumen`, `iva_hallazgos`, `f29_historial`, `plazos_proximos` | IVA, conciliación, retenciones y vencimientos con las reglas del dominio. | No |
-| `renta_resumen` | La renta guardada por año tributario. | No |
+| `renta_resumen` | La renta guardada por año tributario, con sus cruces contra boletas emitidas, pagadores y terceros. | No |
+| `fuentes_oficiales` | Dónde consultar los datos públicos (UTM, tablas del impuesto, tasas de cotización, comisiones de AFP) y la regla para estimar una renta. | No |
 | `rcv_documentos` | Documentos del RCV de un mes, paginados. | No |
 | `f29_releer` | Relee los PDF de F29 ya guardados con el lector actual. | No |
 | `datos_esquema`, `consulta_sql` | Mapa de las tablas y consultas `SELECT` de solo lectura. | No |
