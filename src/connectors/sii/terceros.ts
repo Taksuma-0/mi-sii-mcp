@@ -102,7 +102,9 @@ function leerTabla(t: unknown): TablaDj {
       for (const [i, c] of f.celdas) if (i < columnas) fila[i] = { valor: texto(c['value']), contactoRut: c['contactoRut'] === true };
       return fila;
     });
-  const cant = t['cantRegistros'];
+  // Algunas DJ (la 1945) traen cantRegistros como texto.
+  const crudo = t['cantRegistros'];
+  const cant = typeof crudo === 'string' && /^\d+$/.test(crudo.trim()) ? Number(crudo) : crudo;
   return { cabeceras, datos, cantRegistros: typeof cant === 'number' && Number.isInteger(cant) && cant >= 0 ? cant : null };
 }
 
@@ -164,6 +166,8 @@ const ES_FOLIO = /^folio$/i;
 const ES_FECHA = /fecha/i;
 /** Columnas de texto conocidas que no son montos ni se guardan aparte. */
 const ES_OTRA = /tipo de formulario|origen/i;
+/** Columnas que no son montos aunque traigan números: otros RUT (p. ej. del beneficiario), códigos y datos del exterior (1945). */
+const NO_ES_MONTO = /\brut\b|beneficiario|exterior|pa[ií]s|moneda|^tipo de|destino|c[oó]digo|n[uú]mero|\brol\b|manzana|predio/i;
 
 /** Retención de honorarios: columnas «Monto Retenido … / Honorarios …» (verificado con la 1879); se suman todas sus tasas. */
 const ES_RETENCION_HONORARIOS = (c: string): boolean => /retenid/i.test(c) && /honorario/i.test(c);
@@ -227,13 +231,17 @@ function mapear(tabla: TablaDj): Mapa {
       usadas.add(j);
     }
   });
-  const nombre = tomar(primera(cabeceras, usadas, (c) => ES_NOMBRE.test(ultima(c))));
+  // El nombre del informante: el del declarante si la DJ distingue (la 1945 trae también el del beneficiario).
+  const nombre = tomar(
+    primera(cabeceras, usadas, (c) => ES_NOMBRE.test(ultima(c)) && /declarante/i.test(ultima(c))) ??
+      primera(cabeceras, usadas, (c) => ES_NOMBRE.test(ultima(c)) && !/beneficiario|exterior/i.test(ultima(c))),
+  );
   const estado = tomar(primera(cabeceras, usadas, (c) => ES_ESTADO.test(ultima(c))));
   const certificado = tomar(primera(cabeceras, usadas, (c) => ES_CERTIFICADO.test(ultima(c))));
   const folio = tomar(primera(cabeceras, usadas, (c) => ES_FOLIO.test(ultima(c))));
   const fecha = tomar(primera(cabeceras, usadas, (c) => ES_FECHA.test(ultima(c))));
   cabeceras.forEach((c, j) => {
-    if (ES_OTRA.test(ultima(c))) usadas.add(j);
+    if (ES_OTRA.test(ultima(c)) || NO_ES_MONTO.test(ultima(c))) usadas.add(j);
   });
   // Monto: una columna sin ningún texto que no sea un número chileno (vacía o «-» vale null).
   const montos: [number, string][] = [];
@@ -295,17 +303,26 @@ function filaDe(dj: number, mapa: Mapa, fila: readonly CeldaDato[]): DjTercero {
   };
 }
 
-/** La tabla del detalle de una respuesta de `getDjDetalle`; null si el SII no trae detalle. */
-function tablaDetalle(data: unknown): TablaDj | null {
-  if (data === null) return null;
+/**
+ * Las tablas del detalle de una respuesta de `getDjDetalle`, en orden: la mayoría trae una sola (`DETALLE.detalle`), pero
+ * algunas DJ (la 1945) la reparten en secciones (`DETALLE B.detalle1`, `DETALLE C.detalle2`…). Vacía si no trae detalle.
+ */
+function tablasDetalle(data: unknown): TablaDj[] {
+  if (data === null) return [];
   if (!esObjeto(data)) throw cambio('el detalle no es un objeto');
   const lista = data['listDetalle'];
-  if (lista === null || lista === undefined) return null;
+  if (lista === null || lista === undefined) return [];
   if (!esObjeto(lista)) throw cambio('listDetalle no es un objeto');
-  const detalle = lista['DETALLE'];
-  if (detalle === null || detalle === undefined) return null;
-  if (!esObjeto(detalle)) throw cambio('DETALLE no es un objeto');
-  return detalle['detalle'] === null || detalle['detalle'] === undefined ? null : leerTabla(detalle['detalle']);
+  const tablas: TablaDj[] = [];
+  for (const seccion of Object.keys(lista).sort()) {
+    const contenido = lista[seccion];
+    if (contenido === null || contenido === undefined) continue;
+    if (!esObjeto(contenido)) throw cambio(`${seccion} no es un objeto`);
+    for (const clave of Object.keys(contenido).sort()) {
+      if (contenido[clave] !== null && contenido[clave] !== undefined) tablas.push(leerTabla(contenido[clave]));
+    }
+  }
+  return tablas;
 }
 
 /**
@@ -314,8 +331,8 @@ function tablaDetalle(data: unknown): TablaDj | null {
  * de `MAX_PAGINAS_DJ` páginas es PORTAL_CAMBIO. Vacía si el SII no trae detalle.
  */
 export async function djDetalle(http: Http, sumidero: SumideroRespuestas, rut: Rut, anioTributario: number, dj: number): Promise<DjTercero[]> {
-  const pedir = async (page: number): Promise<TablaDj | null> =>
-    tablaDetalle(
+  const pedir = async (page: number): Promise<TablaDj[]> =>
+    tablasDetalle(
       await consultar(http, sumidero, 'getDjDetalle', 'terceros.detalle', {
         periodo: periodoDj(anioTributario),
         rut: String(rut.cuerpo),
@@ -327,9 +344,12 @@ export async function djDetalle(http: Http, sumidero: SumideroRespuestas, rut: R
         tipoConsulta: 2,
       }),
     );
-  const primeraPagina = await pedir(1);
-  if (primeraPagina === null) return [];
-  const total = primeraPagina.cantRegistros;
+  // Las secciones sin filas (cantRegistros 0, solo cabeceras) no aportan informantes.
+  const conFilas = (tablas: TablaDj[]): TablaDj[] => tablas.filter((t) => t.datos.length > 0);
+  const secciones = await pedir(1);
+  if (secciones.length === 0) return [];
+  // Solo una DJ de una sección (la forma habitual) se pagina: no se sabe cómo pedir la página siguiente de cada sección.
+  const total = secciones.length === 1 ? secciones[0]!.cantRegistros : null;
   const filas = new Map<string, DjTercero>();
   const agregar = (tabla: TablaDj): number => {
     const mapa = mapear(tabla);
@@ -343,11 +363,11 @@ export async function djDetalle(http: Http, sumidero: SumideroRespuestas, rut: R
     }
     return nuevas;
   };
-  agregar(primeraPagina);
+  for (const tabla of conFilas(secciones)) agregar(tabla);
   for (let page = 2; total !== null && filas.size < total; page++) {
     if (page > MAX_PAGINAS_DJ) throw cambio(`la DJ ${dj} informa ${total} registros y no se completaron en ${MAX_PAGINAS_DJ} páginas`);
-    const tabla = await pedir(page);
-    if (tabla === null || agregar(tabla) === 0) throw cambio(`la página ${page} de la DJ ${dj} no trajo registros nuevos (van ${filas.size} de ${total})`);
+    const [tabla] = await pedir(page);
+    if (tabla === undefined || agregar(tabla) === 0) throw cambio(`la página ${page} de la DJ ${dj} no trajo registros nuevos (van ${filas.size} de ${total})`);
   }
   return [...filas.values()];
 }

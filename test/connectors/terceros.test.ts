@@ -250,6 +250,36 @@ describe('djDetalle', () => {
     });
   });
 
+  it('una DJ con el detalle en varias secciones (como la 1945) lee todas, toma al declarante y no trata RUT ni códigos como montos', async () => {
+    // Forma de la 1945 vista en vivo: secciones «DETALLE B», «DETALLE C»… con claves detalle1, detalle2…; cantRegistros como texto.
+    const cabB = [
+      [{ v: 'B: EGRESOS FICTICIOS', cs: 15 }, ...Array.from({ length: 14 }, () => null)],
+      [
+        { v: 'Tipo de Ingreso o Egreso' }, { v: 'Destino del Egreso' }, { v: 'RUT Beneficiario Final', cs: 3 }, null, null, { v: 'Nombre o Razón Social Beneficiario Final' },
+        { v: 'Tipo de Relación' }, { v: 'Monto' }, { v: 'Estado' }, { v: 'Tipo de Formulario' }, { v: 'Folio' }, { v: 'Rut Declarante', cs: 3 }, null, null, { v: 'Nombre o Razón Social Declarante' },
+      ],
+    ];
+    const datoB = ['201', '1', '11.111.111', '-', '1', 'PERSONA FICTICIA', '4', '1.000.000', 'No Observada', '1945', '123456', { v: '55.555.555', rut: true }, '-', '5', 'FUNDACION FICTICIA'];
+    const seccionB = { ...tablaSii(15, cabB, [datoB]), cantRegistros: '1' };
+    const seccionC = { ...tablaSii(3, [[{ v: 'Tipo de Exención' }, { v: 'Estado' }, { v: 'Folio' }]], []), cantRegistros: '0' };
+    const cuerpo = sobre({ listDetalle: { 'DETALLE B': { detalle1: seccionB }, 'DETALLE C': { detalle2: seccionC } } });
+    const { http, sumidero, llamadas } = await preparar({ [RUTA('getDjDetalle')]: conBody(cuerpo) });
+
+    const filas = await djDetalle(http, sumidero, PERSONA, 2026, 1945);
+
+    expect(llamadas).toHaveLength(1);
+    expect(filas).toHaveLength(1);
+    expect(filas[0]).toMatchObject({ dj: 1945, informanteRut: '55555555-5', informanteNombre: 'FUNDACION FICTICIA', folio: 123456, observada: false });
+    expect(filas[0]!.montos).toEqual({ Monto: 1_000_000 });
+  });
+
+  it('una columna «Monto Bruto» sigue siendo monto aunque contenga «rut»', async () => {
+    const tabla = tablaSii(4, [[{ v: 'Rut Declarante', cs: 2 }, null, { v: 'Folio' }, { v: 'Monto Bruto' }]], [[{ v: '33.333.333', rut: true }, '3', '7', '500.000']]);
+    const { http, sumidero } = await preparar({ [RUTA('getDjDetalle')]: conBody(detalleSii(tabla)) });
+    const [fila] = await djDetalle(http, sumidero, PERSONA, 2026, 1879);
+    expect(fila!.montos).toEqual({ 'Monto Bruto': 500_000 });
+  });
+
   it('sin detalle (data null o sin DETALLE) devuelve una lista vacía', async () => {
     for (const data of [null, { listDetalle: null }, { listDetalle: {} }]) {
       const { http, sumidero } = await preparar({ [RUTA('getDjDetalle')]: conBody(sobre(data)) });
