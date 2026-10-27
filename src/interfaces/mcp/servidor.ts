@@ -33,14 +33,13 @@ export const HERRAMIENTAS = [
 
 /** Lo que lee el asistente al conectarse: flujo de uso, regla de la clave y cobertura (máximo 1 500 caracteres). */
 export const INSTRUCCIONES_MCP = [
-  '1. Empieza con perfiles_listar para conocer los RUT y el estado de su sesión; luego sii_panorama para ver qué meses hay guardados.',
-  '2. Si faltan meses o están viejos, usa sincronizar por tramos de hasta 12 meses e informa el avance a la persona en cada tramo.',
-  '3. Para IVA y conciliación prefiere iva_resumen, iva_hallazgos, f29_historial y plazos_proximos: aplican las reglas del dominio.',
+  '1. Empieza con perfiles_listar (RUT y estado de su sesión) y luego sii_panorama (qué hay guardado).',
+  '2. Si falta o está viejo, usa sincronizar por tramos de hasta 12 meses e informa el avance en cada tramo. Trae rcv y f29 por defecto; propuesta y bhe (boletas de honorarios recibidas) son opcionales. renta_sincronizar trae el F22 por año tributario; perfil_sincronizar, el perfil y las empresas autorizadas.',
+  '3. Para IVA, retenciones y plazos prefiere iva_resumen, iva_hallazgos, f29_historial y plazos_proximos: aplican las reglas del dominio. Para la renta, renta_resumen. Si un F29 no cuadra o se actualizó impuestocl, f29_releer relee los PDF ya guardados sin ir al SII.',
   '4. Para cruces y preguntas libres, llama una vez a datos_esquema y luego a consulta_sql (solo lectura).',
-  '5. Si un F29 leído no cuadra o se actualizó impuestocl, f29_releer relee los PDF ya guardados sin ir al SII.',
-  '6. perfil_sincronizar lee el perfil tributario (día 20, régimen) y las empresas autorizadas; plazos_proximos las usa.',
-  '7. Nunca pidas la clave tributaria ni intentes un login. Ante SESION_REQUERIDA (o CLAVE_RECHAZADA, RUT_BLOQUEADO_LOCAL), muestra a la persona el comando de login del mensaje para que lo ejecute en su terminal, o indícale «Abrir impuestocl.cmd»; después reintenta.',
-  '8. Cobertura actual: solo RCV (compras y ventas) y F29. No es asesoría tributaria.',
+  '5. Nunca pidas la clave tributaria ni intentes un login. Ante SESION_REQUERIDA (o CLAVE_RECHAZADA, RUT_BLOQUEADO_LOCAL), muestra a la persona el comando de login del mensaje para que lo ejecute en su terminal, o indícale «Abrir impuestocl.cmd»; después reintenta.',
+  '6. Reintenta solo lo que el mensaje marca como reintentable.',
+  '7. Cobertura: RCV (compras y ventas), F29, propuesta de F29, boletas de honorarios recibidas, renta F22, perfil tributario y empresas autorizadas. No es asesoría tributaria.',
 ].join('\n');
 
 export interface OpcionesMcp {
@@ -135,7 +134,7 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
     'sii_panorama',
     {
       title: 'Panorama local del SII',
-      description: 'Muestra el panorama de todos los meses almacenados localmente para un RUT, con montos y cobertura de RCV (compras y ventas) y F29. No requiere un período y no descarga datos del SII: consulta solo lo almacenado localmente.',
+      description: 'Muestra el panorama de todos los meses almacenados localmente para un RUT, con montos y cobertura de RCV (compras y ventas) y F29 y, si se sincronizaron, la propuesta de F29, las boletas de honorarios recibidas y la renta (F22) por año tributario, además de los datos de la cuenta. No requiere un período y no descarga datos del SII: consulta solo lo almacenado localmente.',
       inputSchema: z.object({ rut: RUT }),
       annotations: SOLO_LECTURA,
     },
@@ -164,7 +163,7 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
     {
       title: 'Sincronizar con el SII',
       description:
-        'Trae desde el portal del SII el RCV (compras y ventas) y el F29 de un rango de meses y los guarda en la base local. Solo lee el SII: nunca presenta ni modifica nada allí. Por defecto trae rcv y f29; con superficies puedes elegir, y «propuesta» (opcional, no va por defecto) agrega la propuesta de F29 del SII: crédito, remanente y retención propuestos, sin débito ni total a pagar; «bhe» (opcional, no va por defecto) agrega las boletas de honorarios recibidas del mes, con su retención, que se cruza con el código 151 del F29. Admite hasta 120 meses por llamada; para historia larga llama por tramos de 12 meses, así avanzas por partes y evitas que el cliente agote el plazo de espera. Si no hay sesión, la respuesta trae el comando de login para que la persona lo ejecute en su terminal (o conecte desde «Abrir impuestocl.cmd»); nunca pidas la clave en el chat.',
+        'Trae desde el portal del SII el RCV (compras y ventas) y el F29 de un rango de meses y los guarda en la base local. Solo lee el SII: nunca presenta ni modifica nada allí. Por defecto trae rcv y f29 (propuesta y bhe son opt-in); con superficies puedes elegir, y «propuesta» (opcional, no va por defecto) agrega la propuesta de F29 del SII: crédito, remanente y retención propuestos, sin débito ni total a pagar; «bhe» (opcional, no va por defecto) agrega las boletas de honorarios recibidas del mes, con su retención, que se cruza con el código 151 del F29. La renta (F22) no va aquí: usa renta_sincronizar, y el perfil y las empresas autorizadas, perfil_sincronizar. Admite hasta 120 meses por llamada; para historia larga llama por tramos de 12 meses, así avanzas por partes y evitas que el cliente agote el plazo de espera. Si no hay sesión, la respuesta trae el comando de login para que la persona lo ejecute en su terminal (o conecte desde «Abrir impuestocl.cmd»); nunca pidas la clave en el chat.',
       inputSchema: z.object({ rut: RUT, desde: PERIODO, hasta: PERIODO.optional(), superficies: z.array(z.enum(['rcv', 'f29', 'propuesta', 'bhe'])).optional() }),
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
@@ -186,7 +185,7 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
     {
       title: 'Sincronizar la cuenta del SII',
       description:
-        'Trae del SII el perfil tributario (si está autorizado a declarar el F29 hasta el día 20, régimen y segmento) y las empresas que el contribuyente puede consultar, y actualiza a quién representa el perfil con las empresas activas. Solo lee el SII y no guarda nombres, correos, teléfonos ni direcciones. Los plazos del F29 usan el día 20 solo si el SII lo autoriza (si no, el 12): sincroniza la cuenta antes de revisar plazos. Si no hay sesión, la respuesta trae el comando de login para que la persona lo ejecute en su terminal; nunca pidas la clave en el chat.',
+        'Trae del SII el perfil tributario (si está autorizado a declarar el F29 hasta el día 20, régimen y segmento) y las empresas que el contribuyente puede consultar, y reemplaza `representa` del perfil por las empresas activas que informa el SII (lo que el SII reporta sobrescribe lo que se haya anotado a mano). Solo lee el SII; de las empresas autorizadas guarda RUT, razón social (que puede ser el nombre de una persona), privilegios y fecha de desautorización, y no guarda correos, teléfonos ni direcciones. Los plazos del F29 usan el día 20 solo si el SII lo autoriza (si no, el 12): sincroniza la cuenta antes de revisar plazos. Si no hay sesión, la respuesta trae el comando de login para que la persona lo ejecute en su terminal; nunca pidas la clave en el chat.',
       inputSchema: z.object({ rut: RUT }),
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },

@@ -39,6 +39,10 @@ describe('servidor MCP', () => {
     expect(panorama?.description).toMatch(/no requiere.*período/i);
     expect(panorama?.description).toMatch(/no descarga/i);
     expect(panorama?.description).toMatch(/almacenad[oa]s? local/i);
+    expect(panorama?.description).toMatch(/propuesta de F29/i);
+    expect(panorama?.description).toMatch(/boletas de honorarios recibidas/i);
+    expect(panorama?.description).toMatch(/renta \(F22\)/i);
+    expect(panorama?.description).not.toMatch(/solo RCV/i);
     expect(tools.find((t) => t.name === 'sincronizar')?.annotations?.readOnlyHint).toBe(false);
     await cliente.close();
   });
@@ -358,9 +362,12 @@ describe('servidor MCP', () => {
     expect(instrucciones).toBe(INSTRUCCIONES_MCP);
     expect(instrucciones.length).toBeGreaterThan(0);
     expect(instrucciones.length).toBeLessThanOrEqual(1_500);
-    for (const clave of ['perfiles_listar', 'sii_panorama', 'sincronizar', '12 meses', 'iva_resumen', 'iva_hallazgos', 'f29_historial', 'plazos_proximos', 'datos_esquema', 'consulta_sql', 'f29_releer', 'perfil_sincronizar', 'SESION_REQUERIDA', 'Abrir impuestocl.cmd', 'RCV', 'F29']) {
+    for (const clave of ['perfiles_listar', 'sii_panorama', 'sincronizar', '12 meses', 'iva_resumen', 'iva_hallazgos', 'f29_historial', 'plazos_proximos', 'datos_esquema', 'consulta_sql', 'f29_releer', 'perfil_sincronizar', 'renta_sincronizar', 'renta_resumen', 'propuesta', 'bhe', 'reintentable', 'SESION_REQUERIDA', 'Abrir impuestocl.cmd', 'RCV', 'F29', 'F22']) {
       expect(instrucciones).toContain(clave);
     }
+    expect(instrucciones).toMatch(/boletas de honorarios recibidas/);
+    expect(instrucciones).toMatch(/empresas autorizadas/);
+    expect(instrucciones).not.toMatch(/solo RCV/i);
     expect(instrucciones).toMatch(/nunca pidas la clave/i);
     expect(instrucciones).toMatch(/no es asesoría tributaria/i);
     await cliente.close();
@@ -574,6 +581,10 @@ describe('servidor MCP', () => {
       expect(descripcion).toMatch(/tramos de 12 meses/);
       expect(descripcion).toContain('Abrir impuestocl.cmd');
       expect(descripcion).not.toContain('impuestocl login');
+      expect(descripcion).toMatch(/por defecto trae rcv y f29/i);
+      expect(descripcion).toMatch(/«propuesta».*no va por defecto/i);
+      expect(descripcion).toMatch(/«bhe».*no va por defecto/i);
+      expect(descripcion).toMatch(/renta_sincronizar/);
       await cliente.close();
     });
   });
@@ -596,6 +607,9 @@ describe('servidor MCP: cuenta del SII', () => {
     expect(herramienta.annotations).toEqual({ readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true });
     expect(Object.keys(herramienta.inputSchema.properties ?? {})).toEqual(['rut']);
     expect(herramienta.description).toMatch(/día 20/);
+    expect(herramienta.description).toMatch(/reemplaza `representa`.*sobrescribe.*anotado a mano/i);
+    expect(herramienta.description).toMatch(/razón social/i);
+    expect(herramienta.description).not.toMatch(/no guarda nombres/i);
 
     const r = await cliente.callTool({ name: 'perfil_sincronizar', arguments: { rut: '22.222.222-2' } });
 

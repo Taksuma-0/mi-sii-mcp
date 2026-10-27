@@ -4,11 +4,19 @@ Con esta guía, Claude (Claude Code o Claude Desktop) puede traer tus datos del 
 
 Qué hace cada parte:
 
-- **impuestocl** descarga tu RCV (compras y ventas) y tu F29 desde el SII, los guarda en tu equipo y responde consultas de solo lectura sobre ellos.
+- **impuestocl** descarga tus datos desde el SII (RCV, F29 y más; ver la cobertura abajo), los guarda en tu equipo y responde consultas de solo lectura sobre ellos.
 - **El asistente** decide qué consultar, escribe las consultas y te explica el resultado.
 - **Tú** inicias sesión en el SII una sola vez, en tu propia terminal. La clave tributaria no se escribe nunca en el chat y ninguna herramienta del asistente la recibe.
 
-Cobertura actual: **solo RCV (compras y ventas) y F29**. No incluye boletas de honorarios, renta (F22), carpeta tributaria ni otras áreas del portal. Esta herramienta no es oficial, no está afiliada al SII y no es asesoría tributaria.
+Cobertura actual:
+
+- **RCV** (compras y ventas) y **F29** (declaraciones presentadas, con sus códigos).
+- **Propuesta de F29** del SII: crédito, remanente y retención propuestos; no trae débito ni total a pagar.
+- **Boletas de honorarios recibidas**, con su retención, que se cruza con el código 151 del F29.
+- **Renta anual (F22)** por año tributario: declaraciones, conclusión del SII, códigos con su glosa, observaciones y eventos.
+- **Perfil tributario** (si el SII autoriza declarar el F29 hasta el día 20, régimen, segmento) y **empresas autorizadas** de la cuenta.
+
+No incluye carpeta tributaria, deuda en la Tesorería, otros impuestos ni otras áreas del portal, ni emite ni presenta nada en el SII: solo lee. Esta herramienta no es oficial, no está afiliada al SII y no es asesoría tributaria.
 
 Todo se ejecuta en PowerShell, en la carpeta del proyecto: `C:\ruta\a\mi-sii-mcp`.
 
@@ -83,12 +91,37 @@ Escribe en el chat de Claude como lo harías con una persona. Algunos ejemplos:
 - «Cruza mis ventas con mis compras: ¿qué contrapartes aparecen en ambos lados y cuánto suman?»
 - «¿Qué facturas recibidas están pendientes y cuándo vence su plazo de reclamo?»
 - «¿Qué plazos tengo en los próximos 30 días?»
+- «Trae las boletas de honorarios recibidas de 2026 y dime si la retención que declaré en el F29 (código 151) coincide con la de las boletas.» (`sincronizar` con la superficie `bhe`, luego `iva_hallazgos` y `f29_historial`).
+- «Trae la propuesta de F29 de septiembre y compárala con lo que declaré.» (superficie `propuesta`).
+- «Muéstrame mi renta de los años tributarios 2024 a 2026: conclusión, impuesto pagado y remanente.» (`renta_sincronizar`, luego `renta_resumen`; el año tributario es el año comercial + 1).
+- «Sincroniza mi perfil y dime si el SII me autoriza a declarar hasta el día 20.» (`perfil_sincronizar`).
 
-Cómo trabaja el asistente: para los cálculos de IVA usa herramientas que aplican las reglas del dominio (`iva_resumen`, `iva_hallazgos`, `f29_historial`, `plazos_proximos`). Para cruces y preguntas libres lee primero el mapa de las tablas (`datos_esquema`) y luego escribe consultas de solo lectura (`consulta_sql`) sobre una **copia** de tus datos, así que no puede modificar la base real. Cada respuesta tiene un tope de 200 filas y 40 000 caracteres: si una pregunta es muy amplia, el asistente agrupa o filtra.
+Cómo trabaja el asistente: para los cálculos de IVA, retenciones y plazos usa herramientas que aplican las reglas del dominio (`iva_resumen`, `iva_hallazgos`, `f29_historial`, `plazos_proximos`) y, para la renta, `renta_resumen`. Para cruces y preguntas libres lee primero el mapa de las tablas (`datos_esquema`) y luego escribe consultas de solo lectura (`consulta_sql`) sobre una **copia** de tus datos, así que no puede modificar la base real. Cada respuesta tiene un tope de 200 filas y 40 000 caracteres: si una pregunta es muy amplia, el asistente agrupa o filtra.
 
 Una ausencia de filas no significa cero: puede ser un mes que nunca se descargó. Pídele que lo distinga con la bitácora de sincronización.
 
 Si un F29 leído no cuadra, o tras actualizar impuestocl, pídele «relee mis F29 guardados»: `f29_releer` vuelve a leer los PDF ya descargados con el lector actual, sin entrar al SII (en la terminal, `releer-f29 <tu RUT>`).
+
+### Herramientas (14)
+
+| Herramienta | Para qué sirve | ¿Va al SII? |
+| --- | --- | --- |
+| `perfiles_listar` | Contribuyentes configurados y estado de su sesión. | No |
+| `sii_panorama` | Qué hay guardado por mes (y renta por año) para un RUT. | No |
+| `sincronizar` | Trae RCV y F29 de un rango de meses; con `superficies` agrega `propuesta` y `bhe`. Por defecto solo `rcv` y `f29`. | Sí (lee) |
+| `perfil_sincronizar` | Perfil tributario y empresas autorizadas. | Sí (lee) |
+| `renta_sincronizar` | F22 por año tributario (hasta 10 años por llamada). | Sí (lee) |
+| `iva_resumen`, `iva_hallazgos`, `f29_historial`, `plazos_proximos` | IVA, conciliación, retenciones y vencimientos con las reglas del dominio. | No |
+| `renta_resumen` | La renta guardada por año tributario. | No |
+| `rcv_documentos` | Documentos del RCV de un mes, paginados. | No |
+| `f29_releer` | Relee los PDF de F29 ya guardados con el lector actual. | No |
+| `datos_esquema`, `consulta_sql` | Mapa de las tablas y consultas `SELECT` de solo lectura. | No |
+
+Qué puede cambiar el estado local: `perfil_sincronizar` reemplaza a quién representa el perfil (`representa`) por las empresas activas que informa el SII, de modo que lo que anotaste a mano se sobrescribe. De las empresas autorizadas se guarda también la razón social, que puede ser el nombre de una persona. Los hallazgos guardados se recalculan al pedir `iva_resumen` o `iva_hallazgos`, por lo que pueden quedar desfasados después de `perfil_sincronizar` (por ejemplo, el plazo del F29 depende del día 20) hasta que se vuelvan a pedir.
+
+**Qué se sincroniza por defecto.** `sincronizar` trae solo `rcv` y `f29` si no indicas superficies: la propuesta y las boletas de honorarios son opcionales porque cada una agrega consultas al SII por mes. Pídelas expresamente («incluye las boletas de honorarios»). La renta y el perfil tienen su propia herramienta.
+
+**Errores y reintentos.** Si un error se marca como reintentable, el asistente puede volver a intentarlo; si no, no. Si falta sesión, te mostrará el comando de login para que lo ejecutes tú.
 
 Los resultados de las herramientas pasan a la conversación con el asistente, igual que cualquier cosa que le muestres. Pregunta solo por los contribuyentes que estés dispuesto a comentar en ese chat.
 
@@ -132,6 +165,8 @@ Si el archivo ya tiene otros servidores, agrega solo la entrada `impuestocl` den
   npm.cmd run build
   ```
 
+- **Una consulta al SII tarda demasiado y se corta**: cada petición HTTP tiene un plazo de 60 segundos por defecto. Se puede cambiar con la variable de entorno `IMPUESTOCL_PLAZO_HTTP_MS` (en milisegundos; se acota entre 10 000 y el máximo del programa). En Claude Code se define en el registro con `--env`, y en Claude Desktop en un bloque `env` de la entrada `impuestocl`.
+- **Respaldo de la base**: antes de migrar el esquema de la base a una versión nueva (por ejemplo, tras actualizar impuestocl), el programa guarda una copia íntegra junto a ella, con el nombre `impuestocl-antes-v<N>.db`, en la carpeta `.impuestocl`. Si la copia falla, la migración no se aplica y verás el error `RESPALDO_FALLIDO`. Las copias contienen tus datos: bórralas cuando ya no las necesites.
 - **`node` debe estar en el PATH, versión 22.12 o superior.** Compruébalo en una terminal nueva con `node --version`. Esto vale también para Claude Desktop: lanza `node` con el PATH de Windows, así que reinícialo por completo después de instalar o actualizar Node.
 - **No encuentras «Abrir impuestocl.cmd»**: está en la carpeta del proyecto, `C:\ruta\a\mi-sii-mcp\Abrir impuestocl.cmd`. Haz doble clic para abrir la interfaz local (ver `docs/guias/interfaz-local.md`).
 

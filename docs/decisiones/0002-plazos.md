@@ -1,6 +1,6 @@
 # 0002 — Reglas de plazos v1
 
-- **F29:** vence el día 20 del mes siguiente para contribuyentes que facturan electrónicamente
+- **F29 (superado, ver 0004):** vence el día 20 del mes siguiente para contribuyentes que facturan electrónicamente
   y declaran por internet. Si cae sábado, domingo o festivo, pasa al siguiente día hábil.
   Estado: **asumida**. Antes de publicar v1, la validación manual de T23 debe contrastar con
   el calendario tributario del SII (sii.cl → Calendario) para al menos tres meses que caigan

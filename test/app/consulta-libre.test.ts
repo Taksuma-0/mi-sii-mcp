@@ -164,7 +164,9 @@ describe('esquemaDatos', () => {
     for (const palabra of ['signo', 'REGISTRO', 'PENDIENTE', 'NO_INCLUIR', 'RECLAMADO', 'COMPRA', 'VENTA', 'AAAA-MM', 'sincronizacion']) {
       expect(texto).toContain(palabra);
     }
-    expect(texto).toMatch(/Cobertura: solo el RCV.*F29/);
+    expect(texto).toMatch(/Cobertura: el RCV.*F29.*propuesta.*honorarios.*renta anual \(F22\)/);
+    expect(texto).not.toMatch(/solo el RCV/i);
+    expect(texto).toMatch(/pueden quedar desfasados tras perfil_sincronizar/);
     expect(texto).toContain(`'${CODIGO_F29.TOTAL_CREDITOS}' menos ${CODIGOS_CREDITO_FUERA_RCV.map((c) => `'${c}'`).join(' y ')}`);
     // Igual que las reglas de IVA: en un F29 con valores leídos, el PDF compacto omite las líneas en cero y se guarda
     // cada línea con valor de la tabla; un total que falta junto a sus líneas es una lectura fallida.
