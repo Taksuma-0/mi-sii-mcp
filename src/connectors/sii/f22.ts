@@ -46,7 +46,7 @@ const CODIGOS_EXCLUIDOS: ReadonlySet<string> = new Set(['1', '2', '3', '5', '6',
  * bancaria: «a cuenta del impuesto» es una fila tributaria y se conserva.
  */
 const GLOSA_PERSONAL =
-  /apellido|nombre|raz[oó]n social|domicilio|direcci[oó]n|calle|comuna|correo|e-?mail|tel[eé]fono|celular|\bfono\b|banco|n[uú]mero de cuenta|tipo de cuenta|cuenta (?:corriente|vista|de ahorro|bancaria|rut)|\bcta\b|rut (?:del )?representante|rol [uú]nico tributario/i;
+  /apellido|nombre|raz[oó]n social|domicilio|direcci[oó]n|calle|comuna|correo|e-?mail|tel[eé]fono|celular|\bfono\b|banco|(?:n[uú]mero|n[°º]|nro\.?)\s*(?:de\s+)?cuenta|cuenta\s*n[°º]|tipo de cuenta|cuenta (?:corriente|vista|de ahorro|bancaria|rut)|\bcta\b|rut (?:del )?representante|rol [uú]nico tributario/i;
 /** Códigos cuyo valor es una fecha: se guarda la glosa, no el valor. */
 const CODIGOS_FECHA: ReadonlySet<string> = new Set(['15', '315']);
 

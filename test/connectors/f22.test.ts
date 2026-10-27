@@ -334,6 +334,26 @@ describe('f22Detalle', () => {
     expect(r.valores.map((v) => v.codigo)).toEqual(['710']);
   });
 
+  it('reconoce otras formas de «número de cuenta» sin perder las filas «a cuenta del impuesto»', async () => {
+    const compacto = sobre([
+      { codigo: '711', valor: '1', glosa: 'N° de cuenta ficticia' },
+      { codigo: '712', valor: '1', glosa: 'Nº cuenta ficticia' },
+      { codigo: '713', valor: '1', glosa: 'Nro. de cuenta ficticia' },
+      { codigo: '714', valor: '1', glosa: 'Nro cuenta ficticia' },
+      { codigo: '715', valor: '1', glosa: 'Número cuenta ficticia' },
+      { codigo: '716', valor: '1', glosa: 'Cuenta N° ficticia' },
+      { codigo: '717', valor: '1', glosa: 'Cuenta Nº ficticia' },
+      { codigo: '718', valor: '5', glosa: 'Pagos provisionales a cuenta del impuesto' },
+      { codigo: '719', valor: '6', glosa: 'Crédito a cuenta de impuestos ficticio' },
+    ]);
+    const { http, sumidero, crudas } = await preparar({ ...DETALLE_OK, [RUTA('f22Compacto')]: conBody(compacto) });
+
+    const r = await f22Detalle(http, sumidero, EMPRESA, 2026, FOLIO);
+
+    expect(r.valores.map((v) => v.codigo)).toEqual(['718', '719']);
+    expect(crudas[0]!.cuerpo).not.toContain('ficticia');
+  });
+
   it('listas nulas son vacías; un error en cualquier operación falla el detalle', async () => {
     const vacio = await preparar({ [RUTA('f22Compacto')]: conBody(sobre(null)), [RUTA('situacionObservacion')]: conBody(sobre([])), [RUTA('buscaEventos')]: conBody(sobre(null)) });
     expect(await f22Detalle(vacio.http, vacio.sumidero, EMPRESA, 2026, FOLIO)).toEqual({ valores: [], observaciones: [], eventos: [] });
