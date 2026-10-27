@@ -69,6 +69,13 @@ describe('f29Declaraciones', () => {
     expect(await codigoDe(f29Declaraciones(http, sumidero, EMPRESA, parsePeriodo('2026-09')))).toBe('PORTAL_CAMBIO');
   });
 
+  it('un error sin clave data sale como SIN_PERMISO o SII_RECHAZO, no como PORTAL_CAMBIO', async () => {
+    const a = await preparar({ [RUTA_ESTADOS]: { headers: JSON_CT, body: '{"metaData":{"errors":[{"descripcion":"El usuario no está autorizado"}]}}' } });
+    expect(await codigoDe(f29Declaraciones(a.http, a.sumidero, EMPRESA, parsePeriodo('2026-09')))).toBe('SIN_PERMISO');
+    const b = await preparar({ [RUTA_ESTADOS]: { headers: JSON_CT, body: '{"metaData":{"errors":[{"descripcion":"Periodo fuera de rango"}]}}' } });
+    expect(await codigoDe(f29Declaraciones(b.http, b.sumidero, EMPRESA, parsePeriodo('2026-09')))).toBe('SII_RECHAZO');
+  });
+
   it('un error de autorización es SIN_PERMISO', async () => {
     const { http, sumidero } = await preparar({ [RUTA_ESTADOS]: { headers: JSON_CT, body: fixture('f29-estados-error.json') } });
     expect(await codigoDe(f29Declaraciones(http, sumidero, EMPRESA, parsePeriodo('2026-09')))).toBe('SIN_PERMISO');

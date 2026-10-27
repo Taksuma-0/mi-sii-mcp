@@ -4,7 +4,7 @@ import type { Periodo } from '../../domain/periodo.js';
 import type { Rut } from '../../domain/rut.js';
 import type { PropuestaF29 } from '../../domain/tipos.js';
 import type { SumideroRespuestas } from '../../ports/index.js';
-import { esObjeto, mensajeDeError, numero, texto } from './campos.js';
+import { errorDeSobre, esObjeto, numero, texto } from './campos.js';
 import type { Http } from './http.js';
 import { HOST_SDI, postSdi } from './sdi.js';
 
@@ -53,6 +53,8 @@ function filasPermitidas(lista: unknown): unknown[] {
     if (!esObjeto(fila)) return [];
     const codigo = normalizarCodigo(fila['codigo']);
     if (codigo === null || CODIGOS_IDENTIFICACION.has(codigo)) return [];
+    // Solo montos: igual que lo guardado, un texto libre (correo, domicilio) no pasa a la evidencia.
+    if (numero(fila['valor']) === null) return [];
     return [{ codigo: fila['codigo'], valor: fila['valor'] }];
   });
 }
@@ -88,23 +90,21 @@ export async function f29Propuesta(http: Http, sumidero: SumideroRespuestas, rut
     data: { rutContribuyente: String(rut.cuerpo), dv: rut.dv, formCodigo: FORM_CODIGO, mes: String(periodo.mes).padStart(2, '0'), anno: String(periodo.anio) },
     sanear: sanearPropuesta,
   });
+  // Los errores se leen antes de validar `data`: un sobre de error puede venir sin esa clave.
+  const error = errorDeSobre(crudo);
+  if (error) throw new ErrorImpuestocl(/autoriza/i.test(error) ? 'SIN_PERMISO' : 'SII_RECHAZO', `Propuesta F29: ${error}`);
   const sobre = Sobre.safeParse(crudo);
   if (!sobre.success) throw new ErrorImpuestocl('PORTAL_CAMBIO', 'Respuesta inesperada de la propuesta del F29.', { detalle: sobre.error.message });
-  const error = mensajeDeError(sobre.data.metaData?.errors);
-  if (error) throw new ErrorImpuestocl(/autoriza/i.test(error) ? 'SIN_PERMISO' : 'SII_RECHAZO', `Propuesta F29: ${error}`);
   const data = sobre.data.data;
   if (data === null) return null;
   const propuestos = leerLista(data['listCodPropuestos'], 'listCodPropuestos');
   const administrativos = leerLista(data['listCodAdministrativos'], 'listCodAdministrativos');
   const calculo = esObjeto(data['resultadoCalculoPP29']) ? data['resultadoCalculoPP29'] : {};
-  return {
-    rut: rut.canonico,
-    periodo: periodo.texto,
-    tipoPropuesta: numero(data['tipopropuesta']),
-    descripcionTipo: texto(data['tipopropuestadescrip']),
-    estadoCalculo: numero(calculo['estado']),
-    propuestos,
-    administrativos,
-    sinPropuesta: Object.keys(propuestos).length === 0 && Object.keys(administrativos).length === 0,
-  };
+  const tipoPropuesta = numero(data['tipopropuesta']);
+  const descripcionTipo = texto(data['tipopropuestadescrip']);
+  const estadoCalculo = numero(calculo['estado']);
+  const sinCodigos = Object.keys(propuestos).length === 0 && Object.keys(administrativos).length === 0;
+  // Sin tipo, descripción, estado de cálculo ni códigos no hay nada que guardar: es una respuesta nula, no un mes sin propuesta.
+  if (tipoPropuesta === null && descripcionTipo === null && estadoCalculo === null && sinCodigos) return null;
+  return { rut: rut.canonico, periodo: periodo.texto, tipoPropuesta, descripcionTipo, estadoCalculo, propuestos, administrativos, sinPropuesta: sinCodigos };
 }

@@ -113,7 +113,7 @@ describe('f29Propuesta', () => {
   });
 
   it('sin tipo, descripción ni cálculo los deja en null', async () => {
-    const { http, sumidero } = await preparar(conData({}));
+    const { http, sumidero } = await preparar(conData({ listCodAdministrativos: [{ codigo: '9114', valor: '2' }] }));
     expect(await f29Propuesta(http, sumidero, EMPRESA, SEPT)).toEqual({
       rut: '22222222-2',
       periodo: '2026-09',
@@ -121,9 +121,31 @@ describe('f29Propuesta', () => {
       descripcionTipo: null,
       estadoCalculo: null,
       propuestos: {},
-      administrativos: {},
-      sinPropuesta: true,
+      administrativos: { '9114': 2 },
+      sinPropuesta: false,
     });
+  });
+
+  it.each([
+    ['data vacío', {}],
+    ['listas vacías', { listCodPropuestos: [], listCodAdministrativos: [] }],
+    ['todo null', { tipopropuesta: null, tipopropuestadescrip: null, listCodPropuestos: null, listCodAdministrativos: null, resultadoCalculoPP29: null }],
+    ['cálculo sin estado', { listCodPropuestos: [], resultadoCalculoPP29: { estado: null, glosaError: null } }],
+  ])('una propuesta sin tipo, estado ni códigos (%s) es una respuesta nula', async (_caso, data) => {
+    const { http, sumidero } = await preparar(conData(data));
+    expect(await f29Propuesta(http, sumidero, EMPRESA, SEPT)).toBeNull();
+  });
+
+  it('un mes sin propuesta pero con tipo y estado de cálculo no es una respuesta nula', async () => {
+    const { http, sumidero } = await preparar(conData({ tipopropuesta: 48, listCodPropuestos: [], resultadoCalculoPP29: { estado: 5 } }));
+    expect(await f29Propuesta(http, sumidero, EMPRESA, SEPT)).toMatchObject({ tipoPropuesta: 48, estadoCalculo: 5, sinPropuesta: true });
+  });
+
+  it('un error sin clave data sale como SIN_PERMISO o SII_RECHAZO, no como PORTAL_CAMBIO', async () => {
+    const a = await preparar('{"metaData":{"errors":[{"descripcion":"El usuario no está autorizado para consultar la propuesta"}]}}');
+    expect(await codigoDe(f29Propuesta(a.http, a.sumidero, EMPRESA, SEPT))).toBe('SIN_PERMISO');
+    const b = await preparar('{"metaData":{"errors":[{"descripcion":"Periodo fuera de rango"}]}}');
+    expect(await codigoDe(f29Propuesta(b.http, b.sumidero, EMPRESA, SEPT))).toBe('SII_RECHAZO');
   });
 
   it('data null sin errores devuelve null', async () => {
@@ -176,6 +198,20 @@ describe('evidencia de la propuesta', () => {
     const b = await preparar('{"metaData":{"errors":null},"data":null}');
     await f29Propuesta(b.http, b.sumidero, EMPRESA, SEPT);
     expect(JSON.parse(b.crudas[0]!.cuerpo)).toEqual({ metaData: { errors: null }, data: null });
+  });
+
+  it('el saneo copia solo filas con valor numérico: un texto libre no llega a la evidencia', () => {
+    const saneado = sanearPropuesta({
+      data: {
+        listCodPropuestos: [{ codigo: '7', valor: 'a@b.cl' }, { codigo: '520', valor: '5' }, { codigo: '504', valor: null }],
+        listCodAdministrativos: [{ codigo: '9114', valor: 'Calle Falsa 123' }, { codigo: '9132', valor: 2 }],
+      },
+    });
+    expect(saneado).toEqual({
+      metaData: { errors: null },
+      data: { listCodPropuestos: [{ codigo: '520', valor: '5' }], listCodAdministrativos: [{ codigo: '9132', valor: 2 }] },
+    });
+    expect(JSON.stringify(saneado)).not.toContain('a@b.cl');
   });
 
   it('el saneo quita también los códigos de identificación de las listas y los campos de cada fila', () => {

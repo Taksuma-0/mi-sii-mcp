@@ -16,10 +16,12 @@ export function entero(v: unknown): number {
   return Number.isFinite(n) ? Math.trunc(n) : 0;
 }
 
-/** Número o null; conserva decimales (por ejemplo tasas). */
+/** Número o null; conserva decimales (por ejemplo tasas). Lo vacío o solo espacios es null, no 0. */
 export function numero(v: unknown): number | null {
-  if (v === undefined || v === null || v === '') return null;
-  const n = Number(String(v).trim());
+  if (v === undefined || v === null) return null;
+  const t = String(v).trim();
+  if (t === '') return null;
+  const n = Number(t);
   return Number.isFinite(n) ? n : null;
 }
 
@@ -34,6 +36,12 @@ export function mensajeDeError(errores: unknown): string | null {
   }
   if (esObjeto(errores)) return texto(errores['descripcion']);
   return texto(errores);
+}
+
+/** Los errores de un sobre SDI, leídos antes de validar el resto: un sobre de error puede venir sin `data`. */
+export function errorDeSobre(sobre: unknown): string | null {
+  if (!esObjeto(sobre) || !esObjeto(sobre['metaData'])) return null;
+  return mensajeDeError(sobre['metaData']['errors']);
 }
 
 /** Monto en formato chileno: miles con punto (`12.345.678`) o sin separador. */

@@ -5,7 +5,7 @@ import type { Periodo } from '../../domain/periodo.js';
 import type { Rut } from '../../domain/rut.js';
 import type { F29Declaracion, F29Valores } from '../../domain/tipos.js';
 import type { LectorPdfF29, SumideroRespuestas } from '../../ports/index.js';
-import { mensajeDeError, numero, primero, texto } from './campos.js';
+import { errorDeSobre, numero, primero, texto } from './campos.js';
 import { lectorPdfF29 } from './f29-pdf.js';
 import { exigirSesion, type Http } from './http.js';
 import { HOST_SDI, postSdi } from './sdi.js';
@@ -26,10 +26,11 @@ export async function f29Declaraciones(http: Http, sumidero: SumideroRespuestas,
     referer: REFERER,
     data: { rut: String(rut.cuerpo), dv: rut.dv, formId: FORM_ID, mes: String(periodo.mes).padStart(2, '0'), anno: String(periodo.anio) },
   });
+  // Los errores se leen antes de validar `data`: un sobre de error puede venir sin esa clave.
+  const error = errorDeSobre(crudo);
+  if (error) throw new ErrorImpuestocl(/autoriza/i.test(error) ? 'SIN_PERMISO' : 'SII_RECHAZO', `F29: ${error}`);
   const sobre = Sobre.safeParse(crudo);
   if (!sobre.success) throw new ErrorImpuestocl('PORTAL_CAMBIO', 'Respuesta inesperada del F29 (estados).', { detalle: sobre.error.message });
-  const error = mensajeDeError(sobre.data.metaData?.errors);
-  if (error) throw new ErrorImpuestocl(/autoriza/i.test(error) ? 'SIN_PERMISO' : 'SII_RECHAZO', `F29: ${error}`);
   const filas = sobre.data.data ?? [];
   return filas.map((f) => ({
     rut: rut.canonico,
