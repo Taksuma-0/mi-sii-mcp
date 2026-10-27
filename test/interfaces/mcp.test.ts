@@ -4,7 +4,7 @@ import { esquemaDatos } from '../../src/app/consulta-libre.js';
 import type { DepsApp } from '../../src/app/deps.js';
 import { ErrorImpuestocl, type CodigoError } from '../../src/domain/errores.js';
 import { crearServidorMcp, HERRAMIENTAS, INSTRUCCIONES_MCP, type OpcionesMcp } from '../../src/interfaces/mcp/servidor.js';
-import { boleta, declaracion, empresaAutorizada, fila, perfilEmpresa, perfilTributario, propuesta, resumen, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
+import { boleta, declaracion, declaracionF22, detalleF22, empresaAutorizada, fila, perfilEmpresa, perfilTributario, propuesta, resumen, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
 import { depsDePrueba } from '../helpers/deps.js';
 import { guardarPdfF29, pdfFalso } from '../helpers/lector-falso.js';
 import { sembrarMes, T_SEMBRADO } from '../helpers/sembrar.js';
@@ -22,10 +22,10 @@ const textoDe = (r: unknown): string => (r as { content: { type: string; text: s
 const esError = (r: unknown): boolean => (r as { isError?: boolean }).isError === true;
 
 describe('servidor MCP', () => {
-  it('expone exactamente las 12 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
+  it('expone exactamente las 14 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
     const cliente = await conectar(depsDePrueba().deps);
     const { tools } = await cliente.listTools();
-    expect(tools).toHaveLength(12);
+    expect(tools).toHaveLength(14);
     expect(tools.map((t) => t.name).sort()).toEqual([...HERRAMIENTAS].sort());
     expect(JSON.stringify(tools.map((t) => t.inputSchema)).toLowerCase()).not.toMatch(/clave|password|contrase/);
     expect(tools.find((t) => t.name === 'iva_resumen')?.annotations?.readOnlyHint).toBe(true);
@@ -440,9 +440,9 @@ describe('servidor MCP', () => {
       expect(esError(r)).toBe(false);
       const texto = textoDe(r);
       const datos = JSON.parse(texto.slice(texto.indexOf('\n\n') + 2));
-      expect(datos.tablas.map((t: { nombre: string }) => t.nombre)).toEqual(['contribuyente', 'contribuyente_tributario', 'sii_empresa_autorizada', 'rcv_resumen', 'rcv_documento', 'f29_declaracion', 'f29_valor', 'f29_lectura', 'f29_propuesta', 'f29_propuesta_valor', 'bhe_recibida', 'hallazgo', 'sincronizacion']);
+      expect(datos.tablas.map((t: { nombre: string }) => t.nombre)).toEqual(['contribuyente', 'contribuyente_tributario', 'sii_empresa_autorizada', 'rcv_resumen', 'rcv_documento', 'f29_declaracion', 'f29_valor', 'f29_lectura', 'f29_propuesta', 'f29_propuesta_valor', 'bhe_recibida', 'f22_declaracion', 'f22_valor', 'f22_observacion', 'f22_evento', 'hallazgo', 'sincronizacion']);
       expect(datos).toEqual(JSON.parse(JSON.stringify(esquemaDatos())));
-      expect(texto.split('\n\n')[0]).toContain('13 tablas');
+      expect(texto.split('\n\n')[0]).toContain('17 tablas');
       await cliente.close();
     });
 
@@ -649,6 +649,89 @@ describe('servidor MCP: cuenta del SII', () => {
     expect(panorama.cuenta).toEqual(perfil.cuenta);
     expect(panorama.perfil).not.toHaveProperty('cuenta');
     expect(JSON.stringify([perfil, panorama])).not.toMatch(/ejemplo\.invalid/);
+    await cliente.close();
+  });
+
+});
+
+describe('servidor MCP: renta F22', () => {
+  function conRenta() {
+    const p = depsDePrueba();
+    p.store.guardarContribuyente(perfilEmpresa());
+    p.sii.f22.set(2026, [declaracionF22()]);
+    p.sii.f22Detalles.set('2026|123456789', detalleF22());
+    return p;
+  }
+  const datosDe = (r: unknown) => JSON.parse(textoDe(r).slice(textoDe(r).indexOf('\n\n') + 2));
+
+  it('renta_sincronizar lee el SII por años tributarios y no es de solo lectura ni destructiva', async () => {
+    const { deps, sii, store } = conRenta();
+    const cliente = await conectar(deps);
+    const { tools } = await cliente.listTools();
+    const herramienta = tools.find((t) => t.name === 'renta_sincronizar')!;
+    expect(herramienta.annotations).toEqual({ readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true });
+    expect(Object.keys(herramienta.inputSchema.properties ?? {})).toEqual(['rut', 'desde', 'hasta']);
+    expect(herramienta.inputSchema.required).toEqual(['rut', 'desde']);
+    expect(herramienta.description).toMatch(/10 años/);
+    expect(herramienta.description).toMatch(/año comercial/);
+
+    const r = await cliente.callTool({ name: 'renta_sincronizar', arguments: { rut: '22.222.222-2', desde: '2026' } });
+
+    expect(esError(r)).toBe(false);
+    expect(sii.llamadas).toEqual(['f22|2026', 'f22detalle|2026|123456789']);
+    expect(textoDe(r).split('\n\n')[0]).toContain('AT2026: 1 declaración · folio vigente 123456789 · detalle leído');
+    expect(datosDe(r)).toMatchObject({ rut: RUT_EMPRESA, anios: [{ anioTributario: 2026, detalle: 'leido' }], abortado: null });
+    expect(store.declaracionesF22(RUT_EMPRESA)).toHaveLength(1);
+    await cliente.close();
+  });
+
+  it('renta_sincronizar rechaza un año con otro formato y muestra el login sin sesión', async () => {
+    const cliente = await conectar(conRenta().deps);
+    const mal = await cliente.callTool({ name: 'renta_sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026-04' } });
+    expect(esError(mal)).toBe(true);
+    await cliente.close();
+
+    const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorImpuestocl('SESION_REQUERIDA', 'Sin sesión.') });
+    store.guardarContribuyente(perfilEmpresa());
+    const sinSesion = await conectar(deps, { comandoLogin: (rut) => `LOGIN ${rut}` });
+    const r = await sinSesion.callTool({ name: 'renta_sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2025', hasta: '2026' } });
+    expect(textoDe(r)).toContain('LOGIN 22222222-2');
+    expect(textoDe(r)).toContain('Sincronización detenida');
+    await sinSesion.close();
+  });
+
+  it('renta_resumen es de solo lectura, no abre el SII y entrega lo guardado por año', async () => {
+    const p = conRenta();
+    const cliente = await conectar(p.deps);
+    await cliente.callTool({ name: 'renta_sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026' } });
+    p.sii.llamadas.length = 0;
+    const { tools } = await cliente.listTools();
+    const herramienta = tools.find((t) => t.name === 'renta_resumen')!;
+    expect(herramienta.annotations).toEqual({ readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false });
+    expect(Object.keys(herramienta.inputSchema.properties ?? {})).toEqual(['rut', 'anio']);
+
+    const r = await cliente.callTool({ name: 'renta_resumen', arguments: { rut: RUT_EMPRESA, anio: '2026' } });
+
+    expect(esError(r)).toBe(false);
+    expect(p.sii.llamadas).toEqual([]);
+    expect(textoDe(r).split('\n\n')[0]).toContain('AT2026 · folio 123456789 (vigente)');
+    expect(datosDe(r).anios[0]).toMatchObject({ anioTributario: 2026, folio: 123_456_789, codigosClave: [{ codigo: '305' }, { codigo: '87' }] });
+    const vacio = await cliente.callTool({ name: 'renta_resumen', arguments: { rut: RUT_EMPRESA, anio: '2020' } });
+    expect(textoDe(vacio)).toContain('renta_sincronizar');
+    await cliente.close();
+  });
+
+  it('sii_panorama muestra el bloque renta solo si hay F22 guardado', async () => {
+    const cliente = await conectar(conRenta().deps);
+    const antes = await cliente.callTool({ name: 'sii_panorama', arguments: { rut: RUT_EMPRESA } });
+    expect('renta' in datosDe(antes)).toBe(false);
+    expect(textoDe(antes).split('\n\n')[0]).not.toContain('Renta');
+
+    await cliente.callTool({ name: 'renta_sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026' } });
+
+    const despues = await cliente.callTool({ name: 'sii_panorama', arguments: { rut: RUT_EMPRESA } });
+    expect(datosDe(despues).renta).toEqual([{ anioTributario: 2026, folio: 123_456_789, vigente: true, conclusion: 'Conclusión ficticia: declaración sin observaciones', observaciones: [{ codigo: 'A01', descripcion: 'Observación ficticia' }] }]);
+    expect(textoDe(despues).split('\n\n')[0]).toContain('Renta (F22): 1 año tributario guardado.');
     await cliente.close();
   });
 });

@@ -46,6 +46,7 @@ const ESTADO_RCV = col('estado_rcv', 'TEXT', 'REGISTRO, PENDIENTE, NO_INCLUIR o 
 const TIPO_DOC = col('tipo_doc', 'INTEGER', 'Código SII del tipo de documento (nombres en las reglas)');
 const SINCRONIZACION_ID = col('sincronizacion_id', 'INTEGER', 'sincronizacion.id que trajo la fila');
 const OBTENIDO_EN = col('obtenido_en', 'TEXT', 'Instante ISO UTC en que se obtuvo del SII');
+const ANIO_TRIBUTARIO = col('anio_tributario', 'INTEGER', 'Año tributario (AT) AAAA: el año comercial + 1 (AT 2026 = renta del año 2025)');
 const SIGNO = col('signo', 'INTEGER', '-1 en notas de crédito, 1 en el resto: multiplica los montos por signo al sumar');
 
 const TABLAS: readonly TablaEsquema[] = [
@@ -240,6 +241,67 @@ const TABLAS: readonly TablaEsquema[] = [
     ],
   },
   {
+    nombre: 'f22_declaracion',
+    descripcion:
+      'Declaraciones anuales de renta (F22) del contribuyente, una fila por rut, año tributario y folio (la vigente y las anteriores, como rectificatorias), solo si se sincronizó con renta_sincronizar. Sin nombres, domicilio, cuenta ni banco.',
+    columnas: [
+      RUT,
+      ANIO_TRIBUTARIO,
+      col('folio', 'INTEGER', 'Folio de la declaración'),
+      col('vigente', 'INTEGER', '1 si el SII la marca vigente; 0 si no; NULL si no lo informó'),
+      col('codigo_conclusion', 'TEXT', 'Código de conclusión del SII sobre la declaración; puede ser NULL'),
+      col('conclusion', 'TEXT', 'Glosa del SII de codigo_conclusion; puede ser NULL'),
+      col('fecha_ingreso', 'TEXT', 'Fecha de ingreso AAAA-MM-DD (o como la informa el SII); puede ser NULL'),
+      col('tipo_impugnado', 'TEXT', 'Tipo de impugnación según el SII; NULL si no hay'),
+      col('remanente_solicitado', 'INTEGER', 'Remanente o devolución solicitada, en pesos; NULL si el SII no lo informó'),
+      col('remanente_devuelto', 'INTEGER', 'Monto devuelto por el SII, en pesos; NULL si no lo informó'),
+      col('impuesto_pagado', 'INTEGER', 'Impuesto pagado, en pesos; NULL si no lo informó'),
+      col('monto_giro', 'INTEGER', 'Monto girado por el SII, en pesos; NULL si no lo informó'),
+      col('fecha_vencimiento', 'TEXT', 'Fecha de vencimiento AAAA-MM-DD (o como la informa el SII); puede ser NULL'),
+      SINCRONIZACION_ID,
+      OBTENIDO_EN,
+    ],
+  },
+  {
+    nombre: 'f22_valor',
+    descripcion:
+      'Códigos del F22 del folio vigente de cada año (una fila por rut, anio_tributario, folio y codigo), con la glosa que entrega el SII. No incluye los códigos de identificación (nombre, domicilio, comuna, giro, correo, banco, cuenta, RUT del representante).',
+    columnas: [
+      RUT,
+      ANIO_TRIBUTARIO,
+      col('folio', 'INTEGER', 'Folio de la declaración (f22_declaracion.folio)'),
+      col('codigo', 'TEXT', "Código del F22, como texto y sin ceros a la izquierda: codigo = '305'"),
+      col('valor', 'REAL', 'Valor numérico del código; NULL si vino vacío, no es numérico o es una fecha (códigos 15 y 315)'),
+      col('glosa', 'TEXT', 'Glosa del SII que dice qué es el código; puede ser NULL'),
+    ],
+  },
+  {
+    nombre: 'f22_observacion',
+    descripcion: 'Observaciones del SII sobre el folio vigente del F22 (una fila por rut, anio_tributario, folio y codigo). Sin filas con estado ok en sincronizacion = el SII no informó observaciones.',
+    columnas: [
+      RUT,
+      ANIO_TRIBUTARIO,
+      col('folio', 'INTEGER', 'Folio de la declaración'),
+      col('codigo', 'TEXT', 'Código de la observación'),
+      col('descripcion', 'TEXT', 'Descripción de la observación según el SII; puede ser NULL'),
+    ],
+  },
+  {
+    nombre: 'f22_evento',
+    descripcion: 'Eventos del SII sobre el folio vigente del F22 (recepción, devolución, cartas…), una fila por rut, anio_tributario, folio y orden. Sin referencia ni datos internos del SII.',
+    columnas: [
+      RUT,
+      ANIO_TRIBUTARIO,
+      col('folio', 'INTEGER', 'Folio de la declaración'),
+      col('orden', 'INTEGER', 'Posición del evento en la lista del SII, desde 1'),
+      col('codigo_evento', 'TEXT', 'Código del evento; puede ser NULL'),
+      col('nombre', 'TEXT', 'Nombre del evento según el SII; puede ser NULL'),
+      col('fecha', 'TEXT', 'Fecha del evento AAAA-MM-DD; puede ser NULL'),
+      col('tipo', 'TEXT', 'Tipo de evento según el SII; puede ser NULL'),
+      col('codigo_carta', 'TEXT', 'Código de la carta asociada; NULL si no hay'),
+    ],
+  },
+  {
     nombre: 'hallazgo',
     descripcion:
       'Resultados de la conciliación IVA (RCV contra F29) y avisos de plazos, por rut y periodo. Se recalculan al pedir iva_resumen o iva_hallazgos: una tabla vacía no prueba que no haya diferencias.',
@@ -264,8 +326,8 @@ const TABLAS: readonly TablaEsquema[] = [
     columnas: [
       col('id', 'INTEGER', 'Identificador; mayor id = intento más reciente'),
       RUT,
-      col('superficie', 'TEXT', 'rcv.VENTA, rcv.COMPRA, f29 (listado de declaraciones), f29.valores (detalle de la vigente; no se repite si f29_lectura ya tiene una lectura coherente del folio con la misma versión del lector, así que puede no haber un intento reciente), f29.propuesta (propuesta del SII; solo si se pidió), bhe.recibidas (boletas de honorarios recibidas; solo si se pidió), cuenta.perfil (perfil tributario de Mi SII; solo con perfil_sincronizar) o cuenta.empresas (empresas autorizadas; solo con perfil_sincronizar)'),
-      col('periodo', 'TEXT', 'Período tributario AAAA-MM; vacío en cuenta.perfil y cuenta.empresas, que no son de un mes'),
+      col('superficie', 'TEXT', 'rcv.VENTA, rcv.COMPRA, f29 (listado de declaraciones), f29.valores (detalle de la vigente; no se repite si f29_lectura ya tiene una lectura coherente del folio con la misma versión del lector, así que puede no haber un intento reciente), f29.propuesta (propuesta del SII; solo si se pidió), bhe.recibidas (boletas de honorarios recibidas; solo si se pidió), cuenta.perfil (perfil tributario de Mi SII; solo con perfil_sincronizar), cuenta.empresas (empresas autorizadas; solo con perfil_sincronizar), f22 (declaraciones de renta del año; solo con renta_sincronizar) o f22.folio (detalle del folio vigente; solo con renta_sincronizar)'),
+      col('periodo', 'TEXT', 'Período tributario AAAA-MM; vacío en cuenta.perfil y cuenta.empresas, que no son de un mes; AT<AAAA> (año tributario) en f22 y f22.folio, que son anuales'),
       col('iniciado_en', 'TEXT', 'Instante ISO UTC de inicio'),
       col('terminado_en', 'TEXT', 'Instante ISO UTC de término; NULL si sigue en curso'),
       col('estado', 'TEXT', 'ok, error o en_curso'),
@@ -308,8 +370,9 @@ function reglas(): readonly string[] {
     "Propuesta del SII (f29_propuesta y f29_propuesta_valor, solo si se sincronizó la superficie propuesta): lo que el SII propone antes de declarar. Trae el crédito propuesto ('520'; '511' es el crédito neto por documentos), el remanente ('504') y la retención ('151'); no trae débito ni total a pagar, así que no sirve para saber si el F29 llevará pago. Con sin_propuesta = 1 el SII no propuso nada. No reemplaza al F29 declarado.",
     `Boletas de honorarios recibidas (bhe_recibida, solo si se sincronizó la superficie bhe): para montos usa solo las vigentes (anulada = 0). La retención del mes (SUM(retencion) con anulada = 0) se compara con el código '${CODIGO_F29.RETENCION_HONORARIOS}' (retención de honorarios) del F29 del mismo periodo (hallazgo RET-01: advertencia si el 151 es menor, info si es mayor); puede diferir si alguna boleta se pagó en otro mes o si el F29 incluye otras retenciones.`,
     "Cuenta del SII (contribuyente_tributario y sii_empresa_autorizada, solo si se sincronizó con perfil_sincronizar): autorizado_dia20 dice si el SII autoriza declarar y pagar el F29 hasta el día 20 (si no, el plazo es el 12; NULL = se desconoce y se asume el día 20) y las empresas con fecha_desautorizacion NULL son las que el contribuyente puede consultar. Los atributos no traen correos ni otros datos personales.",
+    "Renta anual F22 (f22_declaracion, f22_valor, f22_observacion y f22_evento, solo si se sincronizó con renta_sincronizar): van por anio_tributario, y el año tributario (AT) es el año comercial + 1 (AT 2026 = renta de 2025). La vigente del año: vigente = 1 (si ninguna trae marca, la de fecha_ingreso más reciente). f22_valor, f22_observacion y f22_evento son solo del folio vigente: únelos por rut, anio_tributario y folio. Cada código de f22_valor trae su glosa del SII: léela para saber qué es (por ejemplo, codigo = '305'), y valor NULL = vacío, no numérico o fecha. No hay nombres, domicilio, cuenta ni banco.",
     'Que no haya filas no significa cero: un período no sincronizado no tiene filas. Revisa sincronizacion (el intento más reciente por rut, superficie y periodo): estado ok sin filas = el SII no tenía documentos o declaraciones; sin fila o con estado error = se desconoce, y los datos pueden estar incompletos o ser de un intento anterior.',
-    'Cobertura: solo el RCV (compras y ventas), el F29, la propuesta del F29, las boletas de honorarios recibidas y los datos tributarios de la cuenta traídos por impuestocl. No hay otros impuestos ni trámites del SII, y esto no es asesoría tributaria.',
+    'Cobertura: solo el RCV (compras y ventas), el F29, la propuesta del F29, las boletas de honorarios recibidas, los datos tributarios de la cuenta y la renta anual (F22) traídos por impuestocl. No hay otros impuestos ni trámites del SII, y esto no es asesoría tributaria.',
   ];
 }
 

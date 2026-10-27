@@ -5,6 +5,7 @@ import { creditoRcv, debitoRcv, signoTipoDoc } from '../reconciliation/mapeo-f29
 import { honorariosDelMes, perfilExistente } from './consultas.js';
 import { cuentaDe, type CuentaSii } from './cuenta.js';
 import type { DepsApp } from './deps.js';
+import { resumenRenta, type ObservacionRenta } from './renta.js';
 
 export interface TotalPanorama {
   readonly monto: number | null;
@@ -34,10 +35,21 @@ export interface PeriodoPanorama {
   readonly honorarios?: TotalesBheMes | 'sin_respuesta';
 }
 
+/** Renta (F22) guardada de un año tributario: folio vigente, conclusión y observaciones. */
+export interface RentaPanorama {
+  readonly anioTributario: number;
+  readonly folio: number | null;
+  readonly vigente: boolean | null;
+  readonly conclusion: string | null;
+  readonly observaciones: readonly ObservacionRenta[];
+}
+
 export interface PanoramaSii {
   readonly perfil: Perfil;
   /** Día 20, régimen, segmento y empresas autorizadas; solo existe si se sincronizó la cuenta. */
   readonly cuenta?: CuentaSii;
+  /** Renta anual por año tributario, del más nuevo al más antiguo; solo existe si hay F22 guardado. */
+  readonly renta?: readonly RentaPanorama[];
   readonly periodos: readonly PeriodoPanorama[];
   readonly totales: {
     readonly ventas: TotalPanorama;
@@ -94,9 +106,13 @@ export function panorama(deps: DepsApp, rutTexto: string): PanoramaSii {
     };
   });
   const cuenta = cuentaDe(deps, perfil.rut);
+  const renta = resumenRenta(deps, perfil.rut).anios.map(
+    (a): RentaPanorama => ({ anioTributario: a.anioTributario, folio: a.folio, vigente: a.vigente, conclusion: a.conclusion, observaciones: a.observaciones }),
+  );
   return {
     perfil,
     ...(cuenta ? { cuenta } : {}),
+    ...(renta.length > 0 ? { renta } : {}),
     periodos,
     totales: {
       ventas: totalConCobertura(periodos.map((p) => p.ventas)),

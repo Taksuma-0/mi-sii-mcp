@@ -16,7 +16,7 @@ const LIMITES: LimitesConsulta = { filas: 200, caracteres: 40_000, caracteresCel
 const OPCIONES: OpcionesConsulta = { limites: LIMITES, tiposNegativos: TIPOS_DOC_NEGATIVOS };
 const MARCA = '…[recortado]';
 const TOKEN = 'TOKEN-FALSO-123';
-const TABLAS_COPIA = ['bhe_recibida', 'contribuyente', 'contribuyente_tributario', 'f29_declaracion', 'f29_lectura', 'f29_propuesta', 'f29_propuesta_valor', 'f29_valor', 'hallazgo', 'rcv_documento', 'rcv_resumen', 'sii_empresa_autorizada', 'sincronizacion'];
+const TABLAS_COPIA = ['bhe_recibida', 'contribuyente', 'contribuyente_tributario', 'f22_declaracion', 'f22_evento', 'f22_observacion', 'f22_valor', 'f29_declaracion', 'f29_lectura', 'f29_propuesta', 'f29_propuesta_valor', 'f29_valor', 'hallazgo', 'rcv_documento', 'rcv_resumen', 'sii_empresa_autorizada', 'sincronizacion'];
 
 /** Sentencias que nunca deben correr; reciben la carpeta temporal donde está la base real. */
 const PROHIBIDAS: readonly (readonly [string, (carpeta: string) => string])[] = [

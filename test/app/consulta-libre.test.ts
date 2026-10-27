@@ -126,6 +126,24 @@ describe('esquemaDatos', () => {
     expect(regla).toMatch(/día 20/);
   });
 
+  it('documenta la renta F22: tablas por año tributario, AT = año comercial + 1 y códigos con su glosa', () => {
+    const { tablas, reglas } = esquemaDatos();
+    expect(tablas.map((t) => t.nombre)).toEqual(expect.arrayContaining(['f22_declaracion', 'f22_valor', 'f22_observacion', 'f22_evento']));
+    const columna = (tabla: string, nombre: string) => tablas.find((t) => t.nombre === tabla)?.columnas.find((c) => c.nombre === nombre)?.significado ?? '';
+    expect(columna('f22_declaracion', 'anio_tributario')).toMatch(/año comercial \+ 1/);
+    expect(columna('f22_declaracion', 'vigente')).toMatch(/NULL/);
+    expect(columna('f22_valor', 'valor')).toMatch(/NULL/);
+    expect(columna('f22_valor', 'glosa')).toMatch(/glosa/i);
+    expect(columna('sincronizacion', 'superficie')).toContain('f22.folio');
+    expect(columna('sincronizacion', 'periodo')).toContain('AT');
+    const regla = reglas.find((r) => r.includes('f22_declaracion'));
+    expect(regla).toBeDefined();
+    expect(regla).toContain('renta_sincronizar');
+    expect(regla).toMatch(/año comercial \+ 1/);
+    expect(regla).toMatch(/glosa/);
+    expect(regla).toMatch(/nombres|domicilio|banco/);
+  });
+
   it('describe cada tabla y cada columna con tipo y significado', () => {
     for (const tabla of esquemaDatos().tablas) {
       expect(tabla.descripcion.length, tabla.nombre).toBeGreaterThan(10);

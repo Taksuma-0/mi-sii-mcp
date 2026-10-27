@@ -4,6 +4,7 @@ import { sincronizarCuenta } from '../../app/cuenta.js';
 import type { DepsApp } from '../../app/deps.js';
 import { agregarPerfil, listarPerfiles, registrarIdentidad } from '../../app/perfiles.js';
 import { releerF29 } from '../../app/releer-f29.js';
+import { resumenRenta, sincronizarRenta } from '../../app/renta.js';
 import { sincronizar, type Superficie } from '../../app/sincronizar.js';
 import { esErrorImpuestocl } from '../../domain/errores.js';
 import { parsePeriodo } from '../../domain/periodo.js';
@@ -11,7 +12,7 @@ import { parseRut } from '../../domain/rut.js';
 import type { EstadoRcv, Lado, Severidad, TipoContribuyente } from '../../domain/tipos.js';
 import { VERSION } from '../../main/version.js';
 import type { EstadoSesion, ResultadoLogin } from '../../ports/index.js';
-import { lineaReintento, textoCuenta, textoDocumentos, textoHallazgos, textoHistorialF29, textoPerfiles, textoPlazos, textoReleerF29, textoResumenIva, textoSync } from '../formato.js';
+import { lineaReintento, textoCuenta, textoDocumentos, textoHallazgos, textoHistorialF29, textoPerfiles, textoPlazos, textoReleerF29, textoRenta, textoResumenIva, textoResumenRenta, textoSync } from '../formato.js';
 
 export interface IoCli {
   escribir(texto: string): void;
@@ -147,6 +148,36 @@ export function crearPrograma(
         const r = await sincronizar(c.deps, rut, parsePeriodo(o.desde), parsePeriodo(o.hasta ?? o.desde), o.solo ? [...new Set(o.solo)] : ['rcv', 'f29']);
         io.escribir(textoSync(r));
         if (r.abortado || r.periodos.some((p) => p.errores.length > 0)) salida.codigo = 1;
+      }),
+    );
+
+  const renta = programa.command('renta').description('Renta anual (F22) por año tributario (el año comercial + 1)');
+
+  renta
+    .command('sync')
+    .description('Trae del SII la renta (F22) de uno o varios años tributarios (máximo 10): declaraciones y detalle del folio vigente')
+    .argument('<rut>')
+    .requiredOption('--desde <AAAA>', 'primer año tributario')
+    .option('--hasta <AAAA>', 'último año tributario (por defecto, el mismo de --desde)')
+    .option('--json', 'salida en JSON')
+    .action(
+      ejecutar(async (c, rut: string, o: { desde: string; hasta?: string; json?: boolean }) => {
+        const r = await sincronizarRenta(c.deps, rut, o.desde, o.hasta);
+        mostrar(o.json, r, textoRenta(r));
+        if (r.abortado || r.anios.some((a) => a.errores.length > 0)) salida.codigo = 1;
+      }),
+    );
+
+  renta
+    .command('ver')
+    .description('Muestra la renta (F22) guardada (lee la base local)')
+    .argument('<rut>')
+    .option('--anio <AAAA>', 'solo un año tributario')
+    .option('--json', 'salida en JSON')
+    .action(
+      ejecutar(async (c, rut: string, o: { anio?: string; json?: boolean }) => {
+        const r = resumenRenta(c.deps, rut, o.anio);
+        mostrar(o.json, r, textoResumenRenta(r));
       }),
     );
 

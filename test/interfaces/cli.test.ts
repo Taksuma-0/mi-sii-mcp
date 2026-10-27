@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ErrorImpuestocl } from '../../src/domain/errores.js';
 import { leerLineaStdin, pedirClaveOculta } from '../../src/interfaces/cli/clave.js';
 import { crearPrograma, type ContenedorCli, type IoCli, type SesionesCli } from '../../src/interfaces/cli/programa.js';
-import { boleta, declaracion, documento, empresaAutorizada, fila, perfilEmpresa, perfilTributario, propuesta, resumen, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
+import { boleta, declaracion, declaracionF22, detalleF22, documento, empresaAutorizada, fila, perfilEmpresa, perfilTributario, propuesta, resumen, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
 import { depsDePrueba } from '../helpers/deps.js';
 import { guardarPdfF29, pdfFalso } from '../helpers/lector-falso.js';
 import { sembrarMes, T_SEMBRADO } from '../helpers/sembrar.js';
@@ -355,5 +355,42 @@ describe('CLI: cuenta del SII', () => {
     await e.correr('perfil', 'sincronizar', RUT_EMPRESA);
     await e.correr('perfil', 'listar');
     expect(e.salidaTexto.at(-1)).toContain('día 20: autorizado');
+  });
+});
+
+describe('CLI: renta F22', () => {
+  function conRenta() {
+    const e = entorno();
+    e.store.guardarContribuyente(perfilEmpresa());
+    e.sii.f22.set(2025, [declaracionF22({ anioTributario: 2025, folio: 55 })]);
+    e.sii.f22.set(2026, [declaracionF22()]);
+    e.sii.f22Detalles.set('2026|123456789', detalleF22());
+    e.sii.f22Detalles.set('2025|55', detalleF22());
+    return e;
+  }
+
+  it('renta sync <rut> --desde AAAA [--hasta AAAA] trae los años y renta ver los muestra', async () => {
+    const e = conRenta();
+
+    expect(await e.correr('renta', 'sync', '22.222.222-2', '--desde', '2025', '--hasta', '2026')).toBe(0);
+
+    expect(e.sii.llamadas).toEqual(['f22|2025', 'f22detalle|2025|55', 'f22|2026', 'f22detalle|2026|123456789']);
+    expect(e.salidaTexto.at(-1)).toContain('AT2026: 1 declaración · folio vigente 123456789 · detalle leído');
+    expect(e.persistidos).toEqual([RUT_EMPRESA]);
+
+    expect(await e.correr('renta', 'ver', RUT_EMPRESA)).toBe(0);
+    expect(e.salidaTexto.at(-1)).toContain('2 años tributarios guardados');
+    expect(await e.correr('renta', 'ver', RUT_EMPRESA, '--anio', '2025', '--json')).toBe(0);
+    expect(JSON.parse(e.salidaTexto.at(-1)!)).toMatchObject({ rut: RUT_EMPRESA, anios: [{ anioTributario: 2025, folio: 55 }] });
+  });
+
+  it('un error de un año deja el código de salida en 1; un año inválido es un error de dominio', async () => {
+    const e = conRenta();
+    e.sii.fallas.set('f22|2026', new ErrorImpuestocl('SII_RECHAZO', 'Servicio no disponible.'));
+    expect(await e.correr('renta', 'sync', RUT_EMPRESA, '--desde', '2026', '--json')).toBe(1);
+    expect(JSON.parse(e.salidaTexto.at(-1)!)).toMatchObject({ anios: [{ anioTributario: 2026, errores: [{ superficie: 'f22', codigo: 'SII_RECHAZO' }] }] });
+
+    expect(await e.correr('renta', 'sync', RUT_EMPRESA, '--desde', '2026-04')).toBe(1);
+    expect(e.errores.at(-1)).toContain('PERIODO_INVALIDO');
   });
 });

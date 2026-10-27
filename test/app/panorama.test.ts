@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { panorama } from '../../src/app/panorama.js';
 import { SqliteStore } from '../../src/store/sqlite/store.js';
 import { depsDePrueba } from '../helpers/deps.js';
-import { declaracion, documento, empresaAutorizada, fila, perfilEmpresa, perfilPersona, perfilTributario, resumen, RUT_EMPRESA, RUT_PERSONA, valores } from '../helpers/fabricas.js';
+import { declaracion, declaracionF22, detalleF22, documento, empresaAutorizada, fila, perfilEmpresa, perfilPersona, perfilTributario, resumen, RUT_EMPRESA, RUT_PERSONA, valores } from '../helpers/fabricas.js';
 import { medirLecturas } from '../helpers/lecturas-sqlite.js';
 import { sembrarMes, T_SEMBRADO } from '../helpers/sembrar.js';
 
@@ -172,6 +172,27 @@ describe('panorama: cuenta del SII', () => {
     const r = panorama(deps, RUT_EMPRESA);
     expect(r.perfil).toEqual(perfilEmpresa());
     expect(r.cuenta).toMatchObject({ autorizadoDia20: false, obtenidoEn: T_SEMBRADO, empresas: [{ rut: '33333333-3', activa: true }] });
+    expect(r.periodos).toEqual([]);
+  });
+});
+
+describe('panorama: renta F22', () => {
+  it('no trae el bloque renta si no hay F22 guardado; si lo hay, uno por año con vigente, conclusión y observaciones', () => {
+    const { deps, store } = conEmpresa();
+    expect('renta' in panorama(deps, RUT_EMPRESA)).toBe(false);
+
+    for (const anio of [2025, 2026]) {
+      const id = store.iniciarSincronizacion(RUT_EMPRESA, 'f22', `AT${anio}`, T_SEMBRADO);
+      store.reemplazarF22Declaraciones(id, RUT_EMPRESA, anio, [declaracionF22({ anioTributario: anio, folio: anio })], T_SEMBRADO);
+      store.terminarSincronizacion(id, T_SEMBRADO, 'ok');
+    }
+    store.reemplazarF22Detalle(RUT_EMPRESA, 2026, 2026, detalleF22());
+
+    const r = panorama(deps, RUT_EMPRESA);
+    expect(r.renta).toEqual([
+      { anioTributario: 2026, folio: 2026, vigente: true, conclusion: 'Conclusión ficticia: declaración sin observaciones', observaciones: [{ codigo: 'A01', descripcion: 'Observación ficticia' }] },
+      { anioTributario: 2025, folio: 2025, vigente: true, conclusion: 'Conclusión ficticia: declaración sin observaciones', observaciones: [] },
+    ]);
     expect(r.periodos).toEqual([]);
   });
 });

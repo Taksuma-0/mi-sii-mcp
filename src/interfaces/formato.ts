@@ -2,6 +2,7 @@ import type { FilaHistorialF29, PaginaDocumentos, ResumenIva } from '../app/cons
 import type { CuentaSii, ResultadoCuenta } from '../app/cuenta.js';
 import type { PerfilConSesion } from '../app/perfiles.js';
 import type { ResultadoReleerF29, ResultadoRelectura } from '../app/releer-f29.js';
+import type { AnioRenta, ResultadoAnioRenta, ResultadoRenta, ResumenRenta } from '../app/renta.js';
 import { SINCRONIZACION_CANCELADA, type ResultadoPeriodo, type ResultadoSync } from '../app/sincronizar.js';
 import { reintentoDe, type Reintento } from '../domain/errores.js';
 import { formatearClp, nombreTipoDocumento } from '../domain/formato.js';
@@ -74,6 +75,63 @@ export function textoCuenta(r: ResultadoCuenta): string {
     lineas.push(r.abortado.codigo === SINCRONIZACION_CANCELADA.codigo ? r.abortado.mensaje : `Sincronización detenida: [${r.abortado.codigo}] ${r.abortado.mensaje}`);
   }
   return lineas.join('\n');
+}
+
+function lineaAnioRenta(a: ResultadoAnioRenta): string {
+  const partes =
+    a.declaraciones === null
+      ? ['declaraciones sin leer']
+      : a.declaraciones === 0
+        ? ['sin declaraciones']
+        : [
+            plural(a.declaraciones, 'declaración', 'declaraciones'),
+            a.folioVigente === null ? 'sin folio vigente' : `folio vigente ${a.folioVigente}`,
+            ...(a.detalle === 'leido' ? ['detalle leído'] : a.detalle === 'sin_leer' ? ['detalle sin leer'] : []),
+          ];
+  if (a.errores.length > 0) partes.push(`errores: ${a.errores.map((e) => `${e.superficie} ${e.codigo}`).join(', ')}`);
+  return `AT${a.anioTributario}: ${partes.join(' · ')}`;
+}
+
+/** Resultado de traer la renta (F22) del SII, año tributario por año. */
+export function textoRenta(r: ResultadoRenta): string {
+  const lineas = [`Renta (F22) ${r.rut}:`, ...r.anios.map(lineaAnioRenta)];
+  if (r.abortado) {
+    lineas.push(r.abortado.codigo === SINCRONIZACION_CANCELADA.codigo ? r.abortado.mensaje : `Sincronización detenida: [${r.abortado.codigo}] ${r.abortado.mensaje}`);
+  }
+  return lineas.join('\n');
+}
+
+function lineasAnioRenta(a: AnioRenta): string[] {
+  if (a.folio === null) return [`AT${a.anioTributario} · sin folio vigente (${plural(a.declaraciones, 'declaración', 'declaraciones')})`];
+  const marca = a.vigente === true ? 'vigente' : 'la más reciente; el SII no la marcó vigente';
+  const cabecera = [
+    `AT${a.anioTributario} · folio ${a.folio} (${marca}) de ${plural(a.declaraciones, 'declaración', 'declaraciones')}`,
+    ...(a.fechaIngreso ? [`ingreso ${a.fechaIngreso}`] : []),
+    ...(a.conclusion ? [a.conclusion] : a.codigoConclusion ? [`conclusión ${a.codigoConclusion}`] : []),
+  ].join(' · ');
+  const montos = [
+    `Impuesto pagado ${monto(a.impuestoPagado)}`,
+    `giro ${monto(a.montoGiro)}`,
+    `remanente solicitado ${monto(a.remanenteSolicitado)}`,
+    `devuelto ${monto(a.remanenteDevuelto)}`,
+    ...(a.tipoImpugnado ? [`tipo impugnado ${a.tipoImpugnado}`] : []),
+  ].join(' · ');
+  return [
+    cabecera,
+    `  ${montos}`,
+    ...a.codigosClave.map((c) => `  ${c.codigo} ${c.glosa ?? 'sin glosa'}: ${monto(c.valor)}`),
+    ...a.observaciones.map((o) => `  Observación ${o.codigo}: ${o.descripcion ?? 'sin descripción'}`),
+    ...a.eventos.map((e) => `  Evento ${e.fecha ?? 'sin fecha'}: ${e.nombre ?? e.codigoEvento ?? 'sin nombre'}`),
+    a.codigos === 0 ? '  Sin detalle guardado del folio' : `  ${plural(a.codigos, 'código guardado', 'códigos guardados')} (todos en f22_valor)`,
+  ];
+}
+
+/** Renta (F22) guardada por año tributario: folio vigente, conclusión, códigos clave, observaciones y eventos. */
+export function textoResumenRenta(r: ResumenRenta): string {
+  if (r.anios.length === 0) {
+    return `No hay renta (F22) guardada de ${r.rut}. Tráela con renta_sincronizar (o \`impuestocl renta sync <rut> --desde AAAA\`); el año tributario es el año comercial + 1.`;
+  }
+  return [`Renta (F22) ${r.rut} — ${plural(r.anios.length, 'año tributario guardado', 'años tributarios guardados')}`, ...r.anios.flatMap(lineasAnioRenta)].join('\n');
 }
 
 function lineaCuenta(c: CuentaSii): string {

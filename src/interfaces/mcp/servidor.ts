@@ -7,11 +7,12 @@ import { sincronizarCuenta } from '../../app/cuenta.js';
 import { panorama } from '../../app/panorama.js';
 import { listarPerfiles } from '../../app/perfiles.js';
 import { releerF29 } from '../../app/releer-f29.js';
+import { resumenRenta, sincronizarRenta } from '../../app/renta.js';
 import { sincronizar } from '../../app/sincronizar.js';
 import { esErrorImpuestocl, type CodigoError } from '../../domain/errores.js';
 import { parsePeriodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
-import { lineaReintento, textoDocumentos, textoHallazgos, textoHistorialF29, textoCuenta, textoPerfiles, textoPlazos, textoReintentables, textoReleerF29, textoResumenIva, textoSync } from '../formato.js';
+import { lineaReintento, textoDocumentos, textoHallazgos, textoHistorialF29, textoCuenta, textoPerfiles, textoPlazos, textoReintentables, textoReleerF29, textoRenta, textoResumenIva, textoResumenRenta, textoSync } from '../formato.js';
 
 export const HERRAMIENTAS = [
   'perfiles_listar',
@@ -26,6 +27,8 @@ export const HERRAMIENTAS = [
   'datos_esquema',
   'f29_releer',
   'perfil_sincronizar',
+  'renta_sincronizar',
+  'renta_resumen',
 ] as const;
 
 /** Lo que lee el asistente al conectarse: flujo de uso, regla de la clave y cobertura (máximo 1 500 caracteres). */
@@ -65,6 +68,7 @@ interface ResultadoHerramienta {
 
 const RUT = z.string().describe('RUT del contribuyente, por ejemplo 22.222.222-2');
 const PERIODO = z.string().regex(/^\d{4}-\d{2}$/, 'Usa el formato AAAA-MM').describe('Período tributario AAAA-MM');
+const ANIO_TRIBUTARIO = z.string().regex(/^\d{4}$/, 'Usa el año tributario AAAA').describe('Año tributario AAAA (año comercial + 1): 2026 es la renta del año 2025');
 const SOLO_LECTURA = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } as const;
 
 const respuesta = (texto: string, datos: unknown): ResultadoHerramienta => ({
@@ -148,7 +152,9 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
         // Las boletas de honorarios también son opt-in: su sufijo aparece solo si algún mes las consultó.
         const conBoletas = r.periodos.filter((p) => typeof p.honorarios === 'object').length;
         const sufijoBoletas = conBoletas > 0 ? ` Boletas de honorarios recibidas: ${conBoletas}/${meses} meses consultados.` : '';
-        const sufijo = `${sufijoPropuesta}${sufijoBoletas}`;
+        // La renta es anual y opt-in: su sufijo aparece solo si hay algún F22 guardado.
+        const sufijoRenta = r.renta ? ` Renta (F22): ${r.renta.length} ${r.renta.length === 1 ? 'año tributario guardado' : 'años tributarios guardados'}.` : '';
+        const sufijo = `${sufijoPropuesta}${sufijoBoletas}${sufijoRenta}`;
         return respuesta(`Panorama local: ${meses} meses. Fuentes: RCV (compras y ventas) y F29. Cobertura: ventas ${ventas}/${meses}, compras ${compras}/${meses} y F29 ${f29}/${meses} meses consultados.${sufijo}`, r);
       }, rut),
   );
@@ -191,6 +197,41 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
         const codigos = [...(r.abortado ? [r.abortado.codigo] : []), ...r.errores.map((e) => e.codigo)];
         const guia = codigos.map((c) => guiaDelCodigo(comandoLogin, c, r.rut)).find((g) => g !== null);
         return respuesta([textoCuenta(r), guia].filter((t): t is string => typeof t === 'string').join('\n'), r);
+      }, rut),
+  );
+
+  servidor.registerTool(
+    'renta_sincronizar',
+    {
+      title: 'Sincronizar la renta (F22)',
+      description:
+        'Trae del SII la declaración anual de renta (F22) de un rango de años tributarios (AAAA; el año tributario es el año comercial + 1) y la guarda en la base local: las declaraciones del año, su conclusión y, del folio vigente, los códigos con su glosa, las observaciones y los eventos. Máximo 10 años por llamada. Solo lee el SII y no guarda nombres, domicilio, cuenta ni banco. Si el SII responde vacío donde había datos, se conservan los guardados. Si no hay sesión, la respuesta trae el comando de login para que la persona lo ejecute en su terminal; nunca pidas la clave en el chat.',
+      inputSchema: z.object({ rut: RUT, desde: ANIO_TRIBUTARIO, hasta: ANIO_TRIBUTARIO.optional() }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async ({ rut, desde, hasta }, ctx) =>
+      seguro(async () => {
+        const r = await sincronizarRenta(deps, rut, desde, hasta, ctx.mcpReq.signal);
+        // Igual que sincronizar: los errores de sesión vienen en `abortado` o en los errores de cada año, y el comando de login se agrega una sola vez.
+        const codigos = [...(r.abortado ? [r.abortado.codigo] : []), ...r.anios.flatMap((a) => a.errores.map((e) => e.codigo))];
+        const guia = codigos.map((c) => guiaDelCodigo(comandoLogin, c, r.rut)).find((g) => g !== null);
+        return respuesta([textoRenta(r), guia].filter((t): t is string => typeof t === 'string').join('\n'), r);
+      }, rut),
+  );
+
+  servidor.registerTool(
+    'renta_resumen',
+    {
+      title: 'Resumen de la renta (F22)',
+      description:
+        'Muestra la renta (F22) guardada localmente por año tributario: folio vigente, conclusión del SII, impuesto pagado, giro y remanente, los códigos del resultado con su glosa del SII, observaciones y eventos. No va al SII: si no hay datos, usa renta_sincronizar. Los demás códigos están en f22_valor (consulta_sql).',
+      inputSchema: z.object({ rut: RUT, anio: ANIO_TRIBUTARIO.optional() }),
+      annotations: SOLO_LECTURA,
+    },
+    async ({ rut, anio }) =>
+      seguro(() => {
+        const r = resumenRenta(deps, rut, anio);
+        return respuesta(textoResumenRenta(r), r);
       }, rut),
   );
 
@@ -299,7 +340,7 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
     'consulta_sql',
     {
       title: 'Consulta SQL libre',
-      description: `Ejecuta una sola sentencia SELECT (o WITH … SELECT) de solo lectura sobre una copia de los datos locales (RCV, F29, propuesta de F29, boletas de honorarios recibidas, hallazgos y bitácora de sincronización). Llama antes una vez a datos_esquema: describe tablas, columnas y reglas (signo de las notas de crédito, estados del RCV, códigos del F29). Sin parámetros: escribe los valores como literales. Devuelve como máximo ${LIMITES_CONSULTA.filas} filas y ${LIMITES_CONSULTA.caracteres} caracteres: filtra por RUT y período, agrupa o usa LIMIT.`,
+      description: `Ejecuta una sola sentencia SELECT (o WITH … SELECT) de solo lectura sobre una copia de los datos locales (RCV, F29, propuesta de F29, boletas de honorarios recibidas, renta F22, hallazgos y bitácora de sincronización). Llama antes una vez a datos_esquema: describe tablas, columnas y reglas (signo de las notas de crédito, estados del RCV, códigos del F29). Sin parámetros: escribe los valores como literales. Devuelve como máximo ${LIMITES_CONSULTA.filas} filas y ${LIMITES_CONSULTA.caracteres} caracteres: filtra por RUT y período, agrupa o usa LIMIT.`,
       inputSchema: z.object({ sql: z.string().describe('Una sola sentencia SELECT o WITH … SELECT') }),
       annotations: SOLO_LECTURA,
     },
