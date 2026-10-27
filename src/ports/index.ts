@@ -13,6 +13,7 @@ import type {
   Hallazgo,
   InformeBhe,
   InformeBheEmitidas,
+  InformeBheEmitidasMes,
   Lado,
   LecturaF29,
   LecturaFolioF29,
@@ -44,6 +45,8 @@ export interface SiiReader {
   bheRecibidas(rut: string, periodo: Periodo): Promise<InformeBhe | null>;
   /** Informe anual de boletas de honorarios emitidas por el contribuyente en un año comercial (los 12 meses). */
   bheEmitidasAnual(rut: string, anioComercial: number): Promise<InformeBheEmitidas>;
+  /** Boletas de honorarios emitidas del mes, una por una (todas las páginas), o null si el SII respondió vacío sin confirmar que no hay boletas. */
+  bheEmitidasMes(rut: string, periodo: Periodo): Promise<InformeBheEmitidasMes | null>;
   /** Datos tributarios de Mi SII del contribuyente de la sesión (lista permitida, sin datos personales). */
   perfilTributario(rut: string): Promise<PerfilTributario>;
   /** Empresas que el contribuyente de la sesión puede consultar en el SII. */

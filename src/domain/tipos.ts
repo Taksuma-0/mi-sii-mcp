@@ -237,6 +237,38 @@ export interface BheEmitidaMes {
   readonly folioFinal: number | null;
 }
 
+/** Boleta de honorarios electrónica emitida por el contribuyente (`rut`), según el informe mensual del SII. */
+export interface BoletaHonorariosEmitida {
+  /** RUT del emisor: el contribuyente que consulta. */
+  readonly rut: string;
+  readonly periodo: string;
+  readonly folio: number;
+  /** RUT de quien recibe (y paga) la boleta. */
+  readonly rutReceptor: string;
+  readonly nombreReceptor: string | null;
+  /** Fecha de la boleta (`AAAA-MM-DD`); null si el SII no la informó. */
+  readonly fecha: string | null;
+  /** Fecha en que se emitió en el sitio del SII (`AAAA-MM-DD`); null si no se informó. */
+  readonly fechaEmision: string | null;
+  /** Total de honorarios (bruto). */
+  readonly bruto: number;
+  /** Retención que paga el propio emisor (boletas a quienes no retienen). */
+  readonly retencionEmisor: number;
+  /** Retención que hace quien recibe la boleta (retención de terceros). */
+  readonly retencionReceptor: number;
+  readonly liquido: number;
+  readonly sociedadProfesional: boolean;
+  readonly anulada: boolean;
+  /** Fecha de anulación (`AAAA-MM-DD`); null si no está anulada o no se informó. */
+  readonly fechaAnulacion: string | null;
+}
+
+/** Informe mensual de boletas de honorarios emitidas: todas las páginas, sin repetidas, y el total que informa el SII. */
+export interface InformeBheEmitidasMes {
+  readonly total: number;
+  readonly boletas: readonly BoletaHonorariosEmitida[];
+}
+
 /** Informe anual de boletas de honorarios emitidas de un año comercial: siempre los 12 meses, en orden. */
 export interface InformeBheEmitidas {
   readonly anioComercial: number;

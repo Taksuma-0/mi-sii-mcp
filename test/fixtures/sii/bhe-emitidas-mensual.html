@@ -1,0 +1,81 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<title>Informe Mensual de Boletas de Honorarios Electrónicas Emitidas</title>
+<script language="javascript">
+var xml_values = new Array();
+var arr_informe_mensual = new Array();
+xml_values['nombre_contribuyente'] = "CONTRIBUYENTE FICTICIO DEMO";
+xml_values['rut_arrastre'] = "11111111";
+xml_values['dv_arrastre'] = "1";
+xml_values['anio_consulta'] = "2025";
+xml_values['mes_consulta'] = "03";
+xml_values['porcentaje_retencion'] = "13,75";
+xml_values['total_boletas'] = "3";
+xml_values['pagina_solicitada'] = "0";
+xml_values['suma_honorarios'] = 0;
+xml_values['suma_retencion_emisor'] = 0;
+xml_values['suma_retencion_receptor'] = 0;
+xml_values['suma_liquido'] = 0;
+arr_informe_mensual['nroboleta_1'] = "1";
+arr_informe_mensual['usuemisor_1'] = "CONTRIBUYENTE FICTICIO DEMO";
+arr_informe_mensual['fechaemision_1'] = "05/03/2025";
+arr_informe_mensual['rutreceptor_1'] = "33333333";
+arr_informe_mensual['dvreceptor_1'] = "3";
+arr_informe_mensual['nombrereceptor_1'] = "Compañía Ficticia Ñandú SpA";
+arr_informe_mensual['fecha_boleta_1'] = "05/03/2025";
+arr_informe_mensual['totalhonorarios_1'] = formatMiles("500000",'.');
+arr_informe_mensual['es_soc_profesional_1'] = "NO";
+arr_informe_mensual['email_envio_1'] = "pagos@ficticia.example";
+arr_informe_mensual['retencion_emisor_1'] = formatMiles("0",'.');
+arr_informe_mensual['retencion_receptor_1'] = formatMiles("68750",'.');
+arr_informe_mensual['honorariosliquidos_1'] = formatMiles("431250",'.');
+arr_informe_mensual['estado_1'] = "N";
+arr_informe_mensual['fechaanulacion_1'] = "";
+arr_informe_mensual['codigobarras_1'] = "BHEE0001FICTICIO";
+arr_informe_mensual['nroboleta_2'] = "2";
+arr_informe_mensual['usuemisor_2'] = "CONTRIBUYENTE FICTICIO DEMO";
+arr_informe_mensual['fechaemision_2'] = "12/03/2025";
+arr_informe_mensual['rutreceptor_2'] = "44444444";
+arr_informe_mensual['dvreceptor_2'] = "4";
+arr_informe_mensual['nombrereceptor_2'] = "";
+arr_informe_mensual['fecha_boleta_2'] = "11/03/2025";
+arr_informe_mensual['totalhonorarios_2'] = formatMiles("700000",'.');
+arr_informe_mensual['es_soc_profesional_2'] = "SI";
+arr_informe_mensual['email_envio_2'] = "contacto@otra.example";
+arr_informe_mensual['retencion_emisor_2'] = formatMiles("0",'.');
+arr_informe_mensual['retencion_receptor_2'] = formatMiles("96250",'.');
+arr_informe_mensual['honorariosliquidos_2'] = formatMiles("603750",'.');
+arr_informe_mensual['estado_2'] = "N";
+arr_informe_mensual['fechaanulacion_2'] = "";
+arr_informe_mensual['codigobarras_2'] = "BHEE0002FICTICIO";
+arr_informe_mensual['nroboleta_3'] = "3";
+arr_informe_mensual['usuemisor_3'] = "CONTRIBUYENTE FICTICIO DEMO";
+arr_informe_mensual['fechaemision_3'] = "18/03/2025";
+arr_informe_mensual['rutreceptor_3'] = "55555555";
+arr_informe_mensual['dvreceptor_3'] = "5";
+arr_informe_mensual['nombrereceptor_3'] = "Persona Ficticia";
+arr_informe_mensual['fecha_boleta_3'] = "18/03/2025";
+arr_informe_mensual['totalhonorarios_3'] = formatMiles("200000",'.');
+arr_informe_mensual['es_soc_profesional_3'] = "NO";
+arr_informe_mensual['email_envio_3'] = "persona@ficticia.example";
+arr_informe_mensual['retencion_emisor_3'] = formatMiles("27500",'.');
+arr_informe_mensual['retencion_receptor_3'] = formatMiles("0",'.');
+arr_informe_mensual['honorariosliquidos_3'] = formatMiles("172500",'.');
+arr_informe_mensual['estado_3'] = "S";
+arr_informe_mensual['fechaanulacion_3'] = "20/03/2025";
+arr_informe_mensual['codigobarras_3'] = "BHEE0003FICTICIO";
+function mostrar() {
+  document.getElementById('nombre').innerHTML = xml_values['nombre_contribuyente'];
+  for (var i = 1; i <= Number(xml_values['total_boletas']); i++) {
+    var emisor = arr_informe_mensual['usuemisor_' + i];
+    var correo = arr_informe_mensual['email_envio_' + i];
+    var barras = arr_informe_mensual['codigobarras_' + i];
+  }
+}
+</script>
+</head>
+<body onload="mostrar()">
+<div id="nombre"></div>
+</body>
+</html>

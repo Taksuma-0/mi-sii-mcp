@@ -66,7 +66,7 @@ describe('LectorPortalSii', () => {
 
   it('lee el informe anual de boletas de honorarios emitidas normalizando el RUT', async () => {
     const { fetchFalso, llamadas } = crearFetchFalso({
-      'GET https://loa.sii.cl/cgi_IMT/TMBCOC_InformeAnualBhe.cgi': { headers: [['content-type', 'text/html']], body: readFileSync(join(import.meta.dirname, '..', 'fixtures', 'sii', 'bhe-emitidas-anual.html')) },
+      'GET https://loa.sii.cl/cgi_IMT/TMBCOC_InformeAnualBhe.cgi': { headers: [['content-type', 'text/html']], body: new Uint8Array(readFileSync(join(import.meta.dirname, '..', 'fixtures', 'sii', 'bhe-emitidas-anual.html'))) },
     });
     const crudas: RespuestaCruda[] = [];
     const lector = new LectorPortalSii(new ClienteHttp(new CookieJar(), { fetch: fetchFalso, temporizador: sinEsperas }), (r) => void crudas.push(r));
@@ -76,5 +76,19 @@ describe('LectorPortalSii', () => {
     expect(informe.meses).toHaveLength(12);
     expect(new URL(llamadas[0]!.url).searchParams.get('rut_arrastre')).toBe('11111111');
     expect(crudas.map((c) => c.superficie)).toEqual(['bhe.emitidas.anual']);
+  });
+
+  it('lee el detalle mensual de boletas de honorarios emitidas normalizando el RUT', async () => {
+    const { fetchFalso, llamadas } = crearFetchFalso({
+      'GET https://loa.sii.cl/cgi_IMT/TMBCOC_InformeMensualBhe.cgi': { headers: [['content-type', 'text/html']], body: new Uint8Array(readFileSync(join(import.meta.dirname, '..', 'fixtures', 'sii', 'bhe-emitidas-mensual.html'))) },
+    });
+    const crudas: RespuestaCruda[] = [];
+    const lector = new LectorPortalSii(new ClienteHttp(new CookieJar(), { fetch: fetchFalso, temporizador: sinEsperas }), (r) => void crudas.push(r));
+
+    const informe = await lector.bheEmitidasMes('11.111.111-1', parsePeriodo('2025-03'));
+
+    expect(informe?.boletas.map((b) => b.folio)).toEqual([1, 2, 3]);
+    expect(new URL(llamadas[0]!.url).searchParams.get('rut_arrastre')).toBe('11111111');
+    expect(crudas.map((c) => c.superficie)).toEqual(['bhe.emitidas.mensual']);
   });
 });

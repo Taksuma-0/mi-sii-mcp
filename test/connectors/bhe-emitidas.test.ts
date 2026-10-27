@@ -33,7 +33,7 @@ const vacio = (mes: number): BheEmitidaMes => ({ mes, bruto: 0, retencionTercero
 
 describe('bheEmitidasAnual', () => {
   it('pide el informe anual del año comercial y devuelve los 12 meses; vacío es 0 y sin folios', async () => {
-    const { http, llamadas, sumidero } = preparar({ headers: HTML_SIN_CHARSET, body: Buffer.from(FIXTURE, 'latin1') });
+    const { http, llamadas, sumidero } = preparar({ headers: HTML_SIN_CHARSET, body: new Uint8Array(Buffer.from(FIXTURE, 'latin1')) });
 
     const r = await bheEmitidasAnual(http, sumidero, PERSONA, 2025);
 
@@ -110,7 +110,7 @@ describe('bheEmitidasAnual', () => {
   });
 
   it('guarda la evidencia saneada, sin el nombre del contribuyente', async () => {
-    const { http, sumidero, crudas } = preparar({ headers: HTML_SIN_CHARSET, body: Buffer.from(FIXTURE, 'latin1') });
+    const { http, sumidero, crudas } = preparar({ headers: HTML_SIN_CHARSET, body: new Uint8Array(Buffer.from(FIXTURE, 'latin1')) });
 
     await bheEmitidasAnual(http, sumidero, PERSONA, 2025);
 

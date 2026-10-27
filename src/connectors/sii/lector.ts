@@ -1,9 +1,9 @@
 import type { Periodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
-import type { DocumentoRcv, EmpresaAutorizada, EstadoRcv, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBhe, InformeBheEmitidas, Lado, PerfilTributario, PropuestaF29, RcvResumen } from '../../domain/tipos.js';
+import type { DocumentoRcv, EmpresaAutorizada, EstadoRcv, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBhe, InformeBheEmitidas, InformeBheEmitidasMes, Lado, PerfilTributario, PropuestaF29, RcvResumen } from '../../domain/tipos.js';
 import type { LectorPdfF29, SiiReader, SumideroRespuestas } from '../../ports/index.js';
 import { bheRecibidas } from './bhe.js';
-import { bheEmitidasAnual } from './bhe-emitidas.js';
+import { bheEmitidasAnual, bheEmitidasMes } from './bhe-emitidas.js';
 import { empresasAutorizadas } from './empresas.js';
 import { f22Declaraciones, f22Detalle } from './f22.js';
 import { f29Declaraciones, f29Valores } from './f29.js';
@@ -48,6 +48,10 @@ export class LectorPortalSii implements SiiReader {
 
   bheEmitidasAnual(rut: string, anioComercial: number): Promise<InformeBheEmitidas> {
     return bheEmitidasAnual(this.http, this.sumidero, parseRut(rut), anioComercial);
+  }
+
+  bheEmitidasMes(rut: string, periodo: Periodo): Promise<InformeBheEmitidasMes | null> {
+    return bheEmitidasMes(this.http, this.sumidero, parseRut(rut), periodo);
   }
 
   /** La evidencia cruda de Mi SII no se guarda: trae datos personales y el sumidero no la recibe. */
