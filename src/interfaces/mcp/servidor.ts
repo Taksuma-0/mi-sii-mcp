@@ -9,7 +9,7 @@ import { sincronizar } from '../../app/sincronizar.js';
 import { esErrorImpuestocl, type CodigoError } from '../../domain/errores.js';
 import { parsePeriodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
-import { textoDocumentos, textoHallazgos, textoHistorialF29, textoPerfiles, textoPlazos, textoResumenIva, textoSync } from '../formato.js';
+import { lineaReintento, textoDocumentos, textoHallazgos, textoHistorialF29, textoPerfiles, textoPlazos, textoReintentables, textoResumenIva, textoSync } from '../formato.js';
 
 export const HERRAMIENTAS = [
   'perfiles_listar',
@@ -93,7 +93,7 @@ function crearSeguro(comandoLogin: (rut: string) => string) {
       if (!esErrorImpuestocl(e)) throw e;
       // La acción por defecto de estos errores nombra `impuestocl login` o `impuestocl perfil agregar`, que no están en el PATH del asistente.
       const accion = guiaDelCodigo(comandoLogin, e.codigo, rut) ?? `Acción sugerida: ${e.accion}`;
-      return { content: [{ type: 'text', text: `Error [${e.codigo}]: ${e.message}\n${accion}` }], isError: true };
+      return { content: [{ type: 'text', text: `Error [${e.codigo}]: ${e.message}\n${accion}\n${lineaReintento(e.codigo)}` }], isError: true };
     }
   };
 }
@@ -157,7 +157,8 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
         // El comando de login se agrega aquí, una sola vez.
         const codigos = [...(r.abortado ? [r.abortado.codigo] : []), ...r.periodos.flatMap((p) => p.errores.map((e) => e.codigo))];
         const guia = codigos.map((c) => guiaDelCodigo(comandoLogin, c, r.rut)).find((g) => g !== null);
-        return respuesta(guia ? `${textoSync(r)}\n${guia}` : textoSync(r), r);
+        const texto = [textoSync(r), textoReintentables(r), guia].filter((t) => t !== null).join('\n');
+        return respuesta(texto, r);
       }, rut),
   );
 

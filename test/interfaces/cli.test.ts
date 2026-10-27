@@ -7,8 +7,8 @@ import { declaracion, documento, fila, perfilEmpresa, resumen, RUT_EMPRESA, valo
 import { depsDePrueba } from '../helpers/deps.js';
 import { sembrarMes } from '../helpers/sembrar.js';
 
-function entorno(o: { claveStdin?: string } = {}) {
-  const p = depsDePrueba();
+function entorno(o: { claveStdin?: string; fallaAlAbrir?: Error } = {}) {
+  const p = depsDePrueba({ fallaAlAbrir: o.fallaAlAbrir });
   const salidaTexto: string[] = [];
   const errores: string[] = [];
   const logins: { rut: string; clave: string; guardar: boolean }[] = [];
@@ -70,6 +70,15 @@ describe('CLI', () => {
     expect(await e.correr('iva', RUT_EMPRESA, '2026-09')).toBe(1);
     expect(e.errores[0]).toContain('Error [PERFIL_NO_EXISTE]');
     expect(e.errores[0]).toContain('→ Agrega el perfil');
+    expect(e.errores[0]).toContain('Reintentar: no (');
+  });
+
+  it('un error del SII que conviene reintentar más tarde lo indica', async () => {
+    const e = entorno({ fallaAlAbrir: new ErrorImpuestocl('SII_NO_DISPONIBLE', 'El SII no responde.') });
+    e.store.guardarContribuyente(perfilEmpresa());
+    expect(await e.correr('sync', RUT_EMPRESA, '--desde', '2026-09')).toBe(1);
+    expect(e.errores[0]).toContain('Error [SII_NO_DISPONIBLE]');
+    expect(e.errores[0]).toContain('Reintentar: más tarde');
   });
 
   it('login --clave-stdin usa la clave leída y registra la identidad', async () => {

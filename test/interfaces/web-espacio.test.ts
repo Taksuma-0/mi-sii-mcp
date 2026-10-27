@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { crearEspacioLocal } from '../../src/interfaces/web/espacio.js';
 import { errorPublico, SecretosNulos, type FabricaContenedorWeb } from '../../src/interfaces/web/verificar.js';
-import { ErrorImpuestocl } from '../../src/domain/errores.js';
+import { ErrorImpuestocl, type CodigoError } from '../../src/domain/errores.js';
 import { resumenIva } from '../../src/app/consultas.js';
 import { depsDePrueba } from '../helpers/deps.js';
 import { documento, fila, perfilEmpresa, resumen } from '../helpers/fabricas.js';
@@ -26,6 +26,12 @@ function entorno() {
 describe('espacio local por contexto', () => {
   it('explica períodos inválidos sin excluir enero de 2000 del espacio', () => {
     expect(errorPublico(new ErrorImpuestocl('PERIODO_INVALIDO', '')).mensaje).not.toContain('posterior a enero de 2000');
+  });
+  it.each<CodigoError>(['SII_SESIONES_MAXIMAS', 'RESPUESTA_VACIA', 'DATOS_INCOMPLETOS', 'LECTURA_INCOHERENTE'])('%s tiene un mensaje público propio sin texto del SII', (codigo) => {
+    const r = errorPublico(new ErrorImpuestocl(codigo, 'Texto interno del SII que no debe salir.'));
+    expect(r.codigo).toBe(codigo);
+    expect(r.mensaje.length).toBeGreaterThan(20);
+    expect(r.mensaje).not.toContain('Texto interno');
   });
   it('conecta una vez sin sincronizar ni conciliar y conserva el perfil local', async () => {
     const e = entorno();

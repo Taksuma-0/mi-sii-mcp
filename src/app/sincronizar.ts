@@ -1,4 +1,4 @@
-import { ERRORES_FATALES, ErrorImpuestocl, esErrorImpuestocl } from '../domain/errores.js';
+import { ERRORES_FATALES, ErrorImpuestocl, esErrorImpuestocl, type CodigoError } from '../domain/errores.js';
 import { declaracionVigente } from '../domain/f29.js';
 import { rangoPeriodos, type Periodo } from '../domain/periodo.js';
 import { parseRut } from '../domain/rut.js';
@@ -33,7 +33,8 @@ const LADOS: readonly Lado[] = ['VENTA', 'COMPRA'];
 const ESTADOS_POR_LADO: Readonly<Record<Lado, readonly EstadoRcv[]>> = { VENTA: ['REGISTRO'], COMPRA: ESTADOS_RCV };
 /** Boletas y comprobantes de venta: el RCV los entrega solo como resumen. */
 export const SOLO_RESUMEN_VENTA: ReadonlySet<number> = new Set([35, 38, 39, 41, 48]);
-const DATOS_INCOMPLETOS = Symbol('DATOS_INCOMPLETOS');
+const CODIGO_DATOS_INCOMPLETOS: CodigoError = 'DATOS_INCOMPLETOS';
+const DATOS_INCOMPLETOS_RCV = Symbol('DATOS_INCOMPLETOS');
 
 /** Motivo de término cuando quien pidió la sincronización la cancela (p. ej. Esc en el cliente MCP). */
 export const SINCRONIZACION_CANCELADA: ErrorSuperficie = {
@@ -86,7 +87,7 @@ export async function sincronizar(
           revisarCancelacion(signal);
           await registrar(deps, rut, `rcv.${lado}`, periodo.texto, buffer, res, async (id, ahora) => {
             const { resumenes, documentos, avisos } = await traerRcv(sii, rut, periodo, lado, (aviso) => res.avisos.push(aviso));
-            if (avisos.length > 0) return DATOS_INCOMPLETOS;
+            if (avisos.length > 0) return DATOS_INCOMPLETOS_RCV;
             deps.store.reemplazarRcv(id, rut, periodo.texto, lado, resumenes, documentos, ahora);
             res.documentos += documentos.length;
           });
@@ -161,7 +162,7 @@ async function registrar<T>(
   periodo: string,
   buffer: RespuestaCruda[],
   res: ResultadoPeriodo,
-  trabajo: (sincronizacionId: number, ahora: string) => Promise<T | typeof DATOS_INCOMPLETOS>,
+  trabajo: (sincronizacionId: number, ahora: string) => Promise<T | typeof DATOS_INCOMPLETOS_RCV>,
 ): Promise<T | null> {
   const ahora = deps.reloj.ahora().toISOString();
   const id = deps.store.iniciarSincronizacion(rut, superficie, periodo, ahora);
@@ -169,10 +170,10 @@ async function registrar<T>(
   try {
     const valor = await trabajo(id, ahora);
     volcar(deps, id, buffer);
-    if (valor === DATOS_INCOMPLETOS) {
+    if (valor === DATOS_INCOMPLETOS_RCV) {
       const mensaje = 'El detalle RCV está incompleto; se conserva el último conjunto completo de este lado, si existe.';
-      deps.store.terminarSincronizacion(id, deps.reloj.ahora().toISOString(), 'error', { codigo: 'DATOS_INCOMPLETOS', detalle: mensaje });
-      res.errores.push({ superficie, codigo: 'DATOS_INCOMPLETOS', mensaje });
+      deps.store.terminarSincronizacion(id, deps.reloj.ahora().toISOString(), 'error', { codigo: CODIGO_DATOS_INCOMPLETOS, detalle: mensaje });
+      res.errores.push({ superficie, codigo: CODIGO_DATOS_INCOMPLETOS, mensaje });
       return null;
     }
     deps.store.terminarSincronizacion(id, deps.reloj.ahora().toISOString(), 'ok');

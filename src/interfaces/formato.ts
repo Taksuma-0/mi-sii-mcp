@@ -1,6 +1,7 @@
 import type { FilaHistorialF29, PaginaDocumentos, ResumenIva } from '../app/consultas.js';
 import type { PerfilConSesion } from '../app/perfiles.js';
 import { SINCRONIZACION_CANCELADA, type ResultadoSync } from '../app/sincronizar.js';
+import { reintentoDe, type Reintento } from '../domain/errores.js';
 import { formatearClp, nombreTipoDocumento } from '../domain/formato.js';
 import type { Hallazgo, Plazo, Severidad } from '../domain/tipos.js';
 
@@ -46,6 +47,21 @@ export function textoPerfiles(perfiles: readonly PerfilConSesion[]): string {
       return `${p.rut}  ${p.alias} (${p.tipo})${p.razonSocial ? ` — ${p.razonSocial}` : ''} · sesión: ${sesion}`;
     })
     .join('\n');
+}
+
+const TEXTO_REINTENTO: Readonly<Record<Reintento, string>> = {
+  inmediato: 'ahora mismo',
+  mas_tarde: 'más tarde',
+  no: 'no (repetirlo igual no lo resuelve; sigue la acción indicada)',
+};
+
+/** Línea que dice si conviene volver a intentar un error; `codigo` es texto porque los errores de sincronización no lo tipan. */
+export const lineaReintento = (codigo: string): string => `Reintentar: ${TEXTO_REINTENTO[reintentoDe(codigo)]}`;
+
+/** Los meses con errores que se resuelven esperando, o `null` si no hay ninguno. */
+export function textoReintentables(r: ResultadoSync): string | null {
+  const items = r.periodos.flatMap((p) => p.errores.filter((e) => reintentoDe(e.codigo) === 'mas_tarde').map((e) => `${p.periodo} (${e.superficie} ${e.codigo})`));
+  return items.length === 0 ? null : `Reintentables más tarde: ${items.join(', ')}`;
 }
 
 export function textoSync(r: ResultadoSync): string {

@@ -53,6 +53,10 @@ const MENSAJES: Readonly<Record<CodigoError, string>> = {
   PERFIL_NO_EXISTE: 'No se pudo preparar el perfil para la consulta. Cierra y vuelve a abrir la aplicación.',
   CONSULTA_RECHAZADA: 'La consulta no está permitida. Usa una sola sentencia SELECT o WITH.',
   CONSULTA_INTERRUMPIDA: 'La consulta tardó demasiado y se detuvo. Simplifica la consulta y vuelve a intentarlo.',
+  SII_SESIONES_MAXIMAS: 'El SII tiene demasiadas sesiones abiertas para este RUT. Cierra la sesión del SII en otros navegadores o equipos y vuelve a intentarlo en unos minutos.',
+  RESPUESTA_VACIA: 'El SII respondió sin datos donde antes había. Se conservan los datos anteriores; puedes volver a intentarlo más tarde.',
+  DATOS_INCOMPLETOS: 'El SII entregó menos documentos de los esperados. Se conserva el último conjunto completo; puedes volver a intentarlo más tarde.',
+  LECTURA_INCOHERENTE: 'La lectura del F29 no cuadra, así que se conserva la anterior. Puede que el SII haya cambiado el formulario.',
 };
 
 /** Nunca expone mensajes, causas o cuerpos recibidos del SII. */

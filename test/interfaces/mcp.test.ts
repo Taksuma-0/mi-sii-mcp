@@ -134,6 +134,57 @@ describe('servidor MCP', () => {
     await cliente.close();
   });
 
+  describe('reintento', () => {
+    it('un error de la herramienta que conviene reintentar más tarde lo dice', async () => {
+      const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorImpuestocl('SII_NO_DISPONIBLE', 'El SII no responde.') });
+      store.guardarContribuyente(perfilEmpresa());
+      const cliente = await conectar(deps);
+      const r = await cliente.callTool({ name: 'sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026-09' } });
+      expect(esError(r)).toBe(true);
+      expect(textoDe(r)).toContain('Reintentar: más tarde');
+      await cliente.close();
+    });
+
+    it('un error que pide corregir algo dice que no se reintente igual', async () => {
+      const cliente = await conectar(depsDePrueba().deps);
+      const r = await cliente.callTool({ name: 'iva_resumen', arguments: { rut: RUT_EMPRESA, periodo: '2026-09' } });
+      expect(textoDe(r)).toMatch(/Reintentar: no \(/);
+      await cliente.close();
+    });
+
+    it('un error de consulta interrumpida se reintenta ahora mismo', async () => {
+      const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorImpuestocl('CONSULTA_INTERRUMPIDA', 'Tardó demasiado.') });
+      store.guardarContribuyente(perfilEmpresa());
+      const cliente = await conectar(deps);
+      const r = await cliente.callTool({ name: 'sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026-09' } });
+      expect(textoDe(r)).toContain('Reintentar: ahora mismo');
+      await cliente.close();
+    });
+
+    it('sincronizar lista los meses con errores reintentables más tarde', async () => {
+      const { deps, store, sii } = depsDePrueba();
+      store.guardarContribuyente(perfilEmpresa());
+      sii.fallas.set('f29|2026-10', new ErrorImpuestocl('SII_NO_DISPONIBLE', 'No responde.'));
+      sii.fallas.set('f29|2026-09', new ErrorImpuestocl('PORTAL_CAMBIO', 'Cambió.'));
+      const cliente = await conectar(deps);
+      const r = await cliente.callTool({ name: 'sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026-09', hasta: '2026-10', superficies: ['f29'] } });
+      const texto = textoDe(r);
+      expect(texto).toContain('Reintentables más tarde: 2026-10 (f29 SII_NO_DISPONIBLE)');
+      expect(texto).not.toContain('2026-09 (f29');
+      await cliente.close();
+    });
+
+    it('sincronizar sin errores reintentables no agrega la línea', async () => {
+      const { deps, store, sii } = depsDePrueba();
+      store.guardarContribuyente(perfilEmpresa());
+      sii.declaraciones.set('2026-09', []);
+      const cliente = await conectar(deps);
+      const r = await cliente.callTool({ name: 'sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026-09' } });
+      expect(textoDe(r)).not.toContain('Reintentables');
+      await cliente.close();
+    });
+  });
+
   it('sincronizar se detiene entre meses cuando el cliente cancela y conserva lo traído', async () => {
     const { deps, store, sii, persistidos } = depsDePrueba();
     store.guardarContribuyente(perfilEmpresa());

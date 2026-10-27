@@ -9,7 +9,7 @@ import { parseRut } from '../../domain/rut.js';
 import type { EstadoRcv, Lado, Severidad, TipoContribuyente } from '../../domain/tipos.js';
 import { VERSION } from '../../main/version.js';
 import type { EstadoSesion, ResultadoLogin } from '../../ports/index.js';
-import { textoDocumentos, textoHallazgos, textoHistorialF29, textoPerfiles, textoPlazos, textoResumenIva, textoSync } from '../formato.js';
+import { lineaReintento, textoDocumentos, textoHallazgos, textoHistorialF29, textoPerfiles, textoPlazos, textoResumenIva, textoSync } from '../formato.js';
 
 export interface IoCli {
   escribir(texto: string): void;
@@ -57,7 +57,7 @@ export function crearPrograma(
         await accion(c, ...args);
       } catch (e) {
         if (!esErrorImpuestocl(e)) throw e;
-        io.error(`Error [${e.codigo}]: ${e.message}\n→ ${e.accion}`);
+        io.error(`Error [${e.codigo}]: ${e.message}\n→ ${e.accion}\n${lineaReintento(e.codigo)}`);
         salida.codigo = 1;
       } finally {
         c.cerrar();
