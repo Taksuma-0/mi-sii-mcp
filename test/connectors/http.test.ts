@@ -187,6 +187,12 @@ describe('ClienteHttp', () => {
     }
   });
 
+  it('un plazo enorme no hace fallar la consulta (AbortSignal.timeout admite hasta 2^32-1)', async () => {
+    const { fetchFalso } = crearFetchFalso({ 'GET https://zeusr.sii.cl/x': { body: 'ok', headers: [['content-type', 'text/plain']] } });
+    const http = new ClienteHttp(new CookieJar(), { fetch: fetchFalso, temporizador: sinEsperas, plazoMs: 1e15 });
+    expect((await http.solicitar('https://zeusr.sii.cl/x')).texto).toBe('ok');
+  });
+
   it('decodifica páginas ISO-8859-1', async () => {
     const latin1 = Uint8Array.from(Buffer.from('código', 'latin1'));
     expect(decodificar(latin1, 'text/html; charset=ISO-8859-1')).toBe('código');
@@ -211,6 +217,22 @@ describe('ClienteHttp', () => {
   it('el charset del encabezado manda sobre el de <meta>', () => {
     const bytes = new TextEncoder().encode('<meta charset="ISO-8859-1">código');
     expect(decodificar(bytes, 'text/html; charset=utf-8')).toBe('<meta charset="ISO-8859-1">código');
+  });
+
+  it('solo busca <meta charset> en HTML o sin content-type, no en JSON ni PDF', () => {
+    const cuerpo = Uint8Array.from(Buffer.from('{"nota":"<meta charset=\\"ISO-8859-1\\"> código"}', 'utf8'));
+    const esperado = new TextDecoder('utf-8').decode(cuerpo);
+    expect(decodificar(cuerpo, 'application/json')).toBe(esperado);
+    expect(decodificar(cuerpo, 'application/pdf')).toBe(esperado);
+    const sinMeta = Uint8Array.from(Buffer.from('<meta charset="ISO-8859-1">código', 'utf8'));
+    expect(decodificar(sinMeta, 'application/json')).toBe('<meta charset="ISO-8859-1">código');
+    expect(decodificar(sinMeta, '')).not.toBe('<meta charset="ISO-8859-1">código');
+  });
+
+  it('un <meta charset=utf-16> se trata como UTF-8 porque el cuerpo no es UTF-16', () => {
+    const bytes = new TextEncoder().encode('<html><meta charset="utf-16"><body>código</body></html>');
+    expect(decodificar(bytes, 'text/html')).toContain('código');
+    expect(decodificar(bytes, null)).toContain('código');
   });
 
   it('usa UTF-8 si falta charset o el charset no es reconocido', () => {

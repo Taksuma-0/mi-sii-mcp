@@ -63,18 +63,29 @@ export function conSenal(http: Http, signal: AbortSignal | undefined): Http {
   };
 }
 
+/** El mayor plazo que admite un temporizador (2^31-1 ms); `AbortSignal.timeout` lanza RangeError sobre 2^32-1. */
+export const PLAZO_MAXIMO_MS = 2_147_483_647;
+
 /** Bytes que se revisan buscando un `<meta>` con charset cuando el encabezado no lo trae. */
 const BYTES_BUSQUEDA_META = 2048;
 
-/** `<meta charset="…">` o `<meta http-equiv="Content-Type" content="…; charset=…">`. */
+/**
+ * `<meta charset="…">` o `<meta http-equiv="Content-Type" content="…; charset=…">`. Un `utf-16*` declarado en un meta
+ * es imposible (el propio meta se leyó como ASCII) y los navegadores lo tratan como UTF-8.
+ */
 function charsetDeMeta(bytes: Uint8Array): string | undefined {
   const inicio = new TextDecoder('latin1').decode(bytes.subarray(0, BYTES_BUSQUEDA_META));
-  return /<meta\b[^>]*?charset\s*=\s*["']?\s*([\w.:-]+)/i.exec(inicio)?.[1];
+  const charset = /<meta\b[^>]*?charset\s*=\s*["']?\s*([\w.:-]+)/i.exec(inicio)?.[1];
+  return charset && /^utf-?16/i.test(charset) ? 'utf-8' : charset;
 }
+
+/** Un `<meta>` solo vale en HTML (o sin content-type): no en JSON, PDF ni otros cuerpos. */
+const admiteMeta = (contentType: string | null): boolean => !contentType?.trim() || /html/i.test(contentType);
 
 export function decodificar(bytes: Uint8Array, contentType: string | null): string {
   const delEncabezado = /charset=([^;]+)/i.exec(contentType ?? '')?.[1]?.trim().replace(/["']/g, '');
-  const charset = (delEncabezado || charsetDeMeta(bytes) || 'utf-8').toLowerCase();
+  const delMeta = delEncabezado || !admiteMeta(contentType) ? undefined : charsetDeMeta(bytes);
+  const charset = (delEncabezado || delMeta || 'utf-8').toLowerCase();
   try {
     return new TextDecoder(charset).decode(bytes);
   } catch {
@@ -101,7 +112,7 @@ export class ClienteHttp implements Http {
     this.temporizador = opciones.temporizador ?? temporizadorReal;
     this.intervaloMinMs = opciones.intervaloMinMs ?? 1000;
     this.reintentos = opciones.reintentos ?? 2;
-    this.plazoMs = opciones.plazoMs ?? 60_000;
+    this.plazoMs = Math.min(PLAZO_MAXIMO_MS, opciones.plazoMs ?? 60_000);
   }
 
   async cookie(url: string, nombre: string): Promise<string | null> {

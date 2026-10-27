@@ -43,6 +43,10 @@ describe('configuración y contenedor', () => {
     expect(cargarConfig({ IMPUESTOCL_HOME: home, IMPUESTOCL_PLAZO_HTTP_MS: 'abc' }).plazoHttpMs).toBe(60_000);
   });
 
+  it('cargarConfig acota el plazo HTTP a lo que admite un temporizador (2^31-1 ms)', () => {
+    expect(cargarConfig({ IMPUESTOCL_HOME: home, IMPUESTOCL_PLAZO_HTTP_MS: '99999999999999' }).plazoHttpMs).toBe(2_147_483_647);
+  });
+
   it.each(['0', '500', '9999'])('cargarConfig exige al menos 10000 ms de plazo HTTP si IMPUESTOCL_PLAZO_HTTP_MS es %s', (plazo) => {
     expect(cargarConfig({ IMPUESTOCL_HOME: home, IMPUESTOCL_PLAZO_HTTP_MS: plazo }).plazoHttpMs).toBe(10_000);
   });
