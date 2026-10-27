@@ -7,6 +7,8 @@ import type {
   F29Valores,
   Hallazgo,
   Lado,
+  LecturaF29,
+  LecturaFolioF29,
   Perfil,
   RcvResumen,
   RespuestaCruda,
@@ -23,6 +25,25 @@ export interface SiiReader {
   rcvDetalle(rut: string, periodo: Periodo, lado: Lado, tipoDoc: number, estado: EstadoRcv): Promise<DocumentoRcv[]>;
   f29Declaraciones(rut: string, periodo: Periodo): Promise<F29Declaracion[]>;
   f29Valores(rut: string, declaracion: F29Declaracion): Promise<F29Valores>;
+}
+
+/** Lee los códigos del PDF compacto del F29. La sincronización y la relectura usan el mismo, así su versión dice qué lector se usó. */
+export interface LectorPdfF29 {
+  readonly version: string;
+  extraer(bytes: Uint8Array): Promise<Record<string, number>>;
+}
+
+/** PDF compacto del F29 guardado como evidencia de una sincronización. */
+export interface PdfF29Guardado {
+  readonly periodo: string;
+  readonly folio: number;
+  readonly bytes: Uint8Array;
+  readonly obtenidoEn: string;
+}
+
+export interface LecturaF29Guardada extends LecturaF29 {
+  /** Cantidad de códigos guardados del folio. */
+  readonly codigos: number;
 }
 
 export interface SecretStore {
@@ -134,7 +155,14 @@ export interface Store {
     declaraciones: readonly F29Declaracion[],
     valores: readonly F29Valores[],
     obtenidoEn: string,
+    /** Lecturas nuevas; las de folios que siguen declarados y con valores se conservan, las demás se borran. */
+    lecturas?: readonly LecturaFolioF29[],
   ): void;
+  /** Reemplaza solo los valores de un folio ya declarado y registra su lectura, en una transacción. */
+  reemplazarValoresFolioF29(rut: string, periodo: string, folio: number, valores: Readonly<Record<string, number>>, lectura: LecturaF29): void;
+  lecturaF29(rut: string, periodo: string, folio: number): LecturaF29Guardada | null;
+  /** El PDF válido más nuevo de cada período y folio guardado como evidencia, de cualquier sincronización; ordenado por período y folio. */
+  pdfsF29Guardados(rut: string, desde?: string, hasta?: string): PdfF29Guardado[];
   resumenesRcv(rut: string, periodo: string): RcvResumen[];
   documentosRcv(rut: string, periodo: string, filtro?: FiltroDocumentos): DocumentoRcv[];
   documentosRcvPaginados(rut: string, periodo: string, filtro: FiltroDocumentos, pagina: number, tamano: number): DocumentosPaginados;

@@ -19,6 +19,7 @@ const tablasCopia = (signo: string): readonly string[] => [
   `rcv_documento AS SELECT *, ${signo} AS signo FROM main.rcv_documento`,
   'f29_declaracion AS SELECT * FROM main.f29_declaracion',
   'f29_valor AS SELECT * FROM main.f29_valor',
+  'f29_lectura AS SELECT * FROM main.f29_lectura',
   'hallazgo AS SELECT * FROM main.hallazgo',
   'sincronizacion AS SELECT id, rut, superficie, periodo, iniciado_en, terminado_en, estado, error_codigo FROM main.sincronizacion',
 ];

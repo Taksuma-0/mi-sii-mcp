@@ -139,6 +139,21 @@ const TABLAS: readonly TablaEsquema[] = [
     ],
   },
   {
+    nombre: 'f29_lectura',
+    descripcion:
+      'Cómo se leyeron los valores de cada folio en f29_valor (una fila por rut, periodo y folio): versión del lector del PDF, origen y si el autocontrol del formulario cuadró. Un folio con valores sin fila aquí se leyó antes de que existiera esta tabla.',
+    columnas: [
+      RUT,
+      PERIODO,
+      col('folio', 'INTEGER', 'Folio de f29_declaracion'),
+      col('version_lector', 'TEXT', 'Versión del lector del PDF compacto que obtuvo los valores'),
+      col('origen', 'TEXT', 'sincronizacion (PDF recién bajado del SII) o relectura (PDF ya guardado, leído de nuevo sin volver al SII)'),
+      col('leido_en', 'TEXT', 'Instante ISO UTC de la lectura'),
+      col('codigos', 'INTEGER', 'Cantidad de códigos guardados del folio'),
+      col('coherente', 'INTEGER', '1 si la lectura trae 538 y 537 legibles y cuadra con el autocontrol del F29; 0 si no (revisa esos valores con cuidado)'),
+    ],
+  },
+  {
     nombre: 'hallazgo',
     descripcion:
       'Resultados de la conciliación IVA (RCV contra F29) y avisos de plazos, por rut y periodo. Se recalculan al pedir iva_resumen o iva_hallazgos: una tabla vacía no prueba que no haya diferencias.',

@@ -47,3 +47,21 @@ export function verificarCoherenciaF29(v: F29Valores | null): string[] {
   }
   return out;
 }
+
+/**
+ * Una lectura del F29 es confiable si está leída, el autocontrol aplica (538 y 537 con dato según `montoF29`) y no tiene
+ * incoherencias. `verificarCoherenciaF29` devuelve vacío también cuando no aplica: para decidir si una lectura puede
+ * reemplazar a otra se usa esta función, no el vacío.
+ */
+export function lecturaConfiable(v: F29Valores | null): boolean {
+  if (montoF29(v, CODIGO_F29.TOTAL_DEBITOS) === null || montoF29(v, CODIGO_F29.TOTAL_CREDITOS) === null) return false;
+  return verificarCoherenciaF29(v).length === 0;
+}
+
+/** Por qué una lectura no es confiable, en texto; null si lo es. */
+export function motivoNoConfiable(v: F29Valores | null): string | null {
+  if (lecturaConfiable(v)) return null;
+  const incoherencias = verificarCoherenciaF29(v);
+  if (incoherencias.length > 0) return `no cuadra (${incoherencias.join('; ')})`;
+  return `no trae el ${CODIGO_F29.TOTAL_DEBITOS} y el ${CODIGO_F29.TOTAL_CREDITOS} legibles para verificarla`;
+}

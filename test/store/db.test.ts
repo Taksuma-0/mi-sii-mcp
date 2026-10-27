@@ -40,6 +40,7 @@ describe('db', () => {
         'rcv_documento_snapshot',
         'f29_declaracion',
         'f29_valor',
+        'f29_lectura',
         'hallazgo',
       ]),
     );
@@ -117,7 +118,7 @@ describe('respaldo antes de migrar', () => {
     copia.close();
   });
 
-  it('migra de verdad una base v1 en archivo con MIGRACIONES y deja el respaldo -antes-v2 con datos v1', () => {
+  it('migra de verdad una base v1 en archivo con MIGRACIONES y deja el respaldo -antes-v<última> con datos v1', () => {
     const ruta = join(carpeta(), 'real.db');
     conV1(ruta);
     const db = abrirDb(ruta);
@@ -125,7 +126,7 @@ describe('respaldo antes de migrar', () => {
     const columnas = (d: Db): string[] => (d.prepare('PRAGMA table_info(f29_declaracion)').all() as { name: string }[]).map((c) => c.name);
     expect(columnas(db)).toContain('estado_id');
     db.close();
-    const respaldo = join(dirs[0]!, 'real-antes-v2.db');
+    const respaldo = join(dirs[0]!, `real-antes-v${MIGRACIONES[MIGRACIONES.length - 1]!.version}.db`);
     const copia = new Database(respaldo, { readonly: true });
     expect(versionEsquema(copia)).toBe(1);
     expect(copia.prepare('SELECT COUNT(*) AS n FROM contribuyente').get()).toEqual({ n: 1 });

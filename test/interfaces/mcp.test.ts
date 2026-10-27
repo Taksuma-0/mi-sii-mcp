@@ -308,7 +308,7 @@ describe('servidor MCP', () => {
   });
 
   describe('datos_esquema', () => {
-    it('lista las 7 tablas con sus columnas y las reglas de interpretación', async () => {
+    it('lista las 8 tablas con sus columnas y las reglas de interpretación', async () => {
       const cliente = await conectar(depsDePrueba().deps);
 
       const r = await cliente.callTool({ name: 'datos_esquema', arguments: {} });
@@ -316,9 +316,9 @@ describe('servidor MCP', () => {
       expect(esError(r)).toBe(false);
       const texto = textoDe(r);
       const datos = JSON.parse(texto.slice(texto.indexOf('\n\n') + 2));
-      expect(datos.tablas.map((t: { nombre: string }) => t.nombre)).toEqual(['contribuyente', 'rcv_resumen', 'rcv_documento', 'f29_declaracion', 'f29_valor', 'hallazgo', 'sincronizacion']);
+      expect(datos.tablas.map((t: { nombre: string }) => t.nombre)).toEqual(['contribuyente', 'rcv_resumen', 'rcv_documento', 'f29_declaracion', 'f29_valor', 'f29_lectura', 'hallazgo', 'sincronizacion']);
       expect(datos).toEqual(JSON.parse(JSON.stringify(esquemaDatos())));
-      expect(texto.split('\n\n')[0]).toContain('7 tablas');
+      expect(texto.split('\n\n')[0]).toContain('8 tablas');
       await cliente.close();
     });
 

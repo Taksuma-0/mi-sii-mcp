@@ -80,6 +80,23 @@ export interface F29Valores {
   readonly folio: number;
   /** código del formulario → valor (montos en pesos; tasas como decimal). */
   readonly valores: Readonly<Record<string, number>>;
+  /** Versión del lector de PDF que obtuvo los valores, cuando vienen de leer el PDF compacto. */
+  readonly versionLector?: string;
+}
+
+export type OrigenLecturaF29 = 'sincronizacion' | 'relectura';
+
+/** Cómo se obtuvieron los valores guardados de un folio: con qué lector, desde dónde, cuándo y si el autocontrol cuadró. */
+export interface LecturaF29 {
+  readonly versionLector: string;
+  readonly origen: OrigenLecturaF29;
+  readonly leidoEn: string;
+  /** La lectura es confiable: leída, con 538 y 537 legibles y sin incoherencias (`lecturaConfiable`). */
+  readonly coherente: boolean;
+}
+
+export interface LecturaFolioF29 extends LecturaF29 {
+  readonly folio: number;
 }
 
 export interface FilaSnapshot {

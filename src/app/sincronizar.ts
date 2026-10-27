@@ -2,11 +2,12 @@ import { ERRORES_FATALES, ErrorImpuestocl, esErrorImpuestocl, type CodigoError }
 import { declaracionVigente, f29Presentada } from '../domain/f29.js';
 import { rangoPeriodos, type Periodo } from '../domain/periodo.js';
 import { parseRut } from '../domain/rut.js';
-import { verificarCoherenciaF29 } from '../reconciliation/coherencia-f29.js';
+import { lecturaConfiable, verificarCoherenciaF29 } from '../reconciliation/coherencia-f29.js';
 import { f29Leido } from '../reconciliation/mapeo-f29.js';
-import { ESTADOS_RCV, type DocumentoRcv, type EstadoRcv, type F29Declaracion, type Lado, type RcvResumen, type RespuestaCruda } from '../domain/tipos.js';
+import { ESTADOS_RCV, type DocumentoRcv, type EstadoRcv, type F29Declaracion, type F29Valores, type Lado, type RcvResumen, type RespuestaCruda } from '../domain/tipos.js';
 import type { SiiReader } from '../ports/index.js';
 import type { DepsApp } from './deps.js';
+import { motivoParaConservar } from './releer-f29.js';
 
 export type Superficie = 'rcv' | 'f29';
 
@@ -156,24 +157,24 @@ export async function sincronizar(
         });
         res.f29Folio = f29?.vigente?.folio ?? null;
         const vigente = f29?.vigente;
-        if (f29 && vigente && vigente.codigoInterno !== null) {
+        if (f29 && vigente && vigente.codigoInterno !== null && !yaLeido(deps, rut, periodo.texto, vigente.folio, f29.valoresPrevios)) {
           revisarCancelacion(signal);
           await registrar(deps, rut, 'f29.valores', periodo.texto, buffer, res, signal, async (id, ahora) => {
             const v = await sii.f29Valores(rut, vigente);
+            const guardados = f29.valoresPrevios.find((anterior) => anterior.folio === vigente.folio) ?? null;
             const incoherencias = verificarCoherenciaF29(v);
-            if (incoherencias.length > 0) {
-              const guardados = f29.valoresPrevios.find((anterior) => anterior.folio === vigente.folio);
-              if (guardados && f29Leido(guardados) && verificarCoherenciaF29(guardados).length === 0) {
-                throw new ErrorImpuestocl(
-                  'LECTURA_INCOHERENTE',
-                  `F29 ${periodo.texto}: la lectura del folio ${vigente.folio} no cuadra (${incoherencias.join('; ')}); se conserva la lectura guardada.`,
-                  { detalle: { folio: vigente.folio, incoherencias, valoresNuevos: v.valores } },
-                );
-              }
-              res.avisos.push(`F29 ${periodo.texto}: la lectura no cuadra (${incoherencias.join('; ')})`);
+            const conservar = motivoParaConservar(v, guardados);
+            if (conservar !== null) {
+              throw new ErrorImpuestocl(
+                'LECTURA_INCOHERENTE',
+                `F29 ${periodo.texto}: la lectura del folio ${vigente.folio} ${conservar}; se conserva la lectura guardada.`,
+                { detalle: { folio: vigente.folio, incoherencias, valoresNuevos: v.valores } },
+              );
             }
+            if (incoherencias.length > 0) res.avisos.push(`F29 ${periodo.texto}: la lectura no cuadra (${incoherencias.join('; ')})`);
             const otrosValores = f29.valoresPrevios.filter((anterior) => anterior.folio !== vigente.folio);
-            deps.store.guardarF29(id, rut, periodo.texto, f29.declaraciones, [...otrosValores, v], ahora);
+            const lectura = { folio: vigente.folio, versionLector: v.versionLector ?? deps.lectorPdfF29.version, origen: 'sincronizacion', leidoEn: ahora, coherente: lecturaConfiable(v) } as const;
+            deps.store.guardarF29(id, rut, periodo.texto, f29.declaraciones, [...otrosValores, v], ahora, [lectura]);
           });
         }
       }
@@ -192,6 +193,15 @@ export async function sincronizar(
   } finally {
     deps.alTerminarSync?.(rut);
   }
+}
+
+/**
+ * El folio ya tiene valores leídos de forma confiable con la versión actual del lector: bajar de nuevo su PDF no
+ * cambiaría nada. Con otra versión del lector, o si la lectura guardada no era confiable, se vuelve a bajar.
+ */
+function yaLeido(deps: DepsApp, rut: string, periodo: string, folio: number, valoresPrevios: readonly F29Valores[]): boolean {
+  const lectura = deps.store.lecturaF29(rut, periodo, folio);
+  return lectura !== null && lectura.coherente && lectura.versionLector === deps.lectorPdfF29.version && valoresPrevios.some((v) => v.folio === folio && f29Leido(v));
 }
 
 async function traerRcv(sii: SiiReader, rut: string, periodo: Periodo, lado: Lado, alAviso: (aviso: string) => void) {

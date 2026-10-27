@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { DocumentoRcv, Hallazgo, Lado, RcvResumen } from '../../src/domain/tipos.js';
 import { abrirDb, type Db } from '../../src/store/sqlite/db.js';
 import { huellaDocumento, SqliteStore } from '../../src/store/sqlite/store.js';
-import { declaracion, documento, fila, perfilEmpresa, resumen, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
+import { declaracion, documento, fila, perfilEmpresa, perfilPersona, resumen, RUT_EMPRESA, RUT_PERSONA, valores } from '../helpers/fabricas.js';
+import { guardarPdfF29, pdfFalso } from '../helpers/lector-falso.js';
 import { medirLecturas } from '../helpers/lecturas-sqlite.js';
 
 const T = '2026-10-21T10:00:00.000Z';
@@ -269,5 +270,88 @@ describe('SqliteStore: F29, frescura y hallazgos', () => {
     expect(store.hallazgos(RUT_EMPRESA)[0]?.versionReglas).toBe('iva-test');
     store.reemplazarHallazgos(RUT_EMPRESA, '2026-09', [], 'iva-test', T);
     expect(store.hallazgos(RUT_EMPRESA)).toHaveLength(1);
+  });
+});
+
+describe('SqliteStore: lecturas del F29 y PDF guardados', () => {
+  const LECTURA = { versionLector: 'v1', origen: 'sincronizacion', leidoEn: T, coherente: true } as const;
+
+  function guardarMes(folios: readonly number[], lecturas: readonly number[] = folios): void {
+    const id = store.iniciarSincronizacion(RUT_EMPRESA, 'f29', '2026-09', T);
+    store.guardarF29(
+      id,
+      RUT_EMPRESA,
+      '2026-09',
+      folios.map((folio) => declaracion({ folio })),
+      folios.map((folio) => valores({ '538': folio, '537': 0, '89': folio }, { folio })),
+      T,
+      lecturas.map((folio) => ({ folio, ...LECTURA })),
+    );
+    store.terminarSincronizacion(id, T, 'ok');
+  }
+
+  it('guardarF29 registra la lectura de cada folio con la cantidad de códigos', () => {
+    guardarMes([555_001]);
+    expect(store.lecturaF29(RUT_EMPRESA, '2026-09', 555_001)).toEqual({ ...LECTURA, codigos: 3 });
+    expect(store.lecturaF29(RUT_EMPRESA, '2026-09', 555_002)).toBeNull();
+    expect(store.lecturaF29(RUT_PERSONA, '2026-09', 555_001)).toBeNull();
+  });
+
+  it('guardarF29 conserva la lectura de los folios que siguen con valores y poda la de los que desaparecen', () => {
+    guardarMes([555_001, 555_002]);
+    // Sin lecturas nuevas: las de los folios que quedan con valores no se tocan.
+    guardarMes([555_001], []);
+    expect(store.lecturaF29(RUT_EMPRESA, '2026-09', 555_001)).toEqual({ ...LECTURA, codigos: 3 });
+    expect(store.lecturaF29(RUT_EMPRESA, '2026-09', 555_002)).toBeNull();
+    const id = store.iniciarSincronizacion(RUT_EMPRESA, 'f29', '2026-09', T);
+    store.guardarF29(id, RUT_EMPRESA, '2026-09', [declaracion()], [], T);
+    expect(store.lecturaF29(RUT_EMPRESA, '2026-09', 555_001)).toBeNull();
+  });
+
+  it('reemplazarValoresFolioF29 toca solo ese folio y registra su lectura', () => {
+    guardarMes([555_001, 555_002]);
+    const otro = store.valoresF29(RUT_EMPRESA, '2026-09', 555_002);
+    const relectura = { versionLector: 'v2', origen: 'relectura', leidoEn: '2026-10-27T10:00:00.000Z', coherente: false } as const;
+
+    store.reemplazarValoresFolioF29(RUT_EMPRESA, '2026-09', 555_001, { '538': 7, '91': 7 }, relectura);
+
+    expect(store.valoresF29(RUT_EMPRESA, '2026-09', 555_001)?.valores).toEqual({ '538': 7, '91': 7 });
+    expect(store.lecturaF29(RUT_EMPRESA, '2026-09', 555_001)).toEqual({ ...relectura, codigos: 2 });
+    expect(store.valoresF29(RUT_EMPRESA, '2026-09', 555_002)).toEqual(otro);
+    expect(store.lecturaF29(RUT_EMPRESA, '2026-09', 555_002)).toEqual({ ...LECTURA, codigos: 3 });
+    expect(store.declaracionesF29(RUT_EMPRESA, '2026-09').map((d) => d.folio)).toEqual([555_001, 555_002]);
+  });
+
+  it('reemplazarValoresFolioF29 exige que el folio esté declarado y no escribe nada si no', () => {
+    guardarMes([555_001]);
+    expect(() => store.reemplazarValoresFolioF29(RUT_EMPRESA, '2026-09', 999, { '538': 1 }, LECTURA)).toThrow(/999/);
+    expect(store.valoresF29(RUT_EMPRESA, '2026-09', 999)).toBeNull();
+    expect(store.lecturaF29(RUT_EMPRESA, '2026-09', 999)).toBeNull();
+  });
+
+  it('pdfsF29Guardados entrega el PDF válido más nuevo por período y folio, de cualquier sincronización', () => {
+    store.guardarContribuyente(perfilPersona());
+    guardarPdfF29(store, { periodo: '2026-09', folio: 1, cuerpo: pdfFalso({ '538': 1 }), obtenidoEn: '2026-10-01T00:00:00.000Z' });
+    guardarPdfF29(store, { periodo: '2026-09', folio: 1, cuerpo: pdfFalso({ '538': 2 }), obtenidoEn: '2026-10-02T00:00:00.000Z', estado: 'error' });
+    // Más nuevos pero no son PDF (una página de sesión vencida, un cuerpo vacío): se ignoran.
+    guardarPdfF29(store, { periodo: '2026-09', folio: 1, cuerpo: new TextEncoder().encode('<html>sesión</html>'), obtenidoEn: '2026-10-03T00:00:00.000Z' });
+    guardarPdfF29(store, { periodo: '2026-09', folio: 1, cuerpo: '', obtenidoEn: '2026-10-04T00:00:00.000Z' });
+    guardarPdfF29(store, { periodo: '2026-09', folio: 2, cuerpo: pdfFalso({ '538': 3 }), obtenidoEn: '2026-10-01T00:00:00.000Z' });
+    guardarPdfF29(store, { periodo: '2026-08', folio: 3, cuerpo: pdfFalso({ '538': 4 }), obtenidoEn: '2026-10-01T00:00:00.000Z' });
+    // Otro RUT y otra superficie no cuentan.
+    guardarPdfF29(store, { periodo: '2026-09', folio: 1, cuerpo: pdfFalso({ '538': 9 }), obtenidoEn: '2026-10-09T00:00:00.000Z', rut: RUT_PERSONA });
+    guardarPdfF29(store, { periodo: '2026-09', folio: 1, cuerpo: pdfFalso({ '538': 8 }), obtenidoEn: '2026-10-09T00:00:00.000Z', superficie: 'f29.estados' });
+
+    const pdfs = store.pdfsF29Guardados(RUT_EMPRESA);
+
+    expect(pdfs.map((p) => [p.periodo, p.folio, new TextDecoder().decode(p.bytes), p.obtenidoEn])).toEqual([
+      ['2026-08', 3, '%PDF-{"538":4}', '2026-10-01T00:00:00.000Z'],
+      ['2026-09', 1, '%PDF-{"538":2}', '2026-10-02T00:00:00.000Z'],
+      ['2026-09', 2, '%PDF-{"538":3}', '2026-10-01T00:00:00.000Z'],
+    ]);
+    expect(store.pdfsF29Guardados(RUT_PERSONA).map((p) => new TextDecoder().decode(p.bytes))).toEqual(['%PDF-{"538":9}']);
+    expect(store.pdfsF29Guardados(RUT_EMPRESA, '2026-09').map((p) => p.folio)).toEqual([1, 2]);
+    expect(store.pdfsF29Guardados(RUT_EMPRESA, undefined, '2026-08').map((p) => p.folio)).toEqual([3]);
+    expect(store.pdfsF29Guardados(RUT_EMPRESA, '2026-10', '2026-12')).toEqual([]);
   });
 });

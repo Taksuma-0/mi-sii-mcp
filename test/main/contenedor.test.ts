@@ -2,6 +2,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { VERSION_LECTOR_F29 } from '../../src/connectors/sii/f29-pdf.js';
 import { cargarConfig } from '../../src/main/config.js';
 import { crearContenedor } from '../../src/main/contenedor.js';
 import * as sqlite from '../../src/store/sqlite/db.js';
@@ -57,6 +58,7 @@ describe('configuración y contenedor', () => {
       expect(existsSync(join(home, 'impuestocl.db'))).toBe(true);
       expect(c.deps.store.contribuyentes()).toEqual([]);
       expect(c.sesiones.estado('22222222-2')).toEqual({ tieneSesion: false, guardadaEn: null, bloqueado: false });
+      expect(c.deps.lectorPdfF29.version).toBe(VERSION_LECTOR_F29);
       c.deps.diagnostico?.('prueba.json', '{"ok":true}');
       expect(readFileSync(join(home, 'diagnostico', 'prueba.json'), 'utf8')).toBe('{"ok":true}');
     } finally {

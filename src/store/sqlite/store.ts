@@ -8,7 +8,10 @@ import {
   type F29Valores,
   type Hallazgo,
   type Lado,
+  type LecturaF29,
+  type LecturaFolioF29,
   type Naturaleza,
+  type OrigenLecturaF29,
   type Perfil,
   type RcvResumen,
   type RcvResumenFila,
@@ -17,7 +20,7 @@ import {
   type SnapshotRcv,
   type TipoContribuyente,
 } from '../../domain/tipos.js';
-import type { DocumentosPaginados, FiltroDocumentos, FiltroHallazgos, Frescura, HallazgoGuardado, Store } from '../../ports/index.js';
+import type { DocumentosPaginados, FiltroDocumentos, FiltroHallazgos, Frescura, HallazgoGuardado, LecturaF29Guardada, PdfF29Guardado, Store } from '../../ports/index.js';
 import type { Db } from './db.js';
 
 export const sha256 = (texto: string): string => createHash('sha256').update(texto).digest('hex');
@@ -318,6 +321,7 @@ export class SqliteStore implements Store {
     declaraciones: readonly F29Declaracion[],
     valores: readonly F29Valores[],
     obtenidoEn: string,
+    lecturas: readonly LecturaFolioF29[] = [],
   ): void {
     const insDeclaracion = this.db.prepare(
       `INSERT OR REPLACE INTO f29_declaracion (rut, periodo, folio, estado, estado_id, fecha_presentacion, codigo_interno, total_a_pagar, sincronizacion_id, obtenido_en)
@@ -329,7 +333,69 @@ export class SqliteStore implements Store {
       this.db.prepare('DELETE FROM f29_valor WHERE rut = ? AND periodo = ?').run(rut, periodo);
       for (const d of declaraciones) insDeclaracion.run({ ...d, rut, periodo, sincronizacionId, obtenidoEn });
       for (const v of valores) for (const [codigo, valor] of Object.entries(v.valores)) insValor.run(rut, periodo, v.folio, codigo, valor);
+      // Una lectura vale mientras su folio siga declarado y con valores; las nuevas reemplazan a las anteriores.
+      const declarados = new Set(declaraciones.map((d) => d.folio));
+      const conLectura = valores.filter((v) => declarados.has(v.folio) && Object.keys(v.valores).length > 0);
+      this.db
+        .prepare('DELETE FROM f29_lectura WHERE rut = ? AND periodo = ? AND folio NOT IN (SELECT value FROM json_each(?))')
+        .run(rut, periodo, JSON.stringify(conLectura.map((v) => v.folio)));
+      for (const l of lecturas) {
+        const v = conLectura.find((x) => x.folio === l.folio);
+        if (v) this.escribirLectura(rut, periodo, l.folio, l, Object.keys(v.valores).length);
+      }
     })();
+  }
+
+  reemplazarValoresFolioF29(rut: string, periodo: string, folio: number, valores: Readonly<Record<string, number>>, lectura: LecturaF29): void {
+    const insValor = this.db.prepare('INSERT INTO f29_valor (rut, periodo, folio, codigo, valor) VALUES (?, ?, ?, ?, ?)');
+    this.db.transaction(() => {
+      const declarado = this.db.prepare('SELECT 1 FROM f29_declaracion WHERE rut = ? AND periodo = ? AND folio = ?').get(rut, periodo, folio);
+      if (declarado === undefined) throw new Error(`No hay una declaración F29 de ${rut} en ${periodo} con folio ${folio}.`);
+      this.db.prepare('DELETE FROM f29_valor WHERE rut = ? AND periodo = ? AND folio = ?').run(rut, periodo, folio);
+      for (const [codigo, valor] of Object.entries(valores)) insValor.run(rut, periodo, folio, codigo, valor);
+      this.escribirLectura(rut, periodo, folio, lectura, Object.keys(valores).length);
+    })();
+  }
+
+  lecturaF29(rut: string, periodo: string, folio: number): LecturaF29Guardada | null {
+    const f = this.db
+      .prepare('SELECT version_lector, origen, leido_en, codigos, coherente FROM f29_lectura WHERE rut = ? AND periodo = ? AND folio = ?')
+      .get(rut, periodo, folio) as { version_lector: string; origen: OrigenLecturaF29; leido_en: string; codigos: number; coherente: number } | undefined;
+    if (!f) return null;
+    return { versionLector: f.version_lector, origen: f.origen, leidoEn: f.leido_en, codigos: f.codigos, coherente: f.coherente === 1 };
+  }
+
+  pdfsF29Guardados(rut: string, desde?: string, hasta?: string): PdfF29Guardado[] {
+    // El base64 de "%PDF" empieza con "JVBERi"; el quinto byte ("-") se revisa al decodificar.
+    const filas = this.db
+      .prepare(
+        `SELECT json_extract(r.parametros_json, '$.periodo') AS periodo, json_extract(r.parametros_json, '$.folio') AS folio, r.cuerpo, r.obtenido_en
+         FROM respuesta_cruda r JOIN sincronizacion s ON s.id = r.sincronizacion_id
+         WHERE s.rut = @rut AND r.superficie = 'f29.formCompacto' AND substr(r.cuerpo, 1, 6) = 'JVBERi'
+           AND json_extract(r.parametros_json, '$.periodo') = s.periodo
+           AND (@desde IS NULL OR s.periodo >= @desde) AND (@hasta IS NULL OR s.periodo <= @hasta)
+         ORDER BY r.obtenido_en DESC, r.id DESC`,
+      )
+      .all({ rut, desde: desde ?? null, hasta: hasta ?? null }) as { periodo: string; folio: unknown; cuerpo: string; obtenido_en: string }[];
+    const elegidos = new Map<string, PdfF29Guardado>();
+    for (const f of filas) {
+      if (typeof f.folio !== 'number' || !Number.isSafeInteger(f.folio) || f.folio <= 0) continue;
+      const clave = `${f.periodo}|${f.folio}`;
+      if (elegidos.has(clave)) continue;
+      const bytes = Buffer.from(f.cuerpo, 'base64');
+      if (bytes.subarray(0, 5).toString('latin1') !== '%PDF-') continue;
+      elegidos.set(clave, { periodo: f.periodo, folio: f.folio, bytes: new Uint8Array(bytes), obtenidoEn: f.obtenido_en });
+    }
+    return [...elegidos.values()].sort((a, b) => a.periodo.localeCompare(b.periodo) || a.folio - b.folio);
+  }
+
+  private escribirLectura(rut: string, periodo: string, folio: number, l: LecturaF29, codigos: number): void {
+    this.db
+      .prepare(
+        `INSERT OR REPLACE INTO f29_lectura (rut, periodo, folio, version_lector, origen, leido_en, codigos, coherente)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(rut, periodo, folio, l.versionLector, l.origen, l.leidoEn, codigos, l.coherente ? 1 : 0);
   }
 
   declaracionesF29(rut: string, periodo: string): F29Declaracion[] {

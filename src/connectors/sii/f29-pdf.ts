@@ -1,4 +1,5 @@
 import { extractTextItems } from 'unpdf';
+import type { LectorPdfF29 } from '../../ports/index.js';
 import { CODIGOS_F29 } from './codigos-f29.js';
 
 export interface TokenPdf {
@@ -114,6 +115,14 @@ export function codigosDesdeLineas(lineas: readonly (readonly TokenPdf[])[], con
   }
   return out;
 }
+
+/**
+ * Versión del lector del PDF compacto. Cámbiala con cada cambio que altere lo que se lee de un mismo PDF: la
+ * sincronización vuelve a bajar los folios leídos con otra versión y `releer-f29` relee los PDF guardados.
+ */
+export const VERSION_LECTOR_F29 = 'f29-compacto-2026.10.27';
+
+export const lectorPdfF29: LectorPdfF29 = { version: VERSION_LECTOR_F29, extraer: (bytes) => extraerCodigosF29(bytes) };
 
 export async function extraerCodigosF29(bytes: Uint8Array): Promise<Record<string, number>> {
   const { items } = await extractTextItems(new Uint8Array(bytes));

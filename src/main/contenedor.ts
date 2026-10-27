@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { DepsApp } from '../app/deps.js';
 import { LlaveroSistema } from '../connectors/secretos/llavero.js';
+import { lectorPdfF29 } from '../connectors/sii/f29-pdf.js';
 import { conSenal, type OpcionesHttp } from '../connectors/sii/http.js';
 import { LectorPortalSii } from '../connectors/sii/lector.js';
 import { GestorSesiones } from '../connectors/sii/sesiones.js';
@@ -31,10 +32,11 @@ export function crearContenedor(o: { config?: Config; secretos?: SecretStore; op
     const deps: DepsApp = {
       store: new SqliteStore(db),
       consultaLibre: new ConsultaLibreSqlite(db),
+      lectorPdfF29,
       sesiones,
       reloj: { ahora: () => new Date() },
       toleranciaPesos: config.toleranciaPesos,
-      abrirSii: async (rut, sumidero, signal) => new LectorPortalSii(conSenal(await sesiones.sesionActiva(rut), signal), sumidero),
+      abrirSii: async (rut, sumidero, signal) => new LectorPortalSii(conSenal(await sesiones.sesionActiva(rut), signal), sumidero, lectorPdfF29),
       diagnostico: (nombre, contenido) => {
         mkdirSync(config.dirDiagnostico, { recursive: true });
         writeFileSync(join(config.dirDiagnostico, nombre), contenido, { mode: 0o600 });

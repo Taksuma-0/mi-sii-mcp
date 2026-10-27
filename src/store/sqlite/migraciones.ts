@@ -133,7 +133,23 @@ const V2 = `
 ALTER TABLE f29_declaracion ADD COLUMN estado_id INTEGER;
 `;
 
+/** Cómo se leyó cada folio guardado del F29: versión del lector, origen y si el autocontrol cuadró. */
+const V3 = `
+CREATE TABLE f29_lectura (
+  rut TEXT NOT NULL,
+  periodo TEXT NOT NULL,
+  folio INTEGER NOT NULL,
+  version_lector TEXT NOT NULL,
+  origen TEXT NOT NULL CHECK (origen IN ('sincronizacion', 'relectura')),
+  leido_en TEXT NOT NULL,
+  codigos INTEGER NOT NULL,
+  coherente INTEGER NOT NULL CHECK (coherente IN (0, 1)),
+  PRIMARY KEY (rut, periodo, folio)
+);
+`;
+
 export const MIGRACIONES: readonly Migracion[] = [
   { version: 1, sql: V1 },
   { version: 2, sql: V2 },
+  { version: 3, sql: V3 },
 ];

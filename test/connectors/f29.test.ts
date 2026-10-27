@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { CookieJar } from 'tough-cookie';
 import { describe, expect, it } from 'vitest';
 import { f29Declaraciones, f29Valores } from '../../src/connectors/sii/f29.js';
+import { lectorPdfF29, VERSION_LECTOR_F29 } from '../../src/connectors/sii/f29-pdf.js';
 import { ClienteHttp } from '../../src/connectors/sii/http.js';
 import { parsePeriodo } from '../../src/domain/periodo.js';
 import { parseRut } from '../../src/domain/rut.js';
@@ -86,6 +87,20 @@ describe('f29Valores', () => {
     expect(Object.fromEntries(url.searchParams)).toEqual({ folio: '555001', rut: '22222222', form: '029', codInt: '9001' });
     expect(crudas[0]?.superficie).toBe('f29.formCompacto');
     expect(crudas[0]?.cuerpo.startsWith('JVBER')).toBe(true);
+  });
+
+  it('lee el PDF con el lector inyectado y anota su versión; por defecto usa el lector del conector', async () => {
+    const pdf = await pdfSintetico(F29_SINTETICO);
+    const { http, sumidero } = await preparar({ [RUTA_COMPACTO]: { body: pdf, headers: [['content-type', 'application/pdf']] } });
+    const recibidos: Uint8Array[] = [];
+    const lector = { version: 'lector-de-prueba', extraer: async (bytes: Uint8Array) => (recibidos.push(bytes), { '538': 5 }) };
+
+    const v = await f29Valores(http, sumidero, EMPRESA, declaracion(), lector);
+
+    expect(v).toEqual({ rut: '22222222-2', periodo: '2026-09', folio: 555_001, valores: { '538': 5 }, versionLector: 'lector-de-prueba' });
+    expect(Buffer.from(recibidos[0]!).equals(Buffer.from(pdf))).toBe(true);
+    expect(lectorPdfF29.version).toBe(VERSION_LECTOR_F29);
+    expect(VERSION_LECTOR_F29).toMatch(/^f29-/);
   });
 
   it('si no llega un PDF es PORTAL_CAMBIO', async () => {

@@ -1,4 +1,4 @@
-import type { ConsultaLibre, ConsultaSesiones, Reloj, SiiReader, Store, SumideroRespuestas } from '../ports/index.js';
+import type { ConsultaLibre, ConsultaSesiones, LectorPdfF29, Reloj, SiiReader, Store, SumideroRespuestas } from '../ports/index.js';
 
 export interface DepsApp {
   readonly store: Store;
@@ -9,6 +9,8 @@ export interface DepsApp {
    * curso del lector al cancelarse.
    */
   readonly abrirSii: (rut: string, sumidero: SumideroRespuestas, signal?: AbortSignal) => Promise<SiiReader>;
+  /** Lector del PDF compacto del F29: el mismo que usa `abrirSii`, para comparar versiones y releer lo guardado. */
+  readonly lectorPdfF29: LectorPdfF29;
   readonly sesiones: ConsultaSesiones;
   readonly reloj: Reloj;
   readonly toleranciaPesos: number;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { conciliarPeriodo } from '../../src/reconciliation/conciliar.js';
-import { verificarCoherenciaF29 } from '../../src/reconciliation/coherencia-f29.js';
+import { lecturaConfiable, verificarCoherenciaF29 } from '../../src/reconciliation/coherencia-f29.js';
 import { CODIGO_F29, VERSION_REGLAS } from '../../src/reconciliation/mapeo-f29.js';
 import { reglaF29Incoherente } from '../../src/reconciliation/reglas.js';
 import { entrada } from '../helpers/entrada.js';
@@ -82,8 +82,30 @@ describe('verificarCoherenciaF29', () => {
     expect(verificarCoherenciaF29(v({ '537': 40_000, '77': 40_000 }))).toEqual([]);
   });
 
-  it('F29_COMPACTO_SINTETICO_CODIGOS es coherente', () => {
+  it('F29_COMPACTO_SINTETICO_CODIGOS es coherente y el autocontrol sí aplica (trae 538 y 537)', () => {
+    expect(F29_COMPACTO_SINTETICO_CODIGOS['538']).toBe(300_000);
+    expect(F29_COMPACTO_SINTETICO_CODIGOS['537']).toBe(550_000);
     expect(verificarCoherenciaF29(valores({ ...F29_COMPACTO_SINTETICO_CODIGOS }))).toEqual([]);
+    expect(lecturaConfiable(valores({ ...F29_COMPACTO_SINTETICO_CODIGOS }))).toBe(true);
+  });
+});
+
+describe('lecturaConfiable', () => {
+  it('es confiable solo si está leída, el autocontrol aplica y no tiene incoherencias', () => {
+    expect(lecturaConfiable(v({ '538': 190_000, '537': 24_000, '89': 166_000 }))).toBe(true);
+    // 538 y 537 ausentes sin líneas que los compongan valen 0: el autocontrol aplica y cuadra.
+    expect(lecturaConfiable(v({ '151': 13_750, '547': 13_750, '91': 13_750 }))).toBe(true);
+  });
+
+  it('no es confiable si no cuadra', () => {
+    expect(lecturaConfiable(v({ '538': 190_000, '537': 24_000, '89': 5_000 }))).toBe(false);
+  });
+
+  it('no es confiable si el autocontrol no aplica: sin leer, o 538/537 sin dato', () => {
+    expect(lecturaConfiable(null)).toBe(false);
+    expect(lecturaConfiable(v({}))).toBe(false);
+    expect(lecturaConfiable(v({ '502': 100_000, '537': 24_000, '89': 76_000 }))).toBe(false);
+    expect(lecturaConfiable(v({ '538': 100_000, '520': 24_000, '511': 1, '89': 76_000 }))).toBe(false);
   });
 });
 
