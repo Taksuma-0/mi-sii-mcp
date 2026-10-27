@@ -272,7 +272,7 @@ describe('servidor MCP', () => {
       await cliente.close();
     });
 
-    it.each(['SII_EN_ESPERA', 'SII_SESIONES_MAXIMAS'] as const)('sincronizar detenida por %s dice que se reintente más tarde', async (codigo) => {
+    it.each(['SII_EN_ESPERA', 'SII_LIMITE', 'SII_SESIONES_MAXIMAS'] as const)('sincronizar detenida por %s dice que se reintente más tarde', async (codigo) => {
       const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorImpuestocl(codigo, 'Hay que esperar.') });
       store.guardarContribuyente(perfilEmpresa());
       const cliente = await conectar(deps);

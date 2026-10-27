@@ -314,6 +314,14 @@ describe('bheRecibidas', () => {
     });
   });
 
+  it('429 es SII_LIMITE (fatal) y no deja evidencia', async () => {
+    const { http, sumidero, crudas } = preparar({ status: 429, headers: HTML, body: 'Too many requests' });
+    const error = await bheRecibidas(http, sumidero, EMPRESA, SEPT).catch((e: unknown) => e);
+    expect(error).toMatchObject({ codigo: 'SII_LIMITE' });
+    expect((error as Error).message).toContain('limitó las consultas');
+    expect(crudas).toEqual([]);
+  });
+
   it('el muro de login es SESION_REQUERIDA', async () => {
     const crudas: RespuestaCruda[] = [];
     const { fetchFalso } = crearFetchFalso({

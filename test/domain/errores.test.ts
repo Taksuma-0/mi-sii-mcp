@@ -25,10 +25,10 @@ describe('ErrorImpuestocl', () => {
   });
 
   it('marca como fatales los errores de sesión y la sala de espera', () => {
-    expect([...ERRORES_FATALES].sort()).toEqual(['CLAVE_RECHAZADA', 'RUT_BLOQUEADO_LOCAL', 'SESION_REQUERIDA', 'SII_EN_ESPERA', 'SII_SESIONES_MAXIMAS']);
+    expect([...ERRORES_FATALES].sort()).toEqual(['CLAVE_RECHAZADA', 'RUT_BLOQUEADO_LOCAL', 'SESION_REQUERIDA', 'SII_EN_ESPERA', 'SII_LIMITE', 'SII_SESIONES_MAXIMAS']);
   });
 
-  it.each<CodigoError>(['SII_SESIONES_MAXIMAS', 'RESPUESTA_VACIA', 'DATOS_INCOMPLETOS', 'LECTURA_INCOHERENTE', 'RESPALDO_FALLIDO'])('%s trae una acción por defecto clara', (codigo) => {
+  it.each<CodigoError>(['SII_LIMITE', 'SII_SESIONES_MAXIMAS', 'RESPUESTA_VACIA', 'DATOS_INCOMPLETOS', 'LECTURA_INCOHERENTE', 'RESPALDO_FALLIDO'])('%s trae una acción por defecto clara', (codigo) => {
     expect(new ErrorImpuestocl(codigo, 'x').accion.length).toBeGreaterThan(20);
   });
 
@@ -49,6 +49,7 @@ describe('ErrorImpuestocl', () => {
     it.each<[CodigoError, 'inmediato' | 'mas_tarde' | 'no']>([
       ['SII_NO_DISPONIBLE', 'mas_tarde'],
       ['SII_EN_ESPERA', 'mas_tarde'],
+      ['SII_LIMITE', 'mas_tarde'],
       ['SII_SESIONES_MAXIMAS', 'mas_tarde'],
       ['RESPUESTA_VACIA', 'mas_tarde'],
       ['DATOS_INCOMPLETOS', 'mas_tarde'],

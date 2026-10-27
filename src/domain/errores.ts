@@ -5,6 +5,7 @@ export type CodigoError =
   | 'PORTAL_CAMBIO'
   | 'SII_NO_DISPONIBLE'
   | 'SII_EN_ESPERA'
+  | 'SII_LIMITE'
   | 'SII_RECHAZO'
   | 'CAPTCHA_REQUERIDO'
   | 'SIN_PERMISO'
@@ -27,6 +28,7 @@ export const ACCION_POR_DEFECTO: Readonly<Record<CodigoError, string>> = {
   PORTAL_CAMBIO: 'El SII cambió su portal. Revisa la carpeta de diagnóstico y reporta el problema.',
   SII_NO_DISPONIBLE: 'El SII no responde. Intenta de nuevo en unos minutos.',
   SII_EN_ESPERA: 'El SII tiene sala de espera por alta demanda. Intenta más tarde.',
+  SII_LIMITE: 'El SII está limitando las consultas (429). Se detuvo la sincronización para no empeorarlo; reintenta más tarde.',
   SII_RECHAZO: 'El SII rechazó la consulta. Revisa el mensaje del SII.',
   CAPTCHA_REQUERIDO: 'Esta consulta exige captcha en el SII y no se puede automatizar.',
   SIN_PERMISO: 'La sesión no tiene permiso para ese RUT. Inicia sesión con la clave de ese contribuyente.',
@@ -69,6 +71,7 @@ export const ERRORES_FATALES: ReadonlySet<CodigoError> = new Set<CodigoError>([
   'CLAVE_RECHAZADA',
   'RUT_BLOQUEADO_LOCAL',
   'SII_EN_ESPERA',
+  'SII_LIMITE',
   'SII_SESIONES_MAXIMAS',
 ]);
 
@@ -82,6 +85,7 @@ export const REINTENTO: Readonly<Record<CodigoError, Reintento>> = {
   PORTAL_CAMBIO: 'no',
   SII_NO_DISPONIBLE: 'mas_tarde',
   SII_EN_ESPERA: 'mas_tarde',
+  SII_LIMITE: 'mas_tarde',
   SII_RECHAZO: 'no',
   CAPTCHA_REQUERIDO: 'no',
   SIN_PERMISO: 'no',

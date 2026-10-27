@@ -138,7 +138,7 @@ async function pedirPagina(http: Http, sumidero: SumideroRespuestas, rut: Rut, p
   const consulta = new URLSearchParams(Object.entries(parametros).map(([k, v]) => [k, String(v)]));
   const r = exigirSesion(await http.solicitar(`${URL_INFORME}?${consulta.toString()}`, { headers: { Accept: 'text/html,application/xhtml+xml,*/*' } }));
   if (r.status === 401) throw new ErrorImpuestocl('SESION_REQUERIDA', 'El SII no reconoció la sesión (401).');
-  if (r.status === 429) throw new ErrorImpuestocl('SII_NO_DISPONIBLE', 'El SII limitó las consultas; reintenta más tarde.');
+  if (r.status === 429) throw new ErrorImpuestocl('SII_LIMITE', 'El SII limitó las consultas; reintenta más tarde.');
   sumidero({ superficie: SUPERFICIE, parametros, cuerpo: sanearBhe(r.texto), obtenidoEn: new Date().toISOString() });
   if (r.status === 403) throw new ErrorImpuestocl('SII_RECHAZO', `El SII rechazó la consulta de ${SUPERFICIE} (403).`);
   return leerPagina(r.texto);

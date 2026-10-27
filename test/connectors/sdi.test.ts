@@ -56,10 +56,10 @@ describe('postSdi', () => {
     expect(await codigoDe(postSdi(http, sumidero, PEDIDO))).toBe('SESION_REQUERIDA');
   });
 
-  it('429 es SII_NO_DISPONIBLE y dice que el SII limitó las consultas', async () => {
+  it('429 es SII_LIMITE (fatal) y dice que el SII limitó las consultas', async () => {
     const { http, sumidero } = await preparar({ status: 429, headers: HTML, body: 'Too many requests' }, true);
     const error = await postSdi(http, sumidero, PEDIDO).catch((e: unknown) => e);
-    expect(error).toMatchObject({ codigo: 'SII_NO_DISPONIBLE' });
+    expect(error).toMatchObject({ codigo: 'SII_LIMITE' });
     expect((error as Error).message).toContain('limitó las consultas; reintenta más tarde');
   });
 

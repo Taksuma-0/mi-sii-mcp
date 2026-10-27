@@ -36,7 +36,7 @@ export async function postSdi(http: Http, sumidero: SumideroRespuestas, pedido: 
     }),
   );
   if (r.status === 401) throw new ErrorImpuestocl('SESION_REQUERIDA', 'El SII no reconoció la sesión (401).');
-  if (r.status === 429) throw new ErrorImpuestocl('SII_NO_DISPONIBLE', 'El SII limitó las consultas; reintenta más tarde.');
+  if (r.status === 429) throw new ErrorImpuestocl('SII_LIMITE', 'El SII limitó las consultas; reintenta más tarde.');
   sumidero({ superficie: pedido.superficie, parametros: pedido.data, cuerpo: evidencia(r.texto, pedido.sanear, pedido.superficie), obtenidoEn: new Date().toISOString() });
   try {
     return JSON.parse(r.texto) as unknown;

@@ -49,6 +49,7 @@ const MENSAJES: Readonly<Record<CodigoError, string>> = {
   PORTAL_CAMBIO: 'La respuesta del portal cambió y no se pudo interpretar. Revisa la guía de solución de problemas del proyecto.',
   SII_NO_DISPONIBLE: 'El SII no está disponible. Puedes volver a intentarlo más tarde.',
   SII_EN_ESPERA: 'El SII tiene una sala de espera. Puedes volver a intentarlo más tarde.',
+  SII_LIMITE: 'El SII está limitando las consultas. Se detuvo la sincronización; puedes volver a intentarlo más tarde.',
   SII_RECHAZO: 'El SII rechazó la consulta. Revisa tu acceso al portal antes de volver a intentarlo.',
   CAPTCHA_REQUERIDO: 'El SII requiere un captcha. Completa la gestión directamente en el portal del SII.',
   SIN_PERMISO: 'La sesión no tiene permiso para ese RUT. Revisa el RUT y su clave tributaria.',
