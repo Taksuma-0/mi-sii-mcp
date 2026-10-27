@@ -113,7 +113,7 @@ describe('servidor MCP', () => {
     const r = await cliente.callTool({ name: 'sii_panorama', arguments: { rut: RUT_EMPRESA } });
     expect(textoDe(r).split('\n\n')[0]).toBe(`${base} Propuesta del SII: 2/2 meses consultados, 1 con propuesta.`);
     const datos = JSON.parse(textoDe(r).slice(textoDe(r).indexOf('\n\n') + 2));
-    expect(datos.periodos[1].propuesta).toEqual({ sinPropuesta: false, credito: 950_000, remanente: 120_000, retencion: 30_000 });
+    expect(datos.periodos[1].propuesta).toEqual({ sinPropuesta: false, credito: 950_000, origenCredito: '520', remanente: 120_000, retencion: 30_000 });
     await cliente.close();
   });
 

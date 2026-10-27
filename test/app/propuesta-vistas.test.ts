@@ -44,7 +44,7 @@ describe('resumenIva con la propuesta del SII', () => {
 
     const r = resumenIva(deps, RUT_EMPRESA, '2026-09');
 
-    expect(r.propuesta).toEqual({ tipo: 40, sinPropuesta: false, credito: 950_000, remanente: 120_000, retencion: 30_000 });
+    expect(r.propuesta).toEqual({ tipo: 40, sinPropuesta: false, credito: 950_000, origenCredito: '520', remanente: 120_000, retencion: 30_000 });
     expect(r.comparaciones).toEqual(sin.comparaciones);
     expect(r.hallazgos).toEqual(sin.hallazgos);
     expect(r.disponibilidad.propuestaF29).toBe(true);
@@ -62,7 +62,7 @@ describe('resumenIva con la propuesta del SII', () => {
 
     const r = resumenIva(deps, RUT_EMPRESA, '2026-09');
 
-    expect(r.propuesta).toEqual({ tipo: 48, sinPropuesta: true, credito: null, remanente: null, retencion: null });
+    expect(r.propuesta).toEqual({ tipo: 48, sinPropuesta: true, credito: null, origenCredito: null, remanente: null, retencion: null });
     expect(textoResumenIva(r)).toContain('Propuesta del SII: sin propuesta para este mes');
   });
 
@@ -75,6 +75,18 @@ describe('resumenIva con la propuesta del SII', () => {
 
     expect(r.propuesta).toBeNull();
     expect(textoResumenIva(r)).toContain('Propuesta del SII: sin datos');
+  });
+
+  it('sin el 520 muestra el crédito del 511 como informativo y dice de qué código viene', () => {
+    const { deps, store } = conEmpresa();
+    sembrarMes(store, '2026-09', SEPT);
+    sembrarPropuesta(store, '2026-09', propuesta({ propuestos: { '511': 900_000, '504': 120_000 } }));
+
+    const r = resumenIva(deps, RUT_EMPRESA, '2026-09');
+
+    expect(r.propuesta).toMatchObject({ credito: 900_000, origenCredito: '511' });
+    const texto = textoResumenIva(r);
+    expect(texto).toContain(`Propuesta del SII: crédito propuesto (código 511, informativo) ${formatearClp(900_000)} · remanente ${formatearClp(120_000)}`);
   });
 
   it('con propuesta parcial muestra "sin dato" donde falta un monto', () => {
@@ -101,13 +113,13 @@ describe('panorama con la propuesta del SII', () => {
     sembrarPropuesta(store, '2026-09', propuesta());
     const r = panorama(deps, RUT_EMPRESA);
     expect('propuesta' in r.periodos[0]!).toBe(false);
-    expect(r.periodos[1]!.propuesta).toEqual({ sinPropuesta: false, credito: 950_000, remanente: 120_000, retencion: 30_000 });
+    expect(r.periodos[1]!.propuesta).toEqual({ sinPropuesta: false, credito: 950_000, origenCredito: '520', remanente: 120_000, retencion: 30_000 });
     expect(r.periodos[1]!.disponibilidad.propuestaF29).toBe(true);
   });
 
   it('un mes sin propuesta del SII queda marcado con montos null', () => {
     const { deps, store } = conEmpresa();
     sembrarPropuesta(store, '2026-09', propuesta({ propuestos: {}, administrativos: {}, sinPropuesta: true }));
-    expect(panorama(deps, RUT_EMPRESA).periodos[0]!.propuesta).toEqual({ sinPropuesta: true, credito: null, remanente: null, retencion: null });
+    expect(panorama(deps, RUT_EMPRESA).periodos[0]!.propuesta).toEqual({ sinPropuesta: true, credito: null, origenCredito: null, remanente: null, retencion: null });
   });
 });

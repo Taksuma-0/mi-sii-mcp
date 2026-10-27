@@ -37,6 +37,8 @@ export function declaracionVigente(declaraciones: readonly F29Declaracion[]): F2
 export interface MontosPropuesta {
   /** Crédito propuesto (520); si falta, el crédito neto por documentos (511). */
   readonly credito: number | null;
+  /** De qué código vino el crédito: el 520 propuesto o, a falta de este, el 511 (informativo); null si no hay crédito. */
+  readonly origenCredito: '520' | '511' | null;
   /** Remanente propuesto (504). */
   readonly remanente: number | null;
   /** Retención propuesta (151). */
@@ -44,8 +46,10 @@ export interface MontosPropuesta {
 }
 
 export function montosPropuesta(p: PropuestaF29): MontosPropuesta {
+  const origenCredito = p.propuestos['520'] !== undefined ? '520' : p.propuestos['511'] !== undefined ? '511' : null;
   return {
-    credito: p.propuestos['520'] ?? p.propuestos['511'] ?? null,
+    credito: origenCredito === null ? null : p.propuestos[origenCredito] ?? null,
+    origenCredito,
     remanente: p.propuestos['504'] ?? null,
     retencion: p.propuestos['151'] ?? null,
   };

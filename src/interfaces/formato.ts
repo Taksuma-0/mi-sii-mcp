@@ -19,7 +19,8 @@ export function textoHallazgos(hallazgos: readonly Hallazgo[]): string {
 function lineaPropuesta(p: ResumenIva['propuesta']): string {
   if (p === null) return 'Propuesta del SII: sin datos';
   if (p.sinPropuesta) return 'Propuesta del SII: sin propuesta para este mes';
-  return `Propuesta del SII: crédito ${monto(p.credito)} · remanente ${monto(p.remanente)} · retención ${monto(p.retencion)}`;
+  const credito = p.origenCredito === '511' ? `crédito propuesto (código 511, informativo) ${monto(p.credito)}` : `crédito ${monto(p.credito)}`;
+  return `Propuesta del SII: ${credito} · remanente ${monto(p.remanente)} · retención ${monto(p.retencion)}`;
 }
 
 function lineaHonorarios(h: NonNullable<ResumenIva['honorarios']>): string {

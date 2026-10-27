@@ -42,6 +42,7 @@ export interface ResumenIva {
     readonly tipo: number | null;
     readonly sinPropuesta: boolean;
     readonly credito: number | null;
+    readonly origenCredito: '520' | '511' | null;
     readonly remanente: number | null;
     readonly retencion: number | null;
   } | null;

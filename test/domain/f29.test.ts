@@ -59,15 +59,15 @@ describe('claveDocumento', () => {
 
 describe('montosPropuesta', () => {
   it('toma crédito del 520, remanente del 504 y retención del 151', () => {
-    expect(montosPropuesta(propuesta())).toEqual({ credito: 950_000, remanente: 120_000, retencion: 30_000 });
+    expect(montosPropuesta(propuesta())).toEqual({ credito: 950_000, origenCredito: '520', remanente: 120_000, retencion: 30_000 });
   });
 
   it('sin el 520 usa el crédito neto por documentos (511); sin ninguno queda null', () => {
-    expect(montosPropuesta(propuesta({ propuestos: { '511': 700 } })).credito).toBe(700);
-    expect(montosPropuesta(propuesta({ propuestos: { '504': 5 } }))).toEqual({ credito: null, remanente: 5, retencion: null });
+    expect(montosPropuesta(propuesta({ propuestos: { '511': 700 } }))).toMatchObject({ credito: 700, origenCredito: '511' });
+    expect(montosPropuesta(propuesta({ propuestos: { '504': 5 } }))).toEqual({ credito: null, origenCredito: null, remanente: 5, retencion: null });
   });
 
   it('una propuesta sin nada propuesto da todo null', () => {
-    expect(montosPropuesta(propuesta({ propuestos: {}, administrativos: {}, sinPropuesta: true }))).toEqual({ credito: null, remanente: null, retencion: null });
+    expect(montosPropuesta(propuesta({ propuestos: {}, administrativos: {}, sinPropuesta: true }))).toEqual({ credito: null, origenCredito: null, remanente: null, retencion: null });
   });
 });
