@@ -88,6 +88,8 @@ Cómo trabaja el asistente: para los cálculos de IVA usa herramientas que aplic
 
 Una ausencia de filas no significa cero: puede ser un mes que nunca se descargó. Pídele que lo distinga con la bitácora de sincronización.
 
+Si un F29 leído no cuadra, o tras actualizar impuestocl, pídele «relee mis F29 guardados»: `f29_releer` vuelve a leer los PDF ya descargados con el lector actual, sin entrar al SII (en la terminal, `releer-f29 <tu RUT>`).
+
 Los resultados de las herramientas pasan a la conversación con el asistente, igual que cualquier cosa que le muestres. Pregunta solo por los contribuyentes que estés dispuesto a comentar en ese chat.
 
 ## 5. Claude Desktop

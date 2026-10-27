@@ -35,7 +35,7 @@ async function probar(home: string): Promise<void> {
 
     const { tools } = await cliente.listTools();
     const nombres = tools.map((t) => t.name).sort();
-    exigir(tools.length === 10, `Se esperaban 10 herramientas y el servidor compilado expone ${tools.length}: ${nombres.join(', ')}`);
+    exigir(tools.length === HERRAMIENTAS.length, `Se esperaban ${HERRAMIENTAS.length} herramientas y el servidor compilado expone ${tools.length}: ${nombres.join(', ')}`);
     exigir(JSON.stringify(nombres) === JSON.stringify([...HERRAMIENTAS].sort()), `Las herramientas compiladas no coinciden con el código fuente: ${nombres.join(', ')}`);
 
     const instrucciones = cliente.getInstructions() ?? '';

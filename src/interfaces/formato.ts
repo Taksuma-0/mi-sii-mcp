@@ -1,5 +1,6 @@
 import type { FilaHistorialF29, PaginaDocumentos, ResumenIva } from '../app/consultas.js';
 import type { PerfilConSesion } from '../app/perfiles.js';
+import type { ResultadoReleerF29, ResultadoRelectura } from '../app/releer-f29.js';
 import { SINCRONIZACION_CANCELADA, type ResultadoSync } from '../app/sincronizar.js';
 import { reintentoDe, type Reintento } from '../domain/errores.js';
 import { formatearClp, nombreTipoDocumento } from '../domain/formato.js';
@@ -83,6 +84,25 @@ export function textoSync(r: ResultadoSync): string {
     lineas.push(r.abortado.codigo === SINCRONIZACION_CANCELADA.codigo ? r.abortado.mensaje : `Sincronización detenida: [${r.abortado.codigo}] ${r.abortado.mensaje}`);
   }
   return [`Sincronización ${r.rut}`, ...lineas].join('\n');
+}
+
+const TEXTO_RELECTURA: Readonly<Record<ResultadoRelectura, string>> = {
+  sin_cambios: 'sin cambios',
+  actualizado: 'actualizado',
+  ilegible: 'ilegible',
+  incoherente_conservado: 'se conserva la lectura guardada',
+  sin_declaracion: 'sin declaración guardada, no se escribió',
+};
+
+export function textoReleerF29(r: ResultadoReleerF29): string {
+  if (r.folios.length === 0) return `Relectura del F29 de ${r.rut}: no hay PDF del F29 guardados en el rango; sincroniza el F29 para traerlos.`;
+  return [
+    `Relectura del F29 de ${r.rut} con el lector ${r.versionLector} (sin ir al SII):`,
+    ...r.folios.map((f) => {
+      const codigos = f.resultado === 'actualizado' ? ` (códigos ${f.codigosCambiados.join(', ')})` : '';
+      return `${f.periodo} folio ${f.folio}: ${TEXTO_RELECTURA[f.resultado]}${codigos}${f.mensaje === null ? '' : ` — ${f.mensaje}`}`;
+    }),
+  ].join('\n');
 }
 
 export function textoHistorialF29(filas: readonly FilaHistorialF29[]): string {

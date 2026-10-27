@@ -5,11 +5,12 @@ import { documentos, f29Historial, hallazgos, plazos, resumenIva } from '../../a
 import type { DepsApp } from '../../app/deps.js';
 import { panorama } from '../../app/panorama.js';
 import { listarPerfiles } from '../../app/perfiles.js';
+import { releerF29 } from '../../app/releer-f29.js';
 import { sincronizar } from '../../app/sincronizar.js';
 import { esErrorImpuestocl, type CodigoError } from '../../domain/errores.js';
 import { parsePeriodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
-import { lineaReintento, textoDocumentos, textoHallazgos, textoHistorialF29, textoPerfiles, textoPlazos, textoReintentables, textoResumenIva, textoSync } from '../formato.js';
+import { lineaReintento, textoDocumentos, textoHallazgos, textoHistorialF29, textoPerfiles, textoPlazos, textoReintentables, textoReleerF29, textoResumenIva, textoSync } from '../formato.js';
 
 export const HERRAMIENTAS = [
   'perfiles_listar',
@@ -22,6 +23,7 @@ export const HERRAMIENTAS = [
   'plazos_proximos',
   'consulta_sql',
   'datos_esquema',
+  'f29_releer',
 ] as const;
 
 /** Lo que lee el asistente al conectarse: flujo de uso, regla de la clave y cobertura (máximo 1 500 caracteres). */
@@ -30,8 +32,9 @@ export const INSTRUCCIONES_MCP = [
   '2. Si faltan meses o están viejos, usa sincronizar por tramos de hasta 12 meses e informa el avance a la persona en cada tramo.',
   '3. Para IVA y conciliación prefiere iva_resumen, iva_hallazgos, f29_historial y plazos_proximos: aplican las reglas del dominio.',
   '4. Para cruces y preguntas libres, llama una vez a datos_esquema y luego a consulta_sql (solo lectura).',
-  '5. Nunca pidas la clave tributaria ni intentes un login. Ante SESION_REQUERIDA (o CLAVE_RECHAZADA, RUT_BLOQUEADO_LOCAL), muestra a la persona el comando de login del mensaje para que lo ejecute en su terminal, o indícale «Abrir impuestocl.cmd»; después reintenta.',
-  '6. Cobertura actual: solo RCV (compras y ventas) y F29. No es asesoría tributaria.',
+  '5. Si un F29 leído no cuadra o se actualizó impuestocl, f29_releer relee los PDF ya guardados sin ir al SII.',
+  '6. Nunca pidas la clave tributaria ni intentes un login. Ante SESION_REQUERIDA (o CLAVE_RECHAZADA, RUT_BLOQUEADO_LOCAL), muestra a la persona el comando de login del mensaje para que lo ejecute en su terminal, o indícale «Abrir impuestocl.cmd»; después reintenta.',
+  '7. Cobertura actual: solo RCV (compras y ventas) y F29. No es asesoría tributaria.',
 ].join('\n');
 
 export interface OpcionesMcp {
@@ -159,6 +162,22 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
         const guia = codigos.map((c) => guiaDelCodigo(comandoLogin, c, r.rut)).find((g) => g !== null);
         const texto = [textoSync(r), textoReintentables(r), guia].filter((t) => t !== null).join('\n');
         return respuesta(texto, r);
+      }, rut),
+  );
+
+  servidor.registerTool(
+    'f29_releer',
+    {
+      title: 'Releer el F29 guardado',
+      description:
+        'Relee los PDF ya guardados con el lector actual, sin ir al SII: vuelve a leer el PDF del F29 de cada folio que trajo una sincronización anterior y actualiza sus valores si cambian. Una lectura que no cuadra no reemplaza a una guardada que sí cuadra. Úsala tras actualizar impuestocl o ante un F29 leído que no cuadra; sin rango relee todos los meses guardados.',
+      inputSchema: z.object({ rut: RUT, desde: PERIODO.optional(), hasta: PERIODO.optional() }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ rut, desde, hasta }) =>
+      seguro(async () => {
+        const r = await releerF29(deps, rut, desde, hasta);
+        return respuesta(textoReleerF29(r), r);
       }, rut),
   );
 

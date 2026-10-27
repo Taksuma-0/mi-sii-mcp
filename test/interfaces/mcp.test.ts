@@ -6,6 +6,7 @@ import { ErrorImpuestocl, type CodigoError } from '../../src/domain/errores.js';
 import { crearServidorMcp, HERRAMIENTAS, INSTRUCCIONES_MCP, type OpcionesMcp } from '../../src/interfaces/mcp/servidor.js';
 import { declaracion, fila, perfilEmpresa, resumen, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
 import { depsDePrueba } from '../helpers/deps.js';
+import { guardarPdfF29, pdfFalso } from '../helpers/lector-falso.js';
 import { sembrarMes, T_SEMBRADO } from '../helpers/sembrar.js';
 
 async function conectar(deps: DepsApp, opciones?: OpcionesMcp) {
@@ -21,10 +22,10 @@ const textoDe = (r: unknown): string => (r as { content: { type: string; text: s
 const esError = (r: unknown): boolean => (r as { isError?: boolean }).isError === true;
 
 describe('servidor MCP', () => {
-  it('expone exactamente las 10 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
+  it('expone exactamente las 11 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
     const cliente = await conectar(depsDePrueba().deps);
     const { tools } = await cliente.listTools();
-    expect(tools).toHaveLength(10);
+    expect(tools).toHaveLength(11);
     expect(tools.map((t) => t.name).sort()).toEqual([...HERRAMIENTAS].sort());
     expect(JSON.stringify(tools.map((t) => t.inputSchema)).toLowerCase()).not.toMatch(/clave|password|contrase/);
     expect(tools.find((t) => t.name === 'iva_resumen')?.annotations?.readOnlyHint).toBe(true);
@@ -228,13 +229,43 @@ describe('servidor MCP', () => {
     await cliente.close();
   });
 
+  it('f29_releer relee los PDF guardados sin ir al SII, con sus anotaciones', async () => {
+    const { deps, store, sii } = depsDePrueba({ fallaAlAbrir: new Error('No debe abrir el SII') });
+    store.guardarContribuyente(perfilEmpresa());
+    sembrarMes(store, '2026-09', { declaraciones: [declaracion()], valores: [valores({ '538': 199_500, '537': 19_000, '89': 180_500 })] });
+    guardarPdfF29(store, { periodo: '2026-09', folio: 555_001, cuerpo: pdfFalso({ '538': 199_500, '537': 19_000, '89': 180_500, '91': 180_500, '547': 180_500 }), obtenidoEn: T_SEMBRADO });
+    const cliente = await conectar(deps);
+
+    const { tools } = await cliente.listTools();
+    const herramienta = tools.find((t) => t.name === 'f29_releer');
+    expect(herramienta?.annotations).toEqual({ readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false });
+    expect(herramienta?.description).toMatch(/relee los PDF ya guardados con el lector actual, sin ir al SII/i);
+    expect(Object.keys(herramienta?.inputSchema.properties ?? {})).toEqual(['rut', 'desde', 'hasta']);
+    expect(herramienta?.inputSchema.required).toEqual(['rut']);
+
+    const r = await cliente.callTool({ name: 'f29_releer', arguments: { rut: '22.222.222-2', desde: '2026-09' } });
+
+    expect(esError(r)).toBe(false);
+    const texto = textoDe(r);
+    expect(texto.split('\n\n')[0]).toContain('2026-09 folio 555001: actualizado (códigos 547, 91)');
+    const datos = JSON.parse(texto.slice(texto.indexOf('\n\n') + 2));
+    expect(datos.folios).toEqual([{ periodo: '2026-09', folio: 555_001, resultado: 'actualizado', codigosCambiados: ['547', '91'], mensaje: null }]);
+    expect(store.valoresF29(RUT_EMPRESA, '2026-09', 555_001)?.valores['91']).toBe(180_500);
+    expect(sii.llamadas).toEqual([]);
+
+    const sinPerfil = await cliente.callTool({ name: 'f29_releer', arguments: { rut: '11.111.111-1' } });
+    expect(esError(sinPerfil)).toBe(true);
+    expect(textoDe(sinPerfil)).toContain('PERFIL_NO_EXISTE');
+    await cliente.close();
+  });
+
   it('entrega instrucciones de servidor breves con el flujo de uso y la cobertura', async () => {
     const cliente = await conectar(depsDePrueba().deps);
     const instrucciones = cliente.getInstructions() ?? '';
     expect(instrucciones).toBe(INSTRUCCIONES_MCP);
     expect(instrucciones.length).toBeGreaterThan(0);
     expect(instrucciones.length).toBeLessThanOrEqual(1_500);
-    for (const clave of ['perfiles_listar', 'sii_panorama', 'sincronizar', '12 meses', 'iva_resumen', 'iva_hallazgos', 'f29_historial', 'plazos_proximos', 'datos_esquema', 'consulta_sql', 'SESION_REQUERIDA', 'Abrir impuestocl.cmd', 'RCV', 'F29']) {
+    for (const clave of ['perfiles_listar', 'sii_panorama', 'sincronizar', '12 meses', 'iva_resumen', 'iva_hallazgos', 'f29_historial', 'plazos_proximos', 'datos_esquema', 'consulta_sql', 'f29_releer', 'SESION_REQUERIDA', 'Abrir impuestocl.cmd', 'RCV', 'F29']) {
       expect(instrucciones).toContain(clave);
     }
     expect(instrucciones).toMatch(/nunca pidas la clave/i);

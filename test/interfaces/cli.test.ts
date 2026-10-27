@@ -5,7 +5,8 @@ import { leerLineaStdin, pedirClaveOculta } from '../../src/interfaces/cli/clave
 import { crearPrograma, type ContenedorCli, type IoCli, type SesionesCli } from '../../src/interfaces/cli/programa.js';
 import { declaracion, documento, fila, perfilEmpresa, resumen, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
 import { depsDePrueba } from '../helpers/deps.js';
-import { sembrarMes } from '../helpers/sembrar.js';
+import { guardarPdfF29, pdfFalso } from '../helpers/lector-falso.js';
+import { sembrarMes, T_SEMBRADO } from '../helpers/sembrar.js';
 
 function entorno(o: { claveStdin?: string; fallaAlAbrir?: Error } = {}) {
   const p = depsDePrueba({ fallaAlAbrir: o.fallaAlAbrir });
@@ -114,6 +115,24 @@ describe('CLI', () => {
     expect(await e.correr('sync', RUT_EMPRESA, '--desde', '2026-09', '--solo', 'f29')).toBe(0);
     expect(e.salidaTexto.at(-1)).toContain('2026-09: F29 folio 555001');
     expect(e.salidaTexto.at(-1)).not.toContain('documentos RCV');
+  });
+
+  it('releer-f29 relee los PDF guardados del rango sin abrir el SII', async () => {
+    const e = entorno({ fallaAlAbrir: new Error('No debe abrir el SII') });
+    e.store.guardarContribuyente(perfilEmpresa());
+    sembrarMes(e.store, '2026-09', { declaraciones: [declaracion()], valores: [valores({ '538': 199_500, '537': 19_000, '89': 180_500 })] });
+    sembrarMes(e.store, '2026-08', { declaraciones: [declaracion({ periodo: '2026-08', folio: 444_001 })] });
+    guardarPdfF29(e.store, { periodo: '2026-09', folio: 555_001, cuerpo: pdfFalso({ '538': 199_500, '537': 19_000, '89': 180_500, '91': 180_500, '547': 180_500 }), obtenidoEn: T_SEMBRADO });
+    guardarPdfF29(e.store, { periodo: '2026-08', folio: 444_001, cuerpo: pdfFalso({}), obtenidoEn: T_SEMBRADO });
+
+    expect(await e.correr('releer-f29', RUT_EMPRESA, '--desde', '2026-09', '--hasta', '2026-09')).toBe(0);
+    expect(e.salidaTexto.at(-1)).toContain('2026-09 folio 555001: actualizado (códigos 547, 91)');
+    expect(e.salidaTexto.at(-1)).not.toContain('2026-08');
+    expect(e.sii.llamadas).toEqual([]);
+
+    expect(await e.correr('releer-f29', RUT_EMPRESA, '--json')).toBe(0);
+    const datos = JSON.parse(e.salidaTexto.at(-1)!);
+    expect(datos.folios.map((f: { periodo: string; resultado: string }) => `${f.periodo}:${f.resultado}`)).toEqual(['2026-08:ilegible', '2026-09:sin_cambios']);
   });
 
   it.each(['abc', 'Infinity', '-Infinity'].flatMap((valor) => [

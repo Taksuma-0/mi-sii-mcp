@@ -2,6 +2,7 @@ import { Command, InvalidArgumentError, Option } from 'commander';
 import { documentos, f29Historial, hallazgos, plazos, resumenIva } from '../../app/consultas.js';
 import type { DepsApp } from '../../app/deps.js';
 import { agregarPerfil, listarPerfiles, registrarIdentidad } from '../../app/perfiles.js';
+import { releerF29 } from '../../app/releer-f29.js';
 import { sincronizar, type Superficie } from '../../app/sincronizar.js';
 import { esErrorImpuestocl } from '../../domain/errores.js';
 import { parsePeriodo } from '../../domain/periodo.js';
@@ -9,7 +10,7 @@ import { parseRut } from '../../domain/rut.js';
 import type { EstadoRcv, Lado, Severidad, TipoContribuyente } from '../../domain/tipos.js';
 import { VERSION } from '../../main/version.js';
 import type { EstadoSesion, ResultadoLogin } from '../../ports/index.js';
-import { lineaReintento, textoDocumentos, textoHallazgos, textoHistorialF29, textoPerfiles, textoPlazos, textoResumenIva, textoSync } from '../formato.js';
+import { lineaReintento, textoDocumentos, textoHallazgos, textoHistorialF29, textoPerfiles, textoPlazos, textoReleerF29, textoResumenIva, textoSync } from '../formato.js';
 
 export interface IoCli {
   escribir(texto: string): void;
@@ -132,6 +133,20 @@ export function crearPrograma(
         const r = await sincronizar(c.deps, rut, parsePeriodo(o.desde), parsePeriodo(o.hasta ?? o.desde), o.solo ? [o.solo] : ['rcv', 'f29']);
         io.escribir(textoSync(r));
         if (r.abortado || r.periodos.some((p) => p.errores.length > 0)) salida.codigo = 1;
+      }),
+    );
+
+  programa
+    .command('releer-f29')
+    .description('Relee los PDF del F29 ya guardados con el lector actual, sin ir al SII')
+    .argument('<rut>')
+    .option('--desde <AAAA-MM>', 'primer mes (por defecto, todos los guardados)')
+    .option('--hasta <AAAA-MM>', 'último mes')
+    .option('--json', 'salida en JSON')
+    .action(
+      ejecutar(async (c, rut: string, o: { desde?: string; hasta?: string; json?: boolean }) => {
+        const r = await releerF29(c.deps, rut, o.desde, o.hasta);
+        mostrar(o.json, r, textoReleerF29(r));
       }),
     );
 
