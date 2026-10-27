@@ -7,6 +7,9 @@ import { cargarConfig } from '../../src/main/config.js';
 import { crearContenedor } from '../../src/main/contenedor.js';
 import * as sqlite from '../../src/store/sqlite/db.js';
 import { readFileSync as leerFixture } from 'node:fs';
+import { sincronizarCuenta } from '../../src/app/cuenta.js';
+import { sincronizarRenta } from '../../src/app/renta.js';
+import { sincronizar } from '../../src/app/sincronizar.js';
 import { parsePeriodo } from '../../src/domain/periodo.js';
 import { codigoDe } from '../helpers/errores.js';
 import { perfilEmpresa } from '../helpers/fabricas.js';
@@ -64,6 +67,10 @@ describe('configuración y contenedor', () => {
     expect(cargarConfig({ IMPUESTOCL_HOME: home, IMPUESTOCL_PLAZO_NAVEGADOR_MS: '5' }).plazoNavegadorMs).toBe(60_000);
   });
 
+  it('cargarConfig acota el plazo del login con navegador a 30 minutos', () => {
+    expect(cargarConfig({ IMPUESTOCL_HOME: home, IMPUESTOCL_PLAZO_NAVEGADOR_MS: '99999999999' }).plazoNavegadorMs).toBe(1_800_000);
+  });
+
   it('crearContenedor conecta el login con navegador con el plazo configurado y no devuelve cookies', async () => {
     const config = cargarConfig({ IMPUESTOCL_HOME: home, IMPUESTOCL_PLAZO_NAVEGADOR_MS: '90000' });
     const { fetchFalso } = crearFetchFalso({ [RUTA_MI_SII]: { headers: HTML, body: paginaDatosCntr('22222222', '2', 'EMPRESA DEMO SPA') } });
@@ -106,14 +113,15 @@ describe('configuración y contenedor', () => {
         [RUTA_RESUMEN]: { headers: JSON_CT, body: SIN_MOVIMIENTO },
       });
       const capturas: string[] = [];
+      const secretos = new SecretosEnMemoria();
       const c = crearContenedor({
         config: cargarConfig({ IMPUESTOCL_HOME: home }),
-        secretos: new SecretosEnMemoria(),
+        secretos,
         opcionesHttp: { fetch: fetchFalso, temporizador: sinEsperas },
         capturarNavegador: async () => cookies(capturas.shift() ?? 'tok-persona'),
       });
       c.deps.store.guardarContribuyente({ ...perfilEmpresa(), accedeCon: PERSONA });
-      return { c, llamadas, capturas };
+      return { c, llamadas, capturas, secretos };
     }
 
     it('sin sesión propia, el RCV se lee con la sesión de quien accede (rutEmisor = la empresa) y queda marcado como no confirmado', async () => {
@@ -140,10 +148,38 @@ describe('configuración y contenedor', () => {
       }
     });
 
-    it('sin sesión de quien accede, pide entrar con esa identidad', async () => {
-      const { c } = preparar();
+    it('abrir el lector no consulta al SII ni al llavero: la sesión de quien accede se abre recién con el RCV', async () => {
+      const { c, llamadas, secretos } = preparar();
       try {
-        expect(await codigoDe(c.deps.abrirSii(EMPRESA, () => {}))).toBe('SESION_REQUERIDA');
+        secretos.mapa.set(PERSONA, 'clave-ficticia');
+        const obtener = vi.spyOn(secretos, 'obtener');
+        const sii = await c.deps.abrirSii(EMPRESA, () => {});
+        expect(llamadas).toHaveLength(0);
+        expect(obtener).not.toHaveBeenCalled();
+        expect(await codigoDe(sii.f22Declaraciones(EMPRESA, 2026))).toBe('SIN_PERMISO');
+        expect(await codigoDe(sii.perfilTributario(EMPRESA))).toBe('SIN_PERMISO');
+        expect(llamadas).toHaveLength(0);
+        expect(obtener).not.toHaveBeenCalled();
+      } finally {
+        c.cerrar();
+      }
+    });
+
+    it('sin sesión de quien accede, renta y perfil dan SIN_PERMISO sin red ni llavero, y el RCV pide entrar con esa identidad', async () => {
+      const { c, llamadas, secretos } = preparar();
+      try {
+        const obtener = vi.spyOn(secretos, 'obtener');
+        const renta = await sincronizarRenta(c.deps, EMPRESA, '2026');
+        expect(renta.anios[0]!.errores.map((e) => e.codigo)).toEqual(['SIN_PERMISO']);
+        const cuenta = await sincronizarCuenta(c.deps, EMPRESA);
+        expect(cuenta.errores.map((e) => e.codigo)).toContain('SIN_PERMISO');
+        expect(llamadas).toHaveLength(0);
+        expect(obtener).not.toHaveBeenCalled();
+
+        const rcv = await sincronizar(c.deps, EMPRESA, parsePeriodo('2026-09'), parsePeriodo('2026-09'), ['rcv']);
+        expect(rcv.abortado?.codigo).toBe('SESION_REQUERIDA');
+        // Sin consulta del RCV no hay aviso de representación.
+        expect(rcv.periodos[0]!.avisos).toEqual([]);
       } finally {
         c.cerrar();
       }

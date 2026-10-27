@@ -87,11 +87,14 @@ export async function sincronizar(
       const res: ResultadoPeriodo = { periodo: periodo.texto, errores: [], avisos: [], documentos: 0, f29Folio: null };
       resultados.push(res);
       enCurso = res;
+      /** Si alguna consulta del RCV de este mes respondió: solo entonces vale el aviso del lector (p. ej., representación). */
+      let rcvRespondio = false;
       if (superficies.includes('rcv')) {
         for (const lado of LADOS) {
           revisarCancelacion(signal);
           await registrar(deps, rut, `rcv.${lado}`, periodo.texto, buffer, res, signal, async (id, ahora) => {
             const { resumenes, documentos, avisos } = await traerRcv(sii, rut, periodo, lado, (aviso) => res.avisos.push(aviso));
+            rcvRespondio = true;
             if (avisos.length > 0) return DATOS_INCOMPLETOS_RCV;
             const guardadoTieneDatos = deps.store.resumenesRcv(rut, periodo.texto).some((r) => r.lado === lado && r.filas.length > 0);
             if (conservarRcv(resumenes, guardadoTieneDatos)) {
@@ -105,7 +108,7 @@ export async function sincronizar(
           });
         }
       }
-      if (superficies.includes('rcv') && sii.aviso) res.avisos.push(`RCV ${periodo.texto}: ${sii.aviso}`);
+      if (rcvRespondio && sii.aviso) res.avisos.push(`RCV ${periodo.texto}: ${sii.aviso}`);
       if (superficies.includes('f29')) {
         revisarCancelacion(signal);
         const f29 = await registrar(deps, rut, 'f29', periodo.texto, buffer, res, signal, async (id, ahora) => {

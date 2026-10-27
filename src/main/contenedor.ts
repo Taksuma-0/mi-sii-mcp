@@ -58,8 +58,9 @@ export function crearContenedor(o: OpcionesContenedor = {}): Contenedor {
       toleranciaPesos: config.toleranciaPesos,
       abrirSii: async (rut, sumidero, signal) => {
         const acceso = rutDeAcceso(rut);
-        const lector = new LectorPortalSii(conSenal(await sesiones.sesionActiva(acceso ?? rut), signal), sumidero, lectorPdfF29);
-        return acceso ? new LectorPorRepresentacion(lector, acceso) : lector;
+        if (acceso === null) return new LectorPortalSii(conSenal(await sesiones.sesionActiva(rut), signal), sumidero, lectorPdfF29);
+        // Las áreas que exigen sesión propia fallan sin abrir la de quien accede: solo el RCV la abre.
+        return new LectorPorRepresentacion(async () => new LectorPortalSii(conSenal(await sesiones.sesionActiva(acceso), signal), sumidero, lectorPdfF29), acceso);
       },
       diagnostico: (nombre, contenido) => {
         mkdirSync(config.dirDiagnostico, { recursive: true });

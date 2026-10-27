@@ -11,23 +11,34 @@ const ACCION_SESION_PROPIA = 'Inicia sesión con la identidad del contribuyente 
  * Lee un contribuyente con la sesión de otra identidad (`rutAcceso`, p. ej. la persona que representa a la empresa).
  * Solo el RCV se pide por representación (`rutEmisor` = el contribuyente), con aviso porque no está confirmado en vivo.
  * F29, propuesta, boletas, F22, perfil y empresas autorizadas exigen la sesión propia: SIN_PERMISO sin llamar al SII.
+ * La sesión de quien accede (`abrir`) se abre recién en la primera consulta del RCV: lo demás no toca Mi SII ni el llavero.
  */
 export class LectorPorRepresentacion implements SiiReader {
   readonly aviso: string;
+  private base: Promise<SiiReader> | null = null;
 
   constructor(
-    private readonly base: SiiReader,
+    private readonly abrir: () => Promise<SiiReader>,
     private readonly rutAcceso: string,
   ) {
     this.aviso = `${AVISO_REPRESENTACION} (sesión de ${rutAcceso})`;
   }
 
-  rcvResumen(rut: string, periodo: Periodo, lado: Lado, estado: EstadoRcv): Promise<RcvResumen> {
-    return this.base.rcvResumen(rut, periodo, lado, estado);
+  async rcvResumen(rut: string, periodo: Periodo, lado: Lado, estado: EstadoRcv): Promise<RcvResumen> {
+    return (await this.lector()).rcvResumen(rut, periodo, lado, estado);
   }
 
-  rcvDetalle(rut: string, periodo: Periodo, lado: Lado, tipoDoc: number, estado: EstadoRcv): Promise<DocumentoRcv[]> {
-    return this.base.rcvDetalle(rut, periodo, lado, tipoDoc, estado);
+  async rcvDetalle(rut: string, periodo: Periodo, lado: Lado, tipoDoc: number, estado: EstadoRcv): Promise<DocumentoRcv[]> {
+    return (await this.lector()).rcvDetalle(rut, periodo, lado, tipoDoc, estado);
+  }
+
+  /** Abre una vez la sesión de quien accede; si falla, la próxima consulta lo vuelve a intentar. */
+  private lector(): Promise<SiiReader> {
+    this.base ??= this.abrir().catch((e: unknown) => {
+      this.base = null;
+      throw e;
+    });
+    return this.base;
   }
 
   f29Declaraciones(rut: string, _periodo: Periodo): Promise<F29Declaracion[]> {

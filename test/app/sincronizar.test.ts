@@ -38,6 +38,16 @@ describe('sincronizar', () => {
     expect(soloF29.periodos[0]!.avisos.some((a) => a.includes('representación'))).toBe(false);
   });
 
+  it('sin una consulta del RCV que haya respondido no deja el aviso de representación', async () => {
+    const { deps, sii } = mesCompleto();
+    sii.aviso = 'lectura por representación sin confirmar en vivo (sesión de 33333333-3)';
+    sii.fallas.set('resumen|2026-09|VENTA|REGISTRO', new ErrorImpuestocl('SII_NO_DISPONIBLE', 'caído'));
+    sii.fallas.set('resumen|2026-09|COMPRA|REGISTRO', new ErrorImpuestocl('SII_NO_DISPONIBLE', 'caído'));
+    const r = await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT);
+    expect(r.periodos[0]!.errores.map((e) => e.codigo)).toEqual(['SII_NO_DISPONIBLE', 'SII_NO_DISPONIBLE']);
+    expect(r.periodos[0]!.avisos.some((a) => a.includes('representación'))).toBe(false);
+  });
+
   it('conserva el último conjunto completo del lado incompleto y permite una eliminación posterior confirmada', async () => {
     const { deps, store, sii, db } = mesCompleto();
     await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT);

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { AVISO_REPRESENTACION, LectorPorRepresentacion } from '../../src/connectors/sii/representacion.js';
+import { ErrorImpuestocl } from '../../src/domain/errores.js';
 import { parsePeriodo } from '../../src/domain/periodo.js';
+import { codigoDe } from '../helpers/errores.js';
 import { declaracion } from '../helpers/fabricas.js';
 import { SiiFalso } from '../helpers/sii-falso.js';
 
@@ -11,12 +13,31 @@ const SEPT = parsePeriodo('2026-09');
 describe('LectorPorRepresentacion', () => {
   it('lee el RCV de la empresa con la sesión de su representante y lo marca como no confirmado en vivo', async () => {
     const base = new SiiFalso();
-    const lector = new LectorPorRepresentacion(base, PERSONA);
+    let aperturas = 0;
+    const lector = new LectorPorRepresentacion(async () => {
+      aperturas++;
+      return base;
+    }, PERSONA);
+    expect(aperturas).toBe(0);
     expect(lector.aviso).toBe(`${AVISO_REPRESENTACION} (sesión de ${PERSONA})`);
     expect(AVISO_REPRESENTACION).toBe('lectura por representación sin confirmar en vivo');
     await lector.rcvResumen(EMPRESA, SEPT, 'COMPRA', 'REGISTRO');
     await lector.rcvDetalle(EMPRESA, SEPT, 'COMPRA', 33, 'REGISTRO');
     expect(base.llamadas).toEqual(['resumen|2026-09|COMPRA|REGISTRO', 'detalle|2026-09|COMPRA|REGISTRO|33']);
+    // La sesión de quien accede se abre una sola vez, recién en la primera consulta del RCV.
+    expect(aperturas).toBe(1);
+  });
+
+  it('si abrir la sesión de quien accede falla, la siguiente consulta del RCV lo vuelve a intentar', async () => {
+    const base = new SiiFalso();
+    let aperturas = 0;
+    const lector = new LectorPorRepresentacion(async () => {
+      if (++aperturas === 1) throw new ErrorImpuestocl('SESION_REQUERIDA', 'sin sesión');
+      return base;
+    }, PERSONA);
+    expect(await codigoDe(lector.rcvResumen(EMPRESA, SEPT, 'VENTA', 'REGISTRO'))).toBe('SESION_REQUERIDA');
+    await lector.rcvResumen(EMPRESA, SEPT, 'VENTA', 'REGISTRO');
+    expect(aperturas).toBe(2);
   });
 
   it.each([
@@ -29,13 +50,18 @@ describe('LectorPorRepresentacion', () => {
     ['f22Declaraciones', (l: LectorPorRepresentacion) => l.f22Declaraciones(EMPRESA, 2026)],
     ['f22Detalle', (l: LectorPorRepresentacion) => l.f22Detalle(EMPRESA, 2026, 1)],
   ] as const)('%s exige la sesión propia del contribuyente: SIN_PERMISO sin llamar al SII', async (_nombre, llamar) => {
-    const base = new SiiFalso();
-    const error = await llamar(new LectorPorRepresentacion(base, PERSONA)).catch((e: unknown) => e);
+    let aperturas = 0;
+    const lector = new LectorPorRepresentacion(async () => {
+      aperturas++;
+      return new SiiFalso();
+    }, PERSONA);
+    const error = await llamar(lector).catch((e: unknown) => e);
     expect(error).toMatchObject({
       codigo: 'SIN_PERMISO',
       accion: 'Inicia sesión con la identidad del contribuyente (login o login-navegador).',
       message: expect.stringContaining(PERSONA),
     });
-    expect(base.llamadas).toEqual([]);
+    // Ni siquiera se abre la sesión de quien accede: ni Mi SII ni el llavero.
+    expect(aperturas).toBe(0);
   });
 });
