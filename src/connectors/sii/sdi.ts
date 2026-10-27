@@ -46,20 +46,42 @@ export async function postSdi(http: Http, sumidero: SumideroRespuestas, pedido: 
   }
 }
 
+/** Lo que queda en la evidencia en lugar del TOKEN de la sesión. */
+export const TOKEN_REDACTADO = '[REDACTADO]';
+
 /**
- * El texto tal cual, o saneado si el pedido lo pide y el texto es JSON. Si `sanear` falla, falla la consulta con
- * PORTAL_CAMBIO: nunca se guarda el cuerpo sin sanear. Si devuelve `undefined`, se guarda `null` explícito.
+ * Las fachadas de www4 devuelven en `metaData.conversationId` la cookie TOKEN de la sesión: si viene, se reemplaza en el
+ * cuerpo (ya parseado, una copia propia de la evidencia). Devuelve si cambió algo.
+ */
+function redactarToken(cuerpo: unknown): boolean {
+  if (typeof cuerpo !== 'object' || cuerpo === null || Array.isArray(cuerpo)) return false;
+  const metaData = (cuerpo as Record<string, unknown>)['metaData'];
+  if (typeof metaData !== 'object' || metaData === null || Array.isArray(metaData)) return false;
+  const id = (metaData as Record<string, unknown>)['conversationId'];
+  if (typeof id !== 'string' || id === '' || id === TOKEN_REDACTADO) return false;
+  (metaData as Record<string, unknown>)['conversationId'] = TOKEN_REDACTADO;
+  return true;
+}
+
+/**
+ * El texto tal cual, o saneado si el pedido lo pide y el texto es JSON. Si es JSON, el TOKEN de `metaData.conversationId`
+ * se redacta siempre, antes de sanear (y otra vez en lo que devuelve `sanear`). Si `sanear` falla, falla la consulta con
+ * PORTAL_CAMBIO: nunca se guarda el cuerpo sin sanear. Si devuelve `undefined`, se guarda `null` explícito. Sin TOKEN que
+ * redactar ni `sanear`, se guarda el texto original sin reformatear.
  */
 function evidencia(texto: string, sanear: PedidoSdi['sanear'], superficie: string): string {
-  if (!sanear) return texto;
   let cuerpo: unknown;
   try {
     cuerpo = JSON.parse(texto);
   } catch {
     return texto;
   }
+  const redactado = redactarToken(cuerpo);
+  if (!sanear) return redactado ? JSON.stringify(cuerpo) : texto;
   try {
-    return JSON.stringify(sanear(cuerpo)) ?? 'null';
+    const saneado = sanear(cuerpo);
+    redactarToken(saneado);
+    return JSON.stringify(saneado) ?? 'null';
   } catch (cause) {
     throw new ErrorImpuestocl('PORTAL_CAMBIO', `No se pudo sanear la evidencia de ${superficie}.`, { cause });
   }

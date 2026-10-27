@@ -120,3 +120,39 @@ describe('postSdi: saneo de la evidencia', () => {
     expect(llamado).toBe(false);
   });
 });
+
+describe('postSdi: el TOKEN no queda en la evidencia', () => {
+  /** Las fachadas de www4 devuelven en `metaData.conversationId` la cookie TOKEN de la sesión. */
+  const CON_TOKEN = '{"data":{"valor":5},"metaData":{"conversationId":"tok123","transactionId":"t-1","errors":null}}';
+
+  it('sin sanear guarda la evidencia con conversationId redactado y el parseo ve el cuerpo completo', async () => {
+    const { http, crudas, sumidero } = await preparar({ headers: JSON_CT, body: CON_TOKEN }, true);
+    const r = await postSdi(http, sumidero, PEDIDO);
+    expect(r).toEqual(JSON.parse(CON_TOKEN));
+    expect(crudas[0]!.cuerpo).not.toContain('tok123');
+    expect(JSON.parse(crudas[0]!.cuerpo)).toEqual({ data: { valor: 5 }, metaData: { conversationId: '[REDACTADO]', transactionId: 't-1', errors: null } });
+  });
+
+  it('con sanear, sanear recibe el cuerpo ya redactado y lo que devuelve tampoco lleva el TOKEN', async () => {
+    const { http, crudas, sumidero } = await preparar({ headers: JSON_CT, body: CON_TOKEN }, true);
+    let visto: unknown;
+    const r = await postSdi(http, sumidero, { ...PEDIDO, sanear: (c) => { visto = c; return c; } });
+    expect((r as { metaData: { conversationId: string } }).metaData.conversationId).toBe('tok123');
+    expect(JSON.stringify(visto)).not.toContain('tok123');
+    expect(crudas[0]!.cuerpo).not.toContain('tok123');
+    expect(crudas[0]!.cuerpo).toContain('[REDACTADO]');
+  });
+
+  it('un 403 JSON con el TOKEN también se guarda redactado', async () => {
+    const { http, crudas, sumidero } = await preparar({ status: 403, headers: JSON_CT, body: '{"metaData":{"conversationId":"tok123","errors":[{"descripcion":"No autorizado"}]}}' }, true);
+    await postSdi(http, sumidero, PEDIDO);
+    expect(crudas[0]!.cuerpo).not.toContain('tok123');
+  });
+
+  it('sin conversationId (o vacío) guarda el texto tal cual', async () => {
+    const vacio = '{"data":1,"metaData":{"conversationId":"","errors":null}}';
+    const { http, crudas, sumidero } = await preparar({ headers: JSON_CT, body: vacio }, true);
+    await postSdi(http, sumidero, PEDIDO);
+    expect(crudas[0]!.cuerpo).toBe(vacio);
+  });
+});
