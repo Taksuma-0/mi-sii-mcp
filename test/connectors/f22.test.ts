@@ -313,6 +313,22 @@ describe('f22Detalle', () => {
     }
   });
 
+  it('excluye también el 9, el 314 y el 610 por su código aunque la glosa no los delate', async () => {
+    const compacto = sobre([
+      { codigo: '9', valor: '1', glosa: 'Dato ficticio nueve' },
+      { codigo: '314', valor: '1', glosa: 'Dato ficticio 314' },
+      { codigo: '610', valor: '1', glosa: 'Dato ficticio 610' },
+      { codigo: '85', valor: '250.000', glosa: 'Saldo a favor' },
+    ]);
+    const { http, sumidero } = await preparar({ ...DETALLE_OK, [RUTA('f22Compacto')]: conBody(compacto) });
+
+    const r = await f22Detalle(http, sumidero, EMPRESA, 2026, FOLIO);
+
+    const codigos = r.valores.map((v) => v.codigo);
+    for (const c of ['9', '314', '610']) expect(codigos, c).not.toContain(c);
+    expect(codigos).toContain('85');
+  });
+
   it('excluye el 306 por su código aunque la glosa no lo delate, y glosas personales ampliadas', async () => {
     const compacto = sobre([
       { codigo: '306', valor: '000111222333', glosa: 'Dato ficticio' },

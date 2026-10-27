@@ -40,7 +40,7 @@ const CAMPOS_EVENTO = ['codEvento', 'nombre', 'fechaEvento', 'tipoEvento', 'codC
  * moneda, RUT del representante): nunca se guardan, aunque su valor sea numérico (el 306 es el número de cuenta). Ya
  * normalizados.
  */
-const CODIGOS_EXCLUIDOS: ReadonlySet<string> = new Set(['1', '2', '3', '5', '6', '8', '13', '55', '301', '306', '780', '903', '8811']);
+const CODIGOS_EXCLUIDOS: ReadonlySet<string> = new Set(['1', '2', '3', '5', '6', '8', '9', '13', '55', '301', '306', '314', '610', '780', '903', '8811']);
 /**
  * Filas con datos personales aunque su código no esté en la lista: se reconocen por la glosa. «Cuenta» solo como cuenta
  * bancaria: «a cuenta del impuesto» es una fila tributaria y se conserva.
