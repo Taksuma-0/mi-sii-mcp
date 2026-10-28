@@ -88,6 +88,7 @@
         { "@type": "Question", "name": "¿El asistente puede ver mi clave tributaria?", "acceptedAnswer": { "@type": "Answer", "text": "No. La clave se escribe solo en la página local o en la terminal, y ninguna herramienta del MCP la recibe. Si eliges mantener la sesión, la clave queda en el almacén de credenciales del sistema operativo." } },
         { "@type": "Question", "name": "¿Dónde quedan mis datos tributarios?", "acceptedAnswer": { "@type": "Answer", "text": "En tu equipo, en una base SQLite en la carpeta ~/.mi-sii-mcp. Lo que preguntas y las respuestas sí pasan por tu asistente de IA, como cualquier conversación con él." } },
         { "@type": "Question", "name": "¿Puede presentar mi F29 o emitir boletas?", "acceptedAnswer": { "@type": "Answer", "text": "No. mi-sii-mcp solo lee el portal del SII; no presenta declaraciones, no emite documentos ni modifica nada." } },
+        { "@type": "Question", "name": "¿mi-sii-mcp emite facturas o usa el Sistema de Facturación Gratuito del SII?", "acceptedAnswer": { "@type": "Answer", "text": "No. mi-sii-mcp no emite facturas ni boletas, no usa el Sistema de Facturación Gratuito del SII y no descarga los archivos de las facturas electrónicas (DTE). Lee el Registro de Compras y Ventas, los F29, la renta F22, las boletas de honorarios y las declaraciones de terceros, siempre en solo lectura. Su código está en github.com/Taksuma-0/mi-sii-mcp." } },
         { "@type": "Question", "name": "¿Es una herramienta oficial del SII?", "acceptedAnswer": { "@type": "Answer", "text": "No. Es un proyecto independiente de código abierto con licencia MIT y no reemplaza la asesoría de un contador." } },
         { "@type": "Question", "name": "¿Cuánto cuesta mi-sii-mcp?", "acceptedAnswer": { "@type": "Answer", "text": "Es gratuito y de código abierto. Solo necesitas un cliente MCP; el costo del asistente de IA depende de su proveedor." } }
       ]
@@ -135,6 +136,7 @@ th,td{text-align:left;padding:14px 16px;border-bottom:1px solid var(--borde);ver
 .arquitectura{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;align-items:stretch;margin:8px 0 32px}
 .nodo{background:#fff;border:2px solid var(--borde);border-radius:14px;padding:16px;text-align:center;font-weight:700}.nodo small{display:block;font-weight:500;color:var(--suave);margin-top:4px}
 .nodo.mcp{border-color:var(--turquesa);background:#effbf9}.nodo.sii{border-style:dashed}
+.titulo-no-hace{margin-top:36px}.lista-no{list-style:none;padding:0;margin:0;display:grid;gap:12px}.lista-no li{padding-left:34px;position:relative}.lista-no li::before{content:"✕";position:absolute;left:0;top:0;width:24px;height:24px;border-radius:50%;background:#fbe9e7;color:#9a3412;display:grid;place-items:center;font-weight:800;font-size:13px}
 .lista-check{list-style:none;padding:0;margin:0;display:grid;gap:12px}.lista-check li{padding-left:34px;position:relative}.lista-check li::before{content:"✓";position:absolute;left:0;top:0;width:24px;height:24px;border-radius:50%;background:#e2f3ec;color:#16645e;display:grid;place-items:center;font-weight:800;font-size:14px}
 .pregunta{font-weight:700;margin:0 0 6px}.consulta{font-size:1.02rem}.consulta q{font-weight:700;color:var(--texto)}
 pre{background:#0d1b2a;color:#e6edf5;padding:18px 20px;border-radius:12px;overflow-x:auto;font-size:14px;line-height:1.5;margin:0}
@@ -259,6 +261,15 @@ footer{background:#0b1f33;color:#b9c8d8;padding:36px 0;font-size:14px}footer .co
         <li><strong>Respaldos saneados:</strong> las respuestas del SII que se guardan no incluyen correos, direcciones, códigos de barra ni el token de la sesión.</li>
         <li><strong>Transparencia:</strong> lo que consultas pasa a la conversación con tu asistente; el código es abierto y auditable.</li>
       </ul>
+      <h3 id="no-hace-titulo" class="titulo-no-hace">Qué no hace mi-sii-mcp</h3>
+      <p>mi-sii-mcp (repositorio oficial: <a href="https://github.com/Taksuma-0/mi-sii-mcp">github.com/Taksuma-0/mi-sii-mcp</a>) sirve para consultar y conciliar tu información tributaria. Para no confundirlo con otros proyectos de nombre parecido:</p>
+      <ul class="lista-no" aria-labelledby="no-hace-titulo">
+        <li><strong>No emite</strong> facturas, boletas ni otros documentos, y <strong>no usa el Sistema de Facturación Gratuito</strong> del SII (MiPyme).</li>
+        <li><strong>No presenta ni rectifica</strong> declaraciones (F29, F22) ni modifica nada en el portal.</li>
+        <li><strong>No descarga los archivos XML o PDF de las facturas electrónicas (DTE):</strong> lee el detalle del Registro de Compras y Ventas.</li>
+        <li><strong>No opera el portal con un navegador automatizado:</strong> consulta el SII directamente y solo abre el navegador, si tú lo eliges, para iniciar sesión con ClaveÚnica.</li>
+        <li><strong>No envía tus datos a servidores de terceros:</strong> todo queda en tu equipo.</li>
+      </ul>
     </div>
   </section>
 
@@ -335,6 +346,7 @@ args = ["C:\\ruta\\a\\mi-sii-mcp\\dist\\interfaces\\cli\\bin.js", "mcp"]</code><
       <details><summary>¿El asistente puede ver mi clave tributaria?</summary><p>No. La clave se escribe solo en la página local o en la terminal, y ninguna herramienta del MCP la recibe. Si eliges mantener la sesión, la clave queda en el almacén de credenciales del sistema operativo.</p></details>
       <details><summary>¿Dónde quedan mis datos tributarios?</summary><p>En tu equipo, en una base SQLite en la carpeta <code>~/.mi-sii-mcp</code>. Lo que preguntas y las respuestas sí pasan por tu asistente de IA, como cualquier conversación con él.</p></details>
       <details><summary>¿Puede presentar mi F29 o emitir boletas?</summary><p>No. mi-sii-mcp solo lee el portal del SII; no presenta declaraciones, no emite documentos ni modifica nada.</p></details>
+      <details><summary>¿mi-sii-mcp emite facturas o usa el Sistema de Facturación Gratuito del SII?</summary><p>No. mi-sii-mcp no emite facturas ni boletas, no usa el Sistema de Facturación Gratuito del SII y no descarga los archivos de las facturas electrónicas (DTE). Lee el Registro de Compras y Ventas, los F29, la renta F22, las boletas de honorarios y las declaraciones de terceros, siempre en solo lectura. Su código está en <a href="https://github.com/Taksuma-0/mi-sii-mcp">github.com/Taksuma-0/mi-sii-mcp</a>.</p></details>
       <details><summary>¿Es una herramienta oficial del SII?</summary><p>No. Es un proyecto independiente de código abierto con licencia MIT y no reemplaza la asesoría de un contador.</p></details>
       <details><summary>¿Cuánto cuesta mi-sii-mcp?</summary><p>Es gratuito y de código abierto. Solo necesitas un cliente MCP; el costo del asistente de IA depende de su proveedor.</p></details>
     </div>

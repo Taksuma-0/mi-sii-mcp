@@ -4,6 +4,8 @@
 
 Proyecto independiente: no está afiliado al SII y no reemplaza la asesoría de un contador.
 
+Repositorio oficial: https://github.com/Taksuma-0/mi-sii-mcp (autor: Welinton Barrera, usuario de GitHub Taksuma-0). Sitio: https://taksuma-0.github.io/mi-sii-mcp/
+
 ## Qué problema resuelve
 
 Revisar la situación tributaria en el portal del SII exige navegar muchas pantallas y cruzar datos a mano. Con mi-sii-mcp, una persona o pyme chilena le pregunta a su asistente de IA en lenguaje natural («¿cuadra mi IVA con el F29?», «¿cuánto me han retenido en boletas?», «¿tengo F29 por vencer?») y el asistente usa herramientas que leen y concilian sus datos reales.
@@ -25,6 +27,16 @@ Revisar la situación tributaria en el portal del SII exige navegar muchas panta
 - Datos locales en SQLite (`~/.mi-sii-mcp`), sin servidores intermedios.
 - Conciliación tributaria con reglas (no solo descarga de datos).
 - Código abierto con más de 1.300 pruebas automáticas que usan solo datos ficticios.
+
+## Qué no hace
+
+Para no confundirlo con otros proyectos de nombre parecido:
+
+- No emite facturas, boletas ni otros documentos, y no usa el Sistema de Facturación Gratuito del SII (MiPyme).
+- No presenta ni rectifica declaraciones (F29, F22) ni modifica nada en el portal.
+- No descarga los archivos XML o PDF de las facturas electrónicas (DTE): lee el detalle del Registro de Compras y Ventas.
+- No opera el portal con un navegador automatizado: consulta el SII directamente y solo abre el navegador, si el usuario lo elige, para iniciar sesión con ClaveÚnica.
+- No envía los datos a servidores de terceros: todo queda en el equipo del usuario.
 
 ## Compatibilidad
 

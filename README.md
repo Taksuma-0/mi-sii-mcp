@@ -65,6 +65,16 @@
 
 Los **datos públicos** (UTM, tablas de impuestos, tasas de cotización, comisiones de AFP) no se guardan: la herramienta `fuentes_oficiales` indica en qué página oficial consultarlos para el año que corresponda.
 
+## Qué no hace
+
+mi-sii-mcp (repositorio oficial: [github.com/Taksuma-0/mi-sii-mcp](https://github.com/Taksuma-0/mi-sii-mcp)) sirve para **consultar y conciliar** tu información tributaria. Para no confundirlo con otros proyectos de nombre parecido:
+
+- **No emite** facturas, boletas ni otros documentos, y **no usa el Sistema de Facturación Gratuito** del SII (MiPyme).
+- **No presenta ni rectifica** declaraciones (F29, F22) ni modifica nada en el portal.
+- **No descarga los archivos XML o PDF de las facturas electrónicas (DTE)**: lee el detalle del Registro de Compras y Ventas.
+- **No opera el portal con un navegador automatizado**: consulta el SII directamente y solo abre el navegador, si tú lo eliges, para iniciar sesión con ClaveÚnica.
+- **No envía tus datos a servidores de terceros**: todo queda en tu equipo.
+
 ## Compatibilidad con agentes de IA
 
 mi-sii-mcp es un servidor MCP local (transporte **stdio**), así que funciona con los clientes que ejecutan servidores MCP locales.
@@ -263,6 +273,9 @@ En tu equipo, en `~/.mi-sii-mcp`. Lo que preguntas y las respuestas sí pasan po
 
 ### ¿Puede presentar mi F29 o emitir boletas?
 No. mi-sii-mcp solo lee el portal del SII; no presenta declaraciones, no emite documentos ni modifica nada.
+
+### ¿mi-sii-mcp emite facturas o usa el Sistema de Facturación Gratuito del SII?
+No. mi-sii-mcp no emite facturas ni boletas, no usa el Sistema de Facturación Gratuito del SII y no descarga los archivos de las facturas electrónicas (DTE). Lee el Registro de Compras y Ventas, los F29, la renta F22, las boletas de honorarios y las declaraciones de terceros, siempre en solo lectura. Su código está en github.com/Taksuma-0/mi-sii-mcp.
 
 ### ¿Es una herramienta oficial del SII?
 No. Es un proyecto independiente de código abierto y no reemplaza la asesoría de un contador.
