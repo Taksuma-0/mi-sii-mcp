@@ -21,7 +21,8 @@
     "dist",
     "README.md",
     "LICENSE",
-    "docs/guias"
+    "docs/guias",
+    "skills"
   ],
   "engines": {
     "node": ">=22.12.0"

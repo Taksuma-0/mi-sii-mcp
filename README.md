@@ -209,6 +209,15 @@ Reinicia tu asistente (en Claude Code basta con `/mcp`) para que cargue el servi
 | «¿A quién le emití más boletas en 2026?» | Consulta el detalle boleta por boleta guardado (`consulta_sql`) |
 | «Estímame la devolución de la próxima renta» | Junta tus datos y te indica las fuentes oficiales de los valores públicos (`fuentes_oficiales`) |
 
+## Skill para agentes
+
+El repositorio incluye una skill en el formato estándar **Agent Skills** (`SKILL.md`): [`skills/mi-sii-mcp`](skills/mi-sii-mcp/SKILL.md). Le enseña a tu agente cuándo usar mi-sii-mcp, qué herramienta usar para cada tarea (revisión de IVA, boletas, renta, vencimientos, preguntas libres), las reglas de seguridad y cómo **repartir el trabajo entre varios agentes**: un solo agente consulta el SII y el resto analiza los datos guardados en paralelo.
+
+- **Claude Code:** copia la carpeta `skills/mi-sii-mcp` a `~/.claude/skills/` (para todos tus proyectos) o a `.claude/skills/` dentro de un proyecto.
+- **Otros agentes compatibles con `SKILL.md`:** copia la misma carpeta en su directorio de skills.
+
+La skill complementa al servidor, que además entrega sus propias instrucciones a cualquier cliente MCP.
+
 ## Herramientas del MCP
 
 | Herramienta | Para qué sirve | ¿Consulta al SII? |
