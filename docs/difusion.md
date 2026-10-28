@@ -2,7 +2,7 @@
 
 Cómo se presenta **mi-sii-mcp** fuera del repositorio: sitio web, Google Search Console y directorios de servidores MCP. Revisado el 27 de octubre de 2026. Nada de lo que está marcado como «pendiente» se ha enviado ni registrado todavía.
 
-## Estado (27-10-2026)
+## Estado (28-10-2026)
 
 | Acción | Estado |
 | --- | --- |
@@ -10,12 +10,13 @@ Cómo se presenta **mi-sii-mcp** fuera del repositorio: sitio web, Google Search
 | Imagen social del repositorio (Settings → Social preview) | ✅ Hecho |
 | Bing Webmaster Tools: sitio importado desde Search Console (acceso de solo lectura), sitemap en proceso y URL principal enviada a indexación | ✅ Hecho |
 | Google Search Console: propiedad `https://taksuma-0.github.io/mi-sii-mcp/` verificada con `docs/google71cc82c95b49bdda.html` (no borrar ese archivo), sitemap enviado e indexación solicitada | ✅ Hecho |
+| Raíz del dominio: repo `Taksuma-0/Taksuma-0.github.io` (https://taksuma-0.github.io/) con favicon, logo, `WebSite` «mi-sii-mcp» y `robots.txt` con ambos sitemaps, para que Google muestre el ícono y el nombre del sitio en vez de «GitHub Pages documentation». Verificado en Search Console y Bing, sitemap enviado e indexación solicitada; Google tarda días o semanas en cambiar el ícono y el nombre | ✅ Hecho |
 | Glama: ficha reclamada, descripción actualizada y build de prueba exitoso (Node 24, `npm ci --ignore-scripts`, `npm run build`, inicio `node dist/interfaces/cli/bin.js mcp`) | ✅ Hecho |
 | Glama: release 0.1.0 publicado (auto-release activo en cada release de GitHub); 15/15 herramientas inspeccionadas, calidad A; puntuación de descubrimiento 83 % (falta un release estable en GitHub y uso real) | ✅ Hecho |
 | Insignia de Glama en el README | ✅ Hecho |
 | mcpservers.org: aprobado y publicado (https://mcpservers.org/servers/taksuma-0/mi-sii-mcp), con su insignia en el README | ✅ Hecho |
-| MCP Market (cola gratuita) | Pendiente: formulario listo, falta enviarlo |
-| npm (`npm publish`) | Pendiente: npm suspendió temporalmente la cuenta para publicar tras activar el 2FA; reintentar con el código de 6 dígitos de la app |
+| MCP Market (cola gratuita) | ✅ Enviado, en cola (4 a 6 semanas) |
+| npm (`npm publish`) | Pendiente: la suspensión temporal ya se levantó; falta publicar con el código de 6 dígitos de la app de verificación |
 | MCP Registry oficial | Pendiente: requiere el paquete en npm |
 | Release `v0.1.0` en GitHub (https://github.com/Taksuma-0/mi-sii-mcp/releases/tag/v0.1.0) | ✅ Hecho |
 | PR a awesome-mcp-servers, sección Finance & Fintech (https://github.com/punkpeye/awesome-mcp-servers/pull/17810) | ✅ Abierto, en revisión |
@@ -28,7 +29,7 @@ Nota sobre la instalación con npm: en Glama, `npm ci` intentó compilar `better
 | --- | --- |
 | `docs/index.html` | Sitio web del proyecto en GitHub Pages: https://taksuma-0.github.io/mi-sii-mcp/ (title, description, canonical, Open Graph, Twitter Cards y datos estructurados Schema.org: `WebSite`, `SoftwareApplication`, `SoftwareSourceCode` y `FAQPage`). |
 | `docs/sitemap.xml` | Mapa del sitio para Google Search Console. |
-| `docs/robots.txt` | Permite todo y declara el sitemap. Los buscadores solo leen el `robots.txt` de la raíz del dominio (`taksuma-0.github.io/robots.txt`), así que el sitemap se registra directamente en Search Console. |
+| `docs/robots.txt` | Permite todo y declara el sitemap. Los buscadores solo leen el `robots.txt` de la raíz del dominio, que vive en el repo `Taksuma-0/Taksuma-0.github.io` y declara los dos sitemaps (raíz y `/mi-sii-mcp/`). |
 | `docs/llms.txt` | Resumen en texto plano para sistemas de búsqueda con IA (qué es, qué resuelve, funcionalidades, compatibilidad e instalación). Es una convención voluntaria: no garantiza aparecer en respuestas generadas por IA. |
 | `docs/.nojekyll` | Publica la carpeta `docs/` tal cual, sin procesarla con Jekyll. |
 | `server.json` | Metadatos para el MCP Registry oficial, validados contra el esquema `2025-12-11`. |
