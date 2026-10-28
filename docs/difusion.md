@@ -2,7 +2,7 @@
 
 Cómo se presenta **mi-sii-mcp** fuera del repositorio: sitio web, Google Search Console y directorios de servidores MCP. Revisado el 27 de octubre de 2026. Nada de lo que está marcado como «pendiente» se ha enviado ni registrado todavía.
 
-## Estado (28-10-2026)
+## Estado (27-10-2026)
 
 | Acción | Estado |
 | --- | --- |
@@ -58,7 +58,7 @@ Nota sobre la instalación con npm: en Glama, `npm ci` intentó compilar `better
 
 **Categorías sugeridas:** Finance / Fintech, Government data, Legal & compliance.
 
-## Google Search Console (pendiente)
+## Google Search Console (hecho; pasos de referencia)
 
 1. Entra a https://search.google.com/search-console con tu cuenta de Google.
 2. **Agregar propiedad → Prefijo de URL** → `https://taksuma-0.github.io/mi-sii-mcp/`. (La opción «Dominio» no sirve: `github.io` no es tuyo.)
@@ -73,10 +73,10 @@ Nota sobre la instalación con npm: en Glama, `npm ci` intentó compilar `better
 | Directorio | ¿Califica hoy? | Qué hacer |
 | --- | --- | --- |
 | **MCP Registry oficial** (registry.modelcontextprotocol.io) | No: exige un paquete publicado (npm, PyPI, NuGet, OCI, MCPB o cargo). | Publicar en npm y luego con `mcp-publisher` (ver abajo). |
-| **Glama** (glama.ai/mcp/servers) | Ya está listado (https://glama.ai/mcp/servers/Taksuma-0/mi-sii-mcp), sin reclamar y sin inspeccionar. | Reclamar la ficha, agregar un Dockerfile y crear un release. |
-| **MCP Market** (mcpmarket.com) | Sí. | Enviar la URL del repo en https://mcpmarket.com/submit (gratis, 4–6 semanas). |
-| **mcpservers.org** | Sí. | Formulario en https://mcpservers.org/submit (gratis, hasta 2 semanas). |
-| **awesome-mcp-servers** (punkpeye) | En parte: piden que pase los controles de Glama. | PR con la línea de abajo, después de que Glama inspeccione el servidor. |
+| **Glama** (glama.ai/mcp/servers) | Sí: https://glama.ai/mcp/servers/Taksuma-0/mi-sii-mcp | Hecho: ficha reclamada, Dockerfile, build y release 0.1.0. |
+| **MCP Market** (mcpmarket.com) | Sí. | Enviado el 27-10-2026 (cola gratuita, 4–6 semanas). |
+| **mcpservers.org** | Sí. | Hecho: aprobado (https://mcpservers.org/servers/taksuma-0/mi-sii-mcp). |
+| **awesome-mcp-servers** (punkpeye) | Sí: pasa los controles de Glama. | PR #17810 abierto (https://github.com/punkpeye/awesome-mcp-servers/pull/17810). |
 | **mcp.so** | Sí, en lo técnico. | https://mcp.so/submit; hoy solo se ve una opción de pago. |
 | **PulseMCP** | No por ahora: tiene los envíos pausados. | Lo toma desde el Registry oficial cuando reabra. |
 | **Smithery** | No recomendable: cierra sus servicios de conexión el 31-10-2026 y para servidores locales exige un paquete `.mcpb`. | — |
@@ -94,7 +94,7 @@ El nombre `mi-sii-mcp` estaba libre en npm el 27-10-2026. El nombre en el Regist
 
 En cada versión nueva, actualiza `version` en `package.json` y en `server.json` (en la raíz y dentro de `packages`).
 
-### Glama (pendiente)
+### Glama (hecho; pasos de referencia)
 
 1. Entra a la ficha con tu cuenta de GitHub y pulsa **Claim** (el `glama.json` del repo declara a `Taksuma-0` como mantenedor).
 2. En **Admin → Dockerfile**, pega un Dockerfile para que Glama pueda arrancar el servidor e inspeccionar sus herramientas. Borrador **no probado** (falta confirmar que las dependencias nativas `better-sqlite3` y `@napi-rs/keyring` funcionen en su entorno):
@@ -117,7 +117,7 @@ En cada versión nueva, actualiza `version` en `package.json` y en `server.json`
    [![Taksuma-0/mi-sii-mcp MCP server](https://glama.ai/mcp/servers/Taksuma-0/mi-sii-mcp/badges/score.svg)](https://glama.ai/mcp/servers/Taksuma-0/mi-sii-mcp)
    ```
 
-### awesome-mcp-servers (pendiente)
+### awesome-mcp-servers (PR #17810 abierto)
 
 PR al README de https://github.com/punkpeye/awesome-mcp-servers, sección «💰 Finance & Fintech», en orden alfabético. Emojis: 📇 (TypeScript), ☁️ (habla con un servicio remoto, el portal del SII) y 🪟 (Windows, la plataforma probada; agregar 🍎 y 🐧 cuando se prueben):
 
@@ -125,7 +125,7 @@ PR al README de https://github.com/punkpeye/awesome-mcp-servers, sección «💰
 - [Taksuma-0/mi-sii-mcp](https://github.com/Taksuma-0/mi-sii-mcp) [![Taksuma-0/mi-sii-mcp MCP server](https://glama.ai/mcp/servers/Taksuma-0/mi-sii-mcp/badges/score.svg)](https://glama.ai/mcp/servers/Taksuma-0/mi-sii-mcp) 📇 ☁️ 🪟 - Read-only assistant for Chile's tax service (SII): syncs VAT purchase/sales records (RCV), F29, fee receipts (boletas de honorarios) and income tax (F22) into a local SQLite database, then cross-checks them for mismatches and upcoming deadlines.
 ```
 
-## Imagen para redes (pendiente)
+## Imagen para redes (hecho)
 
 GitHub no permite subir la imagen social por API. En el repositorio: **Settings → General → Social preview → Edit → Upload an image** y sube `docs/img/marca/social-preview.png` (1280 × 640). El sitio web ya la usa en Open Graph y Twitter Cards.
 
