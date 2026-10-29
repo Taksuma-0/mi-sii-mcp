@@ -16,6 +16,7 @@ Cómo se presenta **mi-sii-mcp** fuera del repositorio: sitio web, Google Search
 | Insignia de Glama en el README | ✅ Hecho |
 | mcpservers.org: aprobado y publicado (https://mcpservers.org/servers/taksuma-0/mi-sii-mcp), con su insignia en el README | ✅ Hecho |
 | MCP Market (cola gratuita) | ✅ Enviado, en cola (4 a 6 semanas) |
+| XERJ Corpus Hub (biblioteca de código que consultan los agentes de programación): página de colaborador publicada el 29-10-2026 (https://hub.xerj.org/contributors/Taksuma-0), con el commit `4c038c1` de mi-sii-mcp seleccionado, y su insignia en el README. Se pueden sumar más repos en https://hub.xerj.org/add | ✅ Hecho |
 | npm (`npm publish`) | Pendiente: la suspensión temporal ya se levantó; falta publicar con el código de 6 dígitos de la app de verificación |
 | MCP Registry oficial | Pendiente: requiere el paquete en npm |
 | Release `v0.1.0` en GitHub (https://github.com/Taksuma-0/mi-sii-mcp/releases/tag/v0.1.0) | ✅ Hecho |
@@ -76,6 +77,7 @@ Nota sobre la instalación con npm: en Glama, `npm ci` intentó compilar `better
 | **Glama** (glama.ai/mcp/servers) | Sí: https://glama.ai/mcp/servers/Taksuma-0/mi-sii-mcp | Hecho: ficha reclamada, Dockerfile, build y release 0.1.0. |
 | **MCP Market** (mcpmarket.com) | Sí. | Enviado el 27-10-2026 (cola gratuita, 4–6 semanas). |
 | **mcpservers.org** | Sí. | Hecho: aprobado (https://mcpservers.org/servers/taksuma-0/mi-sii-mcp). |
+| **XERJ Corpus Hub** (hub.xerj.org) | Sí. | Hecho: página de colaborador (https://hub.xerj.org/contributors/Taksuma-0). |
 | **awesome-mcp-servers** (punkpeye) | Sí: pasa los controles de Glama. | PR #17810 abierto (https://github.com/punkpeye/awesome-mcp-servers/pull/17810). |
 | **mcp.so** | Sí, en lo técnico. | https://mcp.so/submit; hoy solo se ve una opción de pago. |
 | **PulseMCP** | No por ahora: tiene los envíos pausados. | Lo toma desde el Registry oficial cuando reabra. |

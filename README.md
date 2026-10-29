@@ -20,6 +20,7 @@
 <p align="center">
   <a href="https://glama.ai/mcp/servers/Taksuma-0/mi-sii-mcp"><img alt="mi-sii-mcp en Glama: puntuación del servidor MCP" src="https://glama.ai/mcp/servers/Taksuma-0/mi-sii-mcp/badges/score.svg"></a>
   <a href="https://mcpservers.org/servers/taksuma-0/mi-sii-mcp"><img alt="Listado en mcpservers.org" src="https://mcpservers.org/badge.svg"></a>
+  <a href="https://hub.xerj.org/contributors/Taksuma-0"><img alt="Colaborador en XERJ Corpus Hub" src="https://hub.xerj.org/contributors/Taksuma-0/badge.svg"></a>
 </p>
 
 <p align="center">
