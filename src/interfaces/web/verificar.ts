@@ -67,6 +67,7 @@ const MENSAJES: Readonly<Record<CodigoError, string>> = {
   SIN_DATOS_LOCALES: 'Faltan datos guardados para responder. Sincroniza ese período (o importa la cartola) y vuelve a intentarlo.',
   PARAMETROS_INVALIDOS: 'Algún dato de la solicitud no es válido. Revísalo y vuelve a intentarlo.',
   ARCHIVO_INVALIDO: 'No se pudo leer el archivo. Debe ser un CSV o TXT con una fila de cabecera; si las columnas tienen otros nombres, indícalas.',
+  SISTEMA_FALLO: 'Windows no permitió crear la revisión diaria o mostrar la notificación. Revisa que el Programador de tareas esté disponible.',
 };
 
 /** Nunca expone mensajes, causas o cuerpos recibidos del SII. */

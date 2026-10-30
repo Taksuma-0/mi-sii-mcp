@@ -28,9 +28,27 @@ function entorno(o: { claveStdin?: string; fallaAlAbrir?: Error; falloNavegador?
     logout: async () => {},
     estado: () => ({ tieneSesion: false, guardadaEn: null, bloqueado: false }),
   };
+  const notificaciones: { titulo: string; cuerpo: string }[] = [];
+  const tarea = { hora: null as string | null, activaciones: [] as string[] };
   const contenedor: ContenedorCli = {
     deps: p.deps,
     sesiones,
+    notificador: {
+      notificar: async (titulo, cuerpo) => {
+        notificaciones.push({ titulo, cuerpo });
+        return true;
+      },
+    },
+    tarea: {
+      activar: async (hora) => {
+        tarea.activaciones.push(hora);
+        tarea.hora = hora;
+      },
+      desactivar: async () => {
+        tarea.hora = null;
+      },
+      estado: async () => ({ activa: tarea.hora !== null, hora: tarea.hora }),
+    },
     config: { home: '/tmp/mi-sii-mcp', rutaDb: '/tmp/mi-sii-mcp/mi-sii-mcp.db', plazoNavegadorMs: 25 * 60_000 },
     cerrar: () => {
       contadores.cerrado++;
@@ -49,8 +67,35 @@ function entorno(o: { claveStdin?: string; fallaAlAbrir?: Error; falloNavegador?
     await programa.parseAsync(['node', 'mi-sii-mcp', ...args]);
     return salida.codigo;
   };
-  return { ...p, correr, salidaTexto, errores, logins, navegador, contadores };
+  return { ...p, correr, salidaTexto, errores, logins, navegador, contadores, notificaciones, tarea };
 }
+
+describe('CLI: revisión diaria', () => {
+  it('vigilar revisa las cuentas y con --notificar muestra una sola notificación con los avisos nuevos', async () => {
+    const e = entorno();
+    e.store.guardarContribuyente(perfilEmpresa());
+
+    expect(await e.correr('vigilar', '--notificar')).toBe(0);
+    expect(await e.correr('vigilar', '--notificar')).toBe(0);
+
+    expect(e.salidaTexto[0]).toMatch(/^Revisión de 1 cuenta: 1 al día, 0 sin sesión, 0 con error\. Avisos nuevos: \d+/);
+    expect(e.notificaciones).toHaveLength(1);
+    expect(e.notificaciones[0]!.titulo).toMatch(/^mi-sii-mcp: \d+ avisos? nuevos?$/);
+    expect(e.store.avisos({ sinNotificar: true })).toEqual([]);
+  });
+
+  it('avisos activar, estado y desactivar manejan la tarea diaria', async () => {
+    const e = entorno();
+
+    expect(await e.correr('avisos', 'activar', '--hora', '08:30')).toBe(0);
+    await e.correr('avisos', 'estado');
+    await e.correr('avisos', 'desactivar');
+    await e.correr('avisos', 'estado');
+
+    expect(e.tarea.activaciones).toEqual(['08:30']);
+    expect(e.salidaTexto).toEqual(['Revisión diaria activada: cada día a las 08:30.', 'Revisión diaria: activa, cada día a las 08:30.', 'Revisión diaria desactivada.', 'Revisión diaria: desactivada.']);
+  });
+});
 
 describe('CLI', () => {
   it('agrega y lista perfiles', async () => {

@@ -81,6 +81,19 @@ export interface ArchivosLocales {
   exportar(nombre: string, contenido: string): Promise<string>;
 }
 
+/** Muestra una notificación del sistema; devuelve false si no se pudo (nunca lanza: un aviso no debe romper la revisión). */
+export interface Notificador {
+  notificar(titulo: string, cuerpo: string): Promise<boolean>;
+}
+
+/** La revisión diaria programada en el sistema (Windows: Programador de tareas). */
+export interface TareaProgramada {
+  /** Crea o reemplaza la tarea diaria a la hora `HH:MM`. */
+  activar(hora: string): Promise<void>;
+  desactivar(): Promise<void>;
+  estado(): Promise<{ readonly activa: boolean; readonly hora: string | null }>;
+}
+
 /** Lee una cartola bancaria (CSV o TXT de cualquier banco); los errores nunca muestran su contenido. */
 export interface LectorCartola {
   leer(bytes: Uint8Array, mapeo?: MapeoColumnas): CartolaLeida;

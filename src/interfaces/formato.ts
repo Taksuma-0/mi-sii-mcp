@@ -9,6 +9,7 @@ import type { PerfilConSesion } from '../app/perfiles.js';
 import type { ResultadoReleerF29, ResultadoRelectura } from '../app/releer-f29.js';
 import type { AnioRenta, HonorariosEmitidos, InformadoTerceros, InformanteTercero, ResultadoAnioRenta, ResultadoRenta, ResumenRenta } from '../app/renta.js';
 import { SINCRONIZACION_CANCELADA, type ResultadoPeriodo, type ResultadoSync } from '../app/sincronizar.js';
+import type { Aviso } from '../domain/avisos.js';
 import type { ColumnaCartola } from '../domain/banco.js';
 import { reintentoDe, type Reintento } from '../domain/errores.js';
 import { formatearClp, nombreTipoDocumento, type CeldaCsv } from '../domain/formato.js';
@@ -576,4 +577,10 @@ export function textoResultado(r: ResultadoDelPeriodo): string {
     ...contrapartes('Principales proveedores', r.principalesProveedores),
     ...r.supuestos,
   ].join('\n');
+}
+
+/** Avisos en líneas, los más graves primero: `[CRÍTICO] título — detalle (RUT)`. */
+export function textoAvisos(avisos: readonly Aviso[]): string[] {
+  const orden: Readonly<Record<Severidad, number>> = { critico: 0, advertencia: 1, info: 2 };
+  return [...avisos].sort((a, b) => orden[a.severidad] - orden[b.severidad] || a.creadoEn.localeCompare(b.creadoEn)).map((a) => `[${ETIQUETA[a.severidad]}] ${a.titulo} — ${a.detalle} (${a.rut})`);
 }

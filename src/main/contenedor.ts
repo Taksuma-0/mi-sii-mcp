@@ -5,12 +5,14 @@ import { leerCartolaCsv } from '../connectors/banco/cartola-csv.js';
 import { capturarCookiesSii, type CookieNavegador, type OpcionesNavegador } from '../connectors/navegador/sesion-navegador.js';
 import { LlaveroSistema } from '../connectors/secretos/llavero.js';
 import { ArchivosSistema } from '../connectors/sistema/archivos.js';
+import { NotificadorWindows } from '../connectors/sistema/notificacion-windows.js';
+import { TareaProgramadaWindows } from '../connectors/sistema/tarea-programada.js';
 import { lectorPdfF29 } from '../connectors/sii/f29-pdf.js';
 import { conSenal, type OpcionesHttp } from '../connectors/sii/http.js';
 import { LectorPortalSii } from '../connectors/sii/lector.js';
 import { LectorPorRepresentacion } from '../connectors/sii/representacion.js';
 import { GestorSesiones } from '../connectors/sii/sesiones.js';
-import type { SecretStore } from '../ports/index.js';
+import type { Notificador, SecretStore, TareaProgramada } from '../ports/index.js';
 import { ConsultaLibreSqlite } from '../store/sqlite/consulta-libre.js';
 import { abrirDb } from '../store/sqlite/db.js';
 import { SqliteStore } from '../store/sqlite/store.js';
@@ -22,6 +24,8 @@ export interface Contenedor {
   readonly config: Config;
   readonly deps: DepsApp;
   readonly sesiones: GestorSesiones;
+  readonly notificador: Notificador;
+  readonly tarea: TareaProgramada;
   cerrar(): void;
 }
 
@@ -76,7 +80,7 @@ export function crearContenedor(o: OpcionesContenedor = {}): Contenedor {
       },
       alTerminarSync: (rut) => sesiones.persistir(rutDeAcceso(rut) ?? rut),
     };
-    return { config, deps, sesiones, cerrar: () => db.close() };
+    return { config, deps, sesiones, notificador: new NotificadorWindows(), tarea: new TareaProgramadaWindows(), cerrar: () => db.close() };
   } catch (error) {
     db.close();
     throw error;

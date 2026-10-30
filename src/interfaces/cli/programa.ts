@@ -6,13 +6,14 @@ import { agregarPerfil, listarPerfiles, listarPerfilesConRenovacion, registrarId
 import { releerF29 } from '../../app/releer-f29.js';
 import { resumenRenta, sincronizarRenta } from '../../app/renta.js';
 import { sincronizar, type Superficie } from '../../app/sincronizar.js';
+import { vigilar } from '../../app/vigilancia.js';
 import { esErrorMiSiiMcp } from '../../domain/errores.js';
 import { parsePeriodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
 import type { EstadoRcv, Lado, Severidad, TipoContribuyente } from '../../domain/tipos.js';
 import { VERSION } from '../../main/version.js';
-import type { EstadoSesion, IdentidadSii, ResultadoLogin } from '../../ports/index.js';
-import { lineaReintento, textoCuenta, textoDocumentos, textoHallazgos, textoHistorialF29, textoPerfiles, textoPlazos, textoReleerF29, textoRenta, textoResumenIva, textoResumenRenta, textoSync } from '../formato.js';
+import type { EstadoSesion, IdentidadSii, Notificador, ResultadoLogin, TareaProgramada } from '../../ports/index.js';
+import { lineaReintento, textoAvisos, textoCuenta, textoDocumentos, textoHallazgos, textoHistorialF29, textoPerfiles, textoPlazos, textoReleerF29, textoRenta, textoResumenIva, textoResumenRenta, textoSync } from '../formato.js';
 
 export interface IoCli {
   escribir(texto: string): void;
@@ -32,6 +33,10 @@ export interface SesionesCli {
 export interface ContenedorCli {
   readonly deps: DepsApp;
   readonly sesiones: SesionesCli;
+  /** Notificaciones del sistema para la revisión diaria. */
+  readonly notificador: Notificador;
+  /** La revisión diaria programada en el sistema. */
+  readonly tarea: TareaProgramada;
   readonly config: { readonly home: string; readonly rutaDb: string; readonly plazoNavegadorMs: number };
   cerrar(): void;
 }
@@ -284,6 +289,61 @@ export function crearPrograma(
       ejecutar((c, rut: string, periodo: string, o: { lado?: Lado; estado?: EstadoRcv; pagina: number; json?: boolean }) => {
         const p = documentos(c.deps, rut, periodo, { lado: o.lado, estado: o.estado }, o.pagina);
         mostrar(o.json, p, textoDocumentos(p));
+      }),
+    );
+
+  programa
+    .command('vigilar')
+    .description('Revisión diaria: trae del SII el mes anterior y el actual de cada cuenta, revisa hallazgos y vencimientos y registra los avisos nuevos (solo lee el SII)')
+    .option('--notificar', 'muestra una notificación del sistema con los avisos que aún no se notificaron')
+    .action(
+      ejecutar(async (c, opciones: { notificar?: boolean }) => {
+        const r = await vigilar(c.deps);
+        const ok = r.revisadas.filter((x) => x.estado === 'ok').length;
+        const sinSesion = r.revisadas.filter((x) => x.estado === 'sin_sesion').length;
+        const conError = r.revisadas.length - ok - sinSesion;
+        io.escribir(
+          [`Revisión de ${r.revisadas.length} ${r.revisadas.length === 1 ? 'cuenta' : 'cuentas'}: ${ok} al día, ${sinSesion} sin sesión, ${conError} con error. Avisos nuevos: ${r.nuevos.length}.`, ...textoAvisos(r.nuevos)].join('\n'),
+        );
+        if (!opciones.notificar) return;
+        const pendientes = c.deps.store.avisos({ sinNotificar: true });
+        if (pendientes.length === 0) return;
+        const titulos = pendientes.slice(0, 3).map((a) => a.titulo).join(' · ');
+        const resto = pendientes.length > 3 ? ` y ${pendientes.length - 3} más` : '';
+        const titulo = `mi-sii-mcp: ${pendientes.length} ${pendientes.length === 1 ? 'aviso nuevo' : 'avisos nuevos'}`;
+        if (await c.notificador.notificar(titulo, `${titulos}${resto}. Pide «novedades» al asistente o abre «Abrir mi-sii-mcp.cmd».`)) {
+          c.deps.store.marcarAvisos(pendientes.map((a) => a.id), 'notificado', c.deps.reloj.ahora().toISOString());
+        }
+      }),
+    );
+
+  const avisos = programa.command('avisos').description('Revisión diaria programada en Windows (Programador de tareas)');
+  avisos
+    .command('activar')
+    .description('Programa la revisión diaria con notificación')
+    .option('--hora <HH:MM>', 'hora de la revisión', '09:00')
+    .action(
+      ejecutar(async (c, opciones: { hora: string }) => {
+        await c.tarea.activar(opciones.hora);
+        io.escribir(`Revisión diaria activada: cada día a las ${opciones.hora}.`);
+      }),
+    );
+  avisos
+    .command('desactivar')
+    .description('Quita la revisión diaria')
+    .action(
+      ejecutar(async (c) => {
+        await c.tarea.desactivar();
+        io.escribir('Revisión diaria desactivada.');
+      }),
+    );
+  avisos
+    .command('estado')
+    .description('Dice si la revisión diaria está activa y a qué hora')
+    .action(
+      ejecutar(async (c) => {
+        const e = await c.tarea.estado();
+        io.escribir(e.activa ? `Revisión diaria: activa, cada día a las ${e.hora ?? '(hora no leída)'}.` : 'Revisión diaria: desactivada.');
       }),
     );
 

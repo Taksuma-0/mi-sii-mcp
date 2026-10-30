@@ -22,7 +22,8 @@ export type CodigoError =
   | 'NAVEGADOR_NO_DISPONIBLE'
   | 'SIN_DATOS_LOCALES'
   | 'PARAMETROS_INVALIDOS'
-  | 'ARCHIVO_INVALIDO';
+  | 'ARCHIVO_INVALIDO'
+  | 'SISTEMA_FALLO';
 
 export const ACCION_POR_DEFECTO: Readonly<Record<CodigoError, string>> = {
   SESION_REQUERIDA: 'Ejecuta `mi-sii-mcp login <rut>` para iniciar sesión en el SII.',
@@ -49,6 +50,7 @@ export const ACCION_POR_DEFECTO: Readonly<Record<CodigoError, string>> = {
   SIN_DATOS_LOCALES: 'Faltan datos guardados para responder: sincroniza ese período (o importa la cartola) y vuelve a pedirlo.',
   PARAMETROS_INVALIDOS: 'Revisa los parámetros: el mensaje dice cuál falta o no es válido.',
   ARCHIVO_INVALIDO: 'Revisa el archivo: debe ser un CSV o TXT con una fila de cabecera; si las columnas tienen otros nombres, indícalas con `columnas`.',
+  SISTEMA_FALLO: 'Windows no permitió crear la tarea o mostrar la notificación: revisa que el Programador de tareas esté disponible para tu usuario.',
 };
 
 export class ErrorMiSiiMcp extends Error {
@@ -109,6 +111,7 @@ export const REINTENTO: Readonly<Record<CodigoError, Reintento>> = {
   SIN_DATOS_LOCALES: 'no',
   PARAMETROS_INVALIDOS: 'no',
   ARCHIVO_INVALIDO: 'no',
+  SISTEMA_FALLO: 'no',
 };
 
 /** `codigo` es texto porque los errores de sincronización no lo tipan: CANCELADO se reintenta ya; ERROR_INTERNO y los desconocidos no. */
