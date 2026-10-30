@@ -102,7 +102,8 @@ export function estimacionF29(deps: DepsApp, rutTexto: string, periodoTexto: str
   }
   const estimacion = estimarF29(entradaDe(deps, perfil.rut, periodo, p, 0));
   const vigente = declaracionVigente(deps.store.declaracionesF29(perfil.rut, periodo.texto));
-  const totalPresentado = vigente ? (vigente.totalAPagar ?? deps.store.valoresF29(perfil.rut, periodo.texto, vigente.folio)?.valores[CODIGO_F29.TOTAL_A_PAGAR] ?? null) : null;
+  // Se compara con el total en plazo (91) del F29 leído: el total de la declaración incluye los recargos si se pagó tarde.
+  const totalPresentado = vigente ? (deps.store.valoresF29(perfil.rut, periodo.texto, vigente.folio)?.valores[CODIGO_F29.TOTAL_A_PAGAR] ?? vigente.totalAPagar) : null;
   const vence = vencimientosF29(periodo, { autorizadoDia20: deps.store.perfilTributario(perfil.rut)?.autorizadoDia20 ?? null });
   const hoy = fechaEnSantiago(deps.reloj.ahora());
   const plazo = estimacion.totalAPagar > 0 ? vence.conPago : vence.sinPago;

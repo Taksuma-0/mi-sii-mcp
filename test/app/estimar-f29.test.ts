@@ -73,6 +73,20 @@ describe('estimacionF29', () => {
     expect(r.totalAPagar).toBe(89_900 + 5_000 + 10_000);
   });
 
+  it('compara con el total en plazo (91) del F29 leído, no con lo pagado con recargos', () => {
+    const { deps, store } = preparar();
+    sembrarMes(store, '2026-09', {
+      resumenes: [ventas('2026-09', 1_000_000, 190_000)],
+      declaraciones: [declaracion({ folio: 901, totalAPagar: 240_000 })],
+      valores: [valores({ '538': 190_000, '89': 190_000, '91': 190_000, '93': 50_000, '94': 240_000 }, { folio: 901 })],
+    });
+
+    const r = estimacionF29(deps, RUT_EMPRESA, '2026-09', { tasaPpm: 0 });
+
+    expect(r.presentado).toEqual({ folio: 901, totalAPagar: 190_000 });
+    expect(r.diferenciaConPresentado).toBe(0);
+  });
+
   it('sin RCV del mes pide sincronizarlo y una sola UTM es un parámetro inválido', async () => {
     const { deps, store } = preparar();
     expect(await codigoDe(Promise.resolve().then(() => estimacionF29(deps, RUT_EMPRESA, '2026-09')))).toBe('SIN_DATOS_LOCALES');
