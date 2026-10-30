@@ -1,9 +1,10 @@
-import { vencimientoReclamo, vencimientosF29 } from '../calendar/plazos.js';
+import { vencimientoF22, vencimientoReclamo, vencimientosF29 } from '../calendar/plazos.js';
 import { ErrorMiSiiMcp } from '../domain/errores.js';
 import { declaracionVigente, montosPropuesta } from '../domain/f29.js';
 import { diasEntre, fechaEnSantiago } from '../domain/fechas.js';
 import { formatearClp, nombreTipoDocumento } from '../domain/formato.js';
 import { compararPeriodos, parsePeriodo, periodoAnterior, periodoDeFecha, rangoPeriodos, restarPeriodos, type Periodo } from '../domain/periodo.js';
+import { f22Vigente } from '../domain/renta.js';
 import { parseRut } from '../domain/rut.js';
 import {
   claveDocumento,
@@ -228,6 +229,21 @@ export function plazos(deps: DepsApp, rutTexto: string, dias = 30): Plazo[] {
         referencia: claveDocumento(d),
       });
     }
+  }
+  // La renta del año tributario que vence este abril (o el próximo, si ya pasó).
+  const anio = Number(fechaHoy.slice(0, 4));
+  const at = fechaHoy > vencimientoF22(anio) ? anio + 1 : anio;
+  const venceF22 = vencimientoF22(at);
+  const restantesF22 = diasEntre(fechaHoy, venceF22);
+  if (restantesF22 <= dias && !f22Vigente(deps.store.declaracionesF22(perfil.rut, at))) {
+    out.push({
+      rut: perfil.rut,
+      tipo: 'F22',
+      vence: venceF22,
+      diasRestantes: restantesF22,
+      descripcion: `Declarar la renta AT${at} (F22): con pago hasta el ${venceF22}; sin pago o con devolución, el SII fija cada año un plazo posterior (revisa su calendario)`,
+      referencia: `AT${at}`,
+    });
   }
   return out.sort((a, b) => a.vence.localeCompare(b.vence) || a.tipo.localeCompare(b.tipo));
 }

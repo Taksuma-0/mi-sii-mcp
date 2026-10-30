@@ -49,3 +49,10 @@ export function vencimientosF29(periodo: Periodo, opciones: OpcionesVencimientos
 
 /** Regla del plan (Ley 19.983, art. 3): 8 días corridos siguientes a la recepción en el SII para reclamar el documento. */
 export const vencimientoReclamo = (fechaRecepcion: string): string => sumarDias(fechaRecepcion.slice(0, 10), DIAS_PLAZO_RECLAMO);
+
+/**
+ * Vencimiento de la renta anual (F22) con pago: el 30 de abril del año tributario (art. 69 de la Ley de la Renta). Sin pago
+ * o con devolución el SII fija cada año un plazo posterior (en 2026, el 8 de mayo), y un plazo que cae en día inhábil lo
+ * resuelve su calendario: aquí no se traslada ni se inventa.
+ */
+export const vencimientoF22 = (anioTributario: number): string => `${anioTributario}-04-30`;

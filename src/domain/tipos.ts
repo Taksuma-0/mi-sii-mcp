@@ -133,7 +133,7 @@ export interface Hallazgo {
   readonly evidencia: readonly string[];
 }
 
-export type TipoPlazo = 'F29' | 'RECLAMO_FACTURA';
+export type TipoPlazo = 'F29' | 'RECLAMO_FACTURA' | 'F22';
 
 export interface Plazo {
   readonly rut: string;
