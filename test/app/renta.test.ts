@@ -5,7 +5,8 @@ import { resumenRenta, sincronizarRenta } from '../../src/app/renta.js';
 import { ErrorMiSiiMcp } from '../../src/domain/errores.js';
 import { codigoDe } from '../helpers/errores.js';
 import { depsDePrueba } from '../helpers/deps.js';
-import { boletaEmitida, declaracionF22, detalleF22, djTercero, informeBheEmitidas, perfilEmpresa, perfilPersona, RUT_EMPRESA, RUT_PERSONA } from '../helpers/fabricas.js';
+import { boletaEmitida, declaracion, declaracionF22, detalleF22, djTercero, informeBheEmitidas, perfilEmpresa, perfilPersona, RUT_EMPRESA, RUT_PERSONA, valores } from '../helpers/fabricas.js';
+import { sembrarMes } from '../helpers/sembrar.js';
 import type { DjInformada } from '../../src/domain/tipos.js';
 
 const FOLIO = 123_456_789;
@@ -26,7 +27,7 @@ describe('sincronizarRenta', () => {
 
     const r = await sincronizarRenta(deps, '22.222.222-2', '2026');
 
-    expect(sii.llamadas).toEqual(['f22|2026', `f22detalle|2026|${FOLIO}`, 'terceros|2026']);
+    expect(sii.llamadas).toEqual(['f22|2026', `f22detalle|2026|${FOLIO}`, 'terceros|2026', 'asistente|2026']);
     expect(r).toEqual({ rut: RUT_EMPRESA, anios: [{ anioTributario: 2026, declaraciones: 2, folioVigente: FOLIO, detalle: 'leido', boletasEmitidas: null, detalleBoletas: null, terceros: { informadas: 0, leidas: 0, filas: 0 }, errores: [] }], abortado: null });
     expect(store.declaracionesF22(RUT_EMPRESA, 2026).map((d) => d.folio)).toEqual([98_765_432, FOLIO]);
     expect(store.detalleF22(RUT_EMPRESA, 2026, FOLIO).valores).toHaveLength(3);
@@ -34,6 +35,7 @@ describe('sincronizarRenta', () => {
       { superficie: 'f22', periodo: 'AT2026', estado: 'ok', error_codigo: null },
       { superficie: 'f22.folio', periodo: 'AT2026', estado: 'ok', error_codigo: null },
       { superficie: 'terceros', periodo: 'AT2026', estado: 'ok', error_codigo: null },
+      { superficie: 'asistente', periodo: 'AT2026', estado: 'ok', error_codigo: null },
     ]);
   });
 
@@ -42,7 +44,7 @@ describe('sincronizarRenta', () => {
 
     const r = await sincronizarRenta(deps, RUT_EMPRESA, '2024', '2026');
 
-    expect(sii.llamadas).toEqual(['f22|2024', 'terceros|2024', 'f22|2025', 'terceros|2025', 'f22|2026', `f22detalle|2026|${FOLIO}`, 'terceros|2026']);
+    expect(sii.llamadas).toEqual(['f22|2024', 'terceros|2024', 'asistente|2024', 'f22|2025', 'terceros|2025', 'asistente|2025', 'f22|2026', `f22detalle|2026|${FOLIO}`, 'terceros|2026', 'asistente|2026']);
     expect(r.anios.map((a) => [a.anioTributario, a.declaraciones, a.detalle])).toEqual([
       [2024, 0, 'sin_vigente'],
       [2025, 0, 'sin_vigente'],
@@ -72,7 +74,7 @@ describe('sincronizarRenta', () => {
     expect(r.anios[0]).toMatchObject({ declaraciones: null, folioVigente: null, detalle: 'sin_leer', errores: [{ superficie: 'f22', codigo: 'RESPUESTA_VACIA' }] });
     expect(store.declaracionesF22(RUT_EMPRESA, 2026)).toHaveLength(2);
     expect(store.detalleF22(RUT_EMPRESA, 2026, FOLIO).valores).toHaveLength(3);
-    expect(bitacora(db).at(-2)).toEqual({ superficie: 'f22', periodo: 'AT2026', estado: 'error', error_codigo: 'RESPUESTA_VACIA' });
+    expect(bitacora(db).at(-3)).toEqual({ superficie: 'f22', periodo: 'AT2026', estado: 'error', error_codigo: 'RESPUESTA_VACIA' });
   });
 
   it('un detalle sin códigos no reemplaza al guardado y queda como RESPUESTA_VACIA', async () => {
@@ -103,7 +105,7 @@ describe('sincronizarRenta', () => {
     sesion.sii.fallas.set('f22|2025', new ErrorMiSiiMcp('SESION_REQUERIDA', 'La sesión expiró.'));
     const r1 = await sincronizarRenta(sesion.deps, RUT_EMPRESA, '2024', '2026');
     expect(r1.abortado).toEqual({ superficie: 'sesion', codigo: 'SESION_REQUERIDA', mensaje: 'La sesión expiró.' });
-    expect(sesion.sii.llamadas).toEqual(['f22|2024', 'terceros|2024', 'f22|2025']);
+    expect(sesion.sii.llamadas).toEqual(['f22|2024', 'terceros|2024', 'asistente|2024', 'f22|2025']);
     expect(r1.anios.map((a) => a.anioTributario)).toEqual([2024]);
 
     const cancelada = preparar();
@@ -113,7 +115,7 @@ describe('sincronizarRenta', () => {
     };
     const r2 = await sincronizarRenta(cancelada.deps, RUT_EMPRESA, '2024', '2026', control.signal);
     expect(r2.abortado).toMatchObject({ codigo: 'CANCELADO' });
-    expect(cancelada.sii.llamadas).toEqual(['f22|2024', 'terceros|2024', 'f22|2025']);
+    expect(cancelada.sii.llamadas).toEqual(['f22|2024', 'terceros|2024', 'asistente|2024', 'f22|2025']);
     expect(cancelada.persistidos).toEqual([RUT_EMPRESA]);
   });
 
@@ -180,9 +182,9 @@ describe('sincronizarRenta: boletas de honorarios emitidas (personas)', () => {
 
     await sincronizarRenta(deps, RUT_PERSONA, '2026');
 
-    expect(sii.llamadas.slice(3)).toEqual(['bheemitidasmes|2025-03', 'bheemitidasmes|2025-08', 'terceros|2026']);
+    expect(sii.llamadas.slice(3)).toEqual(['bheemitidasmes|2025-03', 'bheemitidasmes|2025-08', 'terceros|2026', 'asistente|2026']);
     expect(store.boletasEmitidasDelAnio(RUT_PERSONA, 2025).map((b) => [b.periodo, b.folio])).toEqual([['2025-03', 1], ['2025-03', 2], ['2025-03', 3], ['2025-08', 4]]);
-    expect(bitacora(db).slice(-3, -1)).toEqual([
+    expect(bitacora(db).slice(-4, -2)).toEqual([
       { superficie: 'bhe.emitidas.detalle', periodo: '2025-03', estado: 'ok', error_codigo: null },
       { superficie: 'bhe.emitidas.detalle', periodo: '2025-08', estado: 'ok', error_codigo: null },
     ]);
@@ -292,7 +294,7 @@ describe('sincronizarRenta: boletas de honorarios emitidas (personas)', () => {
 
     expect(r.anios[0]).toMatchObject({ boletasEmitidas: null, detalleBoletas: null, errores: [{ superficie: 'bhe.emitidas', codigo: 'RESPUESTA_VACIA' }] });
     expect(store.bheEmitidas(RUT_PERSONA, 2025).reduce((s, m) => s + m.vigentes, 0)).toBe(3);
-    expect(bitacora(db).at(-2)).toEqual({ superficie: 'bhe.emitidas', periodo: 'AT2026', estado: 'error', error_codigo: 'RESPUESTA_VACIA' });
+    expect(bitacora(db).at(-3)).toEqual({ superficie: 'bhe.emitidas', periodo: 'AT2026', estado: 'error', error_codigo: 'RESPUESTA_VACIA' });
   });
 
   it('un año sin boletas y sin nada guardado se guarda en cero: 0 boletas emitidas', async () => {
@@ -309,7 +311,7 @@ describe('sincronizarRenta: boletas de honorarios emitidas (personas)', () => {
 
     const r = await sincronizarRenta(deps, RUT_PERSONA, '2027');
 
-    expect(sii.llamadas).toEqual(['f22|2027', 'bheemitidas|2026', 'bheemitidasmes|2026-01', 'terceros|2027']);
+    expect(sii.llamadas).toEqual(['f22|2027', 'bheemitidas|2026', 'bheemitidasmes|2026-01', 'terceros|2027', 'asistente|2027']);
     expect(r.anios[0]).toMatchObject({ anioTributario: 2027, declaraciones: 0, detalle: 'sin_vigente', boletasEmitidas: 1, errores: [] });
     expect(resumenRenta(deps, RUT_PERSONA, '2027').anios[0]).toMatchObject({
       anioTributario: 2027,
@@ -337,13 +339,14 @@ describe('sincronizarRenta: rentas informadas por terceros', () => {
 
     const r = await sincronizarRenta(deps, RUT_EMPRESA, '2026');
 
-    expect(sii.llamadas).toEqual(['f22|2026', `f22detalle|2026|${FOLIO}`, 'terceros|2026', 'tercerosdetalle|2026|1879', 'tercerosdetalle|2026|1887']);
+    expect(sii.llamadas).toEqual(['f22|2026', `f22detalle|2026|${FOLIO}`, 'terceros|2026', 'tercerosdetalle|2026|1879', 'tercerosdetalle|2026|1887', 'asistente|2026']);
     expect(r.anios[0]).toMatchObject({ terceros: { informadas: 2, leidas: 2, filas: 3 }, errores: [] });
     expect(store.djTerceros(RUT_EMPRESA, 2026).map((f) => [f.dj, f.informanteRut])).toEqual([[1879, '33333333-3'], [1879, '44444444-4'], [1887, '55555555-5']]);
     expect(bitacora(db).slice(2)).toEqual([
       { superficie: 'terceros', periodo: 'AT2026', estado: 'ok', error_codigo: null },
       { superficie: 'terceros.1879', periodo: 'AT2026', estado: 'ok', error_codigo: null },
       { superficie: 'terceros.1887', periodo: 'AT2026', estado: 'ok', error_codigo: null },
+      { superficie: 'asistente', periodo: 'AT2026', estado: 'ok', error_codigo: null },
     ]);
     // Son de la renta: no hacen de un mes un período de IVA.
     expect(store.periodosConDatos(RUT_EMPRESA)).toEqual([]);
@@ -353,7 +356,7 @@ describe('sincronizarRenta: rentas informadas por terceros', () => {
     const { deps, store, sii } = depsDePrueba();
     store.guardarContribuyente(perfilPersona());
     const r = await sincronizarRenta(deps, RUT_PERSONA, '2026');
-    expect(sii.llamadas).toEqual(['f22|2026', 'bheemitidas|2025', 'terceros|2026']);
+    expect(sii.llamadas).toEqual(['f22|2026', 'bheemitidas|2025', 'terceros|2026', 'asistente|2026']);
     expect(r.anios[0]).toMatchObject({ terceros: { informadas: 0, leidas: 0, filas: 0 }, errores: [] });
   });
 
@@ -366,7 +369,7 @@ describe('sincronizarRenta: rentas informadas por terceros', () => {
 
     expect(r.anios[0]).toMatchObject({ terceros: null, errores: [{ superficie: 'terceros', codigo: 'RESPUESTA_VACIA' }] });
     expect(store.djTerceros(RUT_EMPRESA, 2026)).toHaveLength(3);
-    expect(bitacora(db).at(-1)).toEqual({ superficie: 'terceros', periodo: 'AT2026', estado: 'error', error_codigo: 'RESPUESTA_VACIA' });
+    expect(bitacora(db).at(-2)).toEqual({ superficie: 'terceros', periodo: 'AT2026', estado: 'error', error_codigo: 'RESPUESTA_VACIA' });
   });
 
   it('un detalle vacío no borra lo guardado (RESPUESTA_VACIA) y una DJ que falla no impide las demás ni el año siguiente', async () => {
@@ -448,6 +451,7 @@ describe('resumenRenta', () => {
       eventos: [{ orden: 1, codigoEvento: 'E01', nombre: 'Declaración recibida', fecha: '2026-04-15', tipo: 'INFO', codigoCarta: null }],
       honorariosEmitidos: null,
       terceros: null,
+      asistente: null,
       obtenidoEn: '2026-10-21T15:00:00.000Z',
     });
     expect(r.anios[1]).toMatchObject({ folio: 55, codigos: 1, codigosClave: [], observaciones: [], eventos: [] });
@@ -614,5 +618,37 @@ describe('resumenRenta', () => {
     expect(() => resumenRenta(deps, RUT_EMPRESA)).toThrow(ErrorMiSiiMcp);
     store.guardarContribuyente(perfilEmpresa());
     expect(() => resumenRenta(deps, RUT_EMPRESA, '26')).toThrow(/Año tributario inválido/);
+  });
+});
+
+describe('datos que el SII prepara para el F22', () => {
+  const ppm = { codigo: 29, titulo: 'Pagos Provisionales Declarados Mensualmente', cabeceras: ['Formulario', 'Periodo', 'Folio', 'Codigo 62'], filas: [['0029', '202509', '111', '12.943'], ['0029', '202512', '222', '41.483']] };
+  const comparativo = { codigo: 303, titulo: 'Comparativo F29 y Registro de compra y venta', cabeceras: ['Formulario', 'Columna 2', 'Columna 3', 'Columna 4'], filas: [['0303', '01: INGRESO', 'F29', 'RCV'], ['0303', '02: FACTURAS EMITIDAS', '1.000.000', '990.000']] };
+
+  it('los trae con la renta, los guarda y los cruza con los F29 guardados', async () => {
+    const { deps, store, sii } = depsDePrueba();
+    store.guardarContribuyente(perfilEmpresa());
+    sembrarMes(store, '2025-09', { declaraciones: [declaracion({ periodo: '2025-09', folio: 1 })], valores: [valores({ '62': 12_943 }, { periodo: '2025-09', folio: 1 })] });
+    sembrarMes(store, '2025-12', { declaraciones: [declaracion({ periodo: '2025-12', folio: 2 })], valores: [valores({ '62': 41_000 }, { periodo: '2025-12', folio: 2 })] });
+    sii.asistente.set(2026, [ppm, comparativo]);
+
+    await sincronizarRenta(deps, RUT_EMPRESA, '2026');
+
+    expect(store.asistenteF22(RUT_EMPRESA, 2026).map((t) => [t.codigo, t.anioTributario])).toEqual([[29, 2026], [303, 2026]]);
+    const [anio] = resumenRenta(deps, RUT_EMPRESA, '2026').anios;
+    expect(anio!.asistente).toMatchObject({ ppm: { sii: 54_426, f29: 53_943 }, comparativo: [{ concepto: '02: FACTURAS EMITIDAS', f29: 1_000_000, rcv: 990_000 }] });
+  });
+
+  it('si el SII responde vacío donde había datos, se conservan', async () => {
+    const { deps, store, sii } = depsDePrueba();
+    store.guardarContribuyente(perfilEmpresa());
+    sii.asistente.set(2026, [ppm]);
+    await sincronizarRenta(deps, RUT_EMPRESA, '2026');
+    sii.asistente.set(2026, []);
+
+    const r = await sincronizarRenta(deps, RUT_EMPRESA, '2026');
+
+    expect(r.anios[0]!.errores.map((e) => [e.superficie, e.codigo])).toContainEqual(['asistente', 'RESPUESTA_VACIA']);
+    expect(store.asistenteF22(RUT_EMPRESA, 2026)).toHaveLength(1);
   });
 });

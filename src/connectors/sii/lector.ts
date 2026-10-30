@@ -1,6 +1,6 @@
 import type { Periodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
-import type { DjInformada, DjTercero, DocumentoRcv, EmpresaAutorizada, EstadoRcv, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBhe, InformeBheEmitidas, InformeBheEmitidasMes, Lado, PerfilTributario, PropuestaF29, RcvResumen } from '../../domain/tipos.js';
+import type { DjInformada, DjTercero, DocumentoRcv, EmpresaAutorizada, EstadoRcv, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBhe, InformeBheEmitidas, InformeBheEmitidasMes, Lado, PerfilTributario, PropuestaF29, RcvResumen, TablaAsistente } from '../../domain/tipos.js';
 import type { LectorPdfF29, SiiReader, SumideroRespuestas } from '../../ports/index.js';
 import { bheRecibidas } from './bhe.js';
 import { bheEmitidasAnual, bheEmitidasMes } from './bhe-emitidas.js';
@@ -12,7 +12,7 @@ import type { Http } from './http.js';
 import { leerPerfilTributario } from './login.js';
 import { f29Propuesta } from './propuesta.js';
 import { rcvDetalle, rcvResumen } from './rcv.js';
-import { djDetalle, djInformadas } from './terceros.js';
+import { asistenteF22, djDetalle, djInformadas } from './terceros.js';
 
 /** Lee el portal del SII con una sesión ya iniciada (clave tributaria). */
 export class LectorPortalSii implements SiiReader {
@@ -78,5 +78,9 @@ export class LectorPortalSii implements SiiReader {
 
   djDetalle(rut: string, anioTributario: number, dj: number): Promise<DjTercero[]> {
     return djDetalle(this.http, this.sumidero, parseRut(rut), anioTributario, dj);
+  }
+
+  asistenteF22(rut: string, anioTributario: number): Promise<TablaAsistente[]> {
+    return asistenteF22(this.http, this.sumidero, parseRut(rut), anioTributario);
   }
 }

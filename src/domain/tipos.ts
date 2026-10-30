@@ -419,3 +419,15 @@ export interface DjTercero {
   /** Impuesto único retenido, p. ej. en la DJ 1887. Columna NO verificada en vivo. */
   readonly impuestoUnicoRetenido?: number;
 }
+
+/**
+ * Datos propios que el SII prepara para el F22 de un contribuyente y muestra junto a lo informado por terceros: por
+ * ejemplo el 29 (PPM declarados en cada F29), el 39 (ingresos según el F29) o el 303 (su comparativo entre el F29 y el
+ * RCV). Se guardan como tabla: sus formas cambian por código y por año.
+ */
+export interface TablaAsistente {
+  readonly codigo: number;
+  readonly titulo: string | null;
+  readonly cabeceras: readonly string[];
+  readonly filas: readonly (readonly (string | null)[])[];
+}

@@ -1,6 +1,6 @@
 import { ErrorMiSiiMcp } from '../../domain/errores.js';
 import type { Periodo } from '../../domain/periodo.js';
-import type { DjInformada, DjTercero, DocumentoRcv, EmpresaAutorizada, EstadoRcv, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBhe, InformeBheEmitidas, InformeBheEmitidasMes, Lado, PerfilTributario, PropuestaF29, RcvResumen } from '../../domain/tipos.js';
+import type { DjInformada, DjTercero, DocumentoRcv, EmpresaAutorizada, EstadoRcv, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBhe, InformeBheEmitidas, InformeBheEmitidasMes, Lado, PerfilTributario, PropuestaF29, RcvResumen, TablaAsistente } from '../../domain/tipos.js';
 import type { SiiReader } from '../../ports/index.js';
 
 /** Sin la prueba con una sesión real (T21) no se sabe si el SII entrega el RCV de la empresa a su representante. */
@@ -84,6 +84,10 @@ export class LectorPorRepresentacion implements SiiReader {
 
   djDetalle(rut: string, _anioTributario: number, _dj: number): Promise<DjTercero[]> {
     return this.sinPermiso('las rentas informadas por terceros', rut);
+  }
+
+  asistenteF22(rut: string, _anioTributario: number): Promise<TablaAsistente[]> {
+    return this.sinPermiso('los datos del SII para el F22', rut);
   }
 
   private async sinPermiso(area: string, rut: string | null): Promise<never> {

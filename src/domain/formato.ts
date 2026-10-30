@@ -31,6 +31,13 @@ export const NOMBRES_TIPO_DOCUMENTO: Readonly<Record<number, string>> = {
 
 export const nombreTipoDocumento = (tipo: number): string => NOMBRES_TIPO_DOCUMENTO[tipo] ?? `Documento tipo ${tipo}`;
 
+/** Monto en formato chileno (`1.234.567`, `-250.000`, `12,5`) como número; null si la celda no es un monto. */
+export function montoChileno(valor: string | null): number | null {
+  const t = valor?.trim().replace(/^\$\s*/, '') ?? '';
+  if (!/^-?\d{1,3}(\.\d{3})*(,\d+)?$/.test(t) && !/^-?\d+(,\d+)?$/.test(t)) return null;
+  return Number(t.replace(/\./g, '').replace(',', '.'));
+}
+
 /** Una celda de una tabla exportable: texto, número o vacía. */
 export type CeldaCsv = string | number | null;
 

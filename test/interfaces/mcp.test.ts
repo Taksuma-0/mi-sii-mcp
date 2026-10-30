@@ -693,7 +693,7 @@ describe('servidor MCP', () => {
   });
 
   describe('datos_esquema', () => {
-    it('lista las 25 tablas con sus columnas y las reglas de interpretación', async () => {
+    it('lista las 26 tablas con sus columnas y las reglas de interpretación', async () => {
       const cliente = await conectar(depsDePrueba().deps);
 
       const r = await cliente.callTool({ name: 'datos_esquema', arguments: {} });
@@ -701,9 +701,9 @@ describe('servidor MCP', () => {
       expect(esError(r)).toBe(false);
       const texto = textoDe(r);
       const datos = JSON.parse(texto.slice(texto.indexOf('\n\n') + 2));
-      expect(datos.tablas.map((t: { nombre: string }) => t.nombre)).toEqual(['contribuyente', 'contribuyente_tributario', 'sii_empresa_autorizada', 'rcv_resumen', 'rcv_documento', 'f29_declaracion', 'f29_valor', 'f29_lectura', 'f29_propuesta', 'f29_propuesta_valor', 'bhe_recibida', 'bhe_emitida_mes', 'bhe_emitida', 'f22_declaracion', 'f22_valor', 'f22_observacion', 'f22_evento', 'dj_tercero', 'banco_importacion', 'banco_movimiento', 'conciliacion_bancaria', 'cuenta_contable', 'regla_cuenta', 'hallazgo', 'sincronizacion']);
+      expect(datos.tablas.map((t: { nombre: string }) => t.nombre)).toEqual(['contribuyente', 'contribuyente_tributario', 'sii_empresa_autorizada', 'rcv_resumen', 'rcv_documento', 'f29_declaracion', 'f29_valor', 'f29_lectura', 'f29_propuesta', 'f29_propuesta_valor', 'bhe_recibida', 'bhe_emitida_mes', 'bhe_emitida', 'f22_declaracion', 'f22_valor', 'f22_observacion', 'f22_evento', 'dj_tercero', 'asistente_f22', 'banco_importacion', 'banco_movimiento', 'conciliacion_bancaria', 'cuenta_contable', 'regla_cuenta', 'hallazgo', 'sincronizacion']);
       expect(datos).toEqual(JSON.parse(JSON.stringify(esquemaDatos())));
-      expect(texto.split('\n\n')[0]).toContain('25 tablas');
+      expect(texto.split('\n\n')[0]).toContain('26 tablas');
       await cliente.close();
     });
 
@@ -998,7 +998,7 @@ describe('servidor MCP: renta F22', () => {
     const r = await cliente.callTool({ name: 'renta_sincronizar', arguments: { rut: '22.222.222-2', desde: '2026' } });
 
     expect(esError(r)).toBe(false);
-    expect(sii.llamadas).toEqual(['f22|2026', 'f22detalle|2026|123456789', 'terceros|2026']);
+    expect(sii.llamadas).toEqual(['f22|2026', 'f22detalle|2026|123456789', 'terceros|2026', 'asistente|2026']);
     expect(textoDe(r).split('\n\n')[0]).toContain('AT2026: 1 declaración · folio vigente 123456789 · detalle leído');
     expect(datosDe(r)).toMatchObject({ rut: RUT_EMPRESA, anios: [{ anioTributario: 2026, detalle: 'leido' }], abortado: null });
     expect(store.declaracionesF22(RUT_EMPRESA)).toHaveLength(1);

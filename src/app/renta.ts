@@ -1,4 +1,6 @@
 import { ERRORES_FATALES, ErrorMiSiiMcp, esErrorMiSiiMcp } from '../domain/errores.js';
+import { declaracionVigente } from '../domain/f29.js';
+import { montoChileno } from '../domain/formato.js';
 import { crearPeriodo } from '../domain/periodo.js';
 import {
   CODIGOS_CLAVE_F22,
@@ -24,8 +26,8 @@ import {
   type TotalesBheEmitidas,
 } from '../domain/renta.js';
 import { parseRut } from '../domain/rut.js';
-import type { BoletaHonorariosEmitida, DjTercero, F22Evento, F22Valor, InformeBheEmitidas, RespuestaCruda } from '../domain/tipos.js';
-import type { BheEmitidaMesGuardado, DjTerceroGuardado, SiiReader } from '../ports/index.js';
+import type { BoletaHonorariosEmitida, DjTercero, F22Evento, F22Valor, InformeBheEmitidas, RespuestaCruda, TablaAsistente } from '../domain/tipos.js';
+import type { BheEmitidaMesGuardado, DjTerceroGuardado, SiiReader, TablaAsistenteGuardada } from '../ports/index.js';
 import { perfilExistente } from './consultas.js';
 import type { DepsApp } from './deps.js';
 import { Cancelada, registrar, revisarCancelacion, SINCRONIZACION_CANCELADA, type Avance, type ErrorSuperficie, type ResultadoPeriodo } from './registro.js';
@@ -260,6 +262,14 @@ export async function sincronizarRenta(
       }
       revisarCancelacion(signal);
       const terceros = await tercerosDelAnio(deps, sii, rut, anio, buffer, res, signal);
+      revisarCancelacion(signal);
+      await registrar(deps, rut, 'asistente', periodo, buffer, res, signal, async (id, ahora) => {
+        const tablas = await sii.asistenteF22(rut, anio);
+        if (tablas.length === 0 && deps.store.asistenteF22(rut, anio).length > 0) {
+          throw new ErrorMiSiiMcp('RESPUESTA_VACIA', `Renta ${periodo}: el SII respondió sin los datos que prepara para el F22; se conservan los guardados.`);
+        }
+        deps.store.reemplazarAsistenteF22(id, rut, anio, tablas, ahora);
+      });
       const boletasEmitidas = anual === null ? null : totalesBheEmitidas(anual.meses).vigentes;
       resultados.push({ anioTributario: anio, declaraciones: declaraciones?.length ?? null, folioVigente: vigente?.folio ?? null, detalle, boletasEmitidas, detalleBoletas, terceros, errores: res.errores });
       alAvanzar?.({ hecho: resultados.length, total: anios.length, periodo });
@@ -335,8 +345,43 @@ export interface AnioRenta {
   readonly honorariosEmitidos: HonorariosEmitidos | null;
   /** DJ que terceros informaron sobre el contribuyente; null si no hay guardadas. */
   readonly terceros: InformadoTerceros | null;
+  /** Lo que el SII prepara para el F22 (PPM, comparativo F29-RCV…) y su cruce con los F29 guardados; null si no hay. */
+  readonly asistente: AsistenteAnio | null;
   /** Instante ISO UTC de la lectura de las declaraciones del año; sin declaraciones, la del informe de boletas o, sin ellas, la de lo informado por terceros. */
   readonly obtenidoEn: string;
+}
+
+export interface AsistenteAnio {
+  readonly tablas: readonly TablaAsistente[];
+  /** PPM del año según el SII (código 29, suma del código 62) y según los F29 guardados del año comercial; null sin tabla 29. */
+  readonly ppm: { readonly sii: number; readonly f29: number | null } | null;
+  /** El comparativo del propio SII entre el F29 y el RCV (código 303), por concepto. */
+  readonly comparativo: readonly { readonly concepto: string; readonly f29: number | null; readonly rcv: number | null }[];
+  readonly obtenidoEn: string;
+}
+
+/** Los datos del SII para el F22 de un año, con el PPM cruzado contra los F29 guardados del año comercial. */
+function asistenteDe(deps: DepsApp, rut: string, anioTributario: number, tablas: readonly TablaAsistenteGuardada[]): AsistenteAnio | null {
+  if (tablas.length === 0) return null;
+  const ppmSii = tablas
+    .filter((t) => t.codigo === 29)
+    .flatMap((t) => {
+      const j = t.cabeceras.findIndex((c) => /c[oó]digo\s*62\b/i.test(c));
+      return j < 0 ? [] : t.filas.map((f) => montoChileno(f[j] ?? null) ?? 0);
+    });
+  const f29 = Array.from({ length: 12 }, (_, i) => `${anioTributario - 1}-${String(i + 1).padStart(2, '0')}`).flatMap((p) => {
+    const vigente = declaracionVigente(deps.store.declaracionesF29(rut, p));
+    const valores = vigente ? deps.store.valoresF29(rut, p, vigente.folio) : null;
+    return valores ? [valores.valores['62'] ?? 0] : [];
+  });
+  return {
+    tablas,
+    ppm: tablas.some((t) => t.codigo === 29) ? { sii: ppmSii.reduce((s, x) => s + x, 0), f29: f29.length === 0 ? null : f29.reduce((s, x) => s + x, 0) } : null,
+    comparativo: tablas
+      .filter((t) => t.codigo === 303)
+      .flatMap((t) => t.filas.filter((f) => montoChileno(f[2] ?? null) !== null || montoChileno(f[3] ?? null) !== null).map((f) => ({ concepto: f[1] ?? '', f29: montoChileno(f[2] ?? null), rcv: montoChileno(f[3] ?? null) }))),
+    obtenidoEn: tablas[0]!.obtenidoEn,
+  };
 }
 
 export interface ResumenRenta {
@@ -353,7 +398,8 @@ export function resumenRenta(deps: DepsApp, rutTexto: string, anio?: string): Re
   // Las boletas se guardan por año comercial: el del año tributario AT es AT − 1.
   const emitidas = deps.store.bheEmitidas(perfil.rut, filtro === undefined ? undefined : filtro - 1);
   const informadas = deps.store.djTerceros(perfil.rut, filtro);
-  const anios = [...new Set([...declaraciones.map((d) => d.anioTributario), ...emitidas.map((m) => m.anioComercial + 1), ...informadas.map((f) => f.anioTributario)])].sort((a, b) => b - a);
+  const asistentes = deps.store.asistenteF22(perfil.rut, filtro);
+  const anios = [...new Set([...declaraciones.map((d) => d.anioTributario), ...emitidas.map((m) => m.anioComercial + 1), ...informadas.map((f) => f.anioTributario), ...asistentes.map((t) => t.anioTributario)])].sort((a, b) => b - a);
   return {
     rut: perfil.rut,
     anios: anios.map((a): AnioRenta => {
@@ -387,7 +433,8 @@ export function resumenRenta(deps: DepsApp, rutTexto: string, anio?: string): Re
         eventos: detalle?.eventos ?? [],
         honorariosEmitidos,
         terceros,
-        obtenidoEn: (v ?? delAnio[0])?.obtenidoEn ?? honorariosEmitidos?.obtenidoEn ?? terceros!.obtenidoEn,
+        asistente: asistenteDe(deps, perfil.rut, a, asistentes.filter((t) => t.anioTributario === a)),
+        obtenidoEn: (v ?? delAnio[0])?.obtenidoEn ?? honorariosEmitidos?.obtenidoEn ?? terceros?.obtenidoEn ?? asistentes.find((t) => t.anioTributario === a)!.obtenidoEn,
       };
     }),
   };

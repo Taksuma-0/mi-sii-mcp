@@ -32,10 +32,11 @@ import {
   type RespuestaCruda,
   type Severidad,
   type SnapshotRcv,
+  type TablaAsistente,
   type TipoContribuyente,
   type TotalesBheMes,
 } from '../../domain/tipos.js';
-import type { BheEmitidaMesGuardado, DjTerceroGuardado, DocumentosPaginados, F22DeclaracionGuardada, FiltroDocumentos, FiltroAvisos, FiltroHallazgos, FiltroMovimientos, Frescura, HallazgoGuardado, LecturaF29Guardada, PdfF29Guardado, Store } from '../../ports/index.js';
+import type { BheEmitidaMesGuardado, DjTerceroGuardado, DocumentosPaginados, F22DeclaracionGuardada, FiltroDocumentos, FiltroAvisos, FiltroHallazgos, FiltroMovimientos, TablaAsistenteGuardada, Frescura, HallazgoGuardado, LecturaF29Guardada, PdfF29Guardado, Store } from '../../ports/index.js';
 import type { Db } from './db.js';
 
 export const sha256 = (texto: string): string => createHash('sha256').update(texto).digest('hex');
@@ -1131,6 +1132,33 @@ export class SqliteStore implements Store {
   guardarReglaCuenta(rut: string, rutContraparte: string, cuenta: string | null): void {
     if (cuenta === null) this.db.prepare('DELETE FROM regla_cuenta WHERE rut = ? AND rut_contraparte = ?').run(rut, rutContraparte);
     else this.db.prepare('INSERT INTO regla_cuenta (rut, rut_contraparte, cuenta) VALUES (?, ?, ?) ON CONFLICT (rut, rut_contraparte) DO UPDATE SET cuenta = excluded.cuenta').run(rut, rutContraparte, cuenta);
+  }
+
+  // --- datos del SII para el F22 --------------------------------------------------------------------
+  reemplazarAsistenteF22(sincronizacionId: number, rut: string, anioTributario: number, tablas: readonly TablaAsistente[], obtenidoEn: string): void {
+    const ins = this.db.prepare('INSERT OR REPLACE INTO asistente_f22 (rut, anio_tributario, codigo, titulo, cabeceras_json, filas_json, sincronizacion_id, obtenido_en) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    this.db.transaction(() => {
+      this.db.prepare('DELETE FROM asistente_f22 WHERE rut = ? AND anio_tributario = ?').run(rut, anioTributario);
+      // Un código puede venir en varias tablas (secciones): se guardan juntas, una tras otra.
+      const porCodigo = new Map<number, TablaAsistente[]>();
+      for (const t of tablas) porCodigo.set(t.codigo, [...(porCodigo.get(t.codigo) ?? []), t]);
+      for (const [codigo, grupo] of porCodigo) {
+        ins.run(rut, anioTributario, codigo, grupo[0]!.titulo, JSON.stringify(grupo.map((t) => t.cabeceras)), JSON.stringify(grupo.map((t) => t.filas)), sincronizacionId, obtenidoEn);
+      }
+    })();
+  }
+
+  asistenteF22(rut: string, anioTributario?: number): TablaAsistenteGuardada[] {
+    const filas = (
+      anioTributario === undefined
+        ? this.db.prepare('SELECT * FROM asistente_f22 WHERE rut = ? ORDER BY anio_tributario DESC, codigo').all(rut)
+        : this.db.prepare('SELECT * FROM asistente_f22 WHERE rut = ? AND anio_tributario = ? ORDER BY codigo').all(rut, anioTributario)
+    ) as { anio_tributario: number; codigo: number; titulo: string | null; cabeceras_json: string; filas_json: string; obtenido_en: string }[];
+    return filas.flatMap((f) => {
+      const cabeceras = JSON.parse(f.cabeceras_json) as string[][];
+      const tablas = JSON.parse(f.filas_json) as (string | null)[][][];
+      return cabeceras.map((c, i) => ({ codigo: f.codigo, titulo: f.titulo, cabeceras: c, filas: tablas[i] ?? [], anioTributario: f.anio_tributario, obtenidoEn: f.obtenido_en }));
+    });
   }
 
   // --- avisos -------------------------------------------------------------------------------------

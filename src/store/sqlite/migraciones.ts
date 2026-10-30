@@ -461,6 +461,24 @@ CREATE TABLE aviso (
 );
 `;
 
+/**
+ * Datos propios que el SII prepara para el F22 de un contribuyente (PPM y comparativo F29-RCV, entre otros), como tablas:
+ * una fila por RUT, año tributario y código, con las cabeceras y las filas en JSON. Se reemplaza el año completo.
+ */
+const V15 = `
+CREATE TABLE asistente_f22 (
+  rut TEXT NOT NULL,
+  anio_tributario INTEGER NOT NULL,
+  codigo INTEGER NOT NULL,
+  titulo TEXT,
+  cabeceras_json TEXT NOT NULL,
+  filas_json TEXT NOT NULL,
+  sincronizacion_id INTEGER NOT NULL REFERENCES sincronizacion (id),
+  obtenido_en TEXT NOT NULL,
+  PRIMARY KEY (rut, anio_tributario, codigo)
+);
+`;
+
 export const MIGRACIONES: readonly Migracion[] = [
   { version: 1, sql: V1 },
   { version: 2, sql: V2 },
@@ -476,4 +494,5 @@ export const MIGRACIONES: readonly Migracion[] = [
   { version: 12, sql: V12 },
   { version: 13, sql: V13 },
   { version: 14, sql: V14 },
+  { version: 15, sql: V15 },
 ];

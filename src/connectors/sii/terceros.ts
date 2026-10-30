@@ -1,6 +1,6 @@
 import { ErrorMiSiiMcp, esErrorMiSiiMcp } from '../../domain/errores.js';
 import { parseRut, type Rut } from '../../domain/rut.js';
-import type { DjInformada, DjTercero } from '../../domain/tipos.js';
+import type { DjInformada, DjTercero, TablaAsistente } from '../../domain/tipos.js';
 import type { SumideroRespuestas } from '../../ports/index.js';
 import { esObjeto, mensajeDeError, numeroChileno, texto } from './campos.js';
 import type { Http } from './http.js';
@@ -378,4 +378,32 @@ export async function djDetalle(http: Http, sumidero: SumideroRespuestas, rut: R
     if (tabla === undefined || agregar(tabla) === 0) throw cambio(`la página ${page} de la DJ ${dj} no trajo registros nuevos (van ${filas.size} de ${total})`);
   }
   return [...filas.values()];
+}
+
+/**
+ * Datos propios que el SII prepara para el F22 (claves cortas de `getAgenteRetenedor`, como 29, 39 o 303; verificado en vivo
+ * con una empresa): los que traen datos en el resumen se leen con `getDjDetalle`, una tabla por sección con filas. Las DJ
+ * de terceros (cuatro dígitos) no van aquí. Lee la primera página de cada uno: el SII los entrega completos en ella.
+ */
+export async function asistenteF22(http: Http, sumidero: SumideroRespuestas, rut: Rut, anioTributario: number): Promise<TablaAsistente[]> {
+  const periodo = periodoDj(anioTributario);
+  const data = await consultar(http, sumidero, 'getAgenteRetenedor', 'asistente.resumen', { periodo });
+  if (data === null) return [];
+  if (!Array.isArray(data)) throw cambio('el resumen no es una lista');
+  const titulos = new Map<number, string | null>();
+  for (const item of data) {
+    if (!esObjeto(item) || !esObjeto(item['listAgenteRetenedor'])) throw cambio('resumen sin listAgenteRetenedor');
+    const titulo = texto(item['title']);
+    for (const [clave, valor] of Object.entries(item['listAgenteRetenedor'])) {
+      if (!/^\d+$/.test(clave) || ES_DJ.test(clave) || titulos.has(Number(clave))) continue;
+      if (!esObjeto(valor)) throw cambio(`código ${clave} sin resumen`);
+      if (djDelResumen(Number(clave), titulo, valor['resumen']) !== null) titulos.set(Number(clave), titulo);
+    }
+  }
+  const tablas: TablaAsistente[] = [];
+  for (const [codigo, titulo] of [...titulos].sort((a, b) => a[0] - b[0])) {
+    const detalle = await consultar(http, sumidero, 'getDjDetalle', 'asistente.detalle', { periodo, rut: String(rut.cuerpo), dv: rut.dv, dj: codigo, page: 1, key: 0, seccion: '', tipoConsulta: 2 });
+    for (const t of tablasDetalle(detalle).filter((x) => x.datos.length > 0)) tablas.push({ codigo, titulo, cabeceras: t.cabeceras, filas: t.datos.map((f) => f.map((c) => c.valor)) });
+  }
+  return tablas;
 }

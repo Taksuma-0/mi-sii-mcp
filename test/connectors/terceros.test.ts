@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { CookieJar } from 'tough-cookie';
 import { describe, expect, it } from 'vitest';
 import { ClienteHttp } from '../../src/connectors/sii/http.js';
-import { djDetalle, djInformadas, MAX_PAGINAS_DJ } from '../../src/connectors/sii/terceros.js';
+import { asistenteF22, djDetalle, djInformadas, MAX_PAGINAS_DJ } from '../../src/connectors/sii/terceros.js';
 import { parseRut } from '../../src/domain/rut.js';
 import type { DjTercero, RespuestaCruda } from '../../src/domain/tipos.js';
 import { codigoDe } from '../helpers/errores.js';
@@ -309,5 +309,30 @@ describe('djDetalle', () => {
       const { http, sumidero } = await preparar({ [RUTA('getDjDetalle')]: conBody(detalleSii(tabla)) });
       expect(await codigoDe(djDetalle(http, sumidero, PERSONA, 2026, 1879))).toBe('PORTAL_CAMBIO');
     }
+  });
+});
+
+describe('asistenteF22', () => {
+  it('lee los datos propios que el SII prepara para el F22 (códigos cortos) y deja fuera las DJ de terceros', async () => {
+    const resumen = tablaSii(1, [[{ v: 'Total' }]], [['1']]);
+    const agentes = sobre([
+      { listAgenteRetenedor: { '29': { resumen }, '1879': { resumen } }, title: 'Pagos Provisionales Declarados Mensualmente', formKey: 0 },
+      { listAgenteRetenedor: { '303': { resumen } }, title: 'Comparativo F29 y Registro de compra y venta', formKey: 0 },
+      { listAgenteRetenedor: { '306': { resumen: tablaSii(1, [[{ v: 'Total' }]], [['0']], 0) } }, title: 'Sin datos', formKey: 0 },
+    ]);
+    const ppm = tablaSii(4, [[{ v: 'Formulario' }, { v: 'Periodo' }, { v: 'Folio' }, { v: 'Codigo 62' }]], [['0029', '202509', '111', '12.943'], ['0029', '202512', '222', '41.483']]);
+    const comparativo = tablaSii(4, [[{ v: 'Formulario' }, { v: '' }, { v: '' }, { v: '' }]], [['0303', '01: INGRESO', 'F29', 'RCV'], ['0303', '02: FACTURAS EMITIDAS', '1.000.000', '1.000.000']]);
+    const { http, llamadas, sumidero } = await preparar({
+      [RUTA('getAgenteRetenedor')]: conBody(agentes),
+      [RUTA('getDjDetalle')]: (l) => conBody(detalleSii(cuerpoDe(l).data['dj'] === 29 ? ppm : comparativo)),
+    });
+
+    const r = await asistenteF22(http, sumidero, parseRut('22222222-2'), 2026);
+
+    expect(r).toEqual([
+      { codigo: 29, titulo: 'Pagos Provisionales Declarados Mensualmente', cabeceras: ['Formulario', 'Periodo', 'Folio', 'Codigo 62'], filas: [['0029', '202509', '111', '12.943'], ['0029', '202512', '222', '41.483']] },
+      { codigo: 303, titulo: 'Comparativo F29 y Registro de compra y venta', cabeceras: ['Formulario', 'Columna 2', 'Columna 3', 'Columna 4'], filas: [['0303', '01: INGRESO', 'F29', 'RCV'], ['0303', '02: FACTURAS EMITIDAS', '1.000.000', '1.000.000']] },
+    ]);
+    expect(llamadas.filter((l) => l.url.endsWith('getDjDetalle')).map((l) => cuerpoDe(l).data['dj'])).toEqual([29, 303]);
   });
 });

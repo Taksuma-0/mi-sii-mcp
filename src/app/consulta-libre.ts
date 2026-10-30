@@ -370,6 +370,21 @@ const TABLAS: readonly TablaEsquema[] = [
     ],
   },
   {
+    nombre: 'asistente_f22',
+    descripcion:
+      'Datos propios que el SII prepara para el F22 de un contribuyente (con renta_sincronizar), como tablas: el código 29 trae los PPM declarados en cada F29 (columna «Codigo 62»), el 39 los ingresos según el F29 y el 303 el comparativo del SII entre el F29 y el RCV. Las cabeceras y filas van en JSON tal como las muestra el SII.',
+    columnas: [
+      RUT,
+      ANIO_TRIBUTARIO,
+      col('codigo', 'INTEGER', 'Código del dato del SII (29, 39, 303, 306…); no es un número de DJ'),
+      col('titulo', 'TEXT', 'Título que le da el SII'),
+      col('cabeceras_json', 'TEXT', 'Arreglo JSON con una lista de cabeceras por cada tabla del código'),
+      col('filas_json', 'TEXT', 'Arreglo JSON con las filas de cada tabla (cada fila, una lista de celdas de texto o null)'),
+      SINCRONIZACION_ID,
+      OBTENIDO_EN,
+    ],
+  },
+  {
     nombre: 'banco_importacion',
     descripcion: 'Cada cartola bancaria importada (banco_importar o la página local): de qué RUT y cuenta, el nombre del archivo (sin carpeta), cuántos movimientos traía y cuántos eran nuevos.',
     columnas: [

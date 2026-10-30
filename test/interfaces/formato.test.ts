@@ -203,7 +203,7 @@ describe('formato: renta F22', () => {
       ],
       observaciones: [{ codigo: 'A01', descripcion: 'Observación ficticia' }],
       eventos: [{ orden: 1, codigoEvento: 'E01', nombre: 'Declaración recibida', fecha: '2026-04-15', tipo: 'INFO', codigoCarta: null }],
-      honorariosEmitidos: null, terceros: null,
+      honorariosEmitidos: null, terceros: null, asistente: null,
       obtenidoEn: '2026-10-21T15:00:00.000Z',
     };
     const sinVigente = { ...anio, anioTributario: 2025, folio: null, vigente: null, declaraciones: 1, conclusion: null, codigoConclusion: null, codigos: 0, codigosClave: [], observaciones: [], eventos: [] };
@@ -229,7 +229,7 @@ describe('formato: renta F22', () => {
       anioTributario: 2026, folio: 1, vigente: true, declaraciones: 1, codigoConclusion: null, conclusion: 'Devolución ficticia', fechaIngreso: null, tipoImpugnado: '0',
       impuestoPagado: null, montoGiro: null, remanenteSolicitado: 100_000, remanenteDevuelto: 100_000, fechaVencimiento: null, codigos: 2,
       codigosClave: [{ codigo: '87', valor: 100_000, glosa: 'Devolución ficticia' }, { codigo: '91', valor: null, glosa: 'Total ficticio' }],
-      observaciones: [], eventos: [], honorariosEmitidos: null, terceros: null, obtenidoEn: '2026-10-21T15:00:00.000Z',
+      observaciones: [], eventos: [], honorariosEmitidos: null, terceros: null, asistente: null, obtenidoEn: '2026-10-21T15:00:00.000Z',
     };
     const texto = textoResumenRenta({ rut: '11111111-1', anios: [anio] });
     expect(texto).toContain('  remanente solicitado $100.000 · devuelto $100.000\n');
@@ -280,7 +280,7 @@ describe('formato: renta F22', () => {
     const base = {
       anioTributario: 2026, folio: 9, vigente: true, declaraciones: 1, codigoConclusion: null, conclusion: null, fechaIngreso: null, tipoImpugnado: null,
       impuestoPagado: null, montoGiro: null, remanenteSolicitado: null, remanenteDevuelto: null, fechaVencimiento: null, codigos: 40,
-      codigosClave: [], observaciones: [], eventos: [], terceros: null, obtenidoEn: '2026-10-21T15:00:00.000Z',
+      codigosClave: [], observaciones: [], eventos: [], terceros: null, asistente: null, obtenidoEn: '2026-10-21T15:00:00.000Z',
     };
     const honorarios = {
       anioComercial: 2025, vigentes: 3, anuladas: 1, bruto: 2_000_000, retencionTerceros: 290_000, retencionPropia: 0, obtenidoEn: '2026-10-21T15:00:00.000Z', pagadores: null,
@@ -382,7 +382,7 @@ describe('formato: renta F22', () => {
     const anio = {
       anioTributario: 2026, folio: null, vigente: null, declaraciones: 0, codigoConclusion: null, conclusion: null, fechaIngreso: null, tipoImpugnado: null,
       impuestoPagado: null, montoGiro: null, remanenteSolicitado: null, remanenteDevuelto: null, fechaVencimiento: null, codigos: 0, codigosClave: [],
-      observaciones: [], eventos: [], honorariosEmitidos: null, obtenidoEn: '2026-10-21T15:00:00.000Z',
+      observaciones: [], eventos: [], honorariosEmitidos: null, asistente: null, obtenidoEn: '2026-10-21T15:00:00.000Z',
       terceros: {
         informantes: [
           { ...fila, cruceBoletas: { boletas: 1, mesesBoletas: [7], soloDj: [], soloBoletas: [], retencionBoletas: 43_500, retencion: { otro: 43_500, estado: 'cuadra' as const, diferencia: 500, reajustePct: 1.15 } } },
@@ -426,5 +426,19 @@ describe('formato: renta F22', () => {
 
     const sinCruces = { ...anio, terceros: { ...anio.terceros, informantes: [anio.terceros.informantes[0]!], cruceRetencion: { dj: 1879, informada: 44_000, boletas: null, f22: { otro: null, estado: 'difiere' as const, diferencia: 44_000, reajustePct: null } } } };
     expect(textoResumenRenta({ rut: '11111111-1', anios: [sinCruces] })).toContain('  Retención informada en la DJ 1879: $44.000 · vs F22 492: el F22 no la declara');
+  });
+});
+
+describe('textoResumenRenta: datos que el SII prepara para el F22', () => {
+  it('muestra el PPM contra los F29 y el comparativo del SII', () => {
+    const anio = {
+      anioTributario: 2026, folio: null, vigente: null, declaraciones: 0, codigoConclusion: null, conclusion: null, fechaIngreso: null, tipoImpugnado: null,
+      impuestoPagado: null, montoGiro: null, remanenteSolicitado: null, remanenteDevuelto: null, fechaVencimiento: null, codigos: 0,
+      codigosClave: [], observaciones: [], eventos: [], honorariosEmitidos: null, terceros: null, obtenidoEn: '2026-10-30T10:00:00.000Z',
+      asistente: { tablas: [], ppm: { sii: 54_426, f29: 53_943 }, comparativo: [{ concepto: '02: FACTURAS EMITIDAS', f29: 1_000_000, rcv: 990_000 }], obtenidoEn: '2026-10-30T10:00:00.000Z' },
+    };
+    const texto = textoResumenRenta({ rut: '22222222-2', anios: [anio] });
+    expect(texto).toContain('PPM del año según el SII $54.426 · según tus F29 $53.943 (difiere en $483)');
+    expect(texto).toContain('Comparativo del SII · 02: FACTURAS EMITIDAS: F29 $1.000.000 · RCV $990.000 (difiere en $10.000)');
   });
 });

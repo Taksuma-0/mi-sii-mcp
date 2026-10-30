@@ -8,7 +8,7 @@ import { REGLA_ESTIMACION_RENTA, type FuenteOficial } from '../app/fuentes.js';
 import type { PerfilConSesion } from '../app/perfiles.js';
 import type { ResultadoReleerF29, ResultadoRelectura } from '../app/releer-f29.js';
 import type { FilaCartera } from '../app/vigilancia.js';
-import type { AnioRenta, HonorariosEmitidos, InformadoTerceros, InformanteTercero, ResultadoAnioRenta, ResultadoRenta, ResumenRenta } from '../app/renta.js';
+import type { AnioRenta, AsistenteAnio, HonorariosEmitidos, InformadoTerceros, InformanteTercero, ResultadoAnioRenta, ResultadoRenta, ResumenRenta } from '../app/renta.js';
 import { SINCRONIZACION_CANCELADA, type ResultadoPeriodo, type ResultadoSync } from '../app/sincronizar.js';
 import type { Aviso } from '../domain/avisos.js';
 import type { ColumnaCartola } from '../domain/banco.js';
@@ -221,7 +221,7 @@ function lineasTerceros(t: InformadoTerceros): string[] {
 }
 
 function lineasAnioRenta(a: AnioRenta): string[] {
-  const honorarios = [...(a.honorariosEmitidos === null ? [] : lineasHonorarios(a.honorariosEmitidos)), ...(a.terceros === null ? [] : lineasTerceros(a.terceros))];
+  const honorarios = [...(a.honorariosEmitidos === null ? [] : lineasHonorarios(a.honorariosEmitidos)), ...(a.terceros === null ? [] : lineasTerceros(a.terceros)), ...(a.asistente === null ? [] : lineasAsistente(a.asistente))];
   // Un año solo con boletas emitidas guardadas (p. ej. el año en curso, que aún no tiene F22).
   if (a.declaraciones === 0) return [`AT${a.anioTributario} · sin F22 guardado`, ...honorarios];
   if (a.folio === null) return [`AT${a.anioTributario} · sin folio vigente (${plural(a.declaraciones, 'declaración', 'declaraciones')})`, ...honorarios];
@@ -254,6 +254,15 @@ function lineasAnioRenta(a: AnioRenta): string[] {
     a.codigos === 0 ? '  Sin detalle guardado del folio' : `  ${plural(a.codigos, 'código guardado', 'códigos guardados')} (todos en f22_valor)`,
     ...honorarios,
   ];
+}
+
+/** Lo que el SII prepara para el F22: el PPM del año contra los F29 guardados y su propio comparativo F29 vs RCV. */
+function lineasAsistente(a: AsistenteAnio): string[] {
+  const diferencia = (x: number, y: number): string => (x === y ? 'cuadra' : `difiere en ${formatearClp(x - y)}`);
+  const ppm = a.ppm === null ? [] : [`  PPM del año según el SII ${formatearClp(a.ppm.sii)}${a.ppm.f29 === null ? ' (sin F29 guardados del año para comparar)' : ` · según tus F29 ${formatearClp(a.ppm.f29)} (${diferencia(a.ppm.sii, a.ppm.f29)})`}`];
+  const comparativo = a.comparativo.map((c) => `  Comparativo del SII · ${c.concepto}: F29 ${monto(c.f29)} · RCV ${monto(c.rcv)}${c.f29 !== null && c.rcv !== null ? ` (${diferencia(c.f29, c.rcv)})` : ''}`);
+  const otros = [...new Set(a.tablas.filter((t) => t.codigo !== 29 && t.codigo !== 303).map((t) => `${t.codigo} ${t.titulo ?? ''}`.trim()))];
+  return ['  Datos que el SII prepara para el F22:', ...ppm, ...comparativo, ...(otros.length > 0 ? [`  Otros (en consulta_sql, tabla asistente_f22): ${otros.join(' · ')}`] : [])];
 }
 
 /** Renta (F22) guardada por año tributario: folio vigente, conclusión, códigos clave, observaciones y eventos. */

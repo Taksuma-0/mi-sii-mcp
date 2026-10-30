@@ -1,6 +1,6 @@
 import { ErrorMiSiiMcp } from '../../src/domain/errores.js';
 import type { Periodo } from '../../src/domain/periodo.js';
-import type { DjInformada, DjTercero, DocumentoRcv, EmpresaAutorizada, EstadoRcv, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBhe, InformeBheEmitidas, InformeBheEmitidasMes, Lado, PerfilTributario, PropuestaF29, RcvResumen, RcvResumenFila } from '../../src/domain/tipos.js';
+import type { DjInformada, DjTercero, DocumentoRcv, EmpresaAutorizada, EstadoRcv, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBhe, InformeBheEmitidas, InformeBheEmitidasMes, Lado, PerfilTributario, PropuestaF29, RcvResumen, RcvResumenFila, TablaAsistente } from '../../src/domain/tipos.js';
 import type { SiiReader, SumideroRespuestas } from '../../src/ports/index.js';
 
 /**
@@ -39,6 +39,8 @@ export class SiiFalso implements SiiReader {
   readonly f22Detalles = new Map<string, F22Detalle>();
   readonly terceros = new Map<number, DjInformada[]>();
   readonly tercerosDetalle = new Map<string, DjTercero[]>();
+  /** Datos del SII para el F22 por año tributario (sin entrada = ninguno); llamada `asistente|anio`. */
+  readonly asistente = new Map<number, TablaAsistente[]>();
   perfil: PerfilTributario | null = null;
   empresas: EmpresaAutorizada[] = [];
   alLlamar: (llamada: string) => void | Promise<void> = () => {};
@@ -130,5 +132,10 @@ export class SiiFalso implements SiiReader {
   async djDetalle(_rut: string, anioTributario: number, dj: number): Promise<DjTercero[]> {
     await this.registrar(`tercerosdetalle|${anioTributario}|${dj}`);
     return this.tercerosDetalle.get(`${anioTributario}|${dj}`) ?? [];
+  }
+
+  async asistenteF22(_rut: string, anioTributario: number): Promise<TablaAsistente[]> {
+    await this.registrar(`asistente|${anioTributario}`);
+    return this.asistente.get(anioTributario) ?? [];
   }
 }

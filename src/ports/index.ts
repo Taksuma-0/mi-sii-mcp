@@ -31,6 +31,7 @@ import type {
   RespuestaCruda,
   Severidad,
   SnapshotRcv,
+  TablaAsistente,
   TipoContribuyente,
   TotalesBheMes,
 } from '../domain/tipos.js';
@@ -65,6 +66,8 @@ export interface SiiReader {
   djInformadas(rut: string, anioTributario: number): Promise<DjInformada[]>;
   /** Detalle de una DJ informada por terceros: una fila por informante y folio (todas las páginas); vacía si el SII no trae detalle. */
   djDetalle(rut: string, anioTributario: number, dj: number): Promise<DjTercero[]>;
+  /** Datos propios que el SII prepara para el F22 (p. ej. PPM y comparativo F29-RCV); vacía si no hay. */
+  asistenteF22(rut: string, anioTributario: number): Promise<TablaAsistente[]>;
 }
 
 /** Lee los códigos del PDF compacto del F29. La sincronización y la relectura usan el mismo, así su versión dice qué lector se usó. */
@@ -324,11 +327,20 @@ export interface Store {
   reglasCuenta(rut: string): { readonly rutContraparte: string; readonly cuenta: string }[];
   /** Fija la cuenta de las compras de un proveedor, o quita la regla con null. */
   guardarReglaCuenta(rut: string, rutContraparte: string, cuenta: string | null): void;
+  /** Reemplaza los datos que el SII prepara para el F22 de un año tributario en una transacción. */
+  reemplazarAsistenteF22(sincronizacionId: number, rut: string, anioTributario: number, tablas: readonly TablaAsistente[], obtenidoEn: string): void;
+  /** Datos guardados que el SII prepara para el F22, de un año tributario o de todos, por año (más nuevo primero) y código. */
+  asistenteF22(rut: string, anioTributario?: number): TablaAsistenteGuardada[];
   /** Guarda los avisos que no estaban (por RUT y clave) y devuelve solo esos, en el orden recibido. */
   registrarAvisos(candidatos: readonly AvisoCandidato[], ahora: string): Aviso[];
   /** Avisos guardados, del más antiguo al más nuevo. */
   avisos(filtro?: FiltroAvisos): Aviso[];
   marcarAvisos(ids: readonly number[], campo: 'visto' | 'notificado', ahora: string): void;
+}
+
+export interface TablaAsistenteGuardada extends TablaAsistente {
+  readonly anioTributario: number;
+  readonly obtenidoEn: string;
 }
 
 export interface FiltroAvisos {
