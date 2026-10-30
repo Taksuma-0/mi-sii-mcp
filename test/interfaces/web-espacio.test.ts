@@ -35,6 +35,28 @@ function entorno() {
   return { ...p, fabrica, cerrar, loginInteractivo, loginNavegador, llavero, espacio: crearEspacioLocal(fabrica, llavero) };
 }
 
+describe('cartolas desde la página', () => {
+  it('importa la cartola subida a la cuenta del contexto y devuelve el resumen en texto', async () => {
+    const e = entorno();
+    const { contexto } = await e.espacio.conectar(entrada);
+    const csv = ['Fecha;Descripción;Cargos;Abonos;Saldo', '02/10/2026;TRANSFERENCIA;;1.000;11.000', '03/10/2026;PAGO;500;;10.500'].join('\n');
+
+    const r = await e.espacio.importarCartola(contexto, { nombre: 'octubre.csv', contenido: Buffer.from(csv).toString('base64'), cuenta: 'corriente' });
+
+    expect(r.importacion).toMatchObject({ rut: '22222222-2', cuenta: 'corriente', archivo: 'octubre.csv', nuevos: 2, saldoCuadra: true });
+    expect(r.texto).toContain('Cartola octubre.csv en la cuenta corriente');
+    expect(e.store.movimientosBanco('22222222-2')).toHaveLength(2);
+  });
+
+  it('rechaza una cartola sin contexto o de más de 5 MB', async () => {
+    const e = entorno();
+    await expect(e.espacio.importarCartola('sin-contexto', { nombre: 'a.csv', contenido: 'YQ==' })).rejects.toMatchObject({ codigo: 'SESION_REQUERIDA' });
+    const { contexto } = await e.espacio.conectar(entrada);
+    const grande = Buffer.alloc(5 * 1024 * 1024 + 1, 'a').toString('base64');
+    await expect(e.espacio.importarCartola(contexto, { nombre: 'a.csv', contenido: grande })).rejects.toMatchObject({ codigo: 'ARCHIVO_INVALIDO' });
+  });
+});
+
 describe('espacio local por contexto', () => {
   it('explica períodos inválidos sin excluir enero de 2000 del espacio', () => {
     expect(errorPublico(new ErrorMiSiiMcp('PERIODO_INVALIDO', '')).mensaje).not.toContain('posterior a enero de 2000');

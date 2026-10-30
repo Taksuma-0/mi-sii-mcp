@@ -31,9 +31,11 @@ class ErrorHttp extends Error {
 }
 
 const LIMITE_BODY = 16 * 1024;
-const RUTAS_ESPACIO = new Set(['/conectar', '/conectar-navegador', '/cuentas', '/panorama', '/sincronizar', '/analizar', '/documentos', '/desconectar']);
+/** Una cartola de hasta 5 MB llega en base64 (un tercio más) dentro del JSON. */
+const LIMITE_CARTOLA = 7 * 1024 * 1024;
+const RUTAS_ESPACIO = new Set(['/conectar', '/conectar-navegador', '/cuentas', '/panorama', '/sincronizar', '/analizar', '/documentos', '/desconectar', '/banco/importar']);
 
-function leerJson(req: IncomingMessage): Promise<unknown> {
+function leerJson(req: IncomingMessage, limite = LIMITE_BODY): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const partes: Buffer[] = [];
     let bytes = 0;
@@ -48,7 +50,7 @@ function leerJson(req: IncomingMessage): Promise<unknown> {
     }
     function datos(parte: Buffer) {
       bytes += parte.length;
-      if (bytes > LIMITE_BODY) acabar(new ErrorHttp(413, 'SOLICITUD_GRANDE', 'La solicitud supera el tamaño permitido.'));
+      if (bytes > limite) acabar(new ErrorHttp(413, 'SOLICITUD_GRANDE', 'La solicitud supera el tamaño permitido.'));
       else partes.push(parte);
     }
     function fin() {
@@ -108,6 +110,12 @@ function prepararOperacion(ruta: string, valor: unknown, espacio: OperacionesEsp
     if (superficies === undefined) return () => espacio.sincronizar(contexto, { desde, hasta });
     if (!Array.isArray(superficies) || superficies.length < 1 || superficies.length > 2 || !superficies.every((s): s is 'rcv' | 'f29' => s === 'rcv' || s === 'f29')) throw invalida();
     return () => espacio.sincronizar(contexto, { desde, hasta, superficies });
+  }
+  if (ruta === '/banco/importar') {
+    const { nombre, contenido, cuenta } = datos;
+    if (!campos(['contexto', 'nombre', 'contenido', 'cuenta']) || !esTexto(nombre) || nombre.length > 200 || !/\.(csv|txt)$/i.test(nombre)) throw invalida();
+    if (!esTexto(contenido) || !/^[A-Za-z0-9+/]+={0,2}$/.test(contenido) || (cuenta !== undefined && !esTexto(cuenta))) throw invalida();
+    return () => espacio.importarCartola(contexto, { nombre, contenido, ...(cuenta === undefined ? {} : { cuenta }) });
   }
   if (ruta === '/documentos') {
     const { periodo, lado, estado, pagina } = datos;
@@ -176,7 +184,7 @@ export async function crearServidorLocal(opciones: OpcionesServidor = {}): Promi
       ocupado = true;
       clearTimeout(temporizador);
       try {
-        const datos = await leerJson(req);
+        const datos = await leerJson(req, req.url === '/banco/importar' ? LIMITE_CARTOLA : LIMITE_BODY);
         if (req.url === '/cerrar') {
           if (!datos || typeof datos !== 'object' || Array.isArray(datos) || Object.keys(datos).length !== 0) throw new ErrorHttp(400, 'SOLICITUD_INVALIDA', 'La solicitud de cierre no es válida.');
           responder(res, 200, { cerrado: true });

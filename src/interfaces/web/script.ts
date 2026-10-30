@@ -44,14 +44,14 @@ function limpiarDocumentos() {
   $('resultado-documentos').replaceChildren(); $('documentos-pagina').textContent = ''; paginacion();
 }
 function limpiarConsultas() {
-  $('resultado-sync').replaceChildren(); $('resultado-analisis').replaceChildren(); limpiarDocumentos();
+  $('resultado-sync').replaceChildren(); $('resultado-analisis').replaceChildren(); $('resultado-cartola').replaceChildren(); limpiarDocumentos();
 }
 function limpiarEspacio() {
   contexto = null; panoramaListo = null;
   $('espacio').hidden = true; $('listo').hidden = true; $('acceso').hidden = false;
   $('identidad').textContent = ''; $('totales').replaceChildren(); $('filas-panorama').replaceChildren();
   limpiarConsultas();
-  for (const id of ['formulario', 'form-historial', 'form-analisis', 'form-documentos']) {
+  for (const id of ['formulario', 'form-historial', 'form-analisis', 'form-documentos', 'form-cartola']) {
     $(id).reset();
     $(id).querySelectorAll('input').forEach((c) => { c.value = ''; });
   }
@@ -255,6 +255,23 @@ $('form-documentos').addEventListener('submit', (evento) => { evento.preventDefa
 for (const evento of ['input', 'change']) $('form-documentos').addEventListener(evento, () => { if (!ocupado) limpiarDocumentos(); });
 $('documentos-anterior').addEventListener('click', () => { if (!ocupado && filtroDocumentos && paginaDocumentos && paginaDocumentos.pagina > 1) void consultarDocumentos(filtroDocumentos, paginaDocumentos.pagina - 1); });
 $('documentos-siguiente').addEventListener('click', () => { if (!ocupado && filtroDocumentos && paginaDocumentos && paginaDocumentos.pagina * paginaDocumentos.tamano < paginaDocumentos.total) void consultarDocumentos(filtroDocumentos, paginaDocumentos.pagina + 1); });
+$('form-cartola').addEventListener('submit', async (evento) => {
+  evento.preventDefault(); if (ocupado || !contexto) return;
+  const archivo = $('cartola-archivo').files[0];
+  if (!archivo) { informar('Elige el archivo de la cartola.', 'error'); return; }
+  if (archivo.size > 5 * 1024 * 1024) { informar('La cartola pasa del máximo de 5 MB.', 'error'); return; }
+  $('resultado-cartola').replaceChildren(); bloquear(true); informar('Importando la cartola…');
+  try {
+    const bytes = new Uint8Array(await archivo.arrayBuffer());
+    let binario = '';
+    for (let i = 0; i < bytes.length; i += 32768) binario += String.fromCharCode.apply(null, bytes.subarray(i, i + 32768));
+    const cuenta = $('cartola-cuenta').value.trim();
+    const r = await enviar('/banco/importar', { contexto, nombre: archivo.name, contenido: btoa(binario), ...(cuenta ? { cuenta } : {}) });
+    for (const linea of r.texto.split('\n')) $('resultado-cartola').append(nodo('p', linea));
+    informar('Cartola importada en este equipo. Pide al asistente que la concilie con banco_conciliar.');
+  } catch (error) { fallo(error); }
+  finally { bloquear(false); }
+});
 $('cambiar').addEventListener('click', async () => {
   if (ocupado || !contexto) return;
   const anterior = contexto;

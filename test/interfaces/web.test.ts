@@ -49,8 +49,8 @@ describe('HTTP local', () => {
     expect(e.html).toContain('type="password"');
     expect(e.html).toContain('aria-live="polite"');
     expect(e.html).not.toMatch(/innerHTML|localStorage|sessionStorage|indexedDB|serviceWorker|https:\/\//);
-    // Incluye cuatro flujos, el acceso con navegador, la lista de cuentas y tablas nativas, sin dependencias ni recursos externos.
-    expect(Buffer.byteLength(e.html)).toBeLessThanOrEqual(30 * 1024);
+    // Incluye cinco flujos (con las cartolas), el acceso con navegador, la lista de cuentas y tablas nativas, sin dependencias ni recursos externos.
+    expect(Buffer.byteLength(e.html)).toBeLessThanOrEqual(36 * 1024);
   });
 
   it('conecta sin mes y reserva las fechas y consultas para después de entrar', async () => {
@@ -66,6 +66,19 @@ describe('HTTP local', () => {
     for (const id of ['totales', 'filas-panorama', 'resultado-sync', 'resultado-analisis', 'resultado-documentos', 'documentos-anterior', 'documentos-siguiente', 'cambiar']) expect(html).toContain(`id="${id}"`);
     expect(html).toContain('Total declarado en F29');
     expect(html).toContain('Aún no has cargado datos');
+  });
+
+  it('ofrece importar cartolas del banco desde un archivo, sin pedir rutas del equipo', async () => {
+    const { html } = await entorno();
+    const formulario = /<form id="form-cartola"[^>]*>([\s\S]*?)<\/form>/.exec(html);
+    expect(html).toContain('Cartolas del banco');
+    expect(html).toContain('href="#cartolas"');
+    expect(formulario?.[0]).toContain('action="/banco/importar"');
+    expect(formulario?.[1]).toContain('type="file"');
+    expect(formulario?.[1]).toContain('accept=".csv,.txt"');
+    expect(formulario?.[1]).toContain('id="cartola-cuenta"');
+    expect(html).toContain('id="resultado-cartola"');
+    expect(html).toContain("enviar('/banco/importar'");
   });
 
   it('ofrece entrar con el navegador (ClaveÚnica o clave) por su ruta protegida', async () => {

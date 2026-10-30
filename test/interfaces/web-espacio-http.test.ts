@@ -12,6 +12,8 @@ const panorama = { perfil: perfilEmpresa(), periodos: [], totales: { ventas: tot
 const sincronizacion = { estado: 'completo' as const, sincronizacion: 'Resultado ficticio', panorama };
 const pagina = { documentos: [], total: 0, pagina: 1, tamano: 50 };
 const cuentas = [{ rut: '22222222-2', nombre: 'EMPRESA DEMO SPA', conectada: true, bloqueada: false, renuevaSola: true, guardadaEn: '2026-10-27T10:00:00.000Z' }];
+const cartola = { nombre: 'octubre.csv', contenido: Buffer.from('Fecha;Monto').toString('base64'), cuenta: 'corriente' };
+const importacion = { texto: 'Cartola importada (ficticia)' };
 const casos = [
   { ruta: '/conectar', metodo: 'conectar', datos: { rut: '22222222-2', clave: 'clave ficticia' }, args: [{ rut: '22222222-2', clave: 'clave ficticia' }], resultado: { contexto, panorama, recordada: false } },
   { ruta: '/cuentas', metodo: 'cuentas', datos: {}, args: [], resultado: { cuentas } },
@@ -20,6 +22,7 @@ const casos = [
   { ruta: '/analizar', metodo: 'analizar', datos: { contexto, ...rango }, args: [contexto, rango], resultado: [] },
   { ruta: '/documentos', metodo: 'documentos', datos: { contexto, periodo: '2026-09', lado: 'COMPRA', estado: 'PENDIENTE', pagina: 2 }, args: [contexto, { periodo: '2026-09', lado: 'COMPRA', estado: 'PENDIENTE', pagina: 2 }], resultado: pagina },
   { ruta: '/desconectar', metodo: 'desconectar', datos: { contexto }, args: [contexto], resultado: { desconectado: true } },
+  { ruta: '/banco/importar', metodo: 'importarCartola', datos: { contexto, ...cartola }, args: [contexto, cartola], resultado: importacion },
 ] as const;
 const cierres: (() => Promise<void>)[] = [];
 afterEach(async () => { for (const cerrar of cierres.splice(0)) await cerrar(); });
@@ -34,6 +37,7 @@ async function entorno() {
     documentos: vi.fn<OperacionesEspacio['documentos']>(async () => pagina),
     desconectar: vi.fn<OperacionesEspacio['desconectar']>(async () => {}),
     conectarNavegador: vi.fn<OperacionesEspacio['conectarNavegador']>(async () => ({ contexto, panorama })),
+    importarCartola: vi.fn<OperacionesEspacio['importarCartola']>(async () => importacion as never),
   };
   const s = await crearServidorLocal({ puerto: 0, espacio });
   cierres.push(s.cerrar);
@@ -55,6 +59,18 @@ describe('rutas HTTP del espacio', () => {
     for (const [metodo, fn] of Object.entries(e.espacio)) if (metodo !== caso.metodo) expect(fn).not.toHaveBeenCalled();
     expect(r.headers.get('cache-control')).toBe('no-store');
     expect(r.headers.get('content-security-policy')).toContain("frame-ancestors 'none'");
+  });
+
+  it('acepta una cartola de más de 16 KB solo en /banco/importar y valida su nombre y contenido', async () => {
+    const e = await entorno();
+    const grande = Buffer.alloc(100_000, 'a').toString('base64');
+    expect((await e.post('/banco/importar', { contexto, nombre: 'grande.csv', contenido: grande })).status).toBe(200);
+    expect(e.espacio.importarCartola).toHaveBeenCalledWith(contexto, { nombre: 'grande.csv', contenido: grande });
+    expect((await e.post('/documentos', { contexto, periodo: '2026-09', relleno: grande })).status).toBe(413);
+    for (const malo of [{ nombre: 'clave.key', contenido: 'YQ==' }, { nombre: 'a.csv', contenido: 'no es base64!' }, { nombre: 'a.csv', contenido: 'YQ==', ruta: 'C:/otro' }]) {
+      expect((await e.post('/banco/importar', { contexto, ...malo })).status).toBe(400);
+    }
+    expect(e.espacio.importarCartola).toHaveBeenCalledTimes(1);
   });
 
   it('admite opciones ausentes sin inventar filtros ni fuentes', async () => {
@@ -85,7 +101,7 @@ describe('rutas HTTP del espacio', () => {
     for (const campo of Object.keys(caso.datos)) {
       const sinCampo: Record<string, unknown> = { ...caso.datos };
       delete sinCampo[campo];
-      if (!['superficies', 'lado', 'estado', 'pagina'].includes(campo)) invalidos.push(sinCampo);
+      if (!['superficies', 'lado', 'estado', 'pagina', 'cuenta'].includes(campo)) invalidos.push(sinCampo);
       invalidos.push({ ...caso.datos, [campo]: {} }, { ...caso.datos, [campo]: [] }, { ...caso.datos, [campo]: null }, { ...caso.datos, [campo]: '' });
     }
     for (const datos of invalidos) expect((await e.post(caso.ruta, datos)).status).toBe(400);

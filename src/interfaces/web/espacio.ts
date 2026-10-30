@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { importarCartolaDatos, type ResultadoImportacion } from '../../app/banco.js';
 import { documentos, resumenIva, type PaginaDocumentos, type ResumenIva } from '../../app/consultas.js';
 import { panorama, type PanoramaSii } from '../../app/panorama.js';
 import { listarPerfiles, registrarIdentidad } from '../../app/perfiles.js';
@@ -9,7 +10,7 @@ import { parseRut } from '../../domain/rut.js';
 import { ESTADOS_RCV, type EstadoRcv, type Lado } from '../../domain/tipos.js';
 import { crearContenedor, crearLlavero } from '../../main/contenedor.js';
 import type { SecretStore } from '../../ports/index.js';
-import { textoSync } from '../formato.js';
+import { textoImportacion, textoSync } from '../formato.js';
 import { errorPublico, SecretosNulos, type ContenedorWeb, type FabricaContenedorWeb } from './verificar.js';
 
 /** Lo que la página puede pedir al SII; las superficies nuevas no se activan aquí sin una decisión explícita. */
@@ -30,6 +31,9 @@ export interface CuentaLocal {
   readonly renuevaSola: boolean;
   readonly guardadaEn: string | null;
 }
+/** Cartola subida desde la página: nombre del archivo, su contenido en base64 y el alias de la cuenta. */
+export interface EntradaCartola { readonly nombre: string; readonly contenido: string; readonly cuenta?: string }
+export interface ResultadoCartola { readonly importacion: ResultadoImportacion; readonly texto: string }
 export interface ResultadoSincronizacion { readonly estado: 'completo' | 'parcial'; readonly sincronizacion: string; readonly panorama: PanoramaSii }
 export interface OperacionesEspacio {
   /** Con `recordar`, la clave queda en el llavero del sistema y la sesión se renueva sola (como `login --guardar-clave`). */
@@ -43,6 +47,8 @@ export interface OperacionesEspacio {
   analizar(contexto: string, entrada: RangoEspacio): Promise<readonly ResumenIva[]>;
   documentos(contexto: string, entrada: EntradaDocumentos): Promise<PaginaDocumentos>;
   desconectar(contexto: string): Promise<void>;
+  /** Importa a la base local una cartola subida en la página, a una cuenta del contribuyente del contexto. */
+  importarCartola(contexto: string, entrada: EntradaCartola): Promise<ResultadoCartola>;
 }
 
 /**
@@ -137,6 +143,14 @@ export function crearEspacioLocal(fabrica: FabricaContenedorWeb = crearContenedo
     async desconectar(contexto) {
       rutDeContexto(contexto);
       contextos.delete(contexto);
+    },
+    async importarCartola(contexto, entrada) {
+      const rut = rutDeContexto(contexto);
+      const bytes = new Uint8Array(Buffer.from(entrada.contenido, 'base64'));
+      return conContenedor(({ deps }) => {
+        const importacion = importarCartolaDatos(deps, rut, { nombre: entrada.nombre, bytes }, entrada.cuenta === undefined ? {} : { cuenta: entrada.cuenta });
+        return { importacion, texto: textoImportacion(importacion) };
+      });
     },
   };
 }

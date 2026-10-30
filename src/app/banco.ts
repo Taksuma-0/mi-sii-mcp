@@ -46,15 +46,33 @@ function cortesDeSaldo(movimientos: readonly MovimientoLeido[]): { readonly cuad
   return { cuadra: cortes.length === 0, cortes };
 }
 
+export interface OpcionesImportacion {
+  readonly cuenta?: string;
+  readonly columnas?: MapeoColumnas;
+}
+
 /**
- * Importa una cartola bancaria (CSV o TXT) que indica la persona: la lee, guarda sus movimientos en la cuenta indicada sin
- * repetir los que ya estaban y revisa que el saldo no se corte. Solo escribe en la base local.
+ * Importa una cartola bancaria (CSV o TXT) que indica la persona por su ruta en el equipo: la lee, guarda sus movimientos
+ * en la cuenta indicada sin repetir los que ya estaban y revisa que el saldo no se corte. Solo escribe en la base local.
  */
-export async function importarCartola(deps: DepsApp, rutTexto: string, ruta: string, opciones: { readonly cuenta?: string; readonly columnas?: MapeoColumnas } = {}): Promise<ResultadoImportacion> {
-  const perfil = perfilExistente(deps, rutTexto);
+export async function importarCartola(deps: DepsApp, rutTexto: string, ruta: string, opciones: OpcionesImportacion = {}): Promise<ResultadoImportacion> {
+  perfilExistente(deps, rutTexto);
+  aliasCuenta(opciones);
+  return importarCartolaDatos(deps, rutTexto, await deps.archivos.leer(ruta, MAX_BYTES_CARTOLA), opciones);
+}
+
+function aliasCuenta(opciones: OpcionesImportacion): string {
   const cuenta = (opciones.cuenta ?? CUENTA_POR_DEFECTO).trim();
   if (!ALIAS_CUENTA.test(cuenta)) throw new ErrorMiSiiMcp('PARAMETROS_INVALIDOS', 'El alias de la cuenta debe tener entre 1 y 40 letras, números, espacios, guiones o guiones bajos.');
-  const { nombre, bytes } = await deps.archivos.leer(ruta, MAX_BYTES_CARTOLA);
+  return cuenta;
+}
+
+/** Como `importarCartola`, con el archivo ya leído (p. ej. subido desde la página local). */
+export function importarCartolaDatos(deps: DepsApp, rutTexto: string, archivo: { readonly nombre: string; readonly bytes: Uint8Array }, opciones: OpcionesImportacion = {}): ResultadoImportacion {
+  const perfil = perfilExistente(deps, rutTexto);
+  const cuenta = aliasCuenta(opciones);
+  const { nombre, bytes } = archivo;
+  if (bytes.length > MAX_BYTES_CARTOLA) throw new ErrorMiSiiMcp('ARCHIVO_INVALIDO', `La cartola pasa del máximo de ${MAX_BYTES_CARTOLA / 1024 / 1024} MB.`);
   const leida = deps.lectorCartola.leer(bytes, opciones.columnas);
   // La huella del lector no conoce la cuenta: con ella, la misma cartola en dos cuentas son movimientos distintos.
   const movimientos = leida.movimientos.map((m) => ({ ...m, huella: createHash('sha256').update(`${cuenta}|${m.huella}`).digest('hex') }));
