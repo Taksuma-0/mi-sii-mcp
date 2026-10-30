@@ -57,6 +57,13 @@ describe('vigilar', () => {
     expect(segunda.nuevos).toEqual([]);
   });
 
+  it('un F29 vencido se avisa una sola vez: el hallazgo ya lo cubre, no se repite como plazo', async () => {
+    const { deps } = preparar();
+    const r = await vigilar(deps);
+    expect(r.nuevos.filter((a) => a.rut === RUT_EMPRESA && a.titulo.includes('2026-09'))).toHaveLength(1);
+    expect(r.nuevos.filter((a) => a.tipo === 'plazo' && a.clave.startsWith('P:F29:'))).toEqual([]);
+  });
+
   it('una persona sin RCV no se sincroniza como si declarara IVA', async () => {
     const { deps, sii } = preparar((rut) => rut === RUT_PERSONA);
     await vigilar(deps);

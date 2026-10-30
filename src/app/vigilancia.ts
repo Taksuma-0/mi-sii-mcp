@@ -63,7 +63,8 @@ async function revisarCuenta(deps: DepsApp, perfil: Perfil, signal: AbortSignal 
     ...hallazgos(deps, perfil.rut, { desde: restarPeriodos(actual, MESES_HALLAZGOS).texto })
       .filter((h) => h.severidad !== 'info')
       .map(avisoDeHallazgo),
-    ...plazos(deps, perfil.rut, DIAS_AVISO_PLAZO).map(avisoDePlazo),
+    // El F29 por presentar ya lo avisa su hallazgo (IVA-04), con más detalle: aquí quedan el reclamo de facturas y el F22.
+    ...plazos(deps, perfil.rut, DIAS_AVISO_PLAZO).filter((p) => p.tipo !== 'F29').map(avisoDePlazo),
   ];
   if (MESES_RENTA.has(actual.mes)) {
     await sincronizarRenta(deps, perfil.rut, String(actual.anio), undefined, signal);
