@@ -19,7 +19,10 @@ export type CodigoError =
   | 'DATOS_INCOMPLETOS'
   | 'LECTURA_INCOHERENTE'
   | 'RESPALDO_FALLIDO'
-  | 'NAVEGADOR_NO_DISPONIBLE';
+  | 'NAVEGADOR_NO_DISPONIBLE'
+  | 'SIN_DATOS_LOCALES'
+  | 'PARAMETROS_INVALIDOS'
+  | 'ARCHIVO_INVALIDO';
 
 export const ACCION_POR_DEFECTO: Readonly<Record<CodigoError, string>> = {
   SESION_REQUERIDA: 'Ejecuta `mi-sii-mcp login <rut>` para iniciar sesión en el SII.',
@@ -43,6 +46,9 @@ export const ACCION_POR_DEFECTO: Readonly<Record<CodigoError, string>> = {
   LECTURA_INCOHERENTE: 'El F29 leído no cuadra; se conserva la lectura anterior. Puede que el SII haya cambiado el formulario. Se guardó un archivo en la carpeta de diagnóstico; si reportas el problema, revisa el archivo antes de compartirlo: puede contener datos tributarios y de sesión.',
   RESPALDO_FALLIDO: 'No se migró la base porque no se pudo respaldar; revisa espacio en disco o que OneDrive/antivirus no bloquee la carpeta.',
   NAVEGADOR_NO_DISPONIBLE: 'Instala Microsoft Edge o Google Chrome, o indica la ruta del navegador con la variable MI_SII_MCP_NAVEGADOR, y vuelve a ejecutar `mi-sii-mcp login-navegador`.',
+  SIN_DATOS_LOCALES: 'Faltan datos guardados para responder: sincroniza ese período (o importa la cartola) y vuelve a pedirlo.',
+  PARAMETROS_INVALIDOS: 'Revisa los parámetros: el mensaje dice cuál falta o no es válido.',
+  ARCHIVO_INVALIDO: 'Revisa el archivo: debe ser un CSV o TXT con una fila de cabecera; si las columnas tienen otros nombres, indícalas con `columnas`.',
 };
 
 export class ErrorMiSiiMcp extends Error {
@@ -100,6 +106,9 @@ export const REINTENTO: Readonly<Record<CodigoError, Reintento>> = {
   LECTURA_INCOHERENTE: 'no',
   RESPALDO_FALLIDO: 'mas_tarde',
   NAVEGADOR_NO_DISPONIBLE: 'no',
+  SIN_DATOS_LOCALES: 'no',
+  PARAMETROS_INVALIDOS: 'no',
+  ARCHIVO_INVALIDO: 'no',
 };
 
 /** `codigo` es texto porque los errores de sincronización no lo tipan: CANCELADO se reintenta ya; ERROR_INTERNO y los desconocidos no. */

@@ -64,6 +64,9 @@ const MENSAJES: Readonly<Record<CodigoError, string>> = {
   LECTURA_INCOHERENTE: 'La lectura del F29 no cuadra, así que se conserva la anterior. Puede que el SII haya cambiado el formulario.',
   RESPALDO_FALLIDO: 'No se pudo respaldar la base antes de actualizarla, así que no se actualizó. Revisa el espacio en disco o que OneDrive o el antivirus no bloqueen la carpeta.',
   NAVEGADOR_NO_DISPONIBLE: 'No se pudo abrir Microsoft Edge ni Google Chrome en este equipo. Instala uno de ellos o entra con tu clave tributaria.',
+  SIN_DATOS_LOCALES: 'Faltan datos guardados para responder. Sincroniza ese período (o importa la cartola) y vuelve a intentarlo.',
+  PARAMETROS_INVALIDOS: 'Algún dato de la solicitud no es válido. Revísalo y vuelve a intentarlo.',
+  ARCHIVO_INVALIDO: 'No se pudo leer el archivo. Debe ser un CSV o TXT con una fila de cabecera; si las columnas tienen otros nombres, indícalas.',
 };
 
 /** Nunca expone mensajes, causas o cuerpos recibidos del SII. */
