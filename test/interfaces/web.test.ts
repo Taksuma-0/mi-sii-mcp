@@ -68,6 +68,16 @@ describe('HTTP local', () => {
     expect(html).toContain('Aún no has cargado datos');
   });
 
+  it('muestra los avisos y permite activar la revisión diaria sin comandos', async () => {
+    const { html } = await entorno();
+    expect(html).toContain('id="avisos"');
+    expect(html).toContain('Revisar cada día');
+    expect(html).toContain('id="avisos-hora"');
+    expect(html).toContain('id="lista-avisos"');
+    expect(html).toContain('id="avisos-vistos"');
+    for (const ruta of ['/avisos', '/avisos/estado', '/avisos/activar', '/avisos/desactivar', '/avisos/vistos']) expect(html).toContain(`'${ruta}'`);
+  });
+
   it('ofrece importar cartolas del banco desde un archivo, sin pedir rutas del equipo', async () => {
     const { html } = await entorno();
     const formulario = /<form id="form-cartola"[^>]*>([\s\S]*?)<\/form>/.exec(html);

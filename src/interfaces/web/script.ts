@@ -286,5 +286,39 @@ $('cerrar').addEventListener('click', async () => {
   try { await enviar('/cerrar', {}); informar('Aplicación cerrada. Puedes cerrar esta pestaña.'); }
   catch (error) { fallo(error); bloquear(false); }
 });
+const etiquetaSeveridad = { critico: 'CRÍTICO', advertencia: 'ADVERTENCIA', info: 'INFO' };
+async function cargarAvisos() {
+  try {
+    const [lista, revision] = await Promise.all([enviar('/avisos', {}), enviar('/avisos/estado', {})]);
+    $('avisos-activo').checked = revision.activa;
+    if (revision.hora) $('avisos-hora').value = revision.hora;
+    $('avisos-resumen').textContent = (revision.activa ? 'Revisión diaria activa a las ' + revision.hora + '. ' : 'Revisión diaria desactivada. ') + lista.sinVer + ' aviso(s) sin ver.';
+    const destino = $('lista-avisos'); destino.replaceChildren();
+    if (!lista.avisos.length) destino.append(nodo('li', 'Sin avisos por ahora.'));
+    for (const a of lista.avisos) {
+      const li = nodo('li'); li.append(nodo('strong', '[' + etiquetaSeveridad[a.severidad] + '] ' + a.titulo + (a.vistoEn ? '' : ' · nuevo')), nodo('p', a.detalle + ' (' + a.rut + ')', 'nota'));
+      destino.append(li);
+    }
+  } catch (error) { fallo(error); }
+}
+async function cambiarRevision() {
+  if (ocupado) return;
+  bloquear(true); informar('Guardando la revisión diaria…');
+  try {
+    const r = $('avisos-activo').checked ? await enviar('/avisos/activar', { hora: $('avisos-hora').value }) : await enviar('/avisos/desactivar', {});
+    informar(r.activa ? 'Revisión diaria activada a las ' + r.hora + '.' : 'Revisión diaria desactivada.');
+  } catch (error) { $('avisos-activo').checked = !$('avisos-activo').checked; fallo(error); }
+  finally { bloquear(false); await cargarAvisos(); }
+}
+$('avisos-activo').addEventListener('change', () => void cambiarRevision());
+$('avisos-hora').addEventListener('change', () => { if ($('avisos-activo').checked) void cambiarRevision(); });
+$('avisos-vistos').addEventListener('click', async () => {
+  if (ocupado) return;
+  bloquear(true);
+  try { const r = await enviar('/avisos/vistos', {}); informar(r.marcados + ' aviso(s) marcados como vistos.'); }
+  catch (error) { fallo(error); }
+  finally { bloquear(false); await cargarAvisos(); }
+});
 void cargarCuentas();
+void cargarAvisos();
 `.replace(/^ +/gm, '');

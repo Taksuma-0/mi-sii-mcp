@@ -29,11 +29,43 @@ function entorno() {
     identidad: { rut, nombre: 'Empresa de prueba', razonSocial: 'EMPRESA DEMO SPA', tipo: 'empresa' as const }, claveGuardada: false,
   }));
   const loginNavegador = vi.fn(async (_rut?: string) => ({ rut: '22222222-2', nombre: 'Empresa de prueba', razonSocial: 'EMPRESA DEMO SPA', tipo: 'empresa' as const }));
-  const fabrica: FabricaContenedorWeb = vi.fn(() => ({ deps: p.deps, sesiones: { loginInteractivo, loginNavegador }, cerrar }));
+  const tarea = { hora: null as string | null };
+  const tareaFalsa = {
+    activar: vi.fn(async (hora: string) => { tarea.hora = hora; }),
+    desactivar: vi.fn(async () => { tarea.hora = null; }),
+    estado: vi.fn(async () => ({ activa: tarea.hora !== null, hora: tarea.hora })),
+  };
+  const fabrica: FabricaContenedorWeb = vi.fn(() => ({ deps: p.deps, sesiones: { loginInteractivo, loginNavegador }, tarea: tareaFalsa, cerrar }));
   // Nunca el Credential Manager real.
   const llavero = new SecretosEnMemoria();
-  return { ...p, fabrica, cerrar, loginInteractivo, loginNavegador, llavero, espacio: crearEspacioLocal(fabrica, llavero) };
+  return { ...p, fabrica, cerrar, loginInteractivo, loginNavegador, llavero, tareaFalsa, espacio: crearEspacioLocal(fabrica, llavero) };
 }
+
+describe('avisos desde la página', () => {
+  it('lista los últimos avisos de todas las cuentas, cuenta los sin ver y los marca vistos', async () => {
+    const e = entorno();
+    const aviso = (clave: string, rut = '22222222-2') => ({ rut, clave, tipo: 'plazo' as const, severidad: 'critico' as const, titulo: `Aviso ${clave}`, detalle: 'd' });
+    e.store.registrarAvisos([aviso('a'), aviso('b', '11111111-1')], '2026-10-30T10:00:00.000Z');
+    e.store.registrarAvisos([aviso('c')], '2026-10-31T10:00:00.000Z');
+
+    const r = await e.espacio.avisos();
+
+    expect(r.sinVer).toBe(3);
+    expect(r.avisos.map((a) => a.clave)).toEqual(['c', 'a', 'b']);
+    expect(await e.espacio.marcarAvisosVistos()).toEqual({ marcados: 3 });
+    expect((await e.espacio.avisos()).sinVer).toBe(0);
+  });
+
+  it('activa, consulta y desactiva la revisión diaria, y valida la hora', async () => {
+    const e = entorno();
+
+    expect(await e.espacio.activarAvisos('08:30')).toEqual({ activa: true, hora: '08:30' });
+    expect(await e.espacio.estadoAvisos()).toEqual({ activa: true, hora: '08:30' });
+    expect(await e.espacio.desactivarAvisos()).toEqual({ activa: false, hora: null });
+    await expect(e.espacio.activarAvisos('8:30')).rejects.toMatchObject({ codigo: 'PARAMETROS_INVALIDOS' });
+    expect(e.tareaFalsa.activar).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe('cartolas desde la página', () => {
   it('importa la cartola subida a la cuenta del contexto y devuelve el resumen en texto', async () => {

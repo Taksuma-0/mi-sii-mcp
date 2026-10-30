@@ -7,6 +7,7 @@ import { sincronizar } from '../../app/sincronizar.js';
 import { ErrorMiSiiMcp, type CodigoError } from '../../domain/errores.js';
 import { parsePeriodo, rangoPeriodos } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
+import type { Aviso } from '../../domain/avisos.js';
 import { ESTADOS_RCV, type EstadoRcv, type Lado } from '../../domain/tipos.js';
 import { crearContenedor, crearLlavero } from '../../main/contenedor.js';
 import type { SecretStore } from '../../ports/index.js';
@@ -34,6 +35,7 @@ export interface CuentaLocal {
 /** Cartola subida desde la página: nombre del archivo, su contenido en base64 y el alias de la cuenta. */
 export interface EntradaCartola { readonly nombre: string; readonly contenido: string; readonly cuenta?: string }
 export interface ResultadoCartola { readonly importacion: ResultadoImportacion; readonly texto: string }
+export interface EstadoRevisionDiaria { readonly activa: boolean; readonly hora: string | null }
 export interface ResultadoSincronizacion { readonly estado: 'completo' | 'parcial'; readonly sincronizacion: string; readonly panorama: PanoramaSii }
 export interface OperacionesEspacio {
   /** Con `recordar`, la clave queda en el llavero del sistema y la sesión se renueva sola (como `login --guardar-clave`). */
@@ -49,7 +51,17 @@ export interface OperacionesEspacio {
   desconectar(contexto: string): Promise<void>;
   /** Importa a la base local una cartola subida en la página, a una cuenta del contribuyente del contexto. */
   importarCartola(contexto: string, entrada: EntradaCartola): Promise<ResultadoCartola>;
+  /** Los últimos 20 avisos de todas las cuentas (los más nuevos primero) y cuántos quedan sin ver. */
+  avisos(): Promise<{ readonly avisos: readonly Aviso[]; readonly sinVer: number }>;
+  marcarAvisosVistos(): Promise<{ readonly marcados: number }>;
+  estadoAvisos(): Promise<EstadoRevisionDiaria>;
+  /** Programa la revisión diaria con notificación a la hora `HH:MM`. */
+  activarAvisos(hora: string): Promise<EstadoRevisionDiaria>;
+  desactivarAvisos(): Promise<EstadoRevisionDiaria>;
 }
+
+/** Avisos que muestra la página. */
+const AVISOS_PAGINA = 20;
 
 /**
  * Cada servidor conserva sólo las asociaciones de sus propias pestañas. El llavero solo se usa cuando la persona marca
@@ -143,6 +155,36 @@ export function crearEspacioLocal(fabrica: FabricaContenedorWeb = crearContenedo
     async desconectar(contexto) {
       rutDeContexto(contexto);
       contextos.delete(contexto);
+    },
+    async avisos() {
+      return conContenedor(({ deps }) => {
+        const todos = deps.store.avisos();
+        const recientes = [...todos].sort((a, b) => b.creadoEn.localeCompare(a.creadoEn) || a.id - b.id).slice(0, AVISOS_PAGINA);
+        return { avisos: recientes, sinVer: todos.filter((a) => a.vistoEn === null).length };
+      });
+    },
+    async marcarAvisosVistos() {
+      return conContenedor(({ deps }) => {
+        const sinVer = deps.store.avisos({ sinVer: true });
+        deps.store.marcarAvisos(sinVer.map((a) => a.id), 'visto', deps.reloj.ahora().toISOString());
+        return { marcados: sinVer.length };
+      });
+    },
+    async estadoAvisos() {
+      return conContenedor(({ tarea }) => tarea.estado());
+    },
+    async activarAvisos(hora) {
+      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(hora)) throw new ErrorMiSiiMcp('PARAMETROS_INVALIDOS', 'La hora va como HH:MM, por ejemplo 09:00.');
+      return conContenedor(async ({ tarea }) => {
+        await tarea.activar(hora);
+        return tarea.estado();
+      });
+    },
+    async desactivarAvisos() {
+      return conContenedor(async ({ tarea }) => {
+        await tarea.desactivar();
+        return tarea.estado();
+      });
     },
     async importarCartola(contexto, entrada) {
       const rut = rutDeContexto(contexto);

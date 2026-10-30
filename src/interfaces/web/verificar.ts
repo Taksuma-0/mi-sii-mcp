@@ -6,7 +6,7 @@ import { ErrorMiSiiMcp, esErrorMiSiiMcp, type CodigoError } from '../../domain/e
 import { parsePeriodo, periodoAnterior } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
 import { crearContenedor } from '../../main/contenedor.js';
-import type { IdentidadSii, ResultadoLogin, SecretStore } from '../../ports/index.js';
+import type { IdentidadSii, ResultadoLogin, SecretStore, TareaProgramada } from '../../ports/index.js';
 import { textoPlazos, textoResumenIva, textoSync } from '../formato.js';
 
 export interface EntradaVerificacion {
@@ -30,6 +30,8 @@ export interface ContenedorWeb {
     /** Login en el navegador de la persona (ClaveÚnica o clave): devuelve solo la identidad, nunca cookies. */
     loginNavegador(rutEsperado?: string): Promise<IdentidadSii>;
   };
+  /** La revisión diaria programada en el sistema, que la página activa o desactiva. */
+  readonly tarea: TareaProgramada;
   cerrar(): void;
 }
 

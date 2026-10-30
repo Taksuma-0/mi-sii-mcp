@@ -33,7 +33,7 @@ class ErrorHttp extends Error {
 const LIMITE_BODY = 16 * 1024;
 /** Una cartola de hasta 5 MB llega en base64 (un tercio más) dentro del JSON. */
 const LIMITE_CARTOLA = 7 * 1024 * 1024;
-const RUTAS_ESPACIO = new Set(['/conectar', '/conectar-navegador', '/cuentas', '/panorama', '/sincronizar', '/analizar', '/documentos', '/desconectar', '/banco/importar']);
+const RUTAS_ESPACIO = new Set(['/conectar', '/conectar-navegador', '/cuentas', '/panorama', '/sincronizar', '/analizar', '/documentos', '/desconectar', '/banco/importar', '/avisos', '/avisos/estado', '/avisos/activar', '/avisos/desactivar', '/avisos/vistos']);
 
 function leerJson(req: IncomingMessage, limite = LIMITE_BODY): Promise<unknown> {
   return new Promise((resolve, reject) => {
@@ -94,6 +94,18 @@ function prepararOperacion(ruta: string, valor: unknown, espacio: OperacionesEsp
     if (!esTexto(rut)) throw invalida();
     parseRut(rut);
     return () => espacio.conectarNavegador({ rut });
+  }
+  // Los avisos y la revisión diaria son de todas las cuentas del equipo: no llevan contexto.
+  if (ruta === '/avisos' || ruta === '/avisos/estado' || ruta === '/avisos/desactivar' || ruta === '/avisos/vistos') {
+    if (Object.keys(datos).length !== 0) throw invalida();
+    if (ruta === '/avisos') return () => espacio.avisos();
+    if (ruta === '/avisos/estado') return () => espacio.estadoAvisos();
+    return ruta === '/avisos/desactivar' ? () => espacio.desactivarAvisos() : () => espacio.marcarAvisosVistos();
+  }
+  if (ruta === '/avisos/activar') {
+    const { hora } = datos;
+    if (!campos(['hora']) || !esTexto(hora) || hora.length !== 5) throw invalida();
+    return () => espacio.activarAvisos(hora);
   }
   const { contexto } = datos;
   if (!esTexto(contexto)) throw invalida();

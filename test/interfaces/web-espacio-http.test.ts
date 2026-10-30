@@ -23,6 +23,11 @@ const casos = [
   { ruta: '/documentos', metodo: 'documentos', datos: { contexto, periodo: '2026-09', lado: 'COMPRA', estado: 'PENDIENTE', pagina: 2 }, args: [contexto, { periodo: '2026-09', lado: 'COMPRA', estado: 'PENDIENTE', pagina: 2 }], resultado: pagina },
   { ruta: '/desconectar', metodo: 'desconectar', datos: { contexto }, args: [contexto], resultado: { desconectado: true } },
   { ruta: '/banco/importar', metodo: 'importarCartola', datos: { contexto, ...cartola }, args: [contexto, cartola], resultado: importacion },
+  { ruta: '/avisos', metodo: 'avisos', datos: {}, args: [], resultado: { avisos: [], sinVer: 0 } },
+  { ruta: '/avisos/estado', metodo: 'estadoAvisos', datos: {}, args: [], resultado: { activa: false, hora: null } },
+  { ruta: '/avisos/activar', metodo: 'activarAvisos', datos: { hora: '08:30' }, args: ['08:30'], resultado: { activa: true, hora: '08:30' } },
+  { ruta: '/avisos/desactivar', metodo: 'desactivarAvisos', datos: {}, args: [], resultado: { activa: false, hora: null } },
+  { ruta: '/avisos/vistos', metodo: 'marcarAvisosVistos', datos: {}, args: [], resultado: { marcados: 0 } },
 ] as const;
 const cierres: (() => Promise<void>)[] = [];
 afterEach(async () => { for (const cerrar of cierres.splice(0)) await cerrar(); });
@@ -38,6 +43,11 @@ async function entorno() {
     desconectar: vi.fn<OperacionesEspacio['desconectar']>(async () => {}),
     conectarNavegador: vi.fn<OperacionesEspacio['conectarNavegador']>(async () => ({ contexto, panorama })),
     importarCartola: vi.fn<OperacionesEspacio['importarCartola']>(async () => importacion as never),
+    avisos: vi.fn<OperacionesEspacio['avisos']>(async () => ({ avisos: [], sinVer: 0 })),
+    estadoAvisos: vi.fn<OperacionesEspacio['estadoAvisos']>(async () => ({ activa: false, hora: null })),
+    activarAvisos: vi.fn<OperacionesEspacio['activarAvisos']>(async () => ({ activa: true, hora: '08:30' })),
+    desactivarAvisos: vi.fn<OperacionesEspacio['desactivarAvisos']>(async () => ({ activa: false, hora: null })),
+    marcarAvisosVistos: vi.fn<OperacionesEspacio['marcarAvisosVistos']>(async () => ({ marcados: 0 })),
   };
   const s = await crearServidorLocal({ puerto: 0, espacio });
   cierres.push(s.cerrar);
@@ -95,7 +105,8 @@ describe('rutas HTTP del espacio', () => {
     e.expectSinServicio();
   });
 
-  it.each(casos.filter(caso => caso.ruta !== '/cuentas'))('rechaza estructuras, campos desconocidos y tipos incorrectos en $ruta', async (caso) => {
+  // Las rutas sin campos (como /cuentas) aceptan justamente {}: no hay estructura que rechazar más que los campos ajenos.
+  it.each(casos.filter(caso => Object.keys(caso.datos).length > 0))('rechaza estructuras, campos desconocidos y tipos incorrectos en $ruta', async (caso) => {
     const e = await entorno();
     const invalidos: unknown[] = [null, [], 'texto', 7, {}, { ...caso.datos, adicional: true }];
     for (const campo of Object.keys(caso.datos)) {
