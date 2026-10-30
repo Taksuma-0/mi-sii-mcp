@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { ArchivoImportado, ConciliacionGuardada, CriterioConciliacion, MovimientoBancario, MovimientoLeido, ParConciliado, TipoPartida } from '../../domain/banco.js';
+import type { CuentaContable } from '../../domain/contabilidad.js';
 import { SUPERFICIE_DETALLE_BHE_EMITIDAS } from '../../domain/renta.js';
 import {
   claveDocumento,
@@ -1106,6 +1107,29 @@ export class SqliteStore implements Store {
       )
       .all({ rut, ...(rango ? { desde, hasta } : {}) }) as FilaConciliacion[];
     return filas.map((f) => ({ huella: f.huella, tipo: f.tipo, clave: f.clave, criterio: f.criterio, dias: f.dias, creadoEn: f.creado_en }));
+  }
+
+  // --- plan de cuentas ---------------------------------------------------------------------------
+  cuentasPropias(rut: string): CuentaContable[] {
+    return this.db.prepare('SELECT codigo, nombre, tipo FROM cuenta_contable WHERE rut = ? ORDER BY codigo').all(rut) as CuentaContable[];
+  }
+
+  guardarCuentaPropia(rut: string, cuenta: CuentaContable): void {
+    this.db
+      .prepare('INSERT INTO cuenta_contable (rut, codigo, nombre, tipo) VALUES (?, ?, ?, ?) ON CONFLICT (rut, codigo) DO UPDATE SET nombre = excluded.nombre, tipo = excluded.tipo')
+      .run(rut, cuenta.codigo, cuenta.nombre, cuenta.tipo);
+  }
+
+  reglasCuenta(rut: string): { readonly rutContraparte: string; readonly cuenta: string }[] {
+    return (this.db.prepare('SELECT rut_contraparte, cuenta FROM regla_cuenta WHERE rut = ? ORDER BY rut_contraparte').all(rut) as { rut_contraparte: string; cuenta: string }[]).map((f) => ({
+      rutContraparte: f.rut_contraparte,
+      cuenta: f.cuenta,
+    }));
+  }
+
+  guardarReglaCuenta(rut: string, rutContraparte: string, cuenta: string | null): void {
+    if (cuenta === null) this.db.prepare('DELETE FROM regla_cuenta WHERE rut = ? AND rut_contraparte = ?').run(rut, rutContraparte);
+    else this.db.prepare('INSERT INTO regla_cuenta (rut, rut_contraparte, cuenta) VALUES (?, ?, ?) ON CONFLICT (rut, rut_contraparte) DO UPDATE SET cuenta = excluded.cuenta').run(rut, rutContraparte, cuenta);
   }
 }
 

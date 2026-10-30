@@ -32,10 +32,10 @@ describe('servidor MCP', () => {
     expect(p.sii.llamadas).toEqual([]);
   });
 
-  it('expone exactamente las 19 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
+  it('expone exactamente las 20 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
     const cliente = await conectar(depsDePrueba().deps);
     const { tools } = await cliente.listTools();
-    expect(tools).toHaveLength(19);
+    expect(tools).toHaveLength(20);
     expect(tools.map((t) => t.name).sort()).toEqual([...HERRAMIENTAS].sort());
     expect(JSON.stringify(tools.map((t) => t.inputSchema)).toLowerCase()).not.toMatch(/clave|password|contrase/);
     expect(tools.find((t) => t.name === 'iva_resumen')?.annotations?.readOnlyHint).toBe(true);
@@ -341,6 +341,24 @@ describe('servidor MCP', () => {
     const pendientes = await cliente.callTool({ name: 'cuentas_pendientes', arguments: { rut: RUT_EMPRESA, al: '2026-10-30' } });
     expect(textoDe(pendientes)).toContain('Por cobrar: $0');
     expect(textoDe(pendientes)).toContain('Por pagar: $119.000');
+    await cliente.close();
+  });
+
+  it('contabilidad_cuentas crea cuentas, clasifica proveedores y lista el plan', async () => {
+    const { deps, store } = depsDePrueba();
+    store.guardarContribuyente(perfilEmpresa());
+    const cliente = await conectar(deps);
+
+    await cliente.callTool({ name: 'contabilidad_cuentas', arguments: { rut: RUT_EMPRESA, accion: 'crear', cuenta: '5210', nombre: 'Materiales de construcción', tipo: 'gasto' } });
+    await cliente.callTool({ name: 'contabilidad_cuentas', arguments: { rut: RUT_EMPRESA, accion: 'asignar', rut_contraparte: '33.333.333-3', cuenta: '5210' } });
+    const r = await cliente.callTool({ name: 'contabilidad_cuentas', arguments: { rut: RUT_EMPRESA, accion: 'listar' } });
+
+    expect(esError(r)).toBe(false);
+    expect(textoDe(r)).toContain('5210 Materiales de construcción (gasto, propia)');
+    expect(textoDe(r)).toContain('1101 Banco (activo)');
+    expect(textoDe(r)).toContain('33333333-3 → 5210 Materiales de construcción');
+    const mala = await cliente.callTool({ name: 'contabilidad_cuentas', arguments: { rut: RUT_EMPRESA, accion: 'asignar', rut_contraparte: '33.333.333-3' } });
+    expect(textoDe(mala)).toContain('PARAMETROS_INVALIDOS');
     await cliente.close();
   });
 

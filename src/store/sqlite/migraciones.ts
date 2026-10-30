@@ -420,6 +420,27 @@ CREATE TABLE conciliacion_bancaria (
 CREATE UNIQUE INDEX ux_conciliacion_partida ON conciliacion_bancaria (rut, tipo, clave) WHERE clave IS NOT NULL;
 `;
 
+/**
+ * Plan de cuentas propio de cada contribuyente (cuentas que suma o del plan base que renombra) y reglas que clasifican
+ * las compras de un proveedor en una cuenta.
+ */
+const V13 = `
+CREATE TABLE cuenta_contable (
+  rut TEXT NOT NULL,
+  codigo TEXT NOT NULL,
+  nombre TEXT NOT NULL,
+  tipo TEXT NOT NULL CHECK (tipo IN ('activo', 'pasivo', 'patrimonio', 'ingreso', 'gasto')),
+  PRIMARY KEY (rut, codigo)
+);
+
+CREATE TABLE regla_cuenta (
+  rut TEXT NOT NULL,
+  rut_contraparte TEXT NOT NULL,
+  cuenta TEXT NOT NULL,
+  PRIMARY KEY (rut, rut_contraparte)
+);
+`;
+
 export const MIGRACIONES: readonly Migracion[] = [
   { version: 1, sql: V1 },
   { version: 2, sql: V2 },
@@ -433,4 +454,5 @@ export const MIGRACIONES: readonly Migracion[] = [
   { version: 10, sql: V10 },
   { version: 11, sql: V11 },
   { version: 12, sql: V12 },
+  { version: 13, sql: V13 },
 ];

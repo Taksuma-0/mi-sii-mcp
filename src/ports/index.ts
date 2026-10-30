@@ -1,4 +1,5 @@
 import type { ArchivoImportado, CartolaLeida, ConciliacionGuardada, MapeoColumnas, MovimientoBancario, MovimientoLeido, ParConciliado, TipoPartida } from '../domain/banco.js';
+import type { CuentaContable } from '../domain/contabilidad.js';
 import type { Periodo } from '../domain/periodo.js';
 import type {
   BheEmitidaMes,
@@ -302,6 +303,13 @@ export interface Store {
   fijarConciliacionManual(rut: string, huella: string, partida: { readonly tipo: TipoPartida; readonly clave: string } | null, creadoEn: string): void;
   /** Pares guardados de los movimientos con fecha en el rango (todos si no hay rango), por fecha del movimiento. */
   conciliaciones(rut: string, desde?: string, hasta?: string): ConciliacionGuardada[];
+  /** Cuentas propias del contribuyente (las que sumó y las del plan base que renombró), por código. */
+  cuentasPropias(rut: string): CuentaContable[];
+  guardarCuentaPropia(rut: string, cuenta: CuentaContable): void;
+  /** Reglas que clasifican las compras de un proveedor en una cuenta, por RUT del proveedor. */
+  reglasCuenta(rut: string): { readonly rutContraparte: string; readonly cuenta: string }[];
+  /** Fija la cuenta de las compras de un proveedor, o quita la regla con null. */
+  guardarReglaCuenta(rut: string, rutContraparte: string, cuenta: string | null): void;
 }
 
 export interface FiltroMovimientos {

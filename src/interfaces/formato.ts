@@ -1,5 +1,6 @@
 import type { CuentasPendientes, LadoPendiente, ResultadoImportacion, ResumenConciliacion } from '../app/banco.js';
 import type { FilaHistorialF29, PaginaDocumentos, ResumenIva } from '../app/consultas.js';
+import type { VistaCuentas } from '../app/contabilidad.js';
 import type { CuentaSii, ResultadoCuenta } from '../app/cuenta.js';
 import type { ResultadoEstimacionF29 } from '../app/estimar-f29.js';
 import { REGLA_ESTIMACION_RENTA, type FuenteOficial } from '../app/fuentes.js';
@@ -506,5 +507,16 @@ export function textoPendientes(r: CuentasPendientes): string {
     ...lado('Por cobrar', r.porCobrar),
     ...lado('Por pagar', r.porPagar),
     'Lo que no aparece en las cartolas pudo pagarse en efectivo o por otra cuenta: confírmalo antes de cobrar o pagar.',
+  ].join('\n');
+}
+
+/** Plan de cuentas del contribuyente y sus reglas de clasificación de compras por proveedor. */
+export function textoCuentas(v: VistaCuentas): string {
+  const propias = v.cuentas.filter((c) => c.propia).length;
+  return [
+    `Plan de cuentas de ${v.rut}: ${plural(v.cuentas.length, 'cuenta', 'cuentas')} (${propias} ${propias === 1 ? 'propia' : 'propias'}).`,
+    ...v.cuentas.map((c) => `  ${c.codigo} ${c.nombre} (${c.tipo}${c.propia ? ', propia' : ''})`),
+    v.reglas.length === 0 ? 'Sin reglas por proveedor: las compras van a la cuenta que indica su tipo de compra en el RCV.' : `Reglas por proveedor (${v.reglas.length}):`,
+    ...v.reglas.map((r) => `  ${r.rutContraparte} → ${r.cuenta} ${r.nombreCuenta ?? '(cuenta que ya no está en el plan)'}`),
   ].join('\n');
 }

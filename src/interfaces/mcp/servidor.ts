@@ -2,6 +2,7 @@ import { McpServer, type ServerContext } from '@modelcontextprotocol/server';
 import * as z from 'zod';
 import { conciliacionBancaria, cuentasPendientes, fijarConciliacion, importarCartola, MAX_BYTES_CARTOLA } from '../../app/banco.js';
 import { consultaSql, esquemaDatos, LIMITES_CONSULTA } from '../../app/consulta-libre.js';
+import { asignarCuenta, crearCuenta, vistaCuentas } from '../../app/contabilidad.js';
 import { documentos, f29Historial, hallazgos, plazos, resumenIva } from '../../app/consultas.js';
 import type { DepsApp } from '../../app/deps.js';
 import { sincronizarCuenta } from '../../app/cuenta.js';
@@ -15,7 +16,7 @@ import { sincronizar, type Avance } from '../../app/sincronizar.js';
 import { ErrorMiSiiMcp, esErrorMiSiiMcp, type CodigoError } from '../../domain/errores.js';
 import { parsePeriodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
-import { lineaReintento, textoDocumentos, textoHallazgos, textoHistorialF29, textoConciliacion, textoCuenta, textoEstimacionF29, textoFuentes, textoImportacion, textoPendientes, textoPerfiles, textoPlazos, textoReintentables, textoReintentablesCuenta, textoReintentablesRenta, textoReleerF29, textoRenta, textoResumenIva, textoResumenRenta, textoSync } from '../formato.js';
+import { lineaReintento, textoDocumentos, textoHallazgos, textoHistorialF29, textoConciliacion, textoCuenta, textoCuentas, textoEstimacionF29, textoFuentes, textoImportacion, textoPendientes, textoPerfiles, textoPlazos, textoReintentables, textoReintentablesCuenta, textoReintentablesRenta, textoReleerF29, textoRenta, textoResumenIva, textoResumenRenta, textoSync } from '../formato.js';
 import { registrarRecetas } from './recetas.js';
 
 export const HERRAMIENTAS = [
@@ -38,6 +39,7 @@ export const HERRAMIENTAS = [
   'banco_importar',
   'banco_conciliar',
   'cuentas_pendientes',
+  'contabilidad_cuentas',
 ] as const;
 
 /** Lo que lee el asistente al conectarse: flujo de uso, regla de la clave y cobertura (máximo 1 500 caracteres). */
@@ -401,6 +403,37 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
       seguro(() => {
         const r = cuentasPendientes(deps, rut, al, lado);
         return respuesta(textoPendientes(r), r);
+      }, rut),
+  );
+
+  servidor.registerTool(
+    'contabilidad_cuentas',
+    {
+      title: 'Plan de cuentas',
+      description:
+        'Plan de cuentas del contribuyente para los asientos propuestos: el básico de una pyme más sus cuentas propias, y las reglas que clasifican las compras de un proveedor. accion «listar» lo muestra; «crear» suma (o renombra) una cuenta con cuenta, nombre y tipo; «asignar» lleva las compras de rut_contraparte a una cuenta de gasto o de activo; «quitar» borra esa regla. Sin regla, cada compra va a la cuenta que indica su tipo de compra en el RCV (del giro, activo fijo, supermercado…). Solo usa la base local.',
+      inputSchema: z.object({
+        rut: RUT,
+        accion: z.enum(['listar', 'crear', 'asignar', 'quitar']),
+        cuenta: z.string().optional().describe('Código de la cuenta (3 a 6 dígitos)'),
+        nombre: z.string().optional().describe('Nombre de la cuenta, para crear'),
+        tipo: z.enum(['activo', 'pasivo', 'patrimonio', 'ingreso', 'gasto']).optional(),
+        rut_contraparte: z.string().optional().describe('RUT del proveedor, para asignar o quitar'),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ rut, accion, cuenta, nombre, tipo, rut_contraparte }) =>
+      seguro(() => {
+        if (accion === 'crear') {
+          if (cuenta === undefined || nombre === undefined || tipo === undefined) throw new ErrorMiSiiMcp('PARAMETROS_INVALIDOS', 'Para crear una cuenta indica cuenta (código), nombre y tipo.');
+          crearCuenta(deps, rut, { codigo: cuenta, nombre, tipo });
+        }
+        if (accion === 'asignar' || accion === 'quitar') {
+          if (rut_contraparte === undefined || (accion === 'asignar' && cuenta === undefined)) throw new ErrorMiSiiMcp('PARAMETROS_INVALIDOS', 'Para asignar indica rut_contraparte y cuenta; para quitar, rut_contraparte.');
+          asignarCuenta(deps, rut, rut_contraparte, accion === 'asignar' ? cuenta! : null);
+        }
+        const v = vistaCuentas(deps, rut);
+        return respuesta(textoCuentas(v), v);
       }, rut),
   );
 
