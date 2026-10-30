@@ -13,6 +13,27 @@ describe('formato', () => {
     expect(texto[1]).toContain('sin clave guardada: cuando venza, hay que conectar de nuevo en «Abrir mi-sii-mcp.cmd»');
   });
 
+  it('textoPerfiles no cuenta como empresa activa el propio RUT', () => {
+    const sesion = { tieneSesion: true, guardadaEn: '2026-10-27T10:00:00.000Z', bloqueado: false, renuevaSola: true };
+    const cuenta = (empresas: { rut: string; activa: boolean }[]) => ({
+      obtenidoEn: '2026-10-27T10:00:00.000Z',
+      autorizadoDia20: true,
+      tipo: null,
+      subtipo: null,
+      segmento: 'MICRO EMPRESA',
+      glosaActividad: null,
+      atributos: [],
+      empresas: empresas.map((e) => ({ ...e, razonSocial: null, privilegios: null })),
+    });
+    const [solo, conOtra] = textoPerfiles([
+      { rut: '22222222-2', alias: 'Pyme', tipo: 'empresa', representa: [], razonSocial: null, sesion, cuenta: cuenta([{ rut: '22222222-2', activa: true }]) },
+      { rut: '11111111-1', alias: 'Yo', tipo: 'persona', representa: ['33333333-3'], razonSocial: null, sesion, cuenta: cuenta([{ rut: '11111111-1', activa: true }, { rut: '33333333-3', activa: true }]) },
+    ]).split('\n');
+    expect(solo).toContain('segmento MICRO EMPRESA');
+    expect(solo).not.toMatch(/empresa activa/);
+    expect(conOtra).toContain('1 otra empresa activa');
+  });
+
   it('textoPerfiles dice con qué sesión se entra y si la sesión es del navegador', () => {
     const sesion = { tieneSesion: true, guardadaEn: '2026-10-27T10:00:00.000Z', bloqueado: false };
     const texto = textoPerfiles([

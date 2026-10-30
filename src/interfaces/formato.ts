@@ -67,10 +67,11 @@ const TEXTO_DIA20 = (autorizado: boolean | null): string => (autorizado === null
 /** Resultado de leer la cuenta del SII (perfil tributario y empresas autorizadas), sin datos personales. */
 export function textoCuenta(r: ResultadoCuenta): string {
   const perfil = r.perfil === 'leido' ? `día 20: ${TEXTO_DIA20(r.autorizadoDia20)}` : 'perfil tributario sin leer';
+  // El SII lista también el propio RUT; las «otras» empresas activas son las que representa.
   const empresas =
     r.empresas === null || r.empresasActivas === null
       ? 'empresas autorizadas sin leer'
-      : `${plural(r.empresasActivas, 'empresa activa', 'empresas activas')}, ${plural(r.empresas - r.empresasActivas, 'desautorizada', 'desautorizadas')}`;
+      : `${plural(r.representa.length, 'otra empresa activa', 'otras empresas activas')}, ${plural(r.empresas - r.empresasActivas, 'desautorizada', 'desautorizadas')}`;
   const lineas = [`Cuenta ${r.rut}: ${perfil} · ${empresas}`];
   if (r.empresas !== null) lineas.push(`Representa a ${plural(r.representa.length, 'empresa', 'empresas')}${r.representa.length > 0 ? `: ${r.representa.join(', ')}` : ''}`);
   if (r.errores.length > 0) lineas.push(`Errores: ${r.errores.map((e) => `${e.superficie} ${e.codigo}`).join(', ')}`);
@@ -256,12 +257,13 @@ export function textoResumenRenta(r: ResumenRenta): string {
   return [`Renta (F22) ${r.rut} — ${plural(r.anios.length, 'año tributario guardado', 'años tributarios guardados')}`, ...r.anios.flatMap(lineasAnioRenta)].join('\n');
 }
 
-function lineaCuenta(c: CuentaSii): string {
-  const activas = c.empresas.filter((e) => e.activa).length;
+/** Día 20, segmento y las otras empresas activas que puede consultar: el propio RUT, que el SII también lista, no cuenta. */
+function lineaCuenta(c: CuentaSii, rut: string): string {
+  const otras = c.empresas.filter((e) => e.activa && e.rut !== rut).length;
   const partes = [
     `día 20: ${TEXTO_DIA20(c.autorizadoDia20)}`,
     ...(c.segmento ? [`segmento ${c.segmento}`] : []),
-    ...(c.empresas.length > 0 ? [plural(activas, 'empresa activa', 'empresas activas')] : []),
+    ...(otras > 0 ? [plural(otras, 'otra empresa activa', 'otras empresas activas')] : []),
   ];
   return ` · ${partes.join(' · ')}`;
 }
@@ -280,7 +282,7 @@ export function textoPerfiles(perfiles: readonly PerfilConSesion[]): string {
               : '';
       const sesion = p.sesion.bloqueado ? 'BLOQUEADA (clave rechazada)' : p.sesion.tieneSesion ? `guardada ${p.sesion.guardadaEn}${navegador}` : 'sin sesión';
       const acceso = p.accedeCon ? ` · accede con ${p.accedeCon}` : '';
-      return `${p.rut}  ${p.alias} (${p.tipo})${p.razonSocial ? ` — ${p.razonSocial}` : ''} · sesión: ${sesion}${acceso}${p.cuenta ? lineaCuenta(p.cuenta) : ''}`;
+      return `${p.rut}  ${p.alias} (${p.tipo})${p.razonSocial ? ` — ${p.razonSocial}` : ''} · sesión: ${sesion}${acceso}${p.cuenta ? lineaCuenta(p.cuenta, p.rut) : ''}`;
     })
     .join('\n');
 }

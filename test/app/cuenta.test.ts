@@ -227,8 +227,9 @@ describe('textoCuenta', () => {
     const texto = textoCuenta(ok);
     expect(texto).toContain('Cuenta 22222222-2');
     expect(texto).toContain('día 20: autorizado');
-    expect(texto).toContain('2 empresas activas');
-    expect(texto).toContain('1 desautorizada');
+    // El propio RUT viene en la lista del SII, pero no es «otra» empresa que consultar.
+    expect(texto).toContain('1 otra empresa activa, 1 desautorizada');
+    expect(texto).not.toContain('2 empresas activas');
 
     sii.fallas.set('perfil', new ErrorMiSiiMcp('PORTAL_CAMBIO', 'Mi SII cambió.'));
     const mal = await sincronizarCuenta(deps, RUT_EMPRESA);
