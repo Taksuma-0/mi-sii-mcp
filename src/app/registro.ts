@@ -20,6 +20,14 @@ export interface ResultadoPeriodo {
   boletasHonorarios?: number | null;
 }
 
+/** Avance de una sincronización larga: cuántos meses (o años tributarios) van de cuántos, y cuál terminó. */
+export interface Avance {
+  readonly hecho: number;
+  readonly total: number;
+  /** Período (`AAAA-MM`) o año tributario (`ATAAAA`) que acaba de terminar. */
+  readonly periodo: string;
+}
+
 /** Motivo de término cuando quien pidió la sincronización la cancela (p. ej. Esc en el cliente MCP). */
 export const SINCRONIZACION_CANCELADA: ErrorSuperficie = {
   superficie: 'cancelacion',

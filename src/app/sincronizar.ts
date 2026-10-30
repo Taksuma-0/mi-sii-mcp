@@ -6,10 +6,10 @@ import { lecturaConfiable, motivoNoConfiable, verificarCoherenciaF29 } from '../
 import { ESTADOS_RCV, type DocumentoRcv, type EstadoRcv, type F29Declaracion, type F29Valores, type Lado, type RcvResumen, type RespuestaCruda } from '../domain/tipos.js';
 import type { SiiReader } from '../ports/index.js';
 import type { DepsApp } from './deps.js';
-import { Cancelada, DATOS_INCOMPLETOS_RCV, registrar, revisarCancelacion, SINCRONIZACION_CANCELADA, type ErrorSuperficie, type ResultadoPeriodo } from './registro.js';
+import { Cancelada, DATOS_INCOMPLETOS_RCV, registrar, revisarCancelacion, SINCRONIZACION_CANCELADA, type Avance, type ErrorSuperficie, type ResultadoPeriodo } from './registro.js';
 import { motivoParaConservar } from './releer-f29.js';
 
-export { SINCRONIZACION_CANCELADA, type ErrorSuperficie, type ResultadoPeriodo };
+export { SINCRONIZACION_CANCELADA, type Avance, type ErrorSuperficie, type ResultadoPeriodo };
 
 /**
  * `propuesta` (propuesta de F29 del SII) y `bhe` (boletas de honorarios recibidas) son opt-in: no forman parte de la
@@ -56,7 +56,7 @@ export const AVISO_MES_CANCELADO = 'incompleto: la sincronización se canceló a
 
 /**
  * `signal` se revisa antes de abrir la sesión del SII, de cada período y de cada superficie, y corta la consulta al SII en
- * curso; al cancelarse devuelve lo traído y `abortado`.
+ * curso; al cancelarse devuelve lo traído y `abortado`. `alAvanzar` se llama al terminar cada período.
  */
 export async function sincronizar(
   deps: DepsApp,
@@ -65,6 +65,7 @@ export async function sincronizar(
   hasta: Periodo,
   superficies: readonly Superficie[] = ['rcv', 'f29'],
   signal?: AbortSignal,
+  alAvanzar?: (avance: Avance) => void,
 ): Promise<ResultadoSync> {
   const rut = parseRut(rutTexto).canonico;
   if (!deps.store.contribuyente(rut)) throw new ErrorMiSiiMcp('PERFIL_NO_EXISTE', `No existe el perfil ${rut}.`);
@@ -189,6 +190,7 @@ export async function sincronizar(
         });
       }
       enCurso = null;
+      alAvanzar?.({ hecho: resultados.length, total: periodos.length, periodo: periodo.texto });
     }
     return { rut, superficies, periodos: resultados, abortado: null };
   } catch (e) {

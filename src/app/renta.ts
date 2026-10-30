@@ -28,7 +28,7 @@ import type { BoletaHonorariosEmitida, DjTercero, F22Evento, F22Valor, InformeBh
 import type { BheEmitidaMesGuardado, DjTerceroGuardado, SiiReader } from '../ports/index.js';
 import { perfilExistente } from './consultas.js';
 import type { DepsApp } from './deps.js';
-import { Cancelada, registrar, revisarCancelacion, SINCRONIZACION_CANCELADA, type ErrorSuperficie, type ResultadoPeriodo } from './registro.js';
+import { Cancelada, registrar, revisarCancelacion, SINCRONIZACION_CANCELADA, type Avance, type ErrorSuperficie, type ResultadoPeriodo } from './registro.js';
 
 export interface ResultadoAnioRenta {
   readonly anioTributario: number;
@@ -185,8 +185,16 @@ async function tercerosDelAnio(
  * lo informado por terceros (DJ) del año tributario; un error ahí no impide lo demás. Si el SII responde sin
  * declaraciones, sin códigos o con las boletas todas en 0 y había datos guardados, se conservan (RESPUESTA_VACIA).
  * `signal` se revisa antes de abrir la sesión, de cada año y de cada lectura; al cancelarse devuelve lo traído y `abortado`.
+ * `alAvanzar` se llama al terminar cada año tributario.
  */
-export async function sincronizarRenta(deps: DepsApp, rutTexto: string, desde: string, hasta?: string, signal?: AbortSignal): Promise<ResultadoRenta> {
+export async function sincronizarRenta(
+  deps: DepsApp,
+  rutTexto: string,
+  desde: string,
+  hasta?: string,
+  signal?: AbortSignal,
+  alAvanzar?: (avance: Avance) => void,
+): Promise<ResultadoRenta> {
   const rut = parseRut(rutTexto).canonico;
   const perfil = deps.store.contribuyente(rut);
   if (!perfil) throw new ErrorMiSiiMcp('PERFIL_NO_EXISTE', `No existe el perfil ${rut}.`);
@@ -254,6 +262,7 @@ export async function sincronizarRenta(deps: DepsApp, rutTexto: string, desde: s
       const terceros = await tercerosDelAnio(deps, sii, rut, anio, buffer, res, signal);
       const boletasEmitidas = anual === null ? null : totalesBheEmitidas(anual.meses).vigentes;
       resultados.push({ anioTributario: anio, declaraciones: declaraciones?.length ?? null, folioVigente: vigente?.folio ?? null, detalle, boletasEmitidas, detalleBoletas, terceros, errores: res.errores });
+      alAvanzar?.({ hecho: resultados.length, total: anios.length, periodo });
     }
     return { rut, anios: resultados, abortado: null };
   } catch (e) {

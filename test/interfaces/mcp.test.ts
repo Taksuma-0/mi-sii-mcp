@@ -242,6 +242,27 @@ describe('servidor MCP', () => {
     await cliente.close();
   });
 
+  it('sincronizar informa el avance mes a mes a quien lo pide', async () => {
+    const { deps, store } = depsDePrueba();
+    store.guardarContribuyente(perfilEmpresa());
+    const cliente = await conectar(deps);
+    const avances: { progress: number; total?: number; message?: string }[] = [];
+    await cliente.callTool({ name: 'sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2026-07', hasta: '2026-09', superficies: ['f29'] } }, { onprogress: (p) => avances.push(p) });
+    expect(avances.map((a) => [a.progress, a.total])).toEqual([[1, 3], [2, 3], [3, 3]]);
+    expect(avances.map((a) => a.message)).toEqual(['2026-07 listo', '2026-08 listo', '2026-09 listo']);
+    await cliente.close();
+  });
+
+  it('renta_sincronizar informa el avance año a año a quien lo pide', async () => {
+    const { deps, store } = depsDePrueba();
+    store.guardarContribuyente(perfilEmpresa());
+    const cliente = await conectar(deps);
+    const avances: { progress: number; total?: number; message?: string }[] = [];
+    await cliente.callTool({ name: 'renta_sincronizar', arguments: { rut: RUT_EMPRESA, desde: '2025', hasta: '2026' } }, { onprogress: (p) => avances.push(p) });
+    expect(avances.map((a) => [a.progress, a.total, a.message])).toEqual([[1, 2, 'AT2025 listo'], [2, 2, 'AT2026 listo']]);
+    await cliente.close();
+  });
+
   describe('reintento', () => {
     it('un error de la herramienta que conviene reintentar más tarde lo dice', async () => {
       const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorMiSiiMcp('SII_NO_DISPONIBLE', 'El SII no responde.') });

@@ -1,4 +1,4 @@
-import { McpServer } from '@modelcontextprotocol/server';
+import { McpServer, type ServerContext } from '@modelcontextprotocol/server';
 import * as z from 'zod';
 import { consultaSql, esquemaDatos, LIMITES_CONSULTA } from '../../app/consulta-libre.js';
 import { documentos, f29Historial, hallazgos, plazos, resumenIva } from '../../app/consultas.js';
@@ -9,7 +9,7 @@ import { panorama } from '../../app/panorama.js';
 import { listarPerfilesConRenovacion } from '../../app/perfiles.js';
 import { releerF29 } from '../../app/releer-f29.js';
 import { resumenRenta, sincronizarRenta } from '../../app/renta.js';
-import { sincronizar } from '../../app/sincronizar.js';
+import { sincronizar, type Avance } from '../../app/sincronizar.js';
 import { esErrorMiSiiMcp, type CodigoError } from '../../domain/errores.js';
 import { parsePeriodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
@@ -87,6 +87,18 @@ const SOLO_LECTURA = { readOnlyHint: true, destructiveHint: false, idempotentHin
 const respuesta = (texto: string, datos: unknown): ResultadoHerramienta => ({
   content: [{ type: 'text', text: `${texto}\n\n${JSON.stringify(datos, null, 2)}` }],
 });
+
+/**
+ * Si el cliente pidió avance (`progressToken`), avisa cada mes o año tributario terminado, así un cliente que reinicia su
+ * plazo con cada aviso no corta una sincronización larga. Un aviso que no se puede enviar se ignora.
+ */
+function avisoDeAvance(ctx: ServerContext): ((avance: Avance) => void) | undefined {
+  const token = ctx.mcpReq._meta?.progressToken;
+  if (token === undefined) return undefined;
+  return ({ hecho, total, periodo }) => {
+    ctx.mcpReq.notify({ method: 'notifications/progress', params: { progressToken: token, progress: hecho, total, message: `${periodo} listo` } }).catch(() => {});
+  };
+}
 
 /** Qué hacer cuando hace falta entrar: la persona lo hace por su cuenta y el asistente nunca maneja la clave. */
 function guiaLogin(comandos: ComandosLogin, rutTexto: string | undefined, explicacion?: string): string {
@@ -190,7 +202,7 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
     async ({ rut, desde, hasta, superficies }, ctx) =>
       seguro(async () => {
         // Si el cliente cancela (notifications/cancelled), se termina la superficie en curso y no se traen más meses.
-        const r = await sincronizar(deps, rut, parsePeriodo(desde), parsePeriodo(hasta ?? desde), superficies ?? ['rcv', 'f29'], ctx.mcpReq.signal);
+        const r = await sincronizar(deps, rut, parsePeriodo(desde), parsePeriodo(hasta ?? desde), superficies ?? ['rcv', 'f29'], ctx.mcpReq.signal, avisoDeAvance(ctx));
         // Los errores de sesión no se lanzan: vienen en `abortado`; SIN_PERMISO no es fatal y queda en los errores de cada período.
         // El comando de login se agrega aquí, una sola vez.
         const codigos = [...(r.abortado ? [r.abortado.codigo] : []), ...r.periodos.flatMap((p) => p.errores.map((e) => e.codigo))];
@@ -230,7 +242,7 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
     },
     async ({ rut, desde, hasta }, ctx) =>
       seguro(async () => {
-        const r = await sincronizarRenta(deps, rut, desde, hasta, ctx.mcpReq.signal);
+        const r = await sincronizarRenta(deps, rut, desde, hasta, ctx.mcpReq.signal, avisoDeAvance(ctx));
         // Igual que sincronizar: los errores de sesión vienen en `abortado` o en los errores de cada año, y el comando de login se agrega una sola vez.
         const codigos = [...(r.abortado ? [r.abortado.codigo] : []), ...r.anios.flatMap((a) => a.errores.map((e) => e.codigo))];
         const guia = codigos.map((c) => guiaDelCodigo(comandoLogin, c, r.rut)).find((g) => g !== null);
