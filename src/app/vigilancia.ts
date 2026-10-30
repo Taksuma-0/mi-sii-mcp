@@ -102,3 +102,54 @@ export function novedades(deps: DepsApp, rutTexto?: string, marcarVistas = true)
   if (marcarVistas && avisos.length > 0) deps.store.marcarAvisos(avisos.map((a) => a.id), 'visto', deps.reloj.ahora().toISOString());
   return avisos;
 }
+
+/** Una fila de la cartera: cómo está cada cuenta, para quien lleva varias (un contador o una persona con su empresa). */
+export interface FilaCartera {
+  readonly rut: string;
+  readonly alias: string;
+  readonly tipo: Perfil['tipo'];
+  readonly sesion: 'activa' | 'sin_sesion';
+  /** Última vez que se trajo algo del SII para el mes más reciente con datos; null si nunca. */
+  readonly ultimaSincronizacion: string | null;
+  readonly f29PorVencer: number;
+  readonly f29Vencidos: number;
+  /** Período del F29 vencido más antiguo; null si no hay. */
+  readonly masAntiguoVencido: string | null;
+  readonly hallazgosCriticos: number;
+  readonly proximoPlazo: { readonly vence: string; readonly descripcion: string } | null;
+  readonly avisosSinVer: number;
+  /** Movimientos del banco sin conciliar ni descartar; null si no hay cartolas. */
+  readonly movimientosSinConciliar: number | null;
+}
+
+/** Días hacia adelante en que se busca el próximo plazo de cada cuenta. */
+const DIAS_PROXIMO_PLAZO = 60;
+
+/** Estado de todas las cuentas con lo guardado, sin ir al SII: lo que necesita atención en cada una. */
+export function carteraEstado(deps: DepsApp): FilaCartera[] {
+  const actual = periodoDeFecha(fechaEnSantiago(deps.reloj.ahora()));
+  return deps.store.contribuyentes().map((perfil): FilaCartera => {
+    const rut = perfil.rut;
+    const listaPlazos = plazos(deps, rut, DIAS_PROXIMO_PLAZO);
+    const f29 = listaPlazos.filter((p) => p.tipo === 'F29');
+    const vencidos = f29.filter((p) => p.diasRestantes < 0);
+    const ultimoMes = deps.store.periodosConDatos(rut).at(-1);
+    const frescura = ultimoMes ? Object.values(deps.store.frescura(rut, ultimoMes)).filter((f): f is string => f !== null) : [];
+    const conCartola = deps.store.cuentasBanco(rut).length > 0;
+    const proximo = listaPlazos.find((p) => p.diasRestantes >= 0);
+    return {
+      rut,
+      alias: perfil.alias,
+      tipo: perfil.tipo,
+      sesion: deps.sesiones.estado(rut).tieneSesion ? 'activa' : 'sin_sesion',
+      ultimaSincronizacion: frescura.length > 0 ? frescura.sort().at(-1)! : null,
+      f29PorVencer: f29.length - vencidos.length,
+      f29Vencidos: vencidos.length,
+      masAntiguoVencido: vencidos.map((p) => p.referencia ?? p.vence).sort()[0] ?? null,
+      hallazgosCriticos: hallazgos(deps, rut, { desde: restarPeriodos(actual, MESES_HALLAZGOS).texto, severidad: 'critico' }).length,
+      proximoPlazo: proximo ? { vence: proximo.vence, descripcion: proximo.descripcion } : null,
+      avisosSinVer: deps.store.avisos({ rut, sinVer: true }).length,
+      movimientosSinConciliar: conCartola ? deps.store.movimientosBanco(rut).length - deps.store.conciliaciones(rut).length : null,
+    };
+  });
+}

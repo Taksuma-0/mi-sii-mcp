@@ -14,10 +14,11 @@ import { listarPerfilesConRenovacion } from '../../app/perfiles.js';
 import { releerF29 } from '../../app/releer-f29.js';
 import { resumenRenta, sincronizarRenta } from '../../app/renta.js';
 import { sincronizar, type Avance } from '../../app/sincronizar.js';
+import { carteraEstado, novedades } from '../../app/vigilancia.js';
 import { ErrorMiSiiMcp, esErrorMiSiiMcp, type CodigoError } from '../../domain/errores.js';
 import { parsePeriodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
-import { lineaReintento, textoAsientos, textoDocumentos, textoHallazgos, textoHistorialF29, textoConciliacion, textoCuenta, textoCuentas, textoEstimacionF29, textoFuentes, textoImportacion, textoLibro, textoPendientes, textoPerfiles, textoPlazos, textoReintentables, textoReintentablesCuenta, textoReintentablesRenta, textoReleerF29, textoRenta, textoResultado, textoResumenIva, textoResumenRenta, textoSync } from '../formato.js';
+import { lineaReintento, textoAsientos, textoCartera, textoDocumentos, textoHallazgos, textoHistorialF29, textoConciliacion, textoCuenta, textoCuentas, textoEstimacionF29, textoFuentes, textoImportacion, textoLibro, textoNovedades, textoPendientes, textoPerfiles, textoPlazos, textoReintentables, textoReintentablesCuenta, textoReintentablesRenta, textoReleerF29, textoRenta, textoResultado, textoResumenIva, textoResumenRenta, textoSync } from '../formato.js';
 import { registrarRecetas } from './recetas.js';
 
 export const HERRAMIENTAS = [
@@ -44,6 +45,8 @@ export const HERRAMIENTAS = [
   'contabilidad_libro',
   'contabilidad_asientos',
   'contabilidad_resultado',
+  'novedades',
+  'cartera_estado',
 ] as const;
 
 /** Lo que lee el asistente al conectarse: flujo de uso, regla de la clave y cobertura (máximo 1 500 caracteres). */
@@ -52,7 +55,7 @@ export const INSTRUCCIONES_MCP = [
   '2. Si falta o está viejo: sincronizar en tramos de hasta 12 meses (rcv y f29; propuesta y bhe opcionales), renta_sincronizar (F22) y perfil_sincronizar (perfil y empresas autorizadas).',
   '3. IVA: iva_resumen, iva_hallazgos, f29_historial y plazos_proximos; f29_estimar calcula un F29 antes de declararlo; f29_releer relee los PDF. Renta: renta_resumen; para estimarla, fuentes_oficiales.',
   '4. Banco y contabilidad: banco_importar (cartola CSV), banco_conciliar, cuentas_pendientes; contabilidad_cuentas, contabilidad_libro, contabilidad_asientos y contabilidad_resultado (exportables a CSV).',
-  '5. Cruces libres: datos_esquema una vez y luego consulta_sql (solo lectura).',
+  '5. Seguimiento: novedades (avisos de la revisión diaria) y cartera_estado (todas las cuentas). Cruces libres: datos_esquema una vez y luego consulta_sql (solo lectura).',
   '6. Nunca pidas la clave ni intentes un login. Ante SESION_REQUERIDA (o CLAVE_RECHAZADA, RUT_BLOQUEADO_LOCAL) pide abrir «Abrir mi-sii-mcp.cmd» y conectar la cuenta ahí, o dale el comando del mensaje (login-navegador para ClaveÚnica). Luego reintenta.',
   '7. Reintenta solo con «Reintentar: ahora mismo» o «más tarde» (o «Reintentables más tarde»).',
   '8. Cobertura: RCV, F29, propuesta de F29, boletas de honorarios recibidas y emitidas, renta F22, perfil tributario y empresas autorizadas; el banco y la contabilidad son locales. Solo lee el SII. No es oficial del SII ni asesoría tributaria.',
@@ -496,6 +499,38 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
         const r = resultadoPeriodo(deps, rut, desde, hasta ?? desde, base ?? 'devengado');
         return respuesta(textoResultado(r), r);
       }, rut),
+  );
+
+  servidor.registerTool(
+    'novedades',
+    {
+      title: 'Novedades',
+      description:
+        'Avisos que la persona aún no ve, de una cuenta o de todas: F29 vencidos o por vencer, hallazgos críticos de la conciliación, facturas por reclamar, eventos de la renta y cuentas sin sesión. Los registra la revisión diaria (vigilar), que se activa en la página «Abrir mi-sii-mcp.cmd». Por defecto quedan marcados como vistos. Solo usa la base local.',
+      inputSchema: z.object({ rut: RUT.optional(), marcar_vistas: z.boolean().optional() }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    },
+    async ({ rut, marcar_vistas }) =>
+      seguro(() => {
+        const avisos = novedades(deps, rut, marcar_vistas ?? true);
+        return respuesta(textoNovedades(avisos), avisos);
+      }, rut),
+  );
+
+  servidor.registerTool(
+    'cartera_estado',
+    {
+      title: 'Estado de todas las cuentas',
+      description:
+        'Una línea por cada cuenta configurada (empresas y personas, útil para un contador): sesión, F29 vencidos y por vencer, hallazgos críticos, próximo plazo, avisos sin ver, movimientos del banco sin conciliar y fecha de los datos. No va al SII: sincroniza las cuentas que lo necesiten.',
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async () =>
+      seguro(() => {
+        const filas = carteraEstado(deps);
+        return respuesta(textoCartera(filas), filas);
+      }),
   );
 
   servidor.registerTool(

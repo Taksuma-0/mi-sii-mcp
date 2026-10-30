@@ -7,6 +7,7 @@ import type { ResultadoEstimacionF29 } from '../app/estimar-f29.js';
 import { REGLA_ESTIMACION_RENTA, type FuenteOficial } from '../app/fuentes.js';
 import type { PerfilConSesion } from '../app/perfiles.js';
 import type { ResultadoReleerF29, ResultadoRelectura } from '../app/releer-f29.js';
+import type { FilaCartera } from '../app/vigilancia.js';
 import type { AnioRenta, HonorariosEmitidos, InformadoTerceros, InformanteTercero, ResultadoAnioRenta, ResultadoRenta, ResumenRenta } from '../app/renta.js';
 import { SINCRONIZACION_CANCELADA, type ResultadoPeriodo, type ResultadoSync } from '../app/sincronizar.js';
 import type { Aviso } from '../domain/avisos.js';
@@ -583,4 +584,29 @@ export function textoResultado(r: ResultadoDelPeriodo): string {
 export function textoAvisos(avisos: readonly Aviso[]): string[] {
   const orden: Readonly<Record<Severidad, number>> = { critico: 0, advertencia: 1, info: 2 };
   return [...avisos].sort((a, b) => orden[a.severidad] - orden[b.severidad] || a.creadoEn.localeCompare(b.creadoEn)).map((a) => `[${ETIQUETA[a.severidad]}] ${a.titulo} — ${a.detalle} (${a.rut})`);
+}
+
+/** Avisos sin ver de la revisión diaria; si no hay, cómo activarla. */
+export function textoNovedades(avisos: readonly Aviso[]): string {
+  if (avisos.length === 0) {
+    return 'Sin novedades: no hay avisos sin ver. La revisión diaria (vigilar) los registra; actívala en la página «Abrir mi-sii-mcp.cmd».';
+  }
+  return [`Novedades: ${plural(avisos.length, 'aviso sin ver', 'avisos sin ver')}.`, ...textoAvisos(avisos)].join('\n');
+}
+
+/** Una línea por cuenta con lo que necesita atención. */
+export function textoCartera(filas: readonly FilaCartera[]): string {
+  const linea = (f: FilaCartera): string => {
+    const partes = [
+      f.sesion === 'activa' ? 'sesión activa' : 'sin sesión',
+      `F29: ${plural(f.f29Vencidos, 'vencido', 'vencidos')}${f.masAntiguoVencido ? ` (desde ${f.masAntiguoVencido})` : ''}, ${f.f29PorVencer} por vencer`,
+      plural(f.hallazgosCriticos, 'hallazgo crítico', 'hallazgos críticos'),
+      ...(f.proximoPlazo ? [`próximo: ${f.proximoPlazo.vence} ${f.proximoPlazo.descripcion}`] : []),
+      plural(f.avisosSinVer, 'aviso sin ver', 'avisos sin ver'),
+      ...(f.movimientosSinConciliar === null ? [] : [`banco: ${plural(f.movimientosSinConciliar, 'movimiento sin conciliar', 'movimientos sin conciliar')}`]),
+      `datos al ${f.ultimaSincronizacion?.slice(0, 10) ?? 'sin sincronizar'}`,
+    ];
+    return `${f.alias} (${f.rut}): ${partes.join(' · ')}`;
+  };
+  return [`Cartera de ${plural(filas.length, 'cuenta', 'cuentas')}:`, ...filas.map(linea)].join('\n');
 }

@@ -65,11 +65,30 @@ export function registrarRecetas(servidor: McpServer): void {
     ({ rut }) =>
       mensaje(
         [
-          `Revisa con mi-sii-mcp qué tengo pendiente ${rut ? `con ${rut}` : 'en todas mis cuentas (parte por perfiles_listar)'}:`,
-          '1. plazos_proximos con 60 días.',
-          '2. iva_hallazgos con severidad critico y luego advertencia.',
-          '3. Para cada F29 vencido o por vencer, f29_estimar para saber cuánto pagar.',
+          `Revisa con mi-sii-mcp qué tengo pendiente ${rut ? `con ${rut}` : 'en todas mis cuentas (parte por cartera_estado)'}:`,
+          '1. novedades: los avisos de la revisión diaria que aún no viste.',
+          '2. plazos_proximos con 60 días.',
+          '3. iva_hallazgos con severidad critico y luego advertencia.',
+          '4. Para cada F29 vencido o por vencer, f29_estimar para saber cuánto pagar.',
           'Ordena por urgencia (lo vencido primero) y di en una línea qué hacer con cada cosa y dónde (el portal del SII).',
+        ].join('\n'),
+      ),
+  );
+
+  servidor.registerPrompt(
+    'cartera_semanal',
+    {
+      title: 'Revisión semanal de la cartera',
+      description: 'Para quien lleva varias cuentas (p. ej. un contador): qué cuenta necesita atención esta semana y cuánto hay que pagar.',
+    },
+    () =>
+      mensaje(
+        [
+          'Revisa con mi-sii-mcp todas las cuentas configuradas:',
+          '1. cartera_estado para ver cada cuenta en una línea.',
+          '2. A las que tengan F29 vencidos o por vencer, f29_estimar del mes; a las que tengan hallazgos críticos, iva_hallazgos.',
+          '3. A las sin sesión, recuerda conectar la cuenta en «Abrir mi-sii-mcp.cmd»; a las con datos viejos, sincronizar el mes.',
+          'Responde con una tabla por cuenta ordenada por urgencia: qué vence, cuánto pagar y el siguiente paso.',
         ].join('\n'),
       ),
   );

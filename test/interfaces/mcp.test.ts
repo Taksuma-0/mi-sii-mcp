@@ -32,10 +32,10 @@ describe('servidor MCP', () => {
     expect(p.sii.llamadas).toEqual([]);
   });
 
-  it('expone exactamente las 23 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
+  it('expone exactamente las 25 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
     const cliente = await conectar(depsDePrueba().deps);
     const { tools } = await cliente.listTools();
-    expect(tools).toHaveLength(23);
+    expect(tools).toHaveLength(25);
     expect(tools.map((t) => t.name).sort()).toEqual([...HERRAMIENTAS].sort());
     expect(JSON.stringify(tools.map((t) => t.inputSchema)).toLowerCase()).not.toMatch(/clave|password|contrase/);
     expect(tools.find((t) => t.name === 'iva_resumen')?.annotations?.readOnlyHint).toBe(true);
@@ -412,10 +412,28 @@ describe('servidor MCP', () => {
     await cliente.close();
   });
 
+  it('novedades muestra los avisos sin ver una sola vez y cartera_estado resume cada cuenta', async () => {
+    const { deps, store } = depsDePrueba({ ahora: '2026-10-30T15:00:00.000Z' });
+    store.guardarContribuyente(perfilEmpresa());
+    store.registrarAvisos([{ rut: RUT_EMPRESA, clave: 'P:F29:2026-09:vencido', tipo: 'plazo', severidad: 'critico', titulo: 'F29 de 2026-09 no presentado', detalle: 'Venció el 2026-10-28.' }], '2026-10-30T10:00:00.000Z');
+    const cliente = await conectar(deps);
+
+    const primera = await cliente.callTool({ name: 'novedades', arguments: {} });
+    const segunda = await cliente.callTool({ name: 'novedades', arguments: {} });
+    const cartera = await cliente.callTool({ name: 'cartera_estado', arguments: {} });
+
+    expect(textoDe(primera)).toContain('Novedades: 1 aviso sin ver.');
+    expect(textoDe(primera)).toContain('[CRÍTICO] F29 de 2026-09 no presentado — Venció el 2026-10-28. (22222222-2)');
+    expect(textoDe(segunda)).toContain('Sin novedades');
+    expect(textoDe(cartera)).toContain('Cartera de 1 cuenta');
+    expect(textoDe(cartera)).toMatch(/Mi Pyme \(22222222-2\): sesión activa · F29: \d+ vencido/);
+    await cliente.close();
+  });
+
   it('ofrece recetas listas que nombran las herramientas y nunca piden la clave', async () => {
     const cliente = await conectar(depsDePrueba().deps);
     const { prompts } = await cliente.listPrompts();
-    expect(prompts.map((p) => p.name).sort()).toEqual(['cierre_contable', 'que_tengo_pendiente', 'revision_mensual']);
+    expect(prompts.map((p) => p.name).sort()).toEqual(['cartera_semanal', 'cierre_contable', 'que_tengo_pendiente', 'revision_mensual']);
     const cierre = await cliente.getPrompt({ name: 'cierre_contable', arguments: { rut: '22.222.222-2', periodo: '2026-09' } });
     const textoCierre = cierre.messages.map((m) => (m.content.type === 'text' ? m.content.text : '')).join('\n');
     for (const herramienta of ['banco_conciliar', 'contabilidad_libro', 'contabilidad_asientos', 'contabilidad_resultado', 'cuentas_pendientes']) expect(textoCierre).toContain(herramienta);
@@ -425,7 +443,8 @@ describe('servidor MCP', () => {
     expect(texto).toContain('2026-09');
     const pendiente = await cliente.getPrompt({ name: 'que_tengo_pendiente', arguments: {} });
     const textoPendiente = pendiente.messages.map((m) => (m.content.type === 'text' ? m.content.text : '')).join('\n');
-    expect(textoPendiente).toContain('perfiles_listar');
+    expect(textoPendiente).toContain('novedades');
+    expect(textoPendiente).toContain('cartera_estado');
     expect(textoPendiente).toContain('f29_estimar');
     for (const t of [texto, textoPendiente]) {
       expect(t).toMatch(/nunca pidas la clave/i);
@@ -595,7 +614,7 @@ describe('servidor MCP', () => {
     expect(instrucciones).toBe(INSTRUCCIONES_MCP);
     expect(instrucciones.length).toBeGreaterThan(0);
     expect(instrucciones.length).toBeLessThanOrEqual(1_500);
-    for (const clave of ['perfiles_listar', 'sii_panorama', 'sincronizar', '12 meses', 'iva_resumen', 'iva_hallazgos', 'f29_historial', 'plazos_proximos', 'datos_esquema', 'consulta_sql', 'f29_releer', 'perfil_sincronizar', 'renta_sincronizar', 'renta_resumen', 'f29_estimar', 'banco_importar', 'banco_conciliar', 'contabilidad_asientos', 'propuesta', 'bhe', 'Reintentar: ahora mismo', 'Reintentables más tarde', 'SESION_REQUERIDA', 'login-navegador', 'Abrir mi-sii-mcp.cmd', 'RCV', 'F29', 'F22']) {
+    for (const clave of ['perfiles_listar', 'sii_panorama', 'sincronizar', '12 meses', 'iva_resumen', 'iva_hallazgos', 'f29_historial', 'plazos_proximos', 'datos_esquema', 'consulta_sql', 'f29_releer', 'perfil_sincronizar', 'renta_sincronizar', 'renta_resumen', 'f29_estimar', 'banco_importar', 'banco_conciliar', 'contabilidad_asientos', 'novedades', 'cartera_estado', 'propuesta', 'bhe', 'Reintentar: ahora mismo', 'Reintentables más tarde', 'SESION_REQUERIDA', 'login-navegador', 'Abrir mi-sii-mcp.cmd', 'RCV', 'F29', 'F22']) {
       expect(instrucciones).toContain(clave);
     }
     expect(instrucciones).toMatch(/boletas de honorarios recibidas y emitidas/);

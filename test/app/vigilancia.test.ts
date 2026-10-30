@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { plazos } from '../../src/app/consultas.js';
 import type { DepsApp } from '../../src/app/deps.js';
-import { novedades, vigilar } from '../../src/app/vigilancia.js';
+import { carteraEstado, novedades, vigilar } from '../../src/app/vigilancia.js';
 import { vencimientoF22 } from '../../src/calendar/plazos.js';
 import { depsDePrueba } from '../helpers/deps.js';
 import { declaracionF22, perfilEmpresa, perfilPersona, RUT_EMPRESA, RUT_PERSONA } from '../helpers/fabricas.js';
@@ -83,5 +83,20 @@ describe('vigilar', () => {
     expect(vistos.length).toBeGreaterThan(0);
     expect(vistos.every((a) => a.rut === RUT_EMPRESA)).toBe(true);
     expect(novedades(deps, RUT_EMPRESA)).toEqual([]);
+  });
+});
+
+describe('carteraEstado', () => {
+  it('resume cada cuenta: sesión, F29 vencidos, hallazgos críticos, próximo plazo, avisos y banco', async () => {
+    const p = depsDePrueba({ ahora: '2026-10-30T15:00:00.000Z' });
+    p.store.guardarContribuyente(perfilEmpresa());
+    await vigilar(p.deps);
+    p.store.guardarImportacionBanco(RUT_EMPRESA, 'principal', { archivo: 'x.csv', sha256: 'x', filas: 1 }, [{ huella: 'h', fecha: '2026-10-05', descripcion: 'X', documento: null, monto: -1, saldo: null }], '2026-10-30T15:00:00.000Z');
+
+    const [fila] = carteraEstado(p.deps);
+
+    expect(fila).toMatchObject({ rut: RUT_EMPRESA, alias: 'Mi Pyme', sesion: 'activa', f29Vencidos: 1, masAntiguoVencido: '2026-09', movimientosSinConciliar: 1 });
+    expect(fila!.hallazgosCriticos).toBeGreaterThan(0);
+    expect(fila!.avisosSinVer).toBeGreaterThan(0);
   });
 });
