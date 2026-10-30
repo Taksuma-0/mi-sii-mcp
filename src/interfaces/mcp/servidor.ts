@@ -1,6 +1,6 @@
 import { McpServer, type ServerContext } from '@modelcontextprotocol/server';
 import * as z from 'zod';
-import { importarCartola, MAX_BYTES_CARTOLA } from '../../app/banco.js';
+import { conciliacionBancaria, cuentasPendientes, fijarConciliacion, importarCartola, MAX_BYTES_CARTOLA } from '../../app/banco.js';
 import { consultaSql, esquemaDatos, LIMITES_CONSULTA } from '../../app/consulta-libre.js';
 import { documentos, f29Historial, hallazgos, plazos, resumenIva } from '../../app/consultas.js';
 import type { DepsApp } from '../../app/deps.js';
@@ -12,10 +12,10 @@ import { listarPerfilesConRenovacion } from '../../app/perfiles.js';
 import { releerF29 } from '../../app/releer-f29.js';
 import { resumenRenta, sincronizarRenta } from '../../app/renta.js';
 import { sincronizar, type Avance } from '../../app/sincronizar.js';
-import { esErrorMiSiiMcp, type CodigoError } from '../../domain/errores.js';
+import { ErrorMiSiiMcp, esErrorMiSiiMcp, type CodigoError } from '../../domain/errores.js';
 import { parsePeriodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
-import { lineaReintento, textoDocumentos, textoHallazgos, textoHistorialF29, textoCuenta, textoEstimacionF29, textoFuentes, textoImportacion, textoPerfiles, textoPlazos, textoReintentables, textoReintentablesCuenta, textoReintentablesRenta, textoReleerF29, textoRenta, textoResumenIva, textoResumenRenta, textoSync } from '../formato.js';
+import { lineaReintento, textoDocumentos, textoHallazgos, textoHistorialF29, textoConciliacion, textoCuenta, textoEstimacionF29, textoFuentes, textoImportacion, textoPendientes, textoPerfiles, textoPlazos, textoReintentables, textoReintentablesCuenta, textoReintentablesRenta, textoReleerF29, textoRenta, textoResumenIva, textoResumenRenta, textoSync } from '../formato.js';
 import { registrarRecetas } from './recetas.js';
 
 export const HERRAMIENTAS = [
@@ -36,6 +36,8 @@ export const HERRAMIENTAS = [
   'fuentes_oficiales',
   'f29_estimar',
   'banco_importar',
+  'banco_conciliar',
+  'cuentas_pendientes',
 ] as const;
 
 /** Lo que lee el asistente al conectarse: flujo de uso, regla de la clave y cobertura (máximo 1 500 caracteres). */
@@ -352,6 +354,53 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
       seguro(async () => {
         const r = await importarCartola(deps, rut, archivo, { ...(cuenta === undefined ? {} : { cuenta }), ...(columnas === undefined ? {} : { columnas }) });
         return respuesta(textoImportacion(r), r);
+      }, rut),
+  );
+
+  servidor.registerTool(
+    'banco_conciliar',
+    {
+      title: 'Conciliar el banco',
+      description:
+        'Concilia los movimientos de las cartolas importadas en un rango de meses con lo que mi-sii-mcp conoce: ventas y compras del RCV, boletas de honorarios recibidas y emitidas, F29 pagados y devoluciones del F22. Empareja por monto exacto, primero si la glosa trae el RUT de la contraparte y luego por la fecha más cercana. Muestra lo conciliado, los movimientos sin partida (comisiones, sueldos, retiros) y lo facturado que no aparece en el banco. Para corregir: accion «asignar» con huella (o su comienzo) y partida, o «descartar» con huella. Solo usa la base local.',
+      inputSchema: z.object({
+        rut: RUT,
+        desde: PERIODO,
+        hasta: PERIODO.optional(),
+        accion: z.enum(['asignar', 'descartar']).optional(),
+        huella: z.string().min(1).optional().describe('Huella del movimiento (o su comienzo, desde 8 caracteres)'),
+        partida: z.string().min(1).optional().describe('Identificador de la partida (factura, boleta, F29 o F22), tal como lo muestra banco_conciliar entre corchetes'),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ rut, desde, hasta, accion, huella, partida }) =>
+      seguro(() => {
+        if (accion !== undefined) {
+          if (huella === undefined || (accion === 'asignar' && partida === undefined)) throw new ErrorMiSiiMcp('PARAMETROS_INVALIDOS', 'Para asignar indica huella y partida; para descartar, la huella.');
+          fijarConciliacion(deps, rut, accion, huella, partida);
+        }
+        const r = conciliacionBancaria(deps, rut, desde, hasta ?? desde);
+        return respuesta(textoConciliacion(r), r);
+      }, rut),
+  );
+
+  servidor.registerTool(
+    'cuentas_pendientes',
+    {
+      title: 'Cuentas por cobrar y por pagar',
+      description:
+        'Cuentas por cobrar y por pagar a una fecha: las facturas, notas y boletas de honorarios que no aparecen en las cartolas importadas, con su antigüedad (0-30, 31-60, 61-90 y más de 90 días). Necesita cartolas (banco_importar) y concilia antes de calcular. Lo que no está en el banco pudo pagarse por otra vía: es para revisar, no una deuda confirmada.',
+      inputSchema: z.object({
+        rut: RUT,
+        al: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Usa el formato AAAA-MM-DD').optional().describe('Fecha de corte AAAA-MM-DD; por defecto, hoy'),
+        lado: z.enum(['cobrar', 'pagar']).optional(),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ rut, al, lado }) =>
+      seguro(() => {
+        const r = cuentasPendientes(deps, rut, al, lado);
+        return respuesta(textoPendientes(r), r);
       }, rut),
   );
 

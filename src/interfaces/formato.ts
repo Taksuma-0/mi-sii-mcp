@@ -1,4 +1,4 @@
-import type { ResultadoImportacion } from '../app/banco.js';
+import type { CuentasPendientes, LadoPendiente, ResultadoImportacion, ResumenConciliacion } from '../app/banco.js';
 import type { FilaHistorialF29, PaginaDocumentos, ResumenIva } from '../app/consultas.js';
 import type { CuentaSii, ResultadoCuenta } from '../app/cuenta.js';
 import type { ResultadoEstimacionF29 } from '../app/estimar-f29.js';
@@ -469,5 +469,42 @@ export function textoImportacion(r: ResultadoImportacion): string {
     saldo,
     ...r.avisos,
     `Columnas usadas: ${columnas.join(', ')}.`,
+  ].join('\n');
+}
+
+/** Cuántas filas de cada lista se muestran en texto; el JSON de la respuesta trae todas. */
+const MAX_FILAS_TEXTO = 30;
+/** Las huellas son largas: en el texto basta su comienzo, que `banco_conciliar` acepta. */
+const huellaCorta = (huella: string): string => huella.slice(0, 10);
+
+function listaRecortada<T>(titulo: string, filas: readonly T[], linea: (fila: T) => string): string[] {
+  if (filas.length === 0) return [];
+  const resto = filas.length > MAX_FILAS_TEXTO ? [`  … y ${filas.length - MAX_FILAS_TEXTO} más (ver el JSON)`] : [];
+  return [`${titulo} (${filas.length}):`, ...filas.slice(0, MAX_FILAS_TEXTO).map((f) => `  ${linea(f)}`), ...resto];
+}
+
+/** Conciliación bancaria de un rango: cuánto calzó, lo que falta en cada lado y cómo corregir a mano. */
+export function textoConciliacion(r: ResumenConciliacion): string {
+  const descartados = `${r.descartados} ${r.descartados === 1 ? 'descartado' : 'descartados'}`;
+  return [
+    `Conciliación bancaria de ${r.rut} del ${r.desde} al ${r.hasta}: ${r.conciliados} de ${plural(r.movimientos, 'movimiento conciliado', 'movimientos conciliados')} (${r.manuales} a mano, ${descartados}).`,
+    ...listaRecortada('Conciliados', r.pares, (p) => `${p.fecha} ${p.descripcion} ${formatearClp(p.monto)} → ${p.nombre ?? p.clave} (${p.criterio === 'manual' ? 'a mano' : p.criterio === 'monto_rut' ? 'RUT en la glosa' : `${p.dias} día(s) de diferencia`})`),
+    ...listaRecortada('Sin conciliar', r.sinConciliar, (m) => `${m.fecha} ${m.descripcion} ${formatearClp(m.monto)} [${huellaCorta(m.huella)}]`),
+    ...listaRecortada('Sin movimiento en el banco', r.partidasSinMovimiento, (p) => `${p.fecha} ${p.nombre ?? p.rutContraparte ?? p.tipo} ${formatearClp(p.monto)} [${p.clave}]`),
+    'Para corregir a mano: banco_conciliar con accion «asignar» (huella y partida) o «descartar» (huella).',
+  ].join('\n');
+}
+
+/** Cuentas por cobrar y por pagar según las cartolas, con su antigüedad. */
+export function textoPendientes(r: CuentasPendientes): string {
+  const lado = (titulo: string, l: LadoPendiente): string[] => [
+    `${titulo}: ${formatearClp(l.total)} · 0-30 días ${formatearClp(l.tramos['0-30'])} · 31-60 ${formatearClp(l.tramos['31-60'])} · 61-90 ${formatearClp(l.tramos['61-90'])} · más de 90 ${formatearClp(l.tramos['+90'])}`,
+    ...l.documentos.slice(0, MAX_FILAS_TEXTO).map((d) => `  ${d.fecha} ${d.contraparte ?? d.rutContraparte ?? ''} ${formatearClp(d.monto)} (${d.dias} días) [${d.clave}]`),
+  ];
+  return [
+    `Cuentas pendientes de ${r.rut} al ${r.al}, según las cartolas desde el ${r.cartolaDesde} (documentos desde el ${r.documentosDesde}):`,
+    ...lado('Por cobrar', r.porCobrar),
+    ...lado('Por pagar', r.porPagar),
+    'Lo que no aparece en las cartolas pudo pagarse en efectivo o por otra cuenta: confírmalo antes de cobrar o pagar.',
   ].join('\n');
 }

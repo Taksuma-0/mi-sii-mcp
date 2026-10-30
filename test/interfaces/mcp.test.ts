@@ -4,7 +4,7 @@ import { esquemaDatos } from '../../src/app/consulta-libre.js';
 import type { DepsApp } from '../../src/app/deps.js';
 import { ErrorMiSiiMcp, type CodigoError } from '../../src/domain/errores.js';
 import { crearServidorMcp, HERRAMIENTAS, INSTRUCCIONES_MCP, type OpcionesMcp } from '../../src/interfaces/mcp/servidor.js';
-import { boleta, boletaEmitida, declaracion, declaracionF22, detalleF22, empresaAutorizada, fila, informeBheEmitidas, perfilEmpresa, perfilPersona, perfilTributario, propuesta, resumen, RUT_EMPRESA, RUT_PERSONA, valores } from '../helpers/fabricas.js';
+import { boleta, boletaEmitida, declaracion, declaracionF22, detalleF22, documento, empresaAutorizada, fila, informeBheEmitidas, perfilEmpresa, perfilPersona, perfilTributario, propuesta, resumen, RUT_EMPRESA, RUT_PERSONA, valores } from '../helpers/fabricas.js';
 import { depsDePrueba } from '../helpers/deps.js';
 import { guardarPdfF29, pdfFalso } from '../helpers/lector-falso.js';
 import { sembrarMes, T_SEMBRADO } from '../helpers/sembrar.js';
@@ -32,10 +32,10 @@ describe('servidor MCP', () => {
     expect(p.sii.llamadas).toEqual([]);
   });
 
-  it('expone exactamente las 17 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
+  it('expone exactamente las 19 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
     const cliente = await conectar(depsDePrueba().deps);
     const { tools } = await cliente.listTools();
-    expect(tools).toHaveLength(17);
+    expect(tools).toHaveLength(19);
     expect(tools.map((t) => t.name).sort()).toEqual([...HERRAMIENTAS].sort());
     expect(JSON.stringify(tools.map((t) => t.inputSchema)).toLowerCase()).not.toMatch(/clave|password|contrase/);
     expect(tools.find((t) => t.name === 'iva_resumen')?.annotations?.readOnlyHint).toBe(true);
@@ -310,6 +310,37 @@ describe('servidor MCP', () => {
     expect(textoDe(r)).toContain('del 2026-10-02 al 2026-10-03');
     expect(textoDe(r)).toContain('El saldo cuadra');
     expect(textoDe(r)).toContain('fecha «Fecha», cargo «Cargos», abono «Abonos»');
+    await cliente.close();
+  });
+
+  it('banco_conciliar concilia la cartola con el RCV y cuentas_pendientes lista lo no pagado', async () => {
+    const { deps, store } = depsDePrueba({ ahora: '2026-10-30T15:00:00.000Z' });
+    store.guardarContribuyente(perfilEmpresa());
+    sembrarMes(store, '2026-10', {
+      documentos: [
+        documento({ periodo: '2026-10', lado: 'VENTA', rutContraparte: '44444444-4', folio: 1, razonSocial: 'CLIENTE DEMO SPA', fechaEmision: '2026-10-01', montoTotal: 1_190_000 }),
+        documento({ periodo: '2026-10', lado: 'COMPRA', folio: 9, fechaEmision: '2026-10-02', montoTotal: 119_000 }),
+      ],
+    });
+    store.guardarImportacionBanco(RUT_EMPRESA, 'principal', { archivo: 'octubre.csv', sha256: 'x', filas: 2 }, [
+      { huella: 'h1', fecha: '2026-10-05', descripcion: 'TRANSF DE 44.444.444-4', documento: null, monto: 1_190_000, saldo: null },
+      { huella: 'h2', fecha: '2026-10-20', descripcion: 'COMISION', documento: null, monto: -9_990, saldo: null },
+    ], T_SEMBRADO);
+    const cliente = await conectar(deps);
+
+    const conciliar = await cliente.callTool({ name: 'banco_conciliar', arguments: { rut: RUT_EMPRESA, desde: '2026-10', hasta: '2026-10' } });
+    expect(esError(conciliar)).toBe(false);
+    expect(textoDe(conciliar)).toContain('Conciliación bancaria de 22222222-2 del 2026-10-01 al 2026-10-31: 1 de 2 movimientos conciliados');
+    expect(textoDe(conciliar)).toContain('Sin conciliar (1):');
+    expect(textoDe(conciliar)).toContain('  2026-10-20 COMISION -$9.990 [h2]');
+    expect(textoDe(conciliar)).toContain('Sin movimiento en el banco (1)');
+
+    const descartar = await cliente.callTool({ name: 'banco_conciliar', arguments: { rut: RUT_EMPRESA, desde: '2026-10', hasta: '2026-10', accion: 'descartar', huella: 'h2' } });
+    expect(textoDe(descartar)).toContain('1 descartado');
+
+    const pendientes = await cliente.callTool({ name: 'cuentas_pendientes', arguments: { rut: RUT_EMPRESA, al: '2026-10-30' } });
+    expect(textoDe(pendientes)).toContain('Por cobrar: $0');
+    expect(textoDe(pendientes)).toContain('Por pagar: $119.000');
     await cliente.close();
   });
 
