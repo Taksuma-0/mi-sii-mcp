@@ -149,6 +149,32 @@ export function reglaF29Incoherente(e: EntradaConciliacion): Hallazgo[] {
 }
 
 /**
+ * F29-02: el F29 se presentó fuera de plazo y se pagó con recargos (líneas 141 a 144 del formulario: 94 = 91 + 92 + 93 −
+ * 795). Es un hecho pasado que se informa para que se vea cuánto costó el atraso; nunca es una alerta.
+ */
+export function reglaRecargos(e: EntradaConciliacion): Hallazgo[] {
+  if (!e.valores || !f29Leido(e.valores)) return [];
+  const monto = (codigo: string): number => montoF29(e.valores, codigo) ?? 0;
+  const enPlazo = monto(CODIGO_F29.TOTAL_A_PAGAR);
+  const reajuste = monto(CODIGO_F29.REAJUSTES);
+  const intereses = monto(CODIGO_F29.INTERESES_MULTAS);
+  const condonacion = monto(CODIGO_F29.CONDONACION);
+  const conRecargo = e.valores.valores[CODIGO_F29.TOTAL_CON_RECARGO] ?? enPlazo + reajuste + intereses - condonacion;
+  if (conRecargo <= enPlazo && reajuste + intereses === 0) return [];
+  return [
+    hallazgo(e, {
+      regla: 'F29-02',
+      severidad: 'info',
+      naturaleza: 'HECHO',
+      titulo: 'F29 pagado con recargos',
+      detalle: `El F29 folio ${e.valores.folio} se presentó fuera de plazo: total en plazo ${formatearClp(enPlazo)}; reajuste ${formatearClp(reajuste)}, intereses y multas ${formatearClp(intereses)} y condonación ${formatearClp(condonacion)}; total pagado con recargo ${formatearClp(conRecargo)} (${formatearClp(conRecargo - enPlazo)} más).`,
+      montos: { esperado: enPlazo, declarado: conRecargo, diferencia: enPlazo - conRecargo },
+      evidencia: [`F29:${e.valores.folio}`],
+    }),
+  ];
+}
+
+/**
  * RET-01: la retención de las boletas de honorarios recibidas no anuladas del mes debe estar en el código 151 del F29.
  * Solo si las boletas se consultaron y el F29 se leyó. Nunca es crítica: una boleta pagada en otro mes se declara en
  * ese mes, y el 151 puede incluir otras retenciones.

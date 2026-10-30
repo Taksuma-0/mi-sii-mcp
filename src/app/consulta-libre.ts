@@ -413,6 +413,10 @@ const DESCRIPCION_CODIGO_F29: Readonly<Record<keyof typeof CODIGO_F29, string>> 
   IVA_DETERMINADO: 'IVA determinado',
   TOTAL_DETERMINADO: 'total determinado',
   RETENCION_HONORARIOS: 'retención de honorarios',
+  REAJUSTES: 'reajustes por pagar fuera de plazo',
+  INTERESES_MULTAS: 'intereses y multas',
+  CONDONACION: 'monto de la condonación',
+  TOTAL_CON_RECARGO: 'total a pagar con recargo (91 + 92 + 93 − 795)',
 };
 
 function reglas(): readonly string[] {

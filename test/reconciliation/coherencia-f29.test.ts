@@ -13,7 +13,7 @@ describe('verificarCoherenciaF29', () => {
   it('declara los códigos nuevos y la versión de reglas', () => {
     expect(CODIGO_F29.IVA_DETERMINADO).toBe('89');
     expect(CODIGO_F29.TOTAL_DETERMINADO).toBe('547');
-    expect(VERSION_REGLAS).toBe('iva-2026.10.6');
+    expect(VERSION_REGLAS).toBe('iva-2026.10.7');
   });
 
   it('un F29 con pago coherente no tiene incoherencias', () => {
@@ -146,6 +146,6 @@ describe('F29-01', () => {
     expect(conciliarPeriodo(entrada()).hallazgos).toEqual([]);
     const r = conciliarPeriodo(entrada({ valores: valores(incoherente) }));
     expect(r.hallazgos.map((h) => h.regla)).toEqual(['F29-01']);
-    expect(r.versionReglas).toBe('iva-2026.10.6');
+    expect(r.versionReglas).toBe('iva-2026.10.7');
   });
 });

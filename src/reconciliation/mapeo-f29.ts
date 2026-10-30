@@ -1,6 +1,6 @@
 import type { F29Valores, Lado, RcvResumen } from '../domain/tipos.js';
 
-export const VERSION_REGLAS = 'iva-2026.10.6';
+export const VERSION_REGLAS = 'iva-2026.10.7';
 
 export const CODIGO_F29 = {
   TOTAL_DEBITOS: '538',
@@ -11,6 +11,11 @@ export const CODIGO_F29 = {
   IVA_DETERMINADO: '89',
   TOTAL_DETERMINADO: '547',
   RETENCION_HONORARIOS: '151',
+  /** Líneas 142 a 144 del F29 (formulario oficial, revisado el 30-10-2026): 94 = 91 + 92 + 93 − 795. */
+  REAJUSTES: '92',
+  INTERESES_MULTAS: '93',
+  CONDONACION: '795',
+  TOTAL_CON_RECARGO: '94',
 } as const;
 
 /** Códigos que suman en el 538 pero no vienen del RCV. Se calibra con un F29 real (Tarea 23). */

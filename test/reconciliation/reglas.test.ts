@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parsePeriodo } from '../../src/domain/periodo.js';
 import type { SnapshotRcv } from '../../src/domain/tipos.js';
 import { conciliarPeriodo } from '../../src/reconciliation/conciliar.js';
-import { reglaCambiosPostF29, reglaF29Faltante, reglaIvaEspecial, reglaReclamo } from '../../src/reconciliation/reglas.js';
+import { reglaCambiosPostF29, reglaF29Faltante, reglaIvaEspecial, reglaReclamo, reglaRecargos } from '../../src/reconciliation/reglas.js';
 import { entrada } from '../helpers/entrada.js';
 import { declaracion, documento, fila, resumen, valores } from '../helpers/fabricas.js';
 
@@ -186,6 +186,34 @@ describe('IVA-07 IVA no recuperable o de uso común', () => {
   });
 });
 
+describe('F29-02 F29 pagado con recargos', () => {
+  // Línea 141 a 144 del F29: 91 total en plazo + 92 reajustes + 93 intereses y multas − 795 condonación = 94 total con recargo.
+  const conRecargo = valores({ '538': 190_000, '537': 24_000, '504': 5_000, '89': 166_000, '91': 200_000, '93': 150_000, '795': 100_000, '94': 250_000 });
+
+  it('informa el reajuste, los intereses y multas, la condonación y lo pagado de más', () => {
+    const [h] = reglaRecargos(entrada({ valores: conRecargo }));
+    expect(h).toMatchObject({
+      regla: 'F29-02',
+      severidad: 'info',
+      naturaleza: 'HECHO',
+      titulo: 'F29 pagado con recargos',
+      montos: { esperado: 200_000, declarado: 250_000, diferencia: -50_000 },
+      evidencia: [`F29:${conRecargo.folio}`],
+    });
+    expect(h!.detalle).toContain('reajuste $0, intereses y multas $150.000 y condonación $100.000');
+    expect(h!.detalle).toContain('$50.000 más');
+  });
+
+  it('un F29 pagado en plazo o sin leer no tiene hallazgo', () => {
+    expect(reglaRecargos(entrada())).toEqual([]);
+    expect(reglaRecargos(entrada({ valores: null }))).toEqual([]);
+  });
+
+  it('va después de F29-01 en la conciliación', () => {
+    expect(conciliarPeriodo(entrada({ valores: conRecargo })).hallazgos.map((h) => h.regla)).toEqual(['F29-02']);
+  });
+});
+
 describe('conciliarPeriodo', () => {
   it('no compara el lado desconocido y mantiene las reglas de fuentes independientes', () => {
     const r = conciliarPeriodo(entrada({
@@ -205,7 +233,7 @@ describe('conciliarPeriodo', () => {
   it('un mes cuadrado no tiene hallazgos y expone las comparaciones', () => {
     const r = conciliarPeriodo(entrada());
     expect(r.hallazgos).toEqual([]);
-    expect(r.versionReglas).toBe('iva-2026.10.6');
+    expect(r.versionReglas).toBe('iva-2026.10.7');
     expect(r.comparaciones).toEqual({ debitoRcv: 190_000, debitoF29: 190_000, creditoRcv: 19_000, creditoF29: 19_000, remanenteAnterior77: 5_000, remanenteActual504: 5_000 });
   });
 
