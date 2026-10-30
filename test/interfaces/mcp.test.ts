@@ -103,6 +103,36 @@ describe('servidor MCP', () => {
     await cliente.close();
   });
 
+  it('sii_panorama de una persona sin RCV ni F29 destaca sus boletas y su renta', async () => {
+    const { deps, store } = depsDePrueba();
+    store.guardarContribuyente(perfilPersona());
+    for (const periodo of ['2026-08', '2026-09']) {
+      const id = store.iniciarSincronizacion(RUT_PERSONA, 'bhe.recibidas', periodo, T_SEMBRADO);
+      store.reemplazarBhe(id, RUT_PERSONA, periodo, [], T_SEMBRADO);
+      store.terminarSincronizacion(id, T_SEMBRADO, 'ok');
+    }
+    const idF22 = store.iniciarSincronizacion(RUT_PERSONA, 'f22', 'AT2026', T_SEMBRADO);
+    store.reemplazarF22Declaraciones(idF22, RUT_PERSONA, 2026, [declaracionF22({ rut: RUT_PERSONA })], T_SEMBRADO);
+    store.terminarSincronizacion(idF22, T_SEMBRADO, 'ok');
+    const cliente = await conectar(deps);
+
+    const r = await cliente.callTool({ name: 'sii_panorama', arguments: { rut: RUT_PERSONA } });
+
+    expect(textoDe(r).split('\n\n')[0]).toBe('Panorama local de una persona sin RCV ni F29 (no declara IVA). Boletas de honorarios recibidas: 2/2 meses consultados. Renta (F22): 1 año tributario guardado.');
+    await cliente.close();
+  });
+
+  it('sii_panorama de una persona sin nada guardado sugiere traer su renta', async () => {
+    const { deps, store } = depsDePrueba();
+    store.guardarContribuyente(perfilPersona());
+    const cliente = await conectar(deps);
+
+    const r = await cliente.callTool({ name: 'sii_panorama', arguments: { rut: RUT_PERSONA } });
+
+    expect(textoDe(r).split('\n\n')[0]).toBe('Panorama local de una persona sin RCV ni F29 (no declara IVA). Para ver su F22, sus boletas emitidas y lo informado por terceros, usa renta_sincronizar.');
+    await cliente.close();
+  });
+
   it('sii_panorama agrega un sufijo solo si hay propuestas del SII con datos', async () => {
     const { deps, store } = depsDePrueba();
     store.guardarContribuyente(perfilEmpresa());

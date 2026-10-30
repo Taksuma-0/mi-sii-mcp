@@ -186,6 +186,11 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
         // La renta es anual y opt-in: su sufijo aparece solo si hay algún F22 guardado.
         const sufijoRenta = r.renta ? ` Renta (F22): ${r.renta.length} ${r.renta.length === 1 ? 'año tributario guardado' : 'años tributarios guardados'}.` : '';
         const sufijo = `${sufijoPropuesta}${sufijoBoletas}${sufijoRenta}`;
+        // Una persona que no declara IVA no tiene RCV ni F29: su panorama son las boletas y la renta, no un «0/12».
+        if (r.perfil.tipo === 'persona' && ventas + compras + f29 === 0) {
+          const siguiente = sufijo === '' ? ' Para ver su F22, sus boletas emitidas y lo informado por terceros, usa renta_sincronizar.' : sufijo;
+          return respuesta(`Panorama local de una persona sin RCV ni F29 (no declara IVA).${siguiente}`, r);
+        }
         return respuesta(`Panorama local: ${meses} meses. Fuentes: RCV (compras y ventas) y F29. Cobertura: ventas ${ventas}/${meses}, compras ${compras}/${meses} y F29 ${f29}/${meses} meses consultados.${sufijo}`, r);
       }, rut),
   );
