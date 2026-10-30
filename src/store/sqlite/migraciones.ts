@@ -441,6 +441,26 @@ CREATE TABLE regla_cuenta (
 );
 `;
 
+/**
+ * Avisos de la revisión diaria (vigilar): uno por RUT y clave, para no repetirlos. `notificado_en` y `visto_en` quedan NULL
+ * hasta que se muestran en una notificación del sistema o los ve la persona.
+ */
+const V14 = `
+CREATE TABLE aviso (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  rut TEXT NOT NULL,
+  clave TEXT NOT NULL,
+  tipo TEXT NOT NULL CHECK (tipo IN ('hallazgo', 'plazo', 'renta', 'sesion')),
+  severidad TEXT NOT NULL,
+  titulo TEXT NOT NULL,
+  detalle TEXT NOT NULL,
+  creado_en TEXT NOT NULL,
+  notificado_en TEXT,
+  visto_en TEXT,
+  UNIQUE (rut, clave)
+);
+`;
+
 export const MIGRACIONES: readonly Migracion[] = [
   { version: 1, sql: V1 },
   { version: 2, sql: V2 },
@@ -455,4 +475,5 @@ export const MIGRACIONES: readonly Migracion[] = [
   { version: 11, sql: V11 },
   { version: 12, sql: V12 },
   { version: 13, sql: V13 },
+  { version: 14, sql: V14 },
 ];

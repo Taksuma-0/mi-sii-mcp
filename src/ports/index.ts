@@ -1,4 +1,5 @@
 import type { ArchivoImportado, CartolaLeida, ConciliacionGuardada, MapeoColumnas, MovimientoBancario, MovimientoLeido, ParConciliado, TipoPartida } from '../domain/banco.js';
+import type { Aviso, AvisoCandidato } from '../domain/avisos.js';
 import type { CuentaContable } from '../domain/contabilidad.js';
 import type { Periodo } from '../domain/periodo.js';
 import type {
@@ -310,6 +311,17 @@ export interface Store {
   reglasCuenta(rut: string): { readonly rutContraparte: string; readonly cuenta: string }[];
   /** Fija la cuenta de las compras de un proveedor, o quita la regla con null. */
   guardarReglaCuenta(rut: string, rutContraparte: string, cuenta: string | null): void;
+  /** Guarda los avisos que no estaban (por RUT y clave) y devuelve solo esos, en el orden recibido. */
+  registrarAvisos(candidatos: readonly AvisoCandidato[], ahora: string): Aviso[];
+  /** Avisos guardados, del más antiguo al más nuevo. */
+  avisos(filtro?: FiltroAvisos): Aviso[];
+  marcarAvisos(ids: readonly number[], campo: 'visto' | 'notificado', ahora: string): void;
+}
+
+export interface FiltroAvisos {
+  readonly rut?: string;
+  readonly sinVer?: boolean;
+  readonly sinNotificar?: boolean;
 }
 
 export interface FiltroMovimientos {

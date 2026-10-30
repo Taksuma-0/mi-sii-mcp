@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { ArchivoImportado, ConciliacionGuardada, CriterioConciliacion, MovimientoBancario, MovimientoLeido, ParConciliado, TipoPartida } from '../../domain/banco.js';
+import type { Aviso, AvisoCandidato } from '../../domain/avisos.js';
 import type { CuentaContable } from '../../domain/contabilidad.js';
 import { SUPERFICIE_DETALLE_BHE_EMITIDAS } from '../../domain/renta.js';
 import {
@@ -34,7 +35,7 @@ import {
   type TipoContribuyente,
   type TotalesBheMes,
 } from '../../domain/tipos.js';
-import type { BheEmitidaMesGuardado, DjTerceroGuardado, DocumentosPaginados, F22DeclaracionGuardada, FiltroDocumentos, FiltroHallazgos, FiltroMovimientos, Frescura, HallazgoGuardado, LecturaF29Guardada, PdfF29Guardado, Store } from '../../ports/index.js';
+import type { BheEmitidaMesGuardado, DjTerceroGuardado, DocumentosPaginados, F22DeclaracionGuardada, FiltroDocumentos, FiltroAvisos, FiltroHallazgos, FiltroMovimientos, Frescura, HallazgoGuardado, LecturaF29Guardada, PdfF29Guardado, Store } from '../../ports/index.js';
 import type { Db } from './db.js';
 
 export const sha256 = (texto: string): string => createHash('sha256').update(texto).digest('hex');
@@ -1131,6 +1132,46 @@ export class SqliteStore implements Store {
     if (cuenta === null) this.db.prepare('DELETE FROM regla_cuenta WHERE rut = ? AND rut_contraparte = ?').run(rut, rutContraparte);
     else this.db.prepare('INSERT INTO regla_cuenta (rut, rut_contraparte, cuenta) VALUES (?, ?, ?) ON CONFLICT (rut, rut_contraparte) DO UPDATE SET cuenta = excluded.cuenta').run(rut, rutContraparte, cuenta);
   }
+
+  // --- avisos -------------------------------------------------------------------------------------
+  registrarAvisos(candidatos: readonly AvisoCandidato[], ahora: string): Aviso[] {
+    const ins = this.db.prepare('INSERT OR IGNORE INTO aviso (rut, clave, tipo, severidad, titulo, detalle, creado_en) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    return this.db.transaction(() =>
+      candidatos.flatMap((c): Aviso[] => {
+        const r = ins.run(c.rut, c.clave, c.tipo, c.severidad, c.titulo, c.detalle, ahora);
+        return r.changes === 0 ? [] : [{ ...c, id: Number(r.lastInsertRowid), creadoEn: ahora, notificadoEn: null, vistoEn: null }];
+      }),
+    )();
+  }
+
+  avisos(filtro: FiltroAvisos = {}): Aviso[] {
+    const condiciones = ['1 = 1'];
+    if (filtro.rut !== undefined) condiciones.push('rut = @rut');
+    if (filtro.sinVer) condiciones.push('visto_en IS NULL');
+    if (filtro.sinNotificar) condiciones.push('notificado_en IS NULL');
+    const filas = this.db.prepare(`SELECT * FROM aviso WHERE ${condiciones.join(' AND ')} ORDER BY creado_en, id`).all({ rut: filtro.rut ?? null }) as FilaAviso[];
+    return filas.map((f) => ({ id: f.id, rut: f.rut, clave: f.clave, tipo: f.tipo, severidad: f.severidad, titulo: f.titulo, detalle: f.detalle, creadoEn: f.creado_en, notificadoEn: f.notificado_en, vistoEn: f.visto_en }));
+  }
+
+  marcarAvisos(ids: readonly number[], campo: 'visto' | 'notificado', ahora: string): void {
+    const upd = this.db.prepare(`UPDATE aviso SET ${campo === 'visto' ? 'visto_en' : 'notificado_en'} = ? WHERE id = ?`);
+    this.db.transaction(() => {
+      for (const id of ids) upd.run(ahora, id);
+    })();
+  }
+}
+
+interface FilaAviso {
+  id: number;
+  rut: string;
+  clave: string;
+  tipo: Aviso['tipo'];
+  severidad: Aviso['severidad'];
+  titulo: string;
+  detalle: string;
+  creado_en: string;
+  notificado_en: string | null;
+  visto_en: string | null;
 }
 
 interface FilaMovimiento {
