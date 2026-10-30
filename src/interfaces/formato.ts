@@ -1,5 +1,6 @@
 import type { FilaHistorialF29, PaginaDocumentos, ResumenIva } from '../app/consultas.js';
 import type { CuentaSii, ResultadoCuenta } from '../app/cuenta.js';
+import type { ResultadoEstimacionF29 } from '../app/estimar-f29.js';
 import { REGLA_ESTIMACION_RENTA, type FuenteOficial } from '../app/fuentes.js';
 import type { PerfilConSesion } from '../app/perfiles.js';
 import type { ResultadoReleerF29, ResultadoRelectura } from '../app/releer-f29.js';
@@ -412,5 +413,35 @@ export function textoFuentes(fuentes: readonly FuenteOficial[], conRegla: boolea
     ...fuentes.flatMap((f) => [`- ${f.parametro}: ${f.urls.join(' · ')}`, `  Qué buscar: ${f.buscar}`]),
   ];
   if (conRegla) lineas.push('Regla para estimar el F22 de una persona (sueldo y honorarios):', ...REGLA_ESTIMACION_RENTA.map((p, i) => `${i + 1}. ${p}`));
+  return lineas.join('\n');
+}
+
+/** Una tasa en porcentaje con coma decimal (`0,25 %`). */
+const tasaPorcentaje = (tasa: number): string => `${String(tasa).replace('.', ',')} %`;
+
+/** Estimación del F29 de un mes: las líneas que la componen, el total y, si ya hay uno presentado, la comparación. */
+export function textoEstimacionF29(r: ResultadoEstimacionF29): string {
+  const linea = (codigo: string) => r.lineas.find((l) => l.codigo === codigo);
+  const clp = (codigo: string): string => formatearClp(linea(codigo)?.monto ?? 0);
+  const tasa = linea('115')?.monto ?? 0;
+  const lineas = [
+    `Estimación del F29 de ${r.periodo} (${r.rut}): no presenta nada en el SII; es una estimación, confírmala con tu contador.`,
+    `Débito (538) ${clp('538')} · crédito (537) ${clp('537')}, con remanente del mes anterior ${clp('504')} (${linea('504')?.origen ?? 'sin dato'})`,
+    `IVA a pagar (89) ${clp('89')} · remanente para el mes siguiente (77) ${clp('77')}`,
+    `PPM (62) ${clp('62')}${tasa > 0 ? ` (${tasaPorcentaje(tasa)} de ${clp('563')})` : ''} · retención de honorarios (151) ${clp('151')} · impuesto único (48) ${clp('48')}`,
+    `Total a pagar (91): ${formatearClp(r.totalAPagar)}`,
+  ];
+  if (r.presentado) {
+    const total = r.presentado.totalAPagar === null ? 'sin total leído' : formatearClp(r.presentado.totalAPagar);
+    const diferencia = r.diferenciaConPresentado === null ? '' : r.diferenciaConPresentado === 0 ? ' (cuadra con la estimación)' : ` (la estimación difiere en ${formatearClp(r.diferenciaConPresentado)})`;
+    lineas.push(`F29 presentado folio ${r.presentado.folio}: ${total}${diferencia}`);
+  } else if (r.diasAtraso === null) {
+    lineas.push(`Sin F29 presentado: vence el ${r.vence.conPago} con pago (sin pago, el ${r.vence.sinPago}).`);
+  } else {
+    const vencia = r.totalAPagar > 0 ? r.vence.conPago : r.vence.sinPago;
+    lineas.push(`Sin F29 presentado y atrasado ${r.diasAtraso} día(s) (vencía el ${vencia}): al declarar, el portal del SII calcula reajustes, intereses y multas y aplica la condonación que corresponda.`);
+  }
+  if (r.supuestos.length > 0) lineas.push(`Supuestos: ${r.supuestos.join(' ')}`);
+  if (r.faltantes.length > 0) lineas.push(`Falta: ${r.faltantes.join(' ')}`);
   return lineas.join('\n');
 }

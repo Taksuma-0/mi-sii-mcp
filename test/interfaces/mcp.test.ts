@@ -32,10 +32,10 @@ describe('servidor MCP', () => {
     expect(p.sii.llamadas).toEqual([]);
   });
 
-  it('expone exactamente las 15 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
+  it('expone exactamente las 16 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
     const cliente = await conectar(depsDePrueba().deps);
     const { tools } = await cliente.listTools();
-    expect(tools).toHaveLength(15);
+    expect(tools).toHaveLength(16);
     expect(tools.map((t) => t.name).sort()).toEqual([...HERRAMIENTAS].sort());
     expect(JSON.stringify(tools.map((t) => t.inputSchema)).toLowerCase()).not.toMatch(/clave|password|contrase/);
     expect(tools.find((t) => t.name === 'iva_resumen')?.annotations?.readOnlyHint).toBe(true);
@@ -272,6 +272,48 @@ describe('servidor MCP', () => {
     await cliente.close();
   });
 
+  it('f29_estimar estima el F29 del mes con lo guardado, sin ir al SII y diciendo que no presenta nada', async () => {
+    const { deps, store, sii } = depsDePrueba({ ahora: '2026-10-21T15:00:00.000Z' });
+    store.guardarContribuyente(perfilEmpresa());
+    sembrarMes(store, '2026-08', { declaraciones: [declaracion({ periodo: '2026-08', folio: 801, totalAPagar: 0 })], valores: [valores({ '537': 100_000, '77': 100_000, '115': 0.25, '91': 0 }, { periodo: '2026-08', folio: 801 })] });
+    sembrarMes(store, '2026-09', { resumenes: [resumen({ lado: 'VENTA', filas: [fila(33, 1_000_000, 190_000)] })] });
+    const cliente = await conectar(deps);
+    const { tools } = await cliente.listTools();
+    expect(tools.find((t) => t.name === 'f29_estimar')?.annotations).toMatchObject({ readOnlyHint: true, openWorldHint: false });
+
+    const r = await cliente.callTool({ name: 'f29_estimar', arguments: { rut: RUT_EMPRESA, periodo: '2026-09' } });
+
+    expect(esError(r)).toBe(false);
+    const texto = textoDe(r);
+    expect(texto).toContain('Estimación del F29 de 2026-09');
+    expect(texto).toContain('no presenta nada');
+    expect(texto).toContain('Total a pagar (91): $92.500');
+    expect(texto).toContain('atrasado 1 día');
+    expect(sii.llamadas).toEqual([]);
+    const mal = await cliente.callTool({ name: 'f29_estimar', arguments: { rut: RUT_EMPRESA, periodo: '2026-07' } });
+    expect(textoDe(mal)).toContain('SIN_DATOS_LOCALES');
+    await cliente.close();
+  });
+
+  it('ofrece recetas listas que nombran las herramientas y nunca piden la clave', async () => {
+    const cliente = await conectar(depsDePrueba().deps);
+    const { prompts } = await cliente.listPrompts();
+    expect(prompts.map((p) => p.name).sort()).toEqual(['que_tengo_pendiente', 'revision_mensual']);
+    const revision = await cliente.getPrompt({ name: 'revision_mensual', arguments: { rut: '22.222.222-2', periodo: '2026-09' } });
+    const texto = revision.messages.map((m) => (m.content.type === 'text' ? m.content.text : '')).join('\n');
+    for (const herramienta of ['sii_panorama', 'sincronizar', 'iva_resumen', 'iva_hallazgos', 'f29_estimar', 'plazos_proximos']) expect(texto).toContain(herramienta);
+    expect(texto).toContain('2026-09');
+    const pendiente = await cliente.getPrompt({ name: 'que_tengo_pendiente', arguments: {} });
+    const textoPendiente = pendiente.messages.map((m) => (m.content.type === 'text' ? m.content.text : '')).join('\n');
+    expect(textoPendiente).toContain('perfiles_listar');
+    expect(textoPendiente).toContain('f29_estimar');
+    for (const t of [texto, textoPendiente]) {
+      expect(t).toMatch(/nunca pidas la clave/i);
+      expect(t).not.toMatch(/(escribe|ingresa|dame|indica) (tu|la) clave/i);
+    }
+    await cliente.close();
+  });
+
   it('sincronizar informa el avance mes a mes a quien lo pide', async () => {
     const { deps, store } = depsDePrueba();
     store.guardarContribuyente(perfilEmpresa());
@@ -433,7 +475,7 @@ describe('servidor MCP', () => {
     expect(instrucciones).toBe(INSTRUCCIONES_MCP);
     expect(instrucciones.length).toBeGreaterThan(0);
     expect(instrucciones.length).toBeLessThanOrEqual(1_500);
-    for (const clave of ['perfiles_listar', 'sii_panorama', 'sincronizar', '12 meses', 'iva_resumen', 'iva_hallazgos', 'f29_historial', 'plazos_proximos', 'datos_esquema', 'consulta_sql', 'f29_releer', 'perfil_sincronizar', 'renta_sincronizar', 'renta_resumen', 'propuesta', 'bhe', 'Reintentar: ahora mismo', 'Reintentables más tarde', 'SESION_REQUERIDA', 'login-navegador', 'Abrir mi-sii-mcp.cmd', 'RCV', 'F29', 'F22']) {
+    for (const clave of ['perfiles_listar', 'sii_panorama', 'sincronizar', '12 meses', 'iva_resumen', 'iva_hallazgos', 'f29_historial', 'plazos_proximos', 'datos_esquema', 'consulta_sql', 'f29_releer', 'perfil_sincronizar', 'renta_sincronizar', 'renta_resumen', 'f29_estimar', 'propuesta', 'bhe', 'Reintentar: ahora mismo', 'Reintentables más tarde', 'SESION_REQUERIDA', 'login-navegador', 'Abrir mi-sii-mcp.cmd', 'RCV', 'F29', 'F22']) {
       expect(instrucciones).toContain(clave);
     }
     expect(instrucciones).toMatch(/boletas de honorarios recibidas y emitidas/);

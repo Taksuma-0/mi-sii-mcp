@@ -4,6 +4,7 @@ import { consultaSql, esquemaDatos, LIMITES_CONSULTA } from '../../app/consulta-
 import { documentos, f29Historial, hallazgos, plazos, resumenIva } from '../../app/consultas.js';
 import type { DepsApp } from '../../app/deps.js';
 import { sincronizarCuenta } from '../../app/cuenta.js';
+import { estimacionF29 } from '../../app/estimar-f29.js';
 import { fuentesOficiales, REGLA_ESTIMACION_RENTA } from '../../app/fuentes.js';
 import { panorama } from '../../app/panorama.js';
 import { listarPerfilesConRenovacion } from '../../app/perfiles.js';
@@ -13,7 +14,8 @@ import { sincronizar, type Avance } from '../../app/sincronizar.js';
 import { esErrorMiSiiMcp, type CodigoError } from '../../domain/errores.js';
 import { parsePeriodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
-import { lineaReintento, textoDocumentos, textoHallazgos, textoHistorialF29, textoCuenta, textoFuentes, textoPerfiles, textoPlazos, textoReintentables, textoReintentablesCuenta, textoReintentablesRenta, textoReleerF29, textoRenta, textoResumenIva, textoResumenRenta, textoSync } from '../formato.js';
+import { lineaReintento, textoDocumentos, textoHallazgos, textoHistorialF29, textoCuenta, textoEstimacionF29, textoFuentes, textoPerfiles, textoPlazos, textoReintentables, textoReintentablesCuenta, textoReintentablesRenta, textoReleerF29, textoRenta, textoResumenIva, textoResumenRenta, textoSync } from '../formato.js';
+import { registrarRecetas } from './recetas.js';
 
 export const HERRAMIENTAS = [
   'perfiles_listar',
@@ -31,17 +33,18 @@ export const HERRAMIENTAS = [
   'renta_sincronizar',
   'renta_resumen',
   'fuentes_oficiales',
+  'f29_estimar',
 ] as const;
 
 /** Lo que lee el asistente al conectarse: flujo de uso, regla de la clave y cobertura (máximo 1 500 caracteres). */
 export const INSTRUCCIONES_MCP = [
   '1. Empieza con perfiles_listar y sii_panorama; a una persona sin IVA, parte por renta_sincronizar y renta_resumen.',
-  '2. Si falta o está viejo, usa sincronizar por tramos de hasta 12 meses, informando el avance. Trae rcv y f29 por defecto; propuesta y bhe (boletas de honorarios recibidas) son opcionales. renta_sincronizar trae el F22 por año tributario; perfil_sincronizar, el perfil y las empresas autorizadas.',
-  '3. Para IVA, retenciones y plazos prefiere iva_resumen, iva_hallazgos, f29_historial y plazos_proximos: aplican las reglas. Para la renta, renta_resumen; para estimarla, fuentes_oficiales. Si un F29 no cuadra o se actualizó mi-sii-mcp, f29_releer relee los PDF guardados sin ir al SII.',
-  '4. Para cruces y preguntas libres, llama una vez a datos_esquema y luego a consulta_sql (solo lectura).',
-  '5. Nunca pidas la clave tributaria ni intentes un login. Ante SESION_REQUERIDA (o CLAVE_RECHAZADA, RUT_BLOQUEADO_LOCAL), indica a la persona que abra «Abrir mi-sii-mcp.cmd» (carpeta mi-sii-mcp) y conecte su cuenta ahí; solo si prefiere la terminal, dale el comando del mensaje (login-navegador para ClaveÚnica). Después reintenta.',
-  '6. Reintenta solo si el mensaje dice «Reintentar: ahora mismo» o «más tarde» (o lista «Reintentables más tarde»); con «Reintentar: no», sigue la acción indicada.',
-  '7. Cobertura: RCV (compras y ventas), F29, propuesta de F29, boletas de honorarios recibidas y emitidas, renta F22, perfil tributario y empresas autorizadas. No es oficial del SII ni asesoría tributaria.',
+  '2. Si falta o está viejo: sincronizar por tramos de hasta 12 meses (rcv y f29 por defecto; propuesta y bhe opcionales), renta_sincronizar (F22 por año tributario) y perfil_sincronizar (perfil y empresas autorizadas).',
+  '3. IVA y plazos: iva_resumen, iva_hallazgos, f29_historial y plazos_proximos; f29_estimar calcula el F29 de un mes antes de declararlo; f29_releer relee los PDF guardados. Renta: renta_resumen; para estimarla, fuentes_oficiales.',
+  '4. Cruces libres: datos_esquema una vez y luego consulta_sql (solo lectura).',
+  '5. Nunca pidas la clave ni intentes un login. Ante SESION_REQUERIDA (o CLAVE_RECHAZADA, RUT_BLOQUEADO_LOCAL), pide abrir «Abrir mi-sii-mcp.cmd» (carpeta mi-sii-mcp) y conectar la cuenta ahí; si prefiere la terminal, dale el comando del mensaje (login-navegador para ClaveÚnica). Luego reintenta.',
+  '6. Reintenta solo con «Reintentar: ahora mismo» o «más tarde» (o «Reintentables más tarde»); con «Reintentar: no», sigue la acción indicada.',
+  '7. Cobertura: RCV, F29, propuesta de F29, boletas de honorarios recibidas y emitidas, renta F22, perfil tributario y empresas autorizadas. Solo lee el SII. No es oficial del SII ni asesoría tributaria.',
 ].join('\n');
 
 export interface OpcionesMcp {
@@ -307,6 +310,29 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
   );
 
   servidor.registerTool(
+    'f29_estimar',
+    {
+      title: 'Estimar el F29 de un mes',
+      description:
+        'Estima el F29 de un mes con lo guardado, sin ir al SII ni presentar nada: débito y crédito del RCV, remanente del mes anterior (del F29 presentado o estimado si ese mes no se presentó), PPM con la tasa del último F29 presentado y retención de las boletas de honorarios recibidas. Si el mes ya tiene F29, compara. El impuesto único de los trabajadores (código 48) no está en el SII: pásalo en impuesto_unico si hubo sueldos. Para reajustar el remanente pasa utm_actual y utm_anterior (https://www.sii.cl/valores_y_fechas/utm/utm2026.htm, cambia el año). Un F29 atrasado paga reajustes, intereses y multas que calcula el portal del SII al declarar; aquí solo va el monto base y los días de atraso.',
+      inputSchema: z.object({
+        rut: RUT,
+        periodo: PERIODO,
+        utm_actual: z.number().positive().optional().describe('UTM del mes del F29'),
+        utm_anterior: z.number().positive().optional().describe('UTM del mes anterior'),
+        impuesto_unico: z.number().min(0).optional().describe('Impuesto único retenido a los trabajadores en el mes (código 48)'),
+        tasa_ppm: z.number().min(0).max(10).optional().describe('Tasa del PPM en porcentaje (0,25 es 0,25 %); por defecto, la del último F29'),
+      }),
+      annotations: SOLO_LECTURA,
+    },
+    async (a) =>
+      seguro(() => {
+        const r = estimacionF29(deps, a.rut, a.periodo, { utmActual: a.utm_actual, utmAnterior: a.utm_anterior, impuestoUnico: a.impuesto_unico, tasaPpm: a.tasa_ppm });
+        return respuesta(textoEstimacionF29(r), r);
+      }, a.rut),
+  );
+
+  servidor.registerTool(
     'iva_resumen',
     {
       title: 'Resumen de IVA del mes',
@@ -424,5 +450,6 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
       }),
   );
 
+  registrarRecetas(servidor);
   return servidor;
 }
