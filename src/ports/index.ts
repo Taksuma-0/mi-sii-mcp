@@ -1,4 +1,4 @@
-import type { ArchivoImportado, ConciliacionGuardada, MovimientoBancario, MovimientoLeido, ParConciliado, TipoPartida } from '../domain/banco.js';
+import type { ArchivoImportado, CartolaLeida, ConciliacionGuardada, MapeoColumnas, MovimientoBancario, MovimientoLeido, ParConciliado, TipoPartida } from '../domain/banco.js';
 import type { Periodo } from '../domain/periodo.js';
 import type {
   BheEmitidaMes,
@@ -69,6 +69,11 @@ export interface SiiReader {
 export interface LectorPdfF29 {
   readonly version: string;
   extraer(bytes: Uint8Array): Promise<Record<string, number>>;
+}
+
+/** Lee una cartola bancaria (CSV o TXT de cualquier banco); los errores nunca muestran su contenido. */
+export interface LectorCartola {
+  leer(bytes: Uint8Array, mapeo?: MapeoColumnas): CartolaLeida;
 }
 
 /** PDF compacto del F29 guardado como evidencia de una sincronización. */
