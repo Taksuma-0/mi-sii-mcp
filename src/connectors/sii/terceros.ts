@@ -130,6 +130,13 @@ function djDelResumen(dj: number, titulo: string | null, resumen: unknown): DjIn
 }
 
 /**
+ * Las DJ tienen número de cuatro dígitos (1879, 1887, 1945…). A una empresa el SII le agrega en la misma lista datos propios
+ * del asistente del F22 con claves cortas (29 PPM y 39 ingresos según el F29, 303 comparativo F29 y RCV, 306 Pro Pyme
+ * Transparente; verificado en vivo): no tienen informante y no son lo informado por terceros.
+ */
+const ES_DJ = /^\d{4}$/;
+
+/**
  * DJ que terceros informaron sobre el contribuyente en el año tributario y que traen datos (`getAgenteRetenedor`), por
  * número. Vacía si el SII no informa ninguna. No pide datos de contacto (`getContribuyente*`).
  */
@@ -143,6 +150,7 @@ export async function djInformadas(http: Http, sumidero: SumideroRespuestas, _ru
     const titulo = texto(item['title']);
     for (const [clave, valor] of Object.entries(item['listAgenteRetenedor'])) {
       if (!/^\d+$/.test(clave)) throw cambio(`DJ "${clave}"`);
+      if (!ES_DJ.test(clave)) continue;
       if (!esObjeto(valor)) throw cambio(`DJ ${clave} sin resumen`);
       const dj = djDelResumen(Number(clave), titulo, valor['resumen']);
       if (dj !== null && !porDj.has(dj.dj)) porDj.set(dj.dj, dj);

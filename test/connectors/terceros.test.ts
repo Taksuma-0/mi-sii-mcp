@@ -151,6 +151,19 @@ describe('djInformadas', () => {
     expect(await djInformadas(http, sumidero, PERSONA, 2026)).toEqual([{ dj: 1887, titulo: null, registros: 3, resumen: { 'Renta Total Neta Pagada': '1.000' } }]);
   });
 
+  it('ignora los datos propios del asistente del F22 (F29, RCV, Pro Pyme), que vienen con códigos que no son DJ', async () => {
+    // Forma vista en vivo con una empresa: claves 29, 39, 303 y 306 con datos del propio contribuyente, sin informante.
+    const propios = tablaSii(2, [[{ v: 'Formulario' }, { v: 'Codigo 62' }]], [['0029', '12.345']]);
+    const dj = tablaSii(1, [[{ v: 'Cantidad de Informantes' }]], [['1']]);
+    const data = [
+      { listAgenteRetenedor: { '39': { resumen: propios } }, title: 'Ingresos de Primera Categoría según F29', formKey: 0 },
+      { listAgenteRetenedor: { '29': { resumen: propios }, '303': { resumen: propios }, '306': { resumen: propios } }, title: 'Ficticio', formKey: 0 },
+      { listAgenteRetenedor: { '1879': { resumen: dj } }, title: 'Retenciones', formKey: 0 },
+    ];
+    const { http, sumidero } = await preparar({ [RUTA('getAgenteRetenedor')]: conBody(sobre(data)) });
+    expect((await djInformadas(http, sumidero, PERSONA, 2026)).map((d) => d.dj)).toEqual([1879]);
+  });
+
   it('un error de autorización es SIN_PERMISO; otro error, SII_RECHAZO; una forma distinta, PORTAL_CAMBIO', async () => {
     const autoriza = await preparar({ [RUTA('getAgenteRetenedor')]: conBody(sobre(null, [{ descripcion: 'Usuario no autorizado' }])) });
     expect(await codigoDe(djInformadas(autoriza.http, autoriza.sumidero, PERSONA, 2026))).toBe('SIN_PERMISO');
