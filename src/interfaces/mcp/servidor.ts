@@ -8,6 +8,7 @@ import { documentos, f29Historial, hallazgos, plazos, resumenIva } from '../../a
 import type { DepsApp } from '../../app/deps.js';
 import { sincronizarCuenta } from '../../app/cuenta.js';
 import { estimacionF29 } from '../../app/estimar-f29.js';
+import { estimacionRenta } from '../../app/estimar-renta.js';
 import { fuentesOficiales, REGLA_ESTIMACION_RENTA } from '../../app/fuentes.js';
 import { panorama } from '../../app/panorama.js';
 import { listarPerfilesConRenovacion } from '../../app/perfiles.js';
@@ -18,7 +19,7 @@ import { carteraEstado, novedades } from '../../app/vigilancia.js';
 import { ErrorMiSiiMcp, esErrorMiSiiMcp, type CodigoError } from '../../domain/errores.js';
 import { parsePeriodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
-import { lineaReintento, textoAsientos, textoCartera, textoDocumentos, textoHallazgos, textoHistorialF29, textoConciliacion, textoCuenta, textoCuentas, textoEstimacionF29, textoFuentes, textoImportacion, textoLibro, textoNovedades, textoPendientes, textoPerfiles, textoPlazos, textoReintentables, textoReintentablesCuenta, textoReintentablesRenta, textoReleerF29, textoRenta, textoResultado, textoResumenIva, textoResumenRenta, textoSync } from '../formato.js';
+import { lineaReintento, textoAsientos, textoCartera, textoDocumentos, textoHallazgos, textoHistorialF29, textoConciliacion, textoCuenta, textoCuentas, textoEstimacionF29, textoEstimacionRenta, textoFuentes, textoImportacion, textoLibro, textoNovedades, textoPendientes, textoPerfiles, textoPlazos, textoReintentables, textoReintentablesCuenta, textoReintentablesRenta, textoReleerF29, textoRenta, textoResultado, textoResumenIva, textoResumenRenta, textoSync } from '../formato.js';
 import { registrarRecetas } from './recetas.js';
 
 export const HERRAMIENTAS = [
@@ -47,18 +48,19 @@ export const HERRAMIENTAS = [
   'contabilidad_resultado',
   'novedades',
   'cartera_estado',
+  'renta_estimar',
 ] as const;
 
 /** Lo que lee el asistente al conectarse: flujo de uso, regla de la clave y cobertura (máximo 1 500 caracteres). */
 export const INSTRUCCIONES_MCP = [
   '1. Empieza con perfiles_listar y sii_panorama; a una persona sin IVA, parte por renta_sincronizar y renta_resumen.',
   '2. Si falta o está viejo: sincronizar en tramos de hasta 12 meses (rcv y f29; propuesta y bhe opcionales), renta_sincronizar (F22) y perfil_sincronizar (perfil y empresas autorizadas).',
-  '3. IVA: iva_resumen, iva_hallazgos, f29_historial y plazos_proximos; f29_estimar calcula un F29 antes de declararlo; f29_releer relee los PDF. Renta: renta_resumen; para estimarla, fuentes_oficiales.',
+  '3. IVA: iva_resumen, iva_hallazgos, f29_historial y plazos_proximos; f29_estimar calcula un F29 antes de declararlo; f29_releer relee los PDF. Renta: renta_resumen; renta_estimar con los datos públicos de fuentes_oficiales.',
   '4. Banco y contabilidad: banco_importar (cartola CSV), banco_conciliar, cuentas_pendientes; contabilidad_cuentas, contabilidad_libro, contabilidad_asientos y contabilidad_resultado (exportables a CSV).',
   '5. Seguimiento: novedades (avisos de la revisión diaria) y cartera_estado (todas las cuentas). Cruces libres: datos_esquema una vez y luego consulta_sql (solo lectura).',
-  '6. Nunca pidas la clave ni intentes un login. Ante SESION_REQUERIDA (o CLAVE_RECHAZADA, RUT_BLOQUEADO_LOCAL) pide abrir «Abrir mi-sii-mcp.cmd» y conectar la cuenta ahí, o dale el comando del mensaje (login-navegador para ClaveÚnica). Luego reintenta.',
+  '6. Nunca pidas la clave ni intentes un login. Ante SESION_REQUERIDA (o CLAVE_RECHAZADA, RUT_BLOQUEADO_LOCAL) pide abrir «Abrir mi-sii-mcp.cmd» y conectar la cuenta, o da el comando del mensaje (login-navegador para ClaveÚnica). Luego reintenta.',
   '7. Reintenta solo con «Reintentar: ahora mismo» o «más tarde» (o «Reintentables más tarde»).',
-  '8. Cobertura: RCV, F29, propuesta de F29, boletas de honorarios recibidas y emitidas, renta F22, perfil tributario y empresas autorizadas; el banco y la contabilidad son locales. Solo lee el SII. No es oficial del SII ni asesoría tributaria.',
+  '8. Cobertura: RCV, F29, propuesta de F29, boletas de honorarios recibidas y emitidas, renta F22, perfil tributario y empresas autorizadas; banco y contabilidad locales. Solo lee el SII. No es oficial del SII ni asesoría tributaria.',
 ].join('\n');
 
 export interface OpcionesMcp {
@@ -531,6 +533,51 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
         const filas = carteraEstado(deps);
         return respuesta(textoCartera(filas), filas);
       }),
+  );
+
+  servidor.registerTool(
+    'renta_estimar',
+    {
+      title: 'Estimar la renta de una persona',
+      description:
+        'Estima el F22 de una persona (honorarios y sueldo) de un año tributario con lo guardado (boletas emitidas del año comercial y la DJ del empleador) y los datos públicos del año, que mi-sii-mcp no guarda: tabla del Impuesto Global Complementario, UTA de diciembre, gastos presuntos (porcentaje y tope en UTA), si está obligada a cotizar y sus cotizaciones, y los factores de actualización. Saca esos datos con fuentes_oficiales (regla=true trae el cálculo de las cotizaciones). Opcionales: gastos efectivos, APV régimen B, otras rentas. Si hay un F22 guardado, compara con su resultado (código 305). Es una estimación, no asesoría.',
+      inputSchema: z.object({
+        rut: RUT,
+        anio: ANIO_TRIBUTARIO,
+        tabla_igc: z.array(z.object({ desde: z.number(), hasta: z.number().nullable(), factor: z.number(), rebaja: z.number() })).min(1).describe('Tramos de la tabla del IGC del año tributario, en pesos'),
+        uta: z.number().positive().describe('UTA de diciembre del año comercial'),
+        gastos_presuntos_pct: z.number().min(0).max(100),
+        tope_gastos_presuntos_uta: z.number().min(0),
+        obligado_cotizar: z.boolean(),
+        cotizaciones: z.number().min(0).optional().describe('Cotizaciones de honorarios del año que se pagan con la retención'),
+        factores_ipc: z.array(z.number().positive()).length(12).optional().describe('Factores de actualización de enero a diciembre'),
+        gastos_efectivos: z.number().min(0).optional(),
+        apv_regimen_b: z.number().min(0).optional(),
+        otras_rentas: z.number().min(0).optional(),
+        sueldos: z.number().min(0).optional(),
+        impuesto_unico_retenido: z.number().min(0).optional(),
+      }),
+      annotations: SOLO_LECTURA,
+    },
+    async (a) =>
+      seguro(() => {
+        const opcional = <K extends string, V>(clave: K, valor: V | undefined) => (valor === undefined ? {} : ({ [clave]: valor } as Record<K, V>));
+        const r = estimacionRenta(deps, a.rut, a.anio, {
+          tablaIgc: a.tabla_igc,
+          uta: a.uta,
+          gastosPresuntosPct: a.gastos_presuntos_pct,
+          topeGastosPresuntosUta: a.tope_gastos_presuntos_uta,
+          obligadoCotizar: a.obligado_cotizar,
+          ...opcional('cotizaciones', a.cotizaciones),
+          ...opcional('factoresIpc', a.factores_ipc),
+          ...opcional('gastosEfectivos', a.gastos_efectivos),
+          ...opcional('apvRegimenB', a.apv_regimen_b),
+          ...opcional('otrasRentas', a.otras_rentas),
+          ...opcional('sueldos', a.sueldos),
+          ...opcional('impuestoUnicoRetenido', a.impuesto_unico_retenido),
+        });
+        return respuesta(textoEstimacionRenta(r), r);
+      }, a.rut),
   );
 
   servidor.registerTool(

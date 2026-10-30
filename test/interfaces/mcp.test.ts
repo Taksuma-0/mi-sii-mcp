@@ -32,10 +32,10 @@ describe('servidor MCP', () => {
     expect(p.sii.llamadas).toEqual([]);
   });
 
-  it('expone exactamente las 25 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
+  it('expone exactamente las 26 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
     const cliente = await conectar(depsDePrueba().deps);
     const { tools } = await cliente.listTools();
-    expect(tools).toHaveLength(25);
+    expect(tools).toHaveLength(26);
     expect(tools.map((t) => t.name).sort()).toEqual([...HERRAMIENTAS].sort());
     expect(JSON.stringify(tools.map((t) => t.inputSchema)).toLowerCase()).not.toMatch(/clave|password|contrase/);
     expect(tools.find((t) => t.name === 'iva_resumen')?.annotations?.readOnlyHint).toBe(true);
@@ -430,6 +430,25 @@ describe('servidor MCP', () => {
     await cliente.close();
   });
 
+  it('renta_estimar estima la renta de una persona con los datos públicos que se le pasan y lo marca como estimación', async () => {
+    const { deps, store } = depsDePrueba();
+    store.guardarContribuyente(perfilPersona());
+    const id = store.iniciarSincronizacion(RUT_PERSONA, 'bhe.emitidas', 'AT2026', T_SEMBRADO);
+    store.reemplazarBheEmitidas(id, RUT_PERSONA, 2025, informeBheEmitidas(2025, { 3: { bruto: 1_000_000, retencionTerceros: 145_000, vigentes: 1 } }).meses, T_SEMBRADO);
+    const cliente = await conectar(deps);
+
+    const r = await cliente.callTool({
+      name: 'renta_estimar',
+      arguments: { rut: RUT_PERSONA, anio: '2026', tabla_igc: [{ desde: 0, hasta: 10_000_000, factor: 0, rebaja: 0 }, { desde: 10_000_000, hasta: null, factor: 0.04, rebaja: 400_000 }], uta: 800_000, gastos_presuntos_pct: 30, tope_gastos_presuntos_uta: 15, obligado_cotizar: false },
+    });
+
+    expect(esError(r)).toBe(false);
+    expect(textoDe(r)).toContain('Estimación de la renta AT2026 de 11111111-1');
+    expect(textoDe(r)).toContain('A devolver: $145.000');
+    expect(textoDe(r)).toContain('no es asesoría');
+    await cliente.close();
+  });
+
   it('ofrece recetas listas que nombran las herramientas y nunca piden la clave', async () => {
     const cliente = await conectar(depsDePrueba().deps);
     const { prompts } = await cliente.listPrompts();
@@ -614,7 +633,7 @@ describe('servidor MCP', () => {
     expect(instrucciones).toBe(INSTRUCCIONES_MCP);
     expect(instrucciones.length).toBeGreaterThan(0);
     expect(instrucciones.length).toBeLessThanOrEqual(1_500);
-    for (const clave of ['perfiles_listar', 'sii_panorama', 'sincronizar', '12 meses', 'iva_resumen', 'iva_hallazgos', 'f29_historial', 'plazos_proximos', 'datos_esquema', 'consulta_sql', 'f29_releer', 'perfil_sincronizar', 'renta_sincronizar', 'renta_resumen', 'f29_estimar', 'banco_importar', 'banco_conciliar', 'contabilidad_asientos', 'novedades', 'cartera_estado', 'propuesta', 'bhe', 'Reintentar: ahora mismo', 'Reintentables más tarde', 'SESION_REQUERIDA', 'login-navegador', 'Abrir mi-sii-mcp.cmd', 'RCV', 'F29', 'F22']) {
+    for (const clave of ['perfiles_listar', 'sii_panorama', 'sincronizar', '12 meses', 'iva_resumen', 'iva_hallazgos', 'f29_historial', 'plazos_proximos', 'datos_esquema', 'consulta_sql', 'f29_releer', 'perfil_sincronizar', 'renta_sincronizar', 'renta_resumen', 'f29_estimar', 'banco_importar', 'banco_conciliar', 'contabilidad_asientos', 'novedades', 'cartera_estado', 'renta_estimar', 'propuesta', 'bhe', 'Reintentar: ahora mismo', 'Reintentables más tarde', 'SESION_REQUERIDA', 'login-navegador', 'Abrir mi-sii-mcp.cmd', 'RCV', 'F29', 'F22']) {
       expect(instrucciones).toContain(clave);
     }
     expect(instrucciones).toMatch(/boletas de honorarios recibidas y emitidas/);

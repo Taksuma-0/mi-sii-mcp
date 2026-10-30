@@ -4,6 +4,7 @@ import type { Asiento, Contraparte, LineaResultado, ResultadoAsientos, Resultado
 import type { Libro, TipoLibro } from '../app/libros.js';
 import type { CuentaSii, ResultadoCuenta } from '../app/cuenta.js';
 import type { ResultadoEstimacionF29 } from '../app/estimar-f29.js';
+import type { ResultadoEstimacionRenta } from '../app/estimar-renta.js';
 import { REGLA_ESTIMACION_RENTA, type FuenteOficial } from '../app/fuentes.js';
 import type { PerfilConSesion } from '../app/perfiles.js';
 import type { ResultadoReleerF29, ResultadoRelectura } from '../app/releer-f29.js';
@@ -618,4 +619,19 @@ export function textoCartera(filas: readonly FilaCartera[]): string {
     return `${f.alias} (${f.rut}): ${partes.join(' · ')}`;
   };
   return [`Cartera de ${plural(filas.length, 'cuenta', 'cuentas')}:`, ...filas.map(linea)].join('\n');
+}
+
+/** Estimación de la renta de una persona, línea a línea, con la comparación contra el F22 si lo hay. */
+export function textoEstimacionRenta(r: ResultadoEstimacionRenta): string {
+  const f22 =
+    r.f22 === null
+      ? []
+      : [`F22 presentado folio ${r.f22.folio}: ${r.f22.resultado305 === null ? 'sin código 305 leído' : `${r.f22.resultado305 >= 0 ? 'a pagar' : 'a devolver'} ${formatearClp(Math.abs(r.f22.resultado305))}`}${r.diferenciaConF22 === null ? '' : r.diferenciaConF22 === 0 ? ' (cuadra con la estimación)' : ` (la estimación difiere en ${formatearClp(r.diferenciaConF22)})`}`];
+  return [
+    `Estimación de la renta AT${r.anioTributario} de ${r.rut}: es una estimación con los datos públicos que se informaron, no es asesoría; confírmala con un contador.`,
+    ...r.lineas.map((l) => `  ${l.glosa}: ${formatearClp(l.monto)}`),
+    ...f22,
+    ...(r.supuestos.length > 0 ? [`Supuestos: ${r.supuestos.join(' ')}`] : []),
+    ...(r.faltantes.length > 0 ? [`Falta: ${r.faltantes.join(' ')}`] : []),
+  ].join('\n');
 }
