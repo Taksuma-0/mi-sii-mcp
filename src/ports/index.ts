@@ -1,3 +1,4 @@
+import type { ArchivoImportado, ConciliacionGuardada, MovimientoBancario, MovimientoLeido, ParConciliado, TipoPartida } from '../domain/banco.js';
 import type { Periodo } from '../domain/periodo.js';
 import type {
   BheEmitidaMes,
@@ -276,4 +277,22 @@ export interface Store {
   periodosConDatos(rut: string): string[];
   reemplazarHallazgos(rut: string, periodo: string, hallazgos: readonly Hallazgo[], versionReglas: string, calculadoEn: string): void;
   hallazgos(rut: string, filtro?: FiltroHallazgos): HallazgoGuardado[];
+  /** Guarda una cartola importada y sus movimientos; los que ya estaban guardados (misma huella) no se repiten. */
+  guardarImportacionBanco(rut: string, cuenta: string, archivo: ArchivoImportado, movimientos: readonly MovimientoLeido[], importadoEn: string): { readonly nuevos: number; readonly repetidos: number };
+  /** Movimientos guardados por fecha y orden en su cartola, de una cuenta o de todas, y de un rango de fechas `AAAA-MM-DD`. */
+  movimientosBanco(rut: string, filtro?: FiltroMovimientos): MovimientoBancario[];
+  /** Alias de las cuentas con movimientos guardados, en orden. */
+  cuentasBanco(rut: string): string[];
+  /** Reemplaza los pares automáticos de los movimientos con fecha en el rango; los manuales se conservan y mandan. */
+  reemplazarConciliacionAutomatica(rut: string, desde: string, hasta: string, pares: readonly ParConciliado[], creadoEn: string): void;
+  /** Fija a mano la partida de un movimiento, o lo descarta con null; reemplaza el par que tenía. */
+  fijarConciliacionManual(rut: string, huella: string, partida: { readonly tipo: TipoPartida; readonly clave: string } | null, creadoEn: string): void;
+  /** Pares guardados de los movimientos con fecha en el rango (todos si no hay rango), por fecha del movimiento. */
+  conciliaciones(rut: string, desde?: string, hasta?: string): ConciliacionGuardada[];
+}
+
+export interface FiltroMovimientos {
+  readonly cuenta?: string;
+  readonly desde?: string;
+  readonly hasta?: string;
 }

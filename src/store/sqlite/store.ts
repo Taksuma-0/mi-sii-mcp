@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import type { ArchivoImportado, ConciliacionGuardada, CriterioConciliacion, MovimientoBancario, MovimientoLeido, ParConciliado, TipoPartida } from '../../domain/banco.js';
 import { SUPERFICIE_DETALLE_BHE_EMITIDAS } from '../../domain/renta.js';
 import {
   claveDocumento,
@@ -32,7 +33,7 @@ import {
   type TipoContribuyente,
   type TotalesBheMes,
 } from '../../domain/tipos.js';
-import type { BheEmitidaMesGuardado, DjTerceroGuardado, DocumentosPaginados, F22DeclaracionGuardada, FiltroDocumentos, FiltroHallazgos, Frescura, HallazgoGuardado, LecturaF29Guardada, PdfF29Guardado, Store } from '../../ports/index.js';
+import type { BheEmitidaMesGuardado, DjTerceroGuardado, DocumentosPaginados, F22DeclaracionGuardada, FiltroDocumentos, FiltroHallazgos, FiltroMovimientos, Frescura, HallazgoGuardado, LecturaF29Guardada, PdfF29Guardado, Store } from '../../ports/index.js';
 import type { Db } from './db.js';
 
 export const sha256 = (texto: string): string => createHash('sha256').update(texto).digest('hex');
@@ -1035,4 +1036,95 @@ export class SqliteStore implements Store {
       };
     });
   }
+
+  // --- banco ------------------------------------------------------------------------------------
+  guardarImportacionBanco(rut: string, cuenta: string, archivo: ArchivoImportado, movimientos: readonly MovimientoLeido[], importadoEn: string): { readonly nuevos: number; readonly repetidos: number } {
+    const fechas = movimientos.map((m) => m.fecha).sort();
+    return this.db.transaction(() => {
+      const { lastInsertRowid } = this.db
+        .prepare('INSERT INTO banco_importacion (rut, cuenta, archivo, sha256, filas, nuevos, desde, hasta, importado_en) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)')
+        .run(rut, cuenta, archivo.archivo, archivo.sha256, archivo.filas, fechas[0] ?? null, fechas.at(-1) ?? null, importadoEn);
+      const ins = this.db.prepare(
+        `INSERT OR IGNORE INTO banco_movimiento (rut, huella, cuenta, fecha, descripcion, documento, monto, saldo, orden, importacion_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      );
+      let nuevos = 0;
+      movimientos.forEach((m, orden) => {
+        nuevos += ins.run(rut, m.huella, cuenta, m.fecha, m.descripcion, m.documento, m.monto, m.saldo, orden, lastInsertRowid).changes;
+      });
+      this.db.prepare('UPDATE banco_importacion SET nuevos = ? WHERE id = ?').run(nuevos, lastInsertRowid);
+      return { nuevos, repetidos: movimientos.length - nuevos };
+    })();
+  }
+
+  movimientosBanco(rut: string, filtro: FiltroMovimientos = {}): MovimientoBancario[] {
+    const condiciones = ['rut = @rut'];
+    if (filtro.cuenta !== undefined) condiciones.push('cuenta = @cuenta');
+    if (filtro.desde !== undefined) condiciones.push('fecha >= @desde');
+    if (filtro.hasta !== undefined) condiciones.push('fecha <= @hasta');
+    const filas = this.db
+      .prepare(`SELECT * FROM banco_movimiento WHERE ${condiciones.join(' AND ')} ORDER BY fecha, importacion_id, orden`)
+      .all({ rut, cuenta: filtro.cuenta ?? null, desde: filtro.desde ?? null, hasta: filtro.hasta ?? null }) as FilaMovimiento[];
+    return filas.map((f) => ({ rut: f.rut, cuenta: f.cuenta, fecha: f.fecha, descripcion: f.descripcion, documento: f.documento, monto: f.monto, saldo: f.saldo, huella: f.huella }));
+  }
+
+  cuentasBanco(rut: string): string[] {
+    return (this.db.prepare('SELECT DISTINCT cuenta FROM banco_movimiento WHERE rut = ? ORDER BY cuenta').all(rut) as { cuenta: string }[]).map((f) => f.cuenta);
+  }
+
+  reemplazarConciliacionAutomatica(rut: string, desde: string, hasta: string, pares: readonly ParConciliado[], creadoEn: string): void {
+    this.db.transaction(() => {
+      this.db
+        .prepare(
+          `DELETE FROM conciliacion_bancaria WHERE rut = ? AND criterio <> 'manual'
+           AND huella IN (SELECT huella FROM banco_movimiento WHERE rut = ? AND fecha BETWEEN ? AND ?)`,
+        )
+        .run(rut, rut, desde, hasta);
+      // Lo manual manda: no se pisa un movimiento fijado a mano ni se repite una partida que ya tiene movimiento.
+      const ins = this.db.prepare('INSERT OR IGNORE INTO conciliacion_bancaria (rut, huella, tipo, clave, criterio, dias, creado_en) VALUES (?, ?, ?, ?, ?, ?, ?)');
+      for (const p of pares) ins.run(rut, p.huella, p.tipo, p.clave, p.criterio, p.dias, creadoEn);
+    })();
+  }
+
+  fijarConciliacionManual(rut: string, huella: string, partida: { readonly tipo: TipoPartida; readonly clave: string } | null, creadoEn: string): void {
+    this.db.transaction(() => {
+      this.db.prepare('DELETE FROM conciliacion_bancaria WHERE rut = ? AND huella = ?').run(rut, huella);
+      // Si la partida estaba en otro movimiento por la conciliación automática, se libera.
+      if (partida) this.db.prepare(`DELETE FROM conciliacion_bancaria WHERE rut = ? AND tipo = ? AND clave = ? AND criterio <> 'manual'`).run(rut, partida.tipo, partida.clave);
+      this.db
+        .prepare(`INSERT INTO conciliacion_bancaria (rut, huella, tipo, clave, criterio, dias, creado_en) VALUES (?, ?, ?, ?, 'manual', NULL, ?)`)
+        .run(rut, huella, partida?.tipo ?? null, partida?.clave ?? null, creadoEn);
+    })();
+  }
+
+  conciliaciones(rut: string, desde?: string, hasta?: string): ConciliacionGuardada[] {
+    const rango = desde !== undefined && hasta !== undefined;
+    const filas = this.db
+      .prepare(
+        `SELECT c.* FROM conciliacion_bancaria c JOIN banco_movimiento m ON m.rut = c.rut AND m.huella = c.huella
+         WHERE c.rut = @rut ${rango ? 'AND m.fecha BETWEEN @desde AND @hasta' : ''} ORDER BY m.fecha, m.importacion_id, m.orden`,
+      )
+      .all({ rut, ...(rango ? { desde, hasta } : {}) }) as FilaConciliacion[];
+    return filas.map((f) => ({ huella: f.huella, tipo: f.tipo, clave: f.clave, criterio: f.criterio, dias: f.dias, creadoEn: f.creado_en }));
+  }
+}
+
+interface FilaMovimiento {
+  rut: string;
+  huella: string;
+  cuenta: string;
+  fecha: string;
+  descripcion: string;
+  documento: string | null;
+  monto: number;
+  saldo: number | null;
+}
+
+interface FilaConciliacion {
+  huella: string;
+  tipo: TipoPartida | null;
+  clave: string | null;
+  criterio: CriterioConciliacion;
+  dias: number | null;
+  creado_en: string;
 }

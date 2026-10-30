@@ -373,6 +373,53 @@ CREATE TABLE dj_tercero (
 );
 `;
 
+/**
+ * Cartolas bancarias que importa la persona y su conciliación con lo que sabe el SII. De la cuenta solo se guarda su alias.
+ * `orden` es la posición del movimiento en su archivo (ordena los del mismo día). En la conciliación, una fila con
+ * criterio `manual` y sin clave es un movimiento descartado a mano; una partida solo puede estar en un movimiento.
+ */
+const V12 = `
+CREATE TABLE banco_importacion (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  rut TEXT NOT NULL,
+  cuenta TEXT NOT NULL,
+  archivo TEXT NOT NULL,
+  sha256 TEXT NOT NULL,
+  filas INTEGER NOT NULL,
+  nuevos INTEGER NOT NULL,
+  desde TEXT,
+  hasta TEXT,
+  importado_en TEXT NOT NULL
+);
+
+CREATE TABLE banco_movimiento (
+  rut TEXT NOT NULL,
+  huella TEXT NOT NULL,
+  cuenta TEXT NOT NULL,
+  fecha TEXT NOT NULL,
+  descripcion TEXT NOT NULL,
+  documento TEXT,
+  monto INTEGER NOT NULL,
+  saldo INTEGER,
+  orden INTEGER NOT NULL,
+  importacion_id INTEGER NOT NULL REFERENCES banco_importacion (id),
+  PRIMARY KEY (rut, huella)
+);
+CREATE INDEX ix_banco_movimiento ON banco_movimiento (rut, fecha);
+
+CREATE TABLE conciliacion_bancaria (
+  rut TEXT NOT NULL,
+  huella TEXT NOT NULL,
+  tipo TEXT,
+  clave TEXT,
+  criterio TEXT NOT NULL CHECK (criterio IN ('monto_rut', 'monto_fecha', 'manual')),
+  dias INTEGER,
+  creado_en TEXT NOT NULL,
+  PRIMARY KEY (rut, huella)
+);
+CREATE UNIQUE INDEX ux_conciliacion_partida ON conciliacion_bancaria (rut, tipo, clave) WHERE clave IS NOT NULL;
+`;
+
 export const MIGRACIONES: readonly Migracion[] = [
   { version: 1, sql: V1 },
   { version: 2, sql: V2 },
@@ -385,4 +432,5 @@ export const MIGRACIONES: readonly Migracion[] = [
   { version: 9, sql: V9 },
   { version: 10, sql: V10 },
   { version: 11, sql: V11 },
+  { version: 12, sql: V12 },
 ];
