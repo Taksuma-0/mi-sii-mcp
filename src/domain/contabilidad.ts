@@ -15,6 +15,7 @@ export const CUENTAS = {
   IVA_CF: '1105',
   IVA_USO_COMUN: '1106',
   PPM: '1107',
+  RETENCIONES_POR_RECUPERAR: '1108',
   ACTIVO_FIJO: '1201',
   BIENES_RAICES: '1202',
   PROVEEDORES: '2101',
@@ -31,6 +32,7 @@ export const CUENTAS = {
   GASTOS_GENERALES: '5201',
   HONORARIOS: '5202',
   IVA_NO_RECUPERABLE: '5203',
+  MULTAS: '5204',
   POR_CLASIFICAR: '9999',
 } as const;
 
@@ -41,6 +43,7 @@ export const PLAN_CUENTAS_BASE: readonly CuentaContable[] = [
   { codigo: CUENTAS.IVA_CF, nombre: 'IVA crédito fiscal', tipo: 'activo' },
   { codigo: CUENTAS.IVA_USO_COMUN, nombre: 'IVA de uso común por proporcionar', tipo: 'activo' },
   { codigo: CUENTAS.PPM, nombre: 'Pagos provisionales mensuales (PPM)', tipo: 'activo' },
+  { codigo: CUENTAS.RETENCIONES_POR_RECUPERAR, nombre: 'Retenciones de honorarios por recuperar', tipo: 'activo' },
   { codigo: CUENTAS.ACTIVO_FIJO, nombre: 'Activo fijo', tipo: 'activo' },
   { codigo: CUENTAS.BIENES_RAICES, nombre: 'Bienes raíces', tipo: 'activo' },
   { codigo: CUENTAS.PROVEEDORES, nombre: 'Proveedores', tipo: 'pasivo' },
@@ -57,6 +60,7 @@ export const PLAN_CUENTAS_BASE: readonly CuentaContable[] = [
   { codigo: CUENTAS.GASTOS_GENERALES, nombre: 'Gastos generales', tipo: 'gasto' },
   { codigo: CUENTAS.HONORARIOS, nombre: 'Honorarios', tipo: 'gasto' },
   { codigo: CUENTAS.IVA_NO_RECUPERABLE, nombre: 'IVA no recuperable', tipo: 'gasto' },
+  { codigo: CUENTAS.MULTAS, nombre: 'Reajustes, intereses y multas fiscales', tipo: 'gasto' },
   { codigo: CUENTAS.POR_CLASIFICAR, nombre: 'Por clasificar', tipo: 'gasto' },
 ];
 

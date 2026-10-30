@@ -1,6 +1,6 @@
 import type { CuentasPendientes, LadoPendiente, ResultadoImportacion, ResumenConciliacion } from '../app/banco.js';
 import type { FilaHistorialF29, PaginaDocumentos, ResumenIva } from '../app/consultas.js';
-import type { VistaCuentas } from '../app/contabilidad.js';
+import type { Asiento, ResultadoAsientos, VistaCuentas } from '../app/contabilidad.js';
 import type { Libro, TipoLibro } from '../app/libros.js';
 import type { CuentaSii, ResultadoCuenta } from '../app/cuenta.js';
 import type { ResultadoEstimacionF29 } from '../app/estimar-f29.js';
@@ -546,5 +546,18 @@ export function textoLibro(l: Libro, exportadoEn: string | null): string {
     `${vista.titulo} de ${l.rut}, ${l.desde} a ${l.hasta}: ${vista.totales(l.totales)}.`,
     ...listaRecortada('Filas', l.filas, fila),
     exportadoEn === null ? 'Para llevarlo a Excel o al software contable, pídelo con exportar.' : `Exportado a: ${exportadoEn}`,
+  ].join('\n');
+}
+
+/** Asientos propuestos: totales que cuadran, lo que quedó por clasificar y los primeros asientos línea a línea. */
+export function textoAsientos(r: ResultadoAsientos, exportadoEn: string | null): string {
+  const porClasificar = r.totales.porClasificar > 0 ? ` Por clasificar: ${formatearClp(r.totales.porClasificar)} (revísalo con tu contador).` : '';
+  const asiento = (a: Asiento): string =>
+    `${a.fecha} ${a.glosa}: ${a.lineas.map((l) => `${l.cuenta} ${r.cuentas[l.cuenta] ?? ''} ${l.debe > 0 ? `debe ${formatearClp(l.debe)}` : `haber ${formatearClp(l.haber)}`}`).join(' · ')}`;
+  return [
+    `Asientos propuestos de ${r.rut}, ${r.desde} a ${r.hasta}: ${plural(r.totales.asientos, 'asiento', 'asientos')} · debe ${formatearClp(r.totales.debe)} = haber ${formatearClp(r.totales.haber)}.${porClasificar}`,
+    ...listaRecortada('Asientos', r.asientos, asiento),
+    'Es una propuesta para revisar: no incluye sueldos, inventario ni depreciación, y no reemplaza la contabilidad completa.',
+    exportadoEn === null ? 'Para llevarlos al software contable, pídelos con exportar.' : `Exportado a: ${exportadoEn}`,
   ].join('\n');
 }

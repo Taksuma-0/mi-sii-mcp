@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { asignarCuenta, crearCuenta, vistaCuentas } from '../../src/app/contabilidad.js';
+import { asientos, asignarCuenta, crearCuenta, exportarAsientos, vistaCuentas } from '../../src/app/contabilidad.js';
 import { depsDePrueba } from '../helpers/deps.js';
 import { codigoDe } from '../helpers/errores.js';
-import { perfilEmpresa, RUT_EMPRESA, RUT_PROVEEDOR } from '../helpers/fabricas.js';
+import { declaracion, documento, perfilEmpresa, RUT_CLIENTE, RUT_EMPRESA, RUT_PROVEEDOR, valores } from '../helpers/fabricas.js';
+import { sembrarMes } from '../helpers/sembrar.js';
 
 function preparar() {
   const p = depsDePrueba();
@@ -41,5 +42,30 @@ describe('plan de cuentas de un contribuyente', () => {
     expect(await falla(() => asignarCuenta(deps, RUT_EMPRESA, RUT_PROVEEDOR, '2103'))).toBe('PARAMETROS_INVALIDOS');
     expect(await falla(() => crearCuenta(deps, RUT_EMPRESA, { codigo: '52-10', nombre: 'X', tipo: 'gasto' }))).toBe('PARAMETROS_INVALIDOS');
     expect(await falla(() => crearCuenta(deps, RUT_EMPRESA, { codigo: '5211', nombre: '', tipo: 'gasto' }))).toBe('PARAMETROS_INVALIDOS');
+  });
+});
+
+describe('asientos propuestos con lo guardado', () => {
+  it('arma los asientos del período, todos cuadran y se exportan a CSV con el nombre de cada cuenta', async () => {
+    const { deps, store, archivos } = preparar();
+    sembrarMes(store, '2026-09', {
+      documentos: [
+        documento({ lado: 'VENTA', rutContraparte: RUT_CLIENTE, folio: 1, razonSocial: 'CLIENTE DEMO SPA', fechaEmision: '2026-09-03', montoNeto: 1_000_000, montoIva: 190_000, montoTotal: 1_190_000 }),
+        documento({ folio: 100, fechaEmision: '2026-09-05', montoNeto: 100_000, montoIva: 19_000, montoTotal: 119_000 }),
+      ],
+      declaraciones: [declaracion({ folio: 555, fechaPresentacion: '2026-10-15', totalAPagar: 171_000 })],
+      valores: [valores({ '538': 190_000, '537': 19_000, '89': 171_000, '91': 171_000 }, { folio: 555 })],
+    });
+
+    const r = asientos(deps, RUT_EMPRESA, '2026-09', '2026-09');
+
+    expect(r.asientos.map((a) => a.origen)).toEqual([`RCV:VENTA:33:${RUT_CLIENTE}:1`, `RCV:COMPRA:33:${RUT_PROVEEDOR}:100`, 'F29:2026-09:555']);
+    expect(r.totales.debe).toBe(r.totales.haber);
+    expect(r.totales.porClasificar).toBe(0);
+    const ruta = await exportarAsientos(deps, r);
+    expect(ruta).toBe('C:/exportaciones/asientos-22222222-2-2026-09-2026-09.csv');
+    const csv = archivos.exportados.get(ruta)!;
+    expect(csv).toContain('Fecha;Número;Cuenta;Nombre de la cuenta;Glosa;Debe;Haber;Origen');
+    expect(csv).toContain(`05-09-2026;2;5101;Costos y gastos del giro;Factura 100 PROVEEDOR DEMO LTDA;100000;0;RCV:COMPRA:33:${RUT_PROVEEDOR}:100`);
   });
 });

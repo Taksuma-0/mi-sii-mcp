@@ -1,8 +1,16 @@
-import { PLAN_CUENTAS_BASE, type CuentaContable, type TipoCuenta } from '../domain/contabilidad.js';
+import { CUENTAS, PLAN_CUENTAS_BASE, type CuentaContable, type TipoCuenta } from '../domain/contabilidad.js';
 import { ErrorMiSiiMcp } from '../domain/errores.js';
+import { declaracionVigente } from '../domain/f29.js';
+import { sumarDias } from '../domain/fechas.js';
+import { aCsv, type CeldaCsv } from '../domain/formato.js';
+import { parsePeriodo, periodoSiguiente, rangoPeriodos } from '../domain/periodo.js';
 import { parseRut } from '../domain/rut.js';
+import { asientosDelPeriodo, type Asiento, type F29Asiento } from '../reconciliation/asientos.js';
 import { perfilExistente } from './consultas.js';
 import type { DepsApp } from './deps.js';
+import { SOLO_RESUMEN_VENTA } from './sincronizar.js';
+
+export type { Asiento } from '../reconciliation/asientos.js';
 
 export interface CuentaDelPlan extends CuentaContable {
   /** La sumó o la renombró el contribuyente; si no, es del plan base. */
@@ -56,4 +64,69 @@ export function asignarCuenta(deps: DepsApp, rutTexto: string, rutContraparteTex
     if (!TIPOS_DE_COMPRA.has(destino.tipo)) throw new ErrorMiSiiMcp('PARAMETROS_INVALIDOS', `La cuenta ${cuenta} es de ${destino.tipo}: una compra va a una cuenta de gasto o de activo.`);
   }
   deps.store.guardarReglaCuenta(perfil.rut, rutContraparte, cuenta);
+}
+
+export interface ResultadoAsientos {
+  readonly rut: string;
+  readonly desde: string;
+  readonly hasta: string;
+  readonly asientos: readonly Asiento[];
+  /** Sumas del debe y del haber (iguales) y lo que quedó en «por clasificar», que conviene revisar. */
+  readonly totales: { readonly asientos: number; readonly debe: number; readonly haber: number; readonly porClasificar: number };
+  /** Nombre de cada cuenta usada, según el plan del contribuyente. */
+  readonly cuentas: Readonly<Record<string, string>>;
+}
+
+/**
+ * Asientos propuestos de un rango de meses (`AAAA-MM`) con lo guardado: documentos registrados del RCV, boletas de venta,
+ * boletas de honorarios, la centralización de los F29 presentados de esos meses y los movimientos de las cartolas con su
+ * conciliación. Usa el plan de cuentas y las reglas por proveedor del contribuyente.
+ */
+export function asientos(deps: DepsApp, rutTexto: string, desde: string, hasta: string): ResultadoAsientos {
+  const perfil = perfilExistente(deps, rutTexto);
+  const rut = perfil.rut;
+  const periodos = rangoPeriodos(parsePeriodo(desde), parsePeriodo(hasta), 240);
+  const f29: F29Asiento[] = periodos.flatMap((p) => {
+    const vigente = declaracionVigente(deps.store.declaracionesF29(rut, p.texto));
+    const valores = vigente?.fechaPresentacion ? deps.store.valoresF29(rut, p.texto, vigente.folio) : null;
+    return vigente && valores ? [{ periodo: p.texto, folio: vigente.folio, fecha: vigente.fechaPresentacion!.slice(0, 10), valores: valores.valores }] : [];
+  });
+  const primerDia = `${periodos[0]!.texto}-01`;
+  const ultimoDia = sumarDias(`${periodoSiguiente(periodos.at(-1)!).texto}-01`, -1);
+  const tipoDe = new Map(deps.store.conciliaciones(rut, primerDia, ultimoDia).map((c) => [c.huella, c.tipo]));
+  const lista = asientosDelPeriodo({
+    documentos: periodos.flatMap((p) => deps.store.documentosRcv(rut, p.texto, { estado: 'REGISTRO' })),
+    resumenesBoletas: periodos.flatMap((p) =>
+      deps.store
+        .resumenesRcv(rut, p.texto)
+        .filter((r) => r.lado === 'VENTA' && r.estado === 'REGISTRO')
+        .flatMap((r) => r.filas.filter((f) => SOLO_RESUMEN_VENTA.has(f.tipoDoc) && f.cantidad > 0).map((f) => ({ periodo: p.texto, ...f }))),
+    ),
+    boletasRecibidas: periodos.flatMap((p) => deps.store.boletasHonorarios(rut, p.texto)),
+    boletasEmitidas: periodos.flatMap((p) => deps.store.boletasEmitidas(rut, p.texto)),
+    f29,
+    banco: deps.store.movimientosBanco(rut, { desde: primerDia, hasta: ultimoDia }).map((movimiento) => ({ movimiento, tipo: tipoDe.get(movimiento.huella) ?? null })),
+    reglas: reglasDe(deps, rut),
+  });
+  const lineas = lista.flatMap((a) => a.lineas);
+  const nombres = new Map(planDeCuentas(deps, rut).map((c) => [c.codigo, c.nombre]));
+  return {
+    rut,
+    desde: periodos[0]!.texto,
+    hasta: periodos.at(-1)!.texto,
+    asientos: lista,
+    totales: {
+      asientos: lista.length,
+      debe: lineas.reduce((s, l) => s + l.debe, 0),
+      haber: lineas.reduce((s, l) => s + l.haber, 0),
+      porClasificar: lineas.filter((l) => l.cuenta === CUENTAS.POR_CLASIFICAR).reduce((s, l) => s + l.debe + l.haber, 0),
+    },
+    cuentas: Object.fromEntries([...new Set(lineas.map((l) => l.cuenta))].map((c) => [c, nombres.get(c) ?? `Cuenta ${c}`])),
+  };
+}
+
+/** Exporta los asientos a un CSV para Excel o el software contable: una fila por línea, con el número de su asiento. */
+export async function exportarAsientos(deps: DepsApp, r: ResultadoAsientos): Promise<string> {
+  const filas = r.asientos.flatMap((a, i) => a.lineas.map((l): CeldaCsv[] => [a.fecha, i + 1, l.cuenta, r.cuentas[l.cuenta] ?? null, a.glosa, l.debe, l.haber, a.origen]));
+  return deps.archivos.exportar(`asientos-${r.rut}-${r.desde}-${r.hasta}.csv`, aCsv(['Fecha', 'Número', 'Cuenta', 'Nombre de la cuenta', 'Glosa', 'Debe', 'Haber', 'Origen'], filas));
 }
