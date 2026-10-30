@@ -2,7 +2,7 @@ import { McpServer, type ServerContext } from '@modelcontextprotocol/server';
 import * as z from 'zod';
 import { conciliacionBancaria, cuentasPendientes, fijarConciliacion, importarCartola, MAX_BYTES_CARTOLA } from '../../app/banco.js';
 import { consultaSql, esquemaDatos, LIMITES_CONSULTA } from '../../app/consulta-libre.js';
-import { asientos, asignarCuenta, crearCuenta, exportarAsientos, vistaCuentas } from '../../app/contabilidad.js';
+import { asientos, asignarCuenta, crearCuenta, exportarAsientos, resultadoPeriodo, vistaCuentas } from '../../app/contabilidad.js';
 import { exportarLibro, libro } from '../../app/libros.js';
 import { documentos, f29Historial, hallazgos, plazos, resumenIva } from '../../app/consultas.js';
 import type { DepsApp } from '../../app/deps.js';
@@ -17,7 +17,7 @@ import { sincronizar, type Avance } from '../../app/sincronizar.js';
 import { ErrorMiSiiMcp, esErrorMiSiiMcp, type CodigoError } from '../../domain/errores.js';
 import { parsePeriodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
-import { lineaReintento, textoAsientos, textoDocumentos, textoHallazgos, textoHistorialF29, textoConciliacion, textoCuenta, textoCuentas, textoEstimacionF29, textoFuentes, textoImportacion, textoLibro, textoPendientes, textoPerfiles, textoPlazos, textoReintentables, textoReintentablesCuenta, textoReintentablesRenta, textoReleerF29, textoRenta, textoResumenIva, textoResumenRenta, textoSync } from '../formato.js';
+import { lineaReintento, textoAsientos, textoDocumentos, textoHallazgos, textoHistorialF29, textoConciliacion, textoCuenta, textoCuentas, textoEstimacionF29, textoFuentes, textoImportacion, textoLibro, textoPendientes, textoPerfiles, textoPlazos, textoReintentables, textoReintentablesCuenta, textoReintentablesRenta, textoReleerF29, textoRenta, textoResultado, textoResumenIva, textoResumenRenta, textoSync } from '../formato.js';
 import { registrarRecetas } from './recetas.js';
 
 export const HERRAMIENTAS = [
@@ -43,17 +43,19 @@ export const HERRAMIENTAS = [
   'contabilidad_cuentas',
   'contabilidad_libro',
   'contabilidad_asientos',
+  'contabilidad_resultado',
 ] as const;
 
 /** Lo que lee el asistente al conectarse: flujo de uso, regla de la clave y cobertura (máximo 1 500 caracteres). */
 export const INSTRUCCIONES_MCP = [
   '1. Empieza con perfiles_listar y sii_panorama; a una persona sin IVA, parte por renta_sincronizar y renta_resumen.',
-  '2. Si falta o está viejo: sincronizar por tramos de hasta 12 meses (rcv y f29 por defecto; propuesta y bhe opcionales), renta_sincronizar (F22 por año tributario) y perfil_sincronizar (perfil y empresas autorizadas).',
-  '3. IVA y plazos: iva_resumen, iva_hallazgos, f29_historial y plazos_proximos; f29_estimar calcula el F29 de un mes antes de declararlo; f29_releer relee los PDF guardados. Renta: renta_resumen; para estimarla, fuentes_oficiales.',
-  '4. Cruces libres: datos_esquema una vez y luego consulta_sql (solo lectura).',
-  '5. Nunca pidas la clave ni intentes un login. Ante SESION_REQUERIDA (o CLAVE_RECHAZADA, RUT_BLOQUEADO_LOCAL), pide abrir «Abrir mi-sii-mcp.cmd» (carpeta mi-sii-mcp) y conectar la cuenta ahí; si prefiere la terminal, dale el comando del mensaje (login-navegador para ClaveÚnica). Luego reintenta.',
-  '6. Reintenta solo con «Reintentar: ahora mismo» o «más tarde» (o «Reintentables más tarde»); con «Reintentar: no», sigue la acción indicada.',
-  '7. Cobertura: RCV, F29, propuesta de F29, boletas de honorarios recibidas y emitidas, renta F22, perfil tributario y empresas autorizadas. Solo lee el SII. No es oficial del SII ni asesoría tributaria.',
+  '2. Si falta o está viejo: sincronizar en tramos de hasta 12 meses (rcv y f29; propuesta y bhe opcionales), renta_sincronizar (F22) y perfil_sincronizar (perfil y empresas autorizadas).',
+  '3. IVA: iva_resumen, iva_hallazgos, f29_historial y plazos_proximos; f29_estimar calcula un F29 antes de declararlo; f29_releer relee los PDF. Renta: renta_resumen; para estimarla, fuentes_oficiales.',
+  '4. Banco y contabilidad: banco_importar (cartola CSV), banco_conciliar, cuentas_pendientes; contabilidad_cuentas, contabilidad_libro, contabilidad_asientos y contabilidad_resultado (exportables a CSV).',
+  '5. Cruces libres: datos_esquema una vez y luego consulta_sql (solo lectura).',
+  '6. Nunca pidas la clave ni intentes un login. Ante SESION_REQUERIDA (o CLAVE_RECHAZADA, RUT_BLOQUEADO_LOCAL) pide abrir «Abrir mi-sii-mcp.cmd» y conectar la cuenta ahí, o dale el comando del mensaje (login-navegador para ClaveÚnica). Luego reintenta.',
+  '7. Reintenta solo con «Reintentar: ahora mismo» o «más tarde» (o «Reintentables más tarde»).',
+  '8. Cobertura: RCV, F29, propuesta de F29, boletas de honorarios recibidas y emitidas, renta F22, perfil tributario y empresas autorizadas; el banco y la contabilidad son locales. Solo lee el SII. No es oficial del SII ni asesoría tributaria.',
 ].join('\n');
 
 export interface OpcionesMcp {
@@ -477,6 +479,22 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
         const r = asientos(deps, rut, desde, hasta ?? desde);
         const ruta = exportar === true ? await exportarAsientos(deps, r) : null;
         return respuesta(textoAsientos(r, ruta), { ...r, exportadoEn: ruta });
+      }, rut),
+  );
+
+  servidor.registerTool(
+    'contabilidad_resultado',
+    {
+      title: 'Estado de resultados',
+      description:
+        'Estado de resultados de un rango de meses a partir de los asientos propuestos: base devengada (lo facturado y las boletas del período, por defecto) o percibida (solo lo cobrado y pagado según las cartolas conciliadas, como tributa una Pro Pyme; necesita banco_importar). Muestra ingresos y gastos por cuenta, el resultado y los 5 principales clientes y proveedores. No incluye sueldos, depreciación ni gastos que el SII no conoce. Solo usa la base local.',
+      inputSchema: z.object({ rut: RUT, desde: PERIODO, hasta: PERIODO.optional(), base: z.enum(['devengado', 'percibido']).optional() }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ rut, desde, hasta, base }) =>
+      seguro(() => {
+        const r = resultadoPeriodo(deps, rut, desde, hasta ?? desde, base ?? 'devengado');
+        return respuesta(textoResultado(r), r);
       }, rut),
   );
 

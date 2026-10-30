@@ -35,6 +35,27 @@ export function registrarRecetas(servidor: McpServer): void {
   );
 
   servidor.registerPrompt(
+    'cierre_contable',
+    {
+      title: 'Cierre contable del mes',
+      description: 'Concilia el banco, revisa lo pendiente y arma los libros, los asientos y el resultado del mes para el contador.',
+      argsSchema: z.object({ rut: RUT, periodo: PERIODO.optional() }),
+    },
+    ({ rut, periodo }) =>
+      mensaje(
+        [
+          `Prepara con mi-sii-mcp el cierre contable de ${rut} del mes ${periodo ?? 'anterior al actual'}:`,
+          '1. Si falta la cartola del mes, pide importarla (banco_importar o la página «Abrir mi-sii-mcp.cmd»).',
+          '2. banco_conciliar del mes: revisa los movimientos sin conciliar y pregunta qué son antes de asignarlos o descartarlos.',
+          '3. cuentas_pendientes para lo que falta cobrar o pagar.',
+          '4. contabilidad_libro (compras, ventas, honorarios y banco) y contabilidad_asientos, con exportar si los quiere en Excel.',
+          '5. contabilidad_resultado del mes (devengado y, si hay cartola, percibido).',
+          'Resume en una tabla el resultado, lo pendiente y lo que quedó por clasificar, con los archivos exportados.',
+        ].join('\n'),
+      ),
+  );
+
+  servidor.registerPrompt(
     'que_tengo_pendiente',
     {
       title: '¿Qué tengo pendiente?',

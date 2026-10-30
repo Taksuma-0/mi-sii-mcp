@@ -370,6 +370,63 @@ const TABLAS: readonly TablaEsquema[] = [
     ],
   },
   {
+    nombre: 'banco_importacion',
+    descripcion: 'Cada cartola bancaria importada (banco_importar o la página local): de qué RUT y cuenta, el nombre del archivo (sin carpeta), cuántos movimientos traía y cuántos eran nuevos.',
+    columnas: [
+      col('id', 'INTEGER', 'Identificador de la importación'),
+      RUT,
+      col('cuenta', 'TEXT', 'Alias de la cuenta que eligió la persona (p. ej. principal o corriente); nunca el número de cuenta'),
+      col('archivo', 'TEXT', 'Nombre del archivo importado, sin carpeta'),
+      col('sha256', 'TEXT', 'Huella del archivo'),
+      col('filas', 'INTEGER', 'Movimientos leídos del archivo'),
+      col('nuevos', 'INTEGER', 'Movimientos que no estaban guardados'),
+      col('desde', 'TEXT', 'Fecha del primer movimiento AAAA-MM-DD'),
+      col('hasta', 'TEXT', 'Fecha del último movimiento AAAA-MM-DD'),
+      col('importado_en', 'TEXT', 'Instante ISO UTC de la importación'),
+    ],
+  },
+  {
+    nombre: 'banco_movimiento',
+    descripcion:
+      'Movimientos de las cartolas bancarias, sin repetir aunque se importen cartolas que se solapan. monto es positivo en un abono y negativo en un cargo. Para saber con qué se concilió cada uno, une con conciliacion_bancaria por rut y huella.',
+    columnas: [
+      RUT,
+      col('huella', 'TEXT', 'Identificador estable del movimiento'),
+      col('cuenta', 'TEXT', 'Alias de la cuenta'),
+      col('fecha', 'TEXT', 'Fecha del movimiento AAAA-MM-DD'),
+      col('descripcion', 'TEXT', 'Glosa del banco'),
+      col('documento', 'TEXT', 'N° de documento u operación; puede ser NULL'),
+      col('monto', 'INTEGER', 'Abono positivo, cargo negativo, en pesos'),
+      col('saldo', 'INTEGER', 'Saldo después del movimiento si la cartola lo trae; puede ser NULL'),
+      col('orden', 'INTEGER', 'Posición en su cartola (ordena los del mismo día)'),
+      col('importacion_id', 'INTEGER', 'banco_importacion.id que lo trajo'),
+    ],
+  },
+  {
+    nombre: 'conciliacion_bancaria',
+    descripcion:
+      'Con qué partida se concilió cada movimiento del banco (banco_conciliar). clave es la de la partida: LADO:tipo:rut:folio para el RCV (como rcv_documento), BHE:R:rut:folio o BHE:E:folio para boletas, F29:AAAA-MM:folio o F22:ATAAAA:folio. Una fila manual sin clave es un movimiento descartado a mano.',
+    columnas: [
+      RUT,
+      col('huella', 'TEXT', 'banco_movimiento.huella'),
+      col('tipo', 'TEXT', 'venta, compra, bhe_recibida, bhe_emitida, f29 o f22; NULL si se descartó'),
+      col('clave', 'TEXT', 'Clave de la partida; NULL si se descartó'),
+      col('criterio', 'TEXT', 'monto_rut (mismo monto y RUT en la glosa), monto_fecha (mismo monto y fecha cercana) o manual'),
+      col('dias', 'INTEGER', 'Días entre la partida y el movimiento; NULL en los manuales'),
+      col('creado_en', 'TEXT', 'Instante ISO UTC en que se concilió'),
+    ],
+  },
+  {
+    nombre: 'cuenta_contable',
+    descripcion: 'Cuentas propias del plan de cuentas de un contribuyente (las que sumó y las del plan base que renombró). El plan base completo se ve con contabilidad_cuentas.',
+    columnas: [RUT, col('codigo', 'TEXT', 'Código de la cuenta'), col('nombre', 'TEXT', 'Nombre de la cuenta'), col('tipo', 'TEXT', 'activo, pasivo, patrimonio, ingreso o gasto')],
+  },
+  {
+    nombre: 'regla_cuenta',
+    descripcion: 'Reglas que llevan las compras de un proveedor a una cuenta del plan (contabilidad_cuentas con accion asignar).',
+    columnas: [RUT, col('rut_contraparte', 'TEXT', 'RUT del proveedor, sin puntos y con guion'), col('cuenta', 'TEXT', 'Código de la cuenta')],
+  },
+  {
     nombre: 'hallazgo',
     descripcion:
       'Resultados de la conciliación IVA (RCV contra F29) y avisos de plazos, por rut y periodo. Se recalculan al pedir iva_resumen o iva_hallazgos: una tabla vacía no prueba que no haya diferencias.',

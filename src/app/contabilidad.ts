@@ -3,9 +3,12 @@ import { ErrorMiSiiMcp } from '../domain/errores.js';
 import { declaracionVigente } from '../domain/f29.js';
 import { sumarDias } from '../domain/fechas.js';
 import { aCsv, type CeldaCsv } from '../domain/formato.js';
-import { parsePeriodo, periodoSiguiente, rangoPeriodos } from '../domain/periodo.js';
+import { parsePeriodo, periodoSiguiente, rangoPeriodos, restarPeriodos, type Periodo } from '../domain/periodo.js';
 import { parseRut } from '../domain/rut.js';
-import { asientosDelPeriodo, type Asiento, type F29Asiento } from '../reconciliation/asientos.js';
+import { claveDocumento, type DocumentoRcv } from '../domain/tipos.js';
+import { asientosDelPeriodo, type Asiento, type EntradaAsientos, type F29Asiento } from '../reconciliation/asientos.js';
+import { signoTipoDoc } from '../reconciliation/mapeo-f29.js';
+import { conciliacionBancaria } from './banco.js';
 import { perfilExistente } from './consultas.js';
 import type { DepsApp } from './deps.js';
 import { SOLO_RESUMEN_VENTA } from './sincronizar.js';
@@ -66,6 +69,24 @@ export function asignarCuenta(deps: DepsApp, rutTexto: string, rutContraparteTex
   deps.store.guardarReglaCuenta(perfil.rut, rutContraparte, cuenta);
 }
 
+/** Lo que sale de los documentos del período (sin F29 ni banco): RCV registrado, boletas de venta y de honorarios. */
+function entradaDe(deps: DepsApp, rut: string, periodos: readonly Periodo[]): EntradaAsientos {
+  return {
+    documentos: periodos.flatMap((p) => deps.store.documentosRcv(rut, p.texto, { estado: 'REGISTRO' })),
+    resumenesBoletas: periodos.flatMap((p) =>
+      deps.store
+        .resumenesRcv(rut, p.texto)
+        .filter((r) => r.lado === 'VENTA' && r.estado === 'REGISTRO')
+        .flatMap((r) => r.filas.filter((f) => SOLO_RESUMEN_VENTA.has(f.tipoDoc) && f.cantidad > 0).map((f) => ({ periodo: p.texto, ...f }))),
+    ),
+    boletasRecibidas: periodos.flatMap((p) => deps.store.boletasHonorarios(rut, p.texto)),
+    boletasEmitidas: periodos.flatMap((p) => deps.store.boletasEmitidas(rut, p.texto)),
+    f29: [],
+    banco: [],
+    reglas: reglasDe(deps, rut),
+  };
+}
+
 export interface ResultadoAsientos {
   readonly rut: string;
   readonly desde: string;
@@ -95,18 +116,9 @@ export function asientos(deps: DepsApp, rutTexto: string, desde: string, hasta: 
   const ultimoDia = sumarDias(`${periodoSiguiente(periodos.at(-1)!).texto}-01`, -1);
   const tipoDe = new Map(deps.store.conciliaciones(rut, primerDia, ultimoDia).map((c) => [c.huella, c.tipo]));
   const lista = asientosDelPeriodo({
-    documentos: periodos.flatMap((p) => deps.store.documentosRcv(rut, p.texto, { estado: 'REGISTRO' })),
-    resumenesBoletas: periodos.flatMap((p) =>
-      deps.store
-        .resumenesRcv(rut, p.texto)
-        .filter((r) => r.lado === 'VENTA' && r.estado === 'REGISTRO')
-        .flatMap((r) => r.filas.filter((f) => SOLO_RESUMEN_VENTA.has(f.tipoDoc) && f.cantidad > 0).map((f) => ({ periodo: p.texto, ...f }))),
-    ),
-    boletasRecibidas: periodos.flatMap((p) => deps.store.boletasHonorarios(rut, p.texto)),
-    boletasEmitidas: periodos.flatMap((p) => deps.store.boletasEmitidas(rut, p.texto)),
+    ...entradaDe(deps, rut, periodos),
     f29,
     banco: deps.store.movimientosBanco(rut, { desde: primerDia, hasta: ultimoDia }).map((movimiento) => ({ movimiento, tipo: tipoDe.get(movimiento.huella) ?? null })),
-    reglas: reglasDe(deps, rut),
   });
   const lineas = lista.flatMap((a) => a.lineas);
   const nombres = new Map(planDeCuentas(deps, rut).map((c) => [c.codigo, c.nombre]));
@@ -129,4 +141,104 @@ export function asientos(deps: DepsApp, rutTexto: string, desde: string, hasta: 
 export async function exportarAsientos(deps: DepsApp, r: ResultadoAsientos): Promise<string> {
   const filas = r.asientos.flatMap((a, i) => a.lineas.map((l): CeldaCsv[] => [a.fecha, i + 1, l.cuenta, r.cuentas[l.cuenta] ?? null, a.glosa, l.debe, l.haber, a.origen]));
   return deps.archivos.exportar(`asientos-${r.rut}-${r.desde}-${r.hasta}.csv`, aCsv(['Fecha', 'Número', 'Cuenta', 'Nombre de la cuenta', 'Glosa', 'Debe', 'Haber', 'Origen'], filas));
+}
+
+export interface LineaResultado {
+  readonly cuenta: string;
+  readonly nombre: string;
+  readonly monto: number;
+}
+
+export interface Contraparte {
+  readonly rut: string;
+  readonly nombre: string | null;
+  readonly monto: number;
+}
+
+export interface ResultadoDelPeriodo {
+  readonly rut: string;
+  readonly desde: string;
+  readonly hasta: string;
+  readonly base: 'devengado' | 'percibido';
+  readonly ingresos: readonly LineaResultado[];
+  readonly gastos: readonly LineaResultado[];
+  readonly totalIngresos: number;
+  readonly totalGastos: number;
+  readonly resultado: number;
+  readonly principalesClientes: readonly Contraparte[];
+  readonly principalesProveedores: readonly Contraparte[];
+  readonly supuestos: readonly string[];
+}
+
+/** Meses antes del rango en que se buscan documentos cobrados o pagados dentro de él. */
+const MESES_ANTES_PERCIBIDO = 4;
+
+/** Las 5 contrapartes con más monto de un lado del RCV (las notas de crédito restan). */
+function principales(documentos: readonly DocumentoRcv[], lado: 'VENTA' | 'COMPRA'): Contraparte[] {
+  const porRut = new Map<string, { nombre: string | null; monto: number }>();
+  for (const d of documentos.filter((x) => x.lado === lado)) {
+    const actual = porRut.get(d.rutContraparte) ?? { nombre: d.razonSocial, monto: 0 };
+    porRut.set(d.rutContraparte, { nombre: actual.nombre ?? d.razonSocial, monto: actual.monto + signoTipoDoc(d.tipoDoc) * d.montoTotal });
+  }
+  return [...porRut.entries()].map(([rut, c]) => ({ rut, ...c })).sort((a, b) => b.monto - a.monto || a.rut.localeCompare(b.rut)).slice(0, 5);
+}
+
+/**
+ * Estado de resultados de un rango de meses a partir de los asientos propuestos: devengado (lo facturado del período) o
+ * percibido (lo cobrado y pagado según las cartolas conciliadas, como tributa una Pro Pyme), con los 5 principales clientes
+ * y proveedores. No incluye sueldos, depreciación ni otros gastos que el SII no conoce.
+ */
+export function resultadoPeriodo(deps: DepsApp, rutTexto: string, desde: string, hasta: string, base: 'devengado' | 'percibido'): ResultadoDelPeriodo {
+  const perfil = perfilExistente(deps, rutTexto);
+  const rut = perfil.rut;
+  const periodos = rangoPeriodos(parsePeriodo(desde), parsePeriodo(hasta), 240);
+  let lista: Asiento[];
+  let documentos: DocumentoRcv[];
+  const supuestos = ['No incluye sueldos, depreciación ni otros gastos que el SII no conoce: agrégalos para un resultado completo.'];
+  if (base === 'devengado') {
+    const entrada = entradaDe(deps, rut, periodos);
+    lista = asientosDelPeriodo(entrada);
+    documentos = [...entrada.documentos];
+    supuestos.unshift('Base devengada: lo facturado y las boletas del período, cobrado o no.');
+  } else {
+    const conciliacion = conciliacionBancaria(deps, rut, desde, hasta);
+    const cobradas = new Set(conciliacion.pares.map((p) => p.clave));
+    const entrada = entradaDe(deps, rut, rangoPeriodos(restarPeriodos(periodos[0]!, MESES_ANTES_PERCIBIDO), periodos.at(-1)!, 240));
+    const sinConciliar = new Set(conciliacion.sinConciliar.map((m) => m.huella));
+    const sueltos = deps.store.movimientosBanco(rut, { desde: conciliacion.desde, hasta: conciliacion.hasta }).filter((m) => sinConciliar.has(m.huella));
+    const soloBanco: EntradaAsientos = { ...entrada, documentos: [], resumenesBoletas: [], boletasRecibidas: [], boletasEmitidas: [], banco: sueltos.map((movimiento) => ({ movimiento, tipo: null })) };
+    lista = [...asientosDelPeriodo(entrada).filter((a) => cobradas.has(a.origen.replace(/^RCV:/, ''))), ...asientosDelPeriodo(soloBanco)];
+    documentos = entrada.documentos.filter((d) => cobradas.has(claveDocumento(d)));
+    supuestos.unshift('Base percibida: solo lo cobrado y pagado según las cartolas conciliadas; los movimientos sin conciliar quedan en «Por clasificar».');
+  }
+  const plan = new Map(planDeCuentas(deps, rut).map((c) => [c.codigo, c]));
+  const sumas = new Map<string, number>();
+  for (const l of lista.flatMap((a) => a.lineas)) {
+    const tipo = plan.get(l.cuenta)?.tipo;
+    if (tipo === 'ingreso') sumas.set(l.cuenta, (sumas.get(l.cuenta) ?? 0) + l.haber - l.debe);
+    if (tipo === 'gasto') sumas.set(l.cuenta, (sumas.get(l.cuenta) ?? 0) + l.debe - l.haber);
+  }
+  const lineas = (tipo: TipoCuenta): LineaResultado[] =>
+    [...sumas.entries()]
+      .filter(([cuenta, monto]) => plan.get(cuenta)?.tipo === tipo && monto !== 0)
+      .map(([cuenta, monto]) => ({ cuenta, nombre: plan.get(cuenta)!.nombre, monto }))
+      .sort((a, b) => a.cuenta.localeCompare(b.cuenta));
+  const ingresos = lineas('ingreso');
+  const gastos = lineas('gasto');
+  const totalIngresos = ingresos.reduce((s, l) => s + l.monto, 0);
+  const totalGastos = gastos.reduce((s, l) => s + l.monto, 0);
+  return {
+    rut,
+    desde: periodos[0]!.texto,
+    hasta: periodos.at(-1)!.texto,
+    base,
+    ingresos,
+    gastos,
+    totalIngresos,
+    totalGastos,
+    resultado: totalIngresos - totalGastos,
+    principalesClientes: principales(documentos, 'VENTA'),
+    principalesProveedores: principales(documentos, 'COMPRA'),
+    supuestos,
+  };
 }

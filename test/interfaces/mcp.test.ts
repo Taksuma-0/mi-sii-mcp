@@ -32,10 +32,10 @@ describe('servidor MCP', () => {
     expect(p.sii.llamadas).toEqual([]);
   });
 
-  it('expone exactamente las 22 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
+  it('expone exactamente las 23 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
     const cliente = await conectar(depsDePrueba().deps);
     const { tools } = await cliente.listTools();
-    expect(tools).toHaveLength(22);
+    expect(tools).toHaveLength(23);
     expect(tools.map((t) => t.name).sort()).toEqual([...HERRAMIENTAS].sort());
     expect(JSON.stringify(tools.map((t) => t.inputSchema)).toLowerCase()).not.toMatch(/clave|password|contrase/);
     expect(tools.find((t) => t.name === 'iva_resumen')?.annotations?.readOnlyHint).toBe(true);
@@ -393,10 +393,32 @@ describe('servidor MCP', () => {
     await cliente.close();
   });
 
+  it('contabilidad_resultado muestra el resultado devengado del período', async () => {
+    const { deps, store } = depsDePrueba();
+    store.guardarContribuyente(perfilEmpresa());
+    sembrarMes(store, '2026-09', {
+      documentos: [
+        documento({ lado: 'VENTA', rutContraparte: '44444444-4', folio: 1, razonSocial: 'CLIENTE DEMO SPA', fechaEmision: '2026-09-03', montoNeto: 1_000_000, montoIva: 190_000, montoTotal: 1_190_000 }),
+        documento({ folio: 100, fechaEmision: '2026-09-05', montoNeto: 100_000, montoIva: 19_000, montoTotal: 119_000 }),
+      ],
+    });
+    const cliente = await conectar(deps);
+
+    const r = await cliente.callTool({ name: 'contabilidad_resultado', arguments: { rut: RUT_EMPRESA, desde: '2026-09' } });
+
+    expect(esError(r)).toBe(false);
+    expect(textoDe(r)).toContain('Resultado devengado de 22222222-2, 2026-09 a 2026-09: ingresos $1.000.000 − gastos $100.000 = $900.000');
+    expect(textoDe(r)).toContain('Principales clientes: CLIENTE DEMO SPA $1.190.000');
+    await cliente.close();
+  });
+
   it('ofrece recetas listas que nombran las herramientas y nunca piden la clave', async () => {
     const cliente = await conectar(depsDePrueba().deps);
     const { prompts } = await cliente.listPrompts();
-    expect(prompts.map((p) => p.name).sort()).toEqual(['que_tengo_pendiente', 'revision_mensual']);
+    expect(prompts.map((p) => p.name).sort()).toEqual(['cierre_contable', 'que_tengo_pendiente', 'revision_mensual']);
+    const cierre = await cliente.getPrompt({ name: 'cierre_contable', arguments: { rut: '22.222.222-2', periodo: '2026-09' } });
+    const textoCierre = cierre.messages.map((m) => (m.content.type === 'text' ? m.content.text : '')).join('\n');
+    for (const herramienta of ['banco_conciliar', 'contabilidad_libro', 'contabilidad_asientos', 'contabilidad_resultado', 'cuentas_pendientes']) expect(textoCierre).toContain(herramienta);
     const revision = await cliente.getPrompt({ name: 'revision_mensual', arguments: { rut: '22.222.222-2', periodo: '2026-09' } });
     const texto = revision.messages.map((m) => (m.content.type === 'text' ? m.content.text : '')).join('\n');
     for (const herramienta of ['sii_panorama', 'sincronizar', 'iva_resumen', 'iva_hallazgos', 'f29_estimar', 'plazos_proximos']) expect(texto).toContain(herramienta);
@@ -573,7 +595,7 @@ describe('servidor MCP', () => {
     expect(instrucciones).toBe(INSTRUCCIONES_MCP);
     expect(instrucciones.length).toBeGreaterThan(0);
     expect(instrucciones.length).toBeLessThanOrEqual(1_500);
-    for (const clave of ['perfiles_listar', 'sii_panorama', 'sincronizar', '12 meses', 'iva_resumen', 'iva_hallazgos', 'f29_historial', 'plazos_proximos', 'datos_esquema', 'consulta_sql', 'f29_releer', 'perfil_sincronizar', 'renta_sincronizar', 'renta_resumen', 'f29_estimar', 'propuesta', 'bhe', 'Reintentar: ahora mismo', 'Reintentables más tarde', 'SESION_REQUERIDA', 'login-navegador', 'Abrir mi-sii-mcp.cmd', 'RCV', 'F29', 'F22']) {
+    for (const clave of ['perfiles_listar', 'sii_panorama', 'sincronizar', '12 meses', 'iva_resumen', 'iva_hallazgos', 'f29_historial', 'plazos_proximos', 'datos_esquema', 'consulta_sql', 'f29_releer', 'perfil_sincronizar', 'renta_sincronizar', 'renta_resumen', 'f29_estimar', 'banco_importar', 'banco_conciliar', 'contabilidad_asientos', 'propuesta', 'bhe', 'Reintentar: ahora mismo', 'Reintentables más tarde', 'SESION_REQUERIDA', 'login-navegador', 'Abrir mi-sii-mcp.cmd', 'RCV', 'F29', 'F22']) {
       expect(instrucciones).toContain(clave);
     }
     expect(instrucciones).toMatch(/boletas de honorarios recibidas y emitidas/);
@@ -652,7 +674,7 @@ describe('servidor MCP', () => {
   });
 
   describe('datos_esquema', () => {
-    it('lista las 13 tablas con sus columnas y las reglas de interpretación', async () => {
+    it('lista las 25 tablas con sus columnas y las reglas de interpretación', async () => {
       const cliente = await conectar(depsDePrueba().deps);
 
       const r = await cliente.callTool({ name: 'datos_esquema', arguments: {} });
@@ -660,16 +682,16 @@ describe('servidor MCP', () => {
       expect(esError(r)).toBe(false);
       const texto = textoDe(r);
       const datos = JSON.parse(texto.slice(texto.indexOf('\n\n') + 2));
-      expect(datos.tablas.map((t: { nombre: string }) => t.nombre)).toEqual(['contribuyente', 'contribuyente_tributario', 'sii_empresa_autorizada', 'rcv_resumen', 'rcv_documento', 'f29_declaracion', 'f29_valor', 'f29_lectura', 'f29_propuesta', 'f29_propuesta_valor', 'bhe_recibida', 'bhe_emitida_mes', 'bhe_emitida', 'f22_declaracion', 'f22_valor', 'f22_observacion', 'f22_evento', 'dj_tercero', 'hallazgo', 'sincronizacion']);
+      expect(datos.tablas.map((t: { nombre: string }) => t.nombre)).toEqual(['contribuyente', 'contribuyente_tributario', 'sii_empresa_autorizada', 'rcv_resumen', 'rcv_documento', 'f29_declaracion', 'f29_valor', 'f29_lectura', 'f29_propuesta', 'f29_propuesta_valor', 'bhe_recibida', 'bhe_emitida_mes', 'bhe_emitida', 'f22_declaracion', 'f22_valor', 'f22_observacion', 'f22_evento', 'dj_tercero', 'banco_importacion', 'banco_movimiento', 'conciliacion_bancaria', 'cuenta_contable', 'regla_cuenta', 'hallazgo', 'sincronizacion']);
       expect(datos).toEqual(JSON.parse(JSON.stringify(esquemaDatos())));
-      expect(texto.split('\n\n')[0]).toContain('20 tablas');
+      expect(texto.split('\n\n')[0]).toContain('25 tablas');
       await cliente.close();
     });
 
     it('solo menciona herramientas que existen', () => {
       const esquema = esquemaDatos();
       // Palabras en snake_case que el texto usa y que no son herramientas: tablas, columnas y valores de columnas.
-      const propios = new Set(['en_curso', ...esquema.tablas.flatMap((t) => [t.nombre, ...t.columnas.map((c) => c.nombre)])]);
+      const propios = new Set(['en_curso', 'monto_rut', 'monto_fecha', ...esquema.tablas.flatMap((t) => [t.nombre, ...t.columnas.map((c) => c.nombre)])]);
       const textos = [...esquema.tablas.flatMap((t) => [t.descripcion, ...t.columnas.map((c) => c.significado)]), ...esquema.reglas];
       const mencionadas = new Set(textos.flatMap((t) => t.match(/\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/g) ?? []).filter((nombre) => !propios.has(nombre)));
 

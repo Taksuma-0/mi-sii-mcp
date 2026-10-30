@@ -1,6 +1,6 @@
 import type { CuentasPendientes, LadoPendiente, ResultadoImportacion, ResumenConciliacion } from '../app/banco.js';
 import type { FilaHistorialF29, PaginaDocumentos, ResumenIva } from '../app/consultas.js';
-import type { Asiento, ResultadoAsientos, VistaCuentas } from '../app/contabilidad.js';
+import type { Asiento, Contraparte, LineaResultado, ResultadoAsientos, ResultadoDelPeriodo, VistaCuentas } from '../app/contabilidad.js';
 import type { Libro, TipoLibro } from '../app/libros.js';
 import type { CuentaSii, ResultadoCuenta } from '../app/cuenta.js';
 import type { ResultadoEstimacionF29 } from '../app/estimar-f29.js';
@@ -559,5 +559,21 @@ export function textoAsientos(r: ResultadoAsientos, exportadoEn: string | null):
     ...listaRecortada('Asientos', r.asientos, asiento),
     'Es una propuesta para revisar: no incluye sueldos, inventario ni depreciación, y no reemplaza la contabilidad completa.',
     exportadoEn === null ? 'Para llevarlos al software contable, pídelos con exportar.' : `Exportado a: ${exportadoEn}`,
+  ].join('\n');
+}
+
+/** Estado de resultados del período: ingresos y gastos por cuenta, el resultado y los principales clientes y proveedores. */
+export function textoResultado(r: ResultadoDelPeriodo): string {
+  const cuentas = (lineas: readonly LineaResultado[]) => lineas.map((l) => `  ${l.cuenta} ${l.nombre}: ${formatearClp(l.monto)}`);
+  const contrapartes = (titulo: string, lista: readonly Contraparte[]) => (lista.length === 0 ? [] : [`${titulo}: ${lista.map((c) => `${c.nombre ?? c.rut} ${formatearClp(c.monto)}`).join(' · ')}`]);
+  return [
+    `Resultado ${r.base} de ${r.rut}, ${r.desde} a ${r.hasta}: ingresos ${formatearClp(r.totalIngresos)} − gastos ${formatearClp(r.totalGastos)} = ${formatearClp(r.resultado)}`,
+    'Ingresos:',
+    ...cuentas(r.ingresos),
+    'Gastos:',
+    ...cuentas(r.gastos),
+    ...contrapartes('Principales clientes', r.principalesClientes),
+    ...contrapartes('Principales proveedores', r.principalesProveedores),
+    ...r.supuestos,
   ].join('\n');
 }

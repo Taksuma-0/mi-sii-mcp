@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { asientos, asignarCuenta, crearCuenta, exportarAsientos, vistaCuentas } from '../../src/app/contabilidad.js';
+import { asientos, asignarCuenta, crearCuenta, exportarAsientos, resultadoPeriodo, vistaCuentas } from '../../src/app/contabilidad.js';
 import { depsDePrueba } from '../helpers/deps.js';
 import { codigoDe } from '../helpers/errores.js';
 import { declaracion, documento, perfilEmpresa, RUT_CLIENTE, RUT_EMPRESA, RUT_PROVEEDOR, valores } from '../helpers/fabricas.js';
@@ -67,5 +67,49 @@ describe('asientos propuestos con lo guardado', () => {
     const csv = archivos.exportados.get(ruta)!;
     expect(csv).toContain('Fecha;Número;Cuenta;Nombre de la cuenta;Glosa;Debe;Haber;Origen');
     expect(csv).toContain(`05-09-2026;2;5101;Costos y gastos del giro;Factura 100 PROVEEDOR DEMO LTDA;100000;0;RCV:COMPRA:33:${RUT_PROVEEDOR}:100`);
+  });
+});
+
+describe('resultado del período', () => {
+  function conVentaYCompra() {
+    const p = preparar();
+    sembrarMes(p.store, '2026-09', {
+      documentos: [
+        documento({ lado: 'VENTA', rutContraparte: RUT_CLIENTE, folio: 1, razonSocial: 'CLIENTE DEMO SPA', fechaEmision: '2026-09-03', montoNeto: 1_000_000, montoIva: 190_000, montoTotal: 1_190_000 }),
+        documento({ folio: 100, fechaEmision: '2026-09-05', montoNeto: 100_000, montoIva: 19_000, montoTotal: 119_000 }),
+      ],
+    });
+    return p;
+  }
+
+  it('devengado: ingresos y gastos de lo facturado, con los principales clientes y proveedores', () => {
+    const { deps } = conVentaYCompra();
+
+    const r = resultadoPeriodo(deps, RUT_EMPRESA, '2026-09', '2026-09', 'devengado');
+
+    expect(r.ingresos).toEqual([{ cuenta: '4101', nombre: 'Ventas', monto: 1_000_000 }]);
+    expect(r.gastos).toEqual([{ cuenta: '5101', nombre: 'Costos y gastos del giro', monto: 100_000 }]);
+    expect(r).toMatchObject({ totalIngresos: 1_000_000, totalGastos: 100_000, resultado: 900_000 });
+    expect(r.principalesClientes).toEqual([{ rut: RUT_CLIENTE, nombre: 'CLIENTE DEMO SPA', monto: 1_190_000 }]);
+    expect(r.principalesProveedores).toEqual([{ rut: RUT_PROVEEDOR, nombre: 'PROVEEDOR DEMO LTDA', monto: 119_000 }]);
+  });
+
+  it('percibido: solo lo cobrado y pagado según el banco, y lo que el banco no explica va por clasificar', () => {
+    const { deps, store } = conVentaYCompra();
+    store.guardarImportacionBanco(RUT_EMPRESA, 'principal', { archivo: 'x.csv', sha256: 'x', filas: 2 }, [
+      { huella: 'cobro', fecha: '2026-09-10', descripcion: 'TRANSF 44.444.444-4', documento: null, monto: 1_190_000, saldo: null },
+      { huella: 'comision', fecha: '2026-09-20', descripcion: 'COMISION', documento: null, monto: -9_990, saldo: null },
+    ], '2026-10-30T12:00:00.000Z');
+
+    const r = resultadoPeriodo(deps, RUT_EMPRESA, '2026-09', '2026-09', 'percibido');
+
+    expect(r.ingresos).toEqual([{ cuenta: '4101', nombre: 'Ventas', monto: 1_000_000 }]);
+    expect(r.gastos).toEqual([{ cuenta: '9999', nombre: 'Por clasificar', monto: 9_990 }]);
+    expect(r.resultado).toBe(990_010);
+  });
+
+  it('percibido sin cartolas pide importarlas', async () => {
+    const { deps } = conVentaYCompra();
+    expect(await codigoDe(Promise.resolve().then(() => resultadoPeriodo(deps, RUT_EMPRESA, '2026-09', '2026-09', 'percibido')))).toBe('SIN_DATOS_LOCALES');
   });
 });
