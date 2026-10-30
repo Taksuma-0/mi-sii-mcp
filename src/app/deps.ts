@@ -1,4 +1,4 @@
-import type { ConsultaLibre, ConsultaSesiones, LectorPdfF29, Reloj, SiiReader, Store, SumideroRespuestas } from '../ports/index.js';
+import type { ArchivosLocales, ConsultaLibre, ConsultaSesiones, LectorCartola, LectorPdfF29, Reloj, SiiReader, Store, SumideroRespuestas } from '../ports/index.js';
 
 export interface DepsApp {
   readonly store: Store;
@@ -12,6 +12,9 @@ export interface DepsApp {
   /** Lector del PDF compacto del F29: el mismo que usa `abrirSii`, para comparar versiones y releer lo guardado. */
   readonly lectorPdfF29: LectorPdfF29;
   readonly sesiones: ConsultaSesiones;
+  /** Archivos del equipo: cartolas que indica la persona y exportaciones de libros y asientos. */
+  readonly archivos: ArchivosLocales;
+  readonly lectorCartola: LectorCartola;
   readonly reloj: Reloj;
   readonly toleranciaPesos: number;
   /** Guarda un archivo de diagnóstico cuando el portal cambió (PORTAL_CAMBIO). */

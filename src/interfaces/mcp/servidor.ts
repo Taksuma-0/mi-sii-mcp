@@ -1,5 +1,6 @@
 import { McpServer, type ServerContext } from '@modelcontextprotocol/server';
 import * as z from 'zod';
+import { importarCartola, MAX_BYTES_CARTOLA } from '../../app/banco.js';
 import { consultaSql, esquemaDatos, LIMITES_CONSULTA } from '../../app/consulta-libre.js';
 import { documentos, f29Historial, hallazgos, plazos, resumenIva } from '../../app/consultas.js';
 import type { DepsApp } from '../../app/deps.js';
@@ -14,7 +15,7 @@ import { sincronizar, type Avance } from '../../app/sincronizar.js';
 import { esErrorMiSiiMcp, type CodigoError } from '../../domain/errores.js';
 import { parsePeriodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
-import { lineaReintento, textoDocumentos, textoHallazgos, textoHistorialF29, textoCuenta, textoEstimacionF29, textoFuentes, textoPerfiles, textoPlazos, textoReintentables, textoReintentablesCuenta, textoReintentablesRenta, textoReleerF29, textoRenta, textoResumenIva, textoResumenRenta, textoSync } from '../formato.js';
+import { lineaReintento, textoDocumentos, textoHallazgos, textoHistorialF29, textoCuenta, textoEstimacionF29, textoFuentes, textoImportacion, textoPerfiles, textoPlazos, textoReintentables, textoReintentablesCuenta, textoReintentablesRenta, textoReleerF29, textoRenta, textoResumenIva, textoResumenRenta, textoSync } from '../formato.js';
 import { registrarRecetas } from './recetas.js';
 
 export const HERRAMIENTAS = [
@@ -34,6 +35,7 @@ export const HERRAMIENTAS = [
   'renta_resumen',
   'fuentes_oficiales',
   'f29_estimar',
+  'banco_importar',
 ] as const;
 
 /** Lo que lee el asistente al conectarse: flujo de uso, regla de la clave y cobertura (máximo 1 500 caracteres). */
@@ -330,6 +332,27 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
         const r = estimacionF29(deps, a.rut, a.periodo, { utmActual: a.utm_actual, utmAnterior: a.utm_anterior, impuestoUnico: a.impuesto_unico, tasaPpm: a.tasa_ppm });
         return respuesta(textoEstimacionF29(r), r);
       }, a.rut),
+  );
+
+  const COLUMNA = z.string().min(1).optional();
+  servidor.registerTool(
+    'banco_importar',
+    {
+      title: 'Importar una cartola bancaria',
+      description: `Importa una cartola bancaria (CSV o TXT de cualquier banco, máximo ${MAX_BYTES_CARTOLA / 1024 / 1024} MB) que la persona tiene en su equipo: pasa la ruta completa del archivo. Guarda los movimientos solo en la base local, sin repetir los que ya estaban (se pueden importar cartolas que se solapan), y revisa que el saldo no se corte. Reconoce solas las columnas de fecha, descripción, cargo y abono (o monto con signo), saldo y documento; si no, indícalas en columnas con el nombre de la cabecera o su número desde 1. Desde Excel: Guardar como CSV. No va al SII ni al banco. Después usa banco_conciliar.`,
+      inputSchema: z.object({
+        rut: RUT,
+        archivo: z.string().min(1).describe('Ruta completa del archivo en el equipo'),
+        cuenta: z.string().optional().describe('Alias de la cuenta (p. ej. «corriente»); por defecto «principal». Nunca el número de cuenta'),
+        columnas: z.object({ fecha: COLUMNA, descripcion: COLUMNA, cargo: COLUMNA, abono: COLUMNA, monto: COLUMNA, saldo: COLUMNA, documento: COLUMNA }).optional(),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ rut, archivo, cuenta, columnas }) =>
+      seguro(async () => {
+        const r = await importarCartola(deps, rut, archivo, { ...(cuenta === undefined ? {} : { cuenta }), ...(columnas === undefined ? {} : { columnas }) });
+        return respuesta(textoImportacion(r), r);
+      }, rut),
   );
 
   servidor.registerTool(

@@ -32,10 +32,10 @@ describe('servidor MCP', () => {
     expect(p.sii.llamadas).toEqual([]);
   });
 
-  it('expone exactamente las 16 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
+  it('expone exactamente las 17 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
     const cliente = await conectar(depsDePrueba().deps);
     const { tools } = await cliente.listTools();
-    expect(tools).toHaveLength(16);
+    expect(tools).toHaveLength(17);
     expect(tools.map((t) => t.name).sort()).toEqual([...HERRAMIENTAS].sort());
     expect(JSON.stringify(tools.map((t) => t.inputSchema)).toLowerCase()).not.toMatch(/clave|password|contrase/);
     expect(tools.find((t) => t.name === 'iva_resumen')?.annotations?.readOnlyHint).toBe(true);
@@ -292,6 +292,24 @@ describe('servidor MCP', () => {
     expect(sii.llamadas).toEqual([]);
     const mal = await cliente.callTool({ name: 'f29_estimar', arguments: { rut: RUT_EMPRESA, periodo: '2026-07' } });
     expect(textoDe(mal)).toContain('SIN_DATOS_LOCALES');
+    await cliente.close();
+  });
+
+  it('banco_importar importa una cartola del equipo y dice qué columnas usó', async () => {
+    const { deps, store, archivos } = depsDePrueba();
+    store.guardarContribuyente(perfilEmpresa());
+    archivos.poner('C:/cartolas/octubre.csv', ['Fecha;Descripción;Cargos;Abonos;Saldo', '02/10/2026;TRANSFERENCIA;;1.000;11.000', '03/10/2026;PAGO;500;;10.500'].join('\n'));
+    const cliente = await conectar(deps);
+    const { tools } = await cliente.listTools();
+    expect(tools.find((t) => t.name === 'banco_importar')?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: false, openWorldHint: false });
+
+    const r = await cliente.callTool({ name: 'banco_importar', arguments: { rut: RUT_EMPRESA, archivo: 'C:/cartolas/octubre.csv', cuenta: 'corriente' } });
+
+    expect(esError(r)).toBe(false);
+    expect(textoDe(r)).toContain('Cartola octubre.csv en la cuenta corriente de 22222222-2: 2 movimientos leídos, 2 nuevos');
+    expect(textoDe(r)).toContain('del 2026-10-02 al 2026-10-03');
+    expect(textoDe(r)).toContain('El saldo cuadra');
+    expect(textoDe(r)).toContain('fecha «Fecha», cargo «Cargos», abono «Abonos»');
     await cliente.close();
   });
 

@@ -71,6 +71,14 @@ export interface LectorPdfF29 {
   extraer(bytes: Uint8Array): Promise<Record<string, number>>;
 }
 
+/** Archivos del equipo de la persona: leer lo que ella indica (cartolas) y exportar libros y asientos a una carpeta propia. */
+export interface ArchivosLocales {
+  /** Lee un archivo `.csv` o `.txt` de hasta `maxBytes`; `nombre` es el nombre sin carpeta. */
+  leer(ruta: string, maxBytes: number): Promise<{ readonly nombre: string; readonly bytes: Uint8Array }>;
+  /** Escribe `contenido` en la carpeta de exportaciones con un nombre seguro y devuelve la ruta completa. */
+  exportar(nombre: string, contenido: string): Promise<string>;
+}
+
 /** Lee una cartola bancaria (CSV o TXT de cualquier banco); los errores nunca muestran su contenido. */
 export interface LectorCartola {
   leer(bytes: Uint8Array, mapeo?: MapeoColumnas): CartolaLeida;

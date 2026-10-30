@@ -1,3 +1,4 @@
+import type { ResultadoImportacion } from '../app/banco.js';
 import type { FilaHistorialF29, PaginaDocumentos, ResumenIva } from '../app/consultas.js';
 import type { CuentaSii, ResultadoCuenta } from '../app/cuenta.js';
 import type { ResultadoEstimacionF29 } from '../app/estimar-f29.js';
@@ -6,6 +7,7 @@ import type { PerfilConSesion } from '../app/perfiles.js';
 import type { ResultadoReleerF29, ResultadoRelectura } from '../app/releer-f29.js';
 import type { AnioRenta, HonorariosEmitidos, InformadoTerceros, InformanteTercero, ResultadoAnioRenta, ResultadoRenta, ResumenRenta } from '../app/renta.js';
 import { SINCRONIZACION_CANCELADA, type ResultadoPeriodo, type ResultadoSync } from '../app/sincronizar.js';
+import type { ColumnaCartola } from '../domain/banco.js';
 import { reintentoDe, type Reintento } from '../domain/errores.js';
 import { formatearClp, nombreTipoDocumento } from '../domain/formato.js';
 import type { ComparacionMonto, ParCruceHonorarios } from '../domain/renta.js';
@@ -444,4 +446,28 @@ export function textoEstimacionF29(r: ResultadoEstimacionF29): string {
   if (r.supuestos.length > 0) lineas.push(`Supuestos: ${r.supuestos.join(' ')}`);
   if (r.faltantes.length > 0) lineas.push(`Falta: ${r.faltantes.join(' ')}`);
   return lineas.join('\n');
+}
+
+const NOMBRE_COLUMNA: Readonly<Record<ColumnaCartola, string>> = {
+  fecha: 'fecha',
+  cargo: 'cargo',
+  abono: 'abono',
+  monto: 'monto',
+  descripcion: 'descripción',
+  documento: 'documento',
+  saldo: 'saldo',
+};
+
+/** Resultado de importar una cartola: cuánto trajo, qué ya estaba, si el saldo cuadra y qué columnas se usaron. */
+export function textoImportacion(r: ResultadoImportacion): string {
+  const rango = r.desde === null ? '' : `, del ${r.desde} al ${r.hasta}`;
+  const descartadas = r.descartadas > 0 ? ` (${plural(r.descartadas, 'fila descartada', 'filas descartadas')}: preámbulo, saldos o totales)` : '';
+  const saldo = r.saldoCuadra === null ? 'La cartola no trae saldos para revisar.' : r.saldoCuadra ? 'El saldo cuadra fila a fila.' : 'El saldo no cuadra en todos los tramos:';
+  const columnas = (Object.keys(NOMBRE_COLUMNA) as ColumnaCartola[]).filter((c) => r.columnas[c] !== null).map((c) => `${NOMBRE_COLUMNA[c]} «${r.columnas[c]}»`);
+  return [
+    `Cartola ${r.archivo} en la cuenta ${r.cuenta} de ${r.rut}: ${plural(r.leidos, 'movimiento leído', 'movimientos leídos')}, ${r.nuevos} ${r.nuevos === 1 ? 'nuevo' : 'nuevos'} y ${r.repetidos} que ya estaban${rango}${descartadas}.`,
+    saldo,
+    ...r.avisos,
+    `Columnas usadas: ${columnas.join(', ')}.`,
+  ].join('\n');
 }

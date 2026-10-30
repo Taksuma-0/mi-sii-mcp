@@ -1,8 +1,10 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { DepsApp } from '../app/deps.js';
+import { leerCartolaCsv } from '../connectors/banco/cartola-csv.js';
 import { capturarCookiesSii, type CookieNavegador, type OpcionesNavegador } from '../connectors/navegador/sesion-navegador.js';
 import { LlaveroSistema } from '../connectors/secretos/llavero.js';
+import { ArchivosSistema } from '../connectors/sistema/archivos.js';
 import { lectorPdfF29 } from '../connectors/sii/f29-pdf.js';
 import { conSenal, type OpcionesHttp } from '../connectors/sii/http.js';
 import { LectorPortalSii } from '../connectors/sii/lector.js';
@@ -58,6 +60,8 @@ export function crearContenedor(o: OpcionesContenedor = {}): Contenedor {
       consultaLibre: new ConsultaLibreSqlite(db),
       lectorPdfF29,
       sesiones,
+      archivos: new ArchivosSistema(config.home),
+      lectorCartola: { leer: leerCartolaCsv },
       reloj: { ahora: () => new Date() },
       toleranciaPesos: config.toleranciaPesos,
       abrirSii: async (rut, sumidero, signal) => {
