@@ -32,10 +32,10 @@ describe('servidor MCP', () => {
     expect(p.sii.llamadas).toEqual([]);
   });
 
-  it('expone exactamente las 20 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
+  it('expone exactamente las 21 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
     const cliente = await conectar(depsDePrueba().deps);
     const { tools } = await cliente.listTools();
-    expect(tools).toHaveLength(20);
+    expect(tools).toHaveLength(21);
     expect(tools.map((t) => t.name).sort()).toEqual([...HERRAMIENTAS].sort());
     expect(JSON.stringify(tools.map((t) => t.inputSchema)).toLowerCase()).not.toMatch(/clave|password|contrase/);
     expect(tools.find((t) => t.name === 'iva_resumen')?.annotations?.readOnlyHint).toBe(true);
@@ -359,6 +359,22 @@ describe('servidor MCP', () => {
     expect(textoDe(r)).toContain('33333333-3 → 5210 Materiales de construcción');
     const mala = await cliente.callTool({ name: 'contabilidad_cuentas', arguments: { rut: RUT_EMPRESA, accion: 'asignar', rut_contraparte: '33.333.333-3' } });
     expect(textoDe(mala)).toContain('PARAMETROS_INVALIDOS');
+    await cliente.close();
+  });
+
+  it('contabilidad_libro muestra el libro y lo exporta a CSV para Excel', async () => {
+    const { deps, store, archivos } = depsDePrueba();
+    store.guardarContribuyente(perfilEmpresa());
+    sembrarMes(store, '2026-09', { documentos: [documento({ folio: 100, fechaEmision: '2026-09-05', montoNeto: 100_000, montoIva: 19_000, montoTotal: 119_000 })] });
+    const cliente = await conectar(deps);
+
+    const r = await cliente.callTool({ name: 'contabilidad_libro', arguments: { rut: RUT_EMPRESA, tipo: 'compras', desde: '2026-09', exportar: true } });
+
+    expect(esError(r)).toBe(false);
+    expect(textoDe(r)).toContain('Libro de compras de 22222222-2, 2026-09 a 2026-09: 1 documento · exento $0 · neto $100.000 · IVA $19.000 · total $119.000');
+    expect(textoDe(r)).toContain('2026-09-05 · Factura · 100 · PROVEEDOR DEMO LTDA · $119.000');
+    expect(textoDe(r)).toContain('Exportado a: C:/exportaciones/libro-compras-22222222-2-2026-09-2026-09.csv');
+    expect(archivos.exportados.size).toBe(1);
     await cliente.close();
   });
 

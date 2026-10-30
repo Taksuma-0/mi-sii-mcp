@@ -1,6 +1,7 @@
 import type { CuentasPendientes, LadoPendiente, ResultadoImportacion, ResumenConciliacion } from '../app/banco.js';
 import type { FilaHistorialF29, PaginaDocumentos, ResumenIva } from '../app/consultas.js';
 import type { VistaCuentas } from '../app/contabilidad.js';
+import type { Libro, TipoLibro } from '../app/libros.js';
 import type { CuentaSii, ResultadoCuenta } from '../app/cuenta.js';
 import type { ResultadoEstimacionF29 } from '../app/estimar-f29.js';
 import { REGLA_ESTIMACION_RENTA, type FuenteOficial } from '../app/fuentes.js';
@@ -10,7 +11,7 @@ import type { AnioRenta, HonorariosEmitidos, InformadoTerceros, InformanteTercer
 import { SINCRONIZACION_CANCELADA, type ResultadoPeriodo, type ResultadoSync } from '../app/sincronizar.js';
 import type { ColumnaCartola } from '../domain/banco.js';
 import { reintentoDe, type Reintento } from '../domain/errores.js';
-import { formatearClp, nombreTipoDocumento } from '../domain/formato.js';
+import { formatearClp, nombreTipoDocumento, type CeldaCsv } from '../domain/formato.js';
 import type { ComparacionMonto, ParCruceHonorarios } from '../domain/renta.js';
 import type { Hallazgo, Plazo, Severidad } from '../domain/tipos.js';
 
@@ -518,5 +519,32 @@ export function textoCuentas(v: VistaCuentas): string {
     ...v.cuentas.map((c) => `  ${c.codigo} ${c.nombre} (${c.tipo}${c.propia ? ', propia' : ''})`),
     v.reglas.length === 0 ? 'Sin reglas por proveedor: las compras van a la cuenta que indica su tipo de compra en el RCV.' : `Reglas por proveedor (${v.reglas.length}):`,
     ...v.reglas.map((r) => `  ${r.rutContraparte} → ${r.cuenta} ${r.nombreCuenta ?? '(cuenta que ya no está en el plan)'}`),
+  ].join('\n');
+}
+
+/** Qué se muestra de cada libro en texto: el título, las columnas clave de cada fila (y cuáles son montos) y los totales. */
+const VISTA_LIBRO: Readonly<Record<TipoLibro, { readonly titulo: string; readonly columnas: readonly number[]; readonly montos: ReadonlySet<number>; readonly totales: (t: Readonly<Record<string, number>>) => string }>> = {
+  compras: { titulo: 'Libro de compras', columnas: [0, 2, 3, 5, 11], montos: new Set([11]), totales: (t) => `${plural(t['documentos']!, 'documento', 'documentos')} · exento ${formatearClp(t['exento']!)} · neto ${formatearClp(t['neto']!)} · IVA ${formatearClp(t['iva']!)} · total ${formatearClp(t['total']!)}` },
+  ventas: { titulo: 'Libro de ventas', columnas: [0, 2, 3, 5, 9], montos: new Set([9]), totales: (t) => `${plural(t['documentos']!, 'documento', 'documentos')} con detalle · exento ${formatearClp(t['exento']!)} · neto ${formatearClp(t['neto']!)} · IVA ${formatearClp(t['iva']!)} · total ${formatearClp(t['total']!)}` },
+  honorarios_recibidos: { titulo: 'Libro de honorarios recibidos', columnas: [0, 2, 4, 5, 6, 8], montos: new Set([5, 6]), totales: (t) => `${plural(t['boletas']!, 'boleta vigente', 'boletas vigentes')} · bruto ${formatearClp(t['bruto']!)} · retención ${formatearClp(t['retencion']!)} · líquido ${formatearClp(t['liquido']!)}` },
+  honorarios_emitidos: { titulo: 'Libro de honorarios emitidos', columnas: [0, 2, 4, 5, 6, 8], montos: new Set([5, 6]), totales: (t) => `${plural(t['boletas']!, 'boleta vigente', 'boletas vigentes')} · bruto ${formatearClp(t['bruto']!)} · retención ${formatearClp(t['retencion']!)} · líquido ${formatearClp(t['liquido']!)}` },
+  banco: { titulo: 'Libro del banco', columnas: [0, 2, 4, 5, 7], montos: new Set([4, 5]), totales: (t) => `${plural(t['movimientos']!, 'movimiento', 'movimientos')} · cargos ${formatearClp(t['cargos']!)} · abonos ${formatearClp(t['abonos']!)}` },
+};
+
+/** Un libro en texto: totales, sus primeras filas y, si se exportó, dónde quedó el CSV. */
+export function textoLibro(l: Libro, exportadoEn: string | null): string {
+  const vista = VISTA_LIBRO[l.tipo];
+  const fila = (f: readonly CeldaCsv[]): string =>
+    vista.columnas
+      .flatMap((j) => {
+        const c = f[j];
+        if (c === null || c === undefined) return [];
+        return [typeof c === 'number' && vista.montos.has(j) ? formatearClp(c) : String(c)];
+      })
+      .join(' · ');
+  return [
+    `${vista.titulo} de ${l.rut}, ${l.desde} a ${l.hasta}: ${vista.totales(l.totales)}.`,
+    ...listaRecortada('Filas', l.filas, fila),
+    exportadoEn === null ? 'Para llevarlo a Excel o al software contable, pídelo con exportar.' : `Exportado a: ${exportadoEn}`,
   ].join('\n');
 }

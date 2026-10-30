@@ -3,6 +3,7 @@ import * as z from 'zod';
 import { conciliacionBancaria, cuentasPendientes, fijarConciliacion, importarCartola, MAX_BYTES_CARTOLA } from '../../app/banco.js';
 import { consultaSql, esquemaDatos, LIMITES_CONSULTA } from '../../app/consulta-libre.js';
 import { asignarCuenta, crearCuenta, vistaCuentas } from '../../app/contabilidad.js';
+import { exportarLibro, libro } from '../../app/libros.js';
 import { documentos, f29Historial, hallazgos, plazos, resumenIva } from '../../app/consultas.js';
 import type { DepsApp } from '../../app/deps.js';
 import { sincronizarCuenta } from '../../app/cuenta.js';
@@ -16,7 +17,7 @@ import { sincronizar, type Avance } from '../../app/sincronizar.js';
 import { ErrorMiSiiMcp, esErrorMiSiiMcp, type CodigoError } from '../../domain/errores.js';
 import { parsePeriodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
-import { lineaReintento, textoDocumentos, textoHallazgos, textoHistorialF29, textoConciliacion, textoCuenta, textoCuentas, textoEstimacionF29, textoFuentes, textoImportacion, textoPendientes, textoPerfiles, textoPlazos, textoReintentables, textoReintentablesCuenta, textoReintentablesRenta, textoReleerF29, textoRenta, textoResumenIva, textoResumenRenta, textoSync } from '../formato.js';
+import { lineaReintento, textoDocumentos, textoHallazgos, textoHistorialF29, textoConciliacion, textoCuenta, textoCuentas, textoEstimacionF29, textoFuentes, textoImportacion, textoLibro, textoPendientes, textoPerfiles, textoPlazos, textoReintentables, textoReintentablesCuenta, textoReintentablesRenta, textoReleerF29, textoRenta, textoResumenIva, textoResumenRenta, textoSync } from '../formato.js';
 import { registrarRecetas } from './recetas.js';
 
 export const HERRAMIENTAS = [
@@ -40,6 +41,7 @@ export const HERRAMIENTAS = [
   'banco_conciliar',
   'cuentas_pendientes',
   'contabilidad_cuentas',
+  'contabilidad_libro',
 ] as const;
 
 /** Lo que lee el asistente al conectarse: flujo de uso, regla de la clave y cobertura (máximo 1 500 caracteres). */
@@ -434,6 +436,29 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
         }
         const v = vistaCuentas(deps, rut);
         return respuesta(textoCuentas(v), v);
+      }, rut),
+  );
+
+  servidor.registerTool(
+    'contabilidad_libro',
+    {
+      title: 'Libros contables',
+      description:
+        'Libro de un rango de meses con lo guardado: compras o ventas del RCV (registradas; las notas de crédito restan y las boletas de venta van como resumen del mes), boletas de honorarios recibidas o emitidas, o el banco (movimientos de las cartolas con su conciliación). Con exportar=true lo guarda como CSV para Excel o el software contable (punto y coma, fechas dd-mm-aaaa) en la carpeta exportaciones de mi-sii-mcp y devuelve la ruta. Solo usa la base local.',
+      inputSchema: z.object({
+        rut: RUT,
+        tipo: z.enum(['compras', 'ventas', 'honorarios_recibidos', 'honorarios_emitidos', 'banco']),
+        desde: PERIODO,
+        hasta: PERIODO.optional(),
+        exportar: z.boolean().optional(),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ rut, tipo, desde, hasta, exportar }) =>
+      seguro(async () => {
+        const l = libro(deps, rut, tipo, desde, hasta ?? desde);
+        const ruta = exportar === true ? await exportarLibro(deps, l) : null;
+        return respuesta(textoLibro(l, ruta), { ...l, exportadoEn: ruta });
       }, rut),
   );
 

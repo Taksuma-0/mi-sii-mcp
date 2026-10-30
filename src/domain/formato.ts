@@ -30,3 +30,24 @@ export const NOMBRES_TIPO_DOCUMENTO: Readonly<Record<number, string>> = {
 };
 
 export const nombreTipoDocumento = (tipo: number): string => NOMBRES_TIPO_DOCUMENTO[tipo] ?? `Documento tipo ${tipo}`;
+
+/** Una celda de una tabla exportable: texto, número o vacía. */
+export type CeldaCsv = string | number | null;
+
+const FECHA_ISO = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+function celdaCsv(valor: CeldaCsv): string {
+  if (valor === null) return '';
+  if (typeof valor === 'number') return String(Math.round(valor) === valor ? valor : valor.toFixed(2).replace('.', ','));
+  const fecha = FECHA_ISO.exec(valor);
+  if (fecha) return `${fecha[3]}-${fecha[2]}-${fecha[1]}`;
+  return /[;"\r\n]/.test(valor) ? `"${valor.replaceAll('"', '""')}"` : valor;
+}
+
+/**
+ * CSV que Excel en español abre bien: BOM UTF-8, punto y coma, fechas `dd-mm-aaaa`, montos enteros sin separador de miles
+ * (con coma decimal si los hay) y comillas solo donde hacen falta.
+ */
+export function aCsv(columnas: readonly string[], filas: readonly (readonly CeldaCsv[])[]): string {
+  return `﻿${[columnas, ...filas].map((f) => f.map(celdaCsv).join(';')).join('\r\n')}\r\n`;
+}
