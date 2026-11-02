@@ -190,4 +190,9 @@ describe('leerIdentidad y extractores', () => {
   it('extraerErrorLogin devuelve null en páginas sin error', () => {
     expect(extraerErrorLogin('<html>Bienvenido</html>')).toBeNull();
   });
+
+  it('extraerErrorLogin quita los scripts aunque su cierre traiga espacios o atributos', () => {
+    const html = `<p>Clave incorrecta.</p><script>var x = 1;</script ><SCRIPT type="text/javascript">var y = 2;</SCRIPT foo="bar"><p>El código de este mensaje es ${CODIGO_CLAVE_INCORRECTA}</p>`;
+    expect(extraerErrorLogin(html)).toEqual({ codigo: CODIGO_CLAVE_INCORRECTA, mensaje: 'Clave incorrecta.' });
+  });
 });

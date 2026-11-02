@@ -15,7 +15,7 @@ export const CODIGO_SESIONES_MAXIMAS = '01.01.190.500.720.27';
 /** La página de error del login termina con "El código de este mensaje es <código>". */
 export function extraerErrorLogin(html: string): { codigo: string | null; mensaje: string } | null {
   const texto = html
-    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>/gi, ' ')
     .replace(/<[^>]+>/g, ' ')
     .replace(/&nbsp;/g, ' ')
     .replace(/\s+/g, ' ')

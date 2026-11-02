@@ -1,6 +1,6 @@
 // Fija la versión de una entrega en todas sus piezas: `npm run version:fijar -- 0.3.1`.
 // Después: commit, `git tag v0.3.1` y push del tag; el workflow «Publicar» hace el resto.
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,8 +12,13 @@ if (!/^\d+\.\d+\.\d+$/.test(version)) {
   process.exit(1);
 }
 
-// package.json y package-lock.json, como lo hace npm (sin commit ni tag). La versión ya se validó: no lleva caracteres del shell.
-execSync(`npm version ${version} --no-git-tag-version --allow-same-version --ignore-scripts`, { cwd: RAIZ, stdio: 'inherit' });
+// package.json y package-lock.json, como lo hace npm (sin commit ni tag). Se llama al npm que corre este script, sin pasar por el shell.
+const npm = process.env.npm_execpath;
+if (!npm) {
+  console.error('Ejecútalo con: npm run version:fijar -- X.Y.Z');
+  process.exit(1);
+}
+execFileSync(process.execPath, [npm, 'version', version, '--no-git-tag-version', '--allow-same-version', '--ignore-scripts'], { cwd: RAIZ, stdio: 'inherit' });
 
 const SEMVER = String.raw`\d+\.\d+\.\d+`;
 /** Cambia solo los textos de versión, sin reformatear el archivo. */

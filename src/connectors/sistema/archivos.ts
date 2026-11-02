@@ -1,4 +1,4 @@
-import { mkdir, readFile, stat } from 'node:fs/promises';
+import { mkdir, open } from 'node:fs/promises';
 import { basename, extname, join } from 'node:path';
 import { ErrorMiSiiMcp } from '../../domain/errores.js';
 import type { ArchivosLocales } from '../../ports/index.js';
@@ -22,10 +22,17 @@ export class ArchivosSistema implements ArchivosLocales {
   async leer(ruta: string, maxBytes: number): Promise<{ nombre: string; bytes: Uint8Array }> {
     const nombre = basename(ruta);
     if (!EXTENSIONES.has(extname(nombre).toLowerCase())) throw new ErrorMiSiiMcp('ARCHIVO_INVALIDO', 'Solo se importan cartolas .csv o .txt (desde Excel: Guardar como CSV).');
-    const info = await stat(ruta).catch(() => null);
-    if (!info?.isFile()) throw new ErrorMiSiiMcp('ARCHIVO_INVALIDO', `No se encontró el archivo ${nombre}.`);
-    if (info.size > maxBytes) throw new ErrorMiSiiMcp('ARCHIVO_INVALIDO', `El archivo ${nombre} pasa del máximo de ${Math.round(maxBytes / 1024 / 1024)} MB.`);
-    return { nombre, bytes: new Uint8Array(await readFile(ruta)) };
+    // Se abre una sola vez y se revisa ese mismo archivo: entre revisar y leer no lo puede reemplazar otro.
+    const archivo = await open(ruta, 'r').catch(() => null);
+    if (!archivo) throw new ErrorMiSiiMcp('ARCHIVO_INVALIDO', `No se encontró el archivo ${nombre}.`);
+    try {
+      const info = await archivo.stat();
+      if (!info.isFile()) throw new ErrorMiSiiMcp('ARCHIVO_INVALIDO', `No se encontró el archivo ${nombre}.`);
+      if (info.size > maxBytes) throw new ErrorMiSiiMcp('ARCHIVO_INVALIDO', `El archivo ${nombre} pasa del máximo de ${Math.round(maxBytes / 1024 / 1024)} MB.`);
+      return { nombre, bytes: new Uint8Array(await archivo.readFile()) };
+    } finally {
+      await archivo.close();
+    }
   }
 
   async exportar(nombre: string, contenido: string): Promise<string> {
