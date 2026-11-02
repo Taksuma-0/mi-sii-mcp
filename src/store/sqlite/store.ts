@@ -1271,8 +1271,14 @@ export class SqliteStore implements Store {
       .all(rut) as { superficie: string; en: string }[];
   }
 
-  contarFallas(codigo: string, desde: string): number {
-    return this.db.prepare("SELECT COUNT(*) FROM sincronizacion WHERE estado = 'error' AND error_codigo = ? AND iniciado_en >= ?").pluck().get(codigo, desde) as number;
+  ultimasFallas(desde: string): { rut: string; superficie: string; periodo: string; codigo: string; en: string }[] {
+    return this.db
+      .prepare(
+        `WITH ultimo AS (SELECT rut, superficie, periodo, MAX(id) AS id FROM sincronizacion WHERE estado IN ('ok', 'error') GROUP BY rut, superficie, periodo)
+         SELECT s.rut, s.superficie, s.periodo, s.error_codigo AS codigo, s.iniciado_en AS en FROM ultimo u JOIN sincronizacion s ON s.id = u.id
+         WHERE s.estado = 'error' AND s.iniciado_en >= ? ORDER BY s.iniciado_en, s.id`,
+      )
+      .all(desde) as { rut: string; superficie: string; periodo: string; codigo: string; en: string }[];
   }
 
   integridad(): string {

@@ -740,5 +740,6 @@ export function textoDiagnostico(d: Diagnostico): string {
     ...(cuentas.length > 0 ? ['Cuentas:', ...cuentas] : ['Sin cuentas configuradas.']),
     `Portal del SII (últimos 30 días): ${plural(d.portal.cambios.length, 'cambio detectado', 'cambios detectados')}, ${plural(d.portal.alias.length, 'nombre de campo aprendido', 'nombres de campo aprendidos')} y ${plural(d.portal.lecturasRotas, 'lectura que falló por un cambio del portal', 'lecturas que fallaron por un cambio del portal')}.`,
     ...cambios,
+    ...d.portal.rotas.slice(0, 5).map((r) => `  [lectura rota] ${r.superficie}${r.periodo ? ` ${r.periodo}` : ''} (${r.rut}, ${r.en.slice(0, 10)}): revisa el archivo de diagnóstico y actualiza mi-sii-mcp.`),
   ].join('\n');
 }

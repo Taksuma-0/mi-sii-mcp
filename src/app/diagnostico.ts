@@ -2,6 +2,7 @@ import type { AliasAprendido, CambioPortal } from '../domain/portal.js';
 import { parseRut } from '../domain/rut.js';
 import { esMasNueva } from '../domain/version.js';
 import type { DepsApp } from './deps.js';
+import { esSuperficieVigente } from './superficies.js';
 
 /** Días hacia atrás que mira el diagnóstico (cambios del portal, lecturas rotas y reintentos pendientes). */
 const DIAS_DIAGNOSTICO = 30;
@@ -22,7 +23,13 @@ export interface Diagnostico {
   readonly base: { readonly integridad: string; readonly respuestasCrudas: number; readonly ultimoRespaldo: string | null };
   readonly cuentas: readonly CuentaDiagnostico[];
   /** Cambios del SII detectados, nombres de campos aprendidos y lecturas que fallaron porque el portal cambió. */
-  readonly portal: { readonly cambios: readonly CambioPortal[]; readonly alias: readonly AliasAprendido[]; readonly lecturasRotas: number };
+  readonly portal: {
+    readonly cambios: readonly CambioPortal[];
+    readonly alias: readonly AliasAprendido[];
+    /** Lecturas cuyo último intento sigue fallando porque el portal cambió (de superficies que el lector actual pide). */
+    readonly rotas: readonly { readonly rut: string; readonly superficie: string; readonly periodo: string; readonly en: string }[];
+    readonly lecturasRotas: number;
+  };
 }
 
 /**
@@ -40,6 +47,10 @@ export function diagnostico(deps: DepsApp, rutTexto?: string): Diagnostico {
   } catch (e) {
     integridad = `no se pudo revisar: ${e instanceof Error ? e.message : String(e)}`;
   }
+  const rotas = deps.store
+    .ultimasFallas(desde)
+    .filter((f) => f.codigo === 'PORTAL_CAMBIO' && esSuperficieVigente(f.superficie, f.periodo) && (rut === undefined || f.rut === rut))
+    .map((f) => ({ rut: f.rut, superficie: f.superficie, periodo: f.periodo, en: f.en }));
   const cuentas = deps.store
     .contribuyentes()
     .filter((p) => rut === undefined || p.rut === rut)
@@ -57,6 +68,6 @@ export function diagnostico(deps: DepsApp, rutTexto?: string): Diagnostico {
     version: { actual, ultima, hayNueva: actual !== null && esMasNueva(ultima, actual) },
     base: { integridad, respuestasCrudas: deps.store.contarRespuestasCrudas(), ultimoRespaldo: deps.respaldos?.ultimo() ?? null },
     cuentas,
-    portal: { cambios: deps.store.cambiosPortal(desde), alias: deps.store.aliasAprendidos(), lecturasRotas: deps.store.contarFallas('PORTAL_CAMBIO', desde) },
+    portal: { cambios: deps.store.cambiosPortal(desde), alias: deps.store.aliasAprendidos(), rotas, lecturasRotas: rotas.length },
   };
 }

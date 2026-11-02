@@ -10,6 +10,7 @@ import type { Perfil } from '../domain/tipos.js';
 import { hallazgos, plazos } from './consultas.js';
 import type { DepsApp } from './deps.js';
 import { mantenimientoDiario, type ResumenMantenimiento } from './mantenimiento.js';
+import { anioDeRenta, esSuperficieVigente, SUPERFICIE_DE_REGISTRO } from './superficies.js';
 import { sincronizarRenta } from './renta.js';
 import { sincronizar, type Superficie } from './sincronizar.js';
 
@@ -38,34 +39,25 @@ const MESES_RENTA = new Set([4, 5, 6]);
 /** Días hacia atrás en que se buscan fallas del SII para reintentar, y cuántos períodos se reintentan por cuenta y por día. */
 const DIAS_COLA_REINTENTOS = 30;
 const MAX_REINTENTOS_POR_CUENTA = 6;
-/** De qué superficie de `sincronizar` sale cada registro mensual de la bitácora. */
-const SUPERFICIE_DE_REGISTRO: Readonly<Record<string, Superficie>> = {
-  'rcv.VENTA': 'rcv',
-  'rcv.COMPRA': 'rcv',
-  f29: 'f29',
-  'f29.valores': 'f29',
-  'f29.propuesta': 'propuesta',
-  'bhe.recibidas': 'bhe',
-};
 const PERIODO_RENTA = /^AT(\d{4})$/;
-
 /**
  * Vuelve a traer lo que falló antes por una causa del SII que se arregla esperando (la bitácora lo sabe), sin repetir lo
- * que esta misma revisión ya trajo. Hasta `MAX_REINTENTOS_POR_CUENTA` períodos, los más nuevos primero; un error de
- * sesión detiene los reintentos de la cuenta. Devuelve cuántos períodos se reintentaron.
+ * que esta misma revisión ya trajo ni lo que el lector actual ya no pide. Hasta `MAX_REINTENTOS_POR_CUENTA` períodos, los
+ * más nuevos primero; un error de sesión detiene los reintentos de la cuenta. Devuelve cuántos períodos se reintentaron.
  */
 async function reintentarPendientes(deps: DepsApp, rut: string, yaTraidos: ReadonlySet<string>, signal: AbortSignal | undefined): Promise<number> {
   const desde = new Date(deps.reloj.ahora().getTime() - DIAS_COLA_REINTENTOS * 86_400_000).toISOString();
   const meses = new Map<string, Set<Superficie>>();
   const anios = new Set<string>();
   for (const p of deps.store.pendientesDeReintento(rut, desde)) {
-    if (yaTraidos.has(p.periodo)) continue;
-    if (PERIODO_RENTA.test(p.periodo)) {
-      anios.add(p.periodo);
+    if (!esSuperficieVigente(p.superficie, p.periodo)) continue;
+    const anio = anioDeRenta(p.superficie, p.periodo);
+    if (anio !== null) {
+      if (!yaTraidos.has(`AT${anio}`)) anios.add(`AT${anio}`);
       continue;
     }
     const superficie = SUPERFICIE_DE_REGISTRO[p.superficie];
-    if (superficie) meses.set(p.periodo, (meses.get(p.periodo) ?? new Set<Superficie>()).add(superficie));
+    if (superficie && !yaTraidos.has(p.periodo)) meses.set(p.periodo, (meses.get(p.periodo) ?? new Set<Superficie>()).add(superficie));
   }
   const tareas = [...meses.keys(), ...anios].sort((a, b) => b.localeCompare(a)).slice(0, MAX_REINTENTOS_POR_CUENTA);
   let hechos = 0;

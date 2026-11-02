@@ -73,6 +73,17 @@ describe('vigilar', () => {
     expect(store.pendientesDeReintento(RUT_EMPRESA, '2026-10-01T00:00:00.000Z')).toEqual([]);
   });
 
+  it('no reintenta superficies que el lector actual ya no pide (de versiones anteriores)', async () => {
+    const { deps, store, sii } = preparar((rut) => rut === RUT_EMPRESA);
+    const id = store.iniciarSincronizacion(RUT_EMPRESA, 'terceros.306', 'AT2026', '2026-10-29T10:00:00.000Z');
+    store.terminarSincronizacion(id, '2026-10-29T10:00:01.000Z', 'error', { codigo: 'RESPUESTA_VACIA', detalle: 'x' });
+
+    const r = await vigilar(deps);
+
+    expect(sii.llamadas.some((l) => l.startsWith('f22|'))).toBe(false);
+    expect(r.revisadas.find((x) => x.rut === RUT_EMPRESA)).not.toHaveProperty('reintentados');
+  });
+
   it('no reintenta lo que el SII no resolvería esperando ni lo que ya falló 5 veces', async () => {
     const { deps, store, sii } = preparar((rut) => rut === RUT_EMPRESA);
     const fallo = (superficie: string, periodo: string, codigo: string, en: string) => {

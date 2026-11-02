@@ -369,8 +369,8 @@ export interface Store {
   contarRespuestasCrudas(): number;
   /** Última sincronización exitosa de cada superficie de un RUT, por superficie. */
   ultimasSincronizacionesOk(rut: string): { readonly superficie: string; readonly en: string }[];
-  /** Sincronizaciones que fallaron con `codigo` desde una fecha ISO (de todas las cuentas). */
-  contarFallas(codigo: string, desde: string): number;
+  /** Último intento de cada RUT, superficie y período cuando falló, desde una fecha ISO (todas las cuentas). */
+  ultimasFallas(desde: string): { readonly rut: string; readonly superficie: string; readonly periodo: string; readonly codigo: string; readonly en: string }[];
   /** «ok» si la base está sana (PRAGMA quick_check), o el primer problema encontrado. */
   integridad(): string;
   /** Copia íntegra de la base en `ruta` (VACUUM INTO). */
