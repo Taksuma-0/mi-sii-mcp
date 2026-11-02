@@ -20,9 +20,9 @@ async function conectar(deps: DepsApp, opciones?: OpcionesMcp) {
 
 const textoDe = (r: unknown): string => (r as { content: { type: string; text: string }[] }).content[0]?.text ?? '';
 const esError = (r: unknown): boolean => (r as { isError?: boolean }).isError === true;
-/** El JSON de una respuesta (después de la primera línea en blanco), para recorrerlo libremente en las pruebas. */
+/** El JSON de una respuesta (después de la última línea en blanco: el texto puede traer tablas), para recorrerlo libremente en las pruebas. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const jsonDe = (r: unknown): any => JSON.parse(textoDe(r).slice(textoDe(r).indexOf('\n\n') + 2));
+const jsonDe = (r: unknown): any => JSON.parse(textoDe(r).slice(textoDe(r).lastIndexOf('\n\n') + 2));
 
 describe('servidor MCP', () => {
   it('fuentes_oficiales indica dónde consultar los datos públicos sin ir al SII', async () => {
@@ -157,7 +157,7 @@ describe('servidor MCP', () => {
 
     for (const [name, args] of [['sii_panorama', { rut: RUT_EMPRESA }], ['iva_resumen', { rut: RUT_EMPRESA, periodo: '2026-09' }], ['datos_esquema', {}]] as const) {
       const texto = textoDe(await cliente.callTool({ name, arguments: args }));
-      const json = texto.slice(texto.indexOf('\n\n') + 2);
+      const json = texto.slice(texto.lastIndexOf('\n\n') + 2);
       expect(json).not.toContain('\n');
       expect(json).not.toMatch(/: {2,}|\{ {2}/);
       expect(() => JSON.parse(json)).not.toThrow();
@@ -349,9 +349,57 @@ describe('servidor MCP', () => {
     const cliente = await conectar(deps);
     const r = await cliente.callTool({ name: 'iva_resumen', arguments: { rut: '22.222.222-2', periodo: '2026-09' } });
     expect(esError(r)).toBe(false);
-    expect(textoDe(r)).toContain('IVA 2026-09 — 22222222-2');
+    expect(textoDe(r)).toContain('IVA 2026-09 de 22222222-2');
+    expect(textoDe(r)).toContain('| Débito | $190.000 | $190.000 |');
     expect(textoDe(r)).toContain('"debitoRcv":190000');
     await cliente.close();
+  });
+
+  describe('iva_resumen con la plantilla de respuesta', () => {
+    const VENTAS = [resumen({ lado: 'VENTA', filas: [fila(33, 6_497_721, 1_234_567, 2)] })];
+    async function ivaDe(datos: Parameters<typeof sembrarMes>[2]) {
+      const { deps, store } = depsDePrueba();
+      store.guardarContribuyente(perfilEmpresa());
+      sembrarMes(store, '2026-09', datos);
+      const cliente = await conectar(deps);
+      const r = await cliente.callTool({ name: 'iva_resumen', arguments: { rut: RUT_EMPRESA, periodo: '2026-09' } });
+      await cliente.close();
+      const texto = textoDe(r);
+      return texto.slice(0, texto.lastIndexOf('\n\n'));
+    }
+
+    it('si el RCV cuadra con el F29 y no hay hallazgos, la conclusión empieza con ✅ y nombra el período', async () => {
+      const texto = await ivaDe({ resumenes: VENTAS, declaraciones: [declaracion()], valores: [valores({ '538': 1_234_567, '537': 0, '89': 1_234_567 })] });
+      expect(texto.split('\n')[0]).toMatch(/^✅ IVA 2026-09 de 22222222-2: /);
+    });
+
+    it('los montos de la tabla aparecen tal cual', async () => {
+      const texto = await ivaDe({ resumenes: VENTAS, declaraciones: [declaracion()], valores: [valores({ '538': 1_234_567, '537': 0, '89': 1_234_567 })] });
+      expect(texto).toContain('| Débito | $1.234.567 | $1.234.567 |');
+    });
+
+    it('con un hallazgo crítico, la conclusión empieza con ⛔ y los cuenta', async () => {
+      const texto = await ivaDe({ resumenes: VENTAS, declaraciones: [declaracion()], valores: [valores({ '538': 1_000_000, '537': 0, '89': 1_000_000 })] });
+      expect(texto.split('\n')[0]).toMatch(/^⛔ IVA 2026-09 de 22222222-2: 1 hallazgo crítico/);
+      expect(texto).toContain('⛔ IVA-01 2026-09');
+    });
+
+    it('sin F29 presentado, la conclusión lo dice con su vencimiento y sugiere estimarlo', async () => {
+      const texto = await ivaDe({ resumenes: VENTAS, declaraciones: [] });
+      expect(texto.split('\n')[0]).toBe('⚠️ IVA 2026-09 de 22222222-2: F29 no presentado; vence el 2026-10-20 con pago (2026-10-28 sin pago).');
+      expect(texto.split('\n').at(-1)).toMatch(/^Siguientes pasos: .*f29_estimar/);
+    });
+
+    it('con el F29 sin sincronizar, pide sincronizarlo en vez de dar el mes por cuadrado', async () => {
+      const texto = await ivaDe({ resumenes: VENTAS, sinF29: true });
+      expect(texto.split('\n')[0]).toBe('ℹ️ IVA 2026-09 de 22222222-2: falta sincronizar F29 para comparar.');
+      expect(texto.split('\n').at(-1)).toMatch(/^Siguientes pasos: .*sincronizar/);
+    });
+
+    it('no se alarga más de un 15 % frente a la respuesta de la 0.3 (638 caracteres con este mes)', async () => {
+      const texto = await ivaDe({ resumenes: [resumen({ lado: 'VENTA', filas: [fila(33, 1_000_000, 190_000, 2)] })], declaraciones: [declaracion()], valores: [valores({ '538': 190_000, '537': 0 })] });
+      expect(texto.length).toBeLessThanOrEqual(Math.floor(638 * 1.15));
+    });
   });
 
   it('un error de dominio vuelve como resultado de error de la herramienta', async () => {
@@ -393,10 +441,9 @@ describe('servidor MCP', () => {
 
     expect(esError(r)).toBe(false);
     const texto = textoDe(r);
-    expect(texto).toContain('Estimación del F29 de 2026-09');
-    expect(texto).toContain('no presenta nada');
-    expect(texto).toContain('Total a pagar (91): $92.500');
-    expect(texto).toContain('atrasado 1 día');
+    expect(texto.split('\n')[0]).toMatch(/^⛔ Estimación del F29 de 2026-09 \(22222222-2\): total a pagar \$92\.500; sin presentar y atrasado 1 día /);
+    expect(texto).toContain('No presenta nada en el SII');
+    expect(texto).toContain('| 91 | Total a pagar dentro del plazo | $92.500 |');
     expect(sii.llamadas).toEqual([]);
     const mal = await cliente.callTool({ name: 'f29_estimar', arguments: { rut: RUT_EMPRESA, periodo: '2026-07' } });
     expect(textoDe(mal)).toContain('SIN_DATOS_LOCALES');
@@ -530,11 +577,11 @@ describe('servidor MCP', () => {
     const segunda = await cliente.callTool({ name: 'novedades', arguments: {} });
     const cartera = await cliente.callTool({ name: 'cartera_estado', arguments: {} });
 
-    expect(textoDe(primera)).toContain('Novedades: 1 aviso sin ver.');
-    expect(textoDe(primera)).toContain('[CRÍTICO] F29 de 2026-09 no presentado — Venció el 2026-10-28. (22222222-2)');
+    expect(textoDe(primera)).toContain('⛔ Novedades: 1 aviso sin ver.');
+    expect(textoDe(primera)).toContain('⛔ F29 de 2026-09 no presentado — Venció el 2026-10-28. (22222222-2)');
     expect(textoDe(segunda)).toContain('Sin novedades');
-    expect(textoDe(cartera)).toContain('Cartera de 1 cuenta');
-    expect(textoDe(cartera)).toMatch(/Mi Pyme \(22222222-2\): sesión activa · F29: \d+ vencido/);
+    expect(textoDe(cartera)).toMatch(/^\S+ Cartera de 1 cuenta: /);
+    expect(textoDe(cartera)).toMatch(/\| Mi Pyme \(22222222-2\) \| activa \| \d+ vencido/);
     await cliente.close();
   });
 
@@ -551,8 +598,8 @@ describe('servidor MCP', () => {
     });
 
     expect(esError(r)).toBe(false);
-    expect(textoDe(r)).toContain('Estimación de la renta AT2026 de 11111111-1');
-    expect(textoDe(r)).toContain('A devolver: $145.000');
+    expect(textoDe(r).split('\n')[0]).toBe('ℹ️ Estimación de la renta AT2026 de 11111111-1: a devolver $145.000.');
+    expect(textoDe(r)).toContain('| A devolver | $145.000 |');
     expect(textoDe(r)).toContain('no es asesoría');
     await cliente.close();
   });

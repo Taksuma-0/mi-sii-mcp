@@ -23,3 +23,13 @@ export function tabla(encabezados: readonly string[], filas: readonly (readonly 
 }
 
 export const siguientesPasos = (pasos: readonly string[]): string => (pasos.length === 0 ? '' : `Siguientes pasos: ${pasos.join(' · ')}`);
+
+/**
+ * Une los bloques de una respuesta con una línea en blanco y omite las líneas y los bloques vacíos. La línea en blanco
+ * importa después de una tabla: en Markdown, una línea pegada a la tabla se lee como otra fila.
+ */
+export const bloques = (...partes: readonly (readonly string[])[]): string =>
+  partes
+    .map((lineas) => lineas.filter((l) => l !== '').join('\n'))
+    .filter((b) => b !== '')
+    .join('\n\n');

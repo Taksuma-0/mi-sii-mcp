@@ -179,6 +179,21 @@ describe('CLI', () => {
     expect(JSON.parse(e.salidaTexto.at(-1)!)).toMatchObject({ periodo: '2026-09', ventas: { debito: 190_000 } });
   });
 
+  it('iva muestra en la terminal la conclusión y los montos del mes', async () => {
+    const e = entorno();
+    e.store.guardarContribuyente(perfilEmpresa());
+    sembrarMes(e.store, '2026-09', {
+      resumenes: [resumen({ lado: 'VENTA', filas: [fila(33, 1_000_000, 190_000, 2)] })],
+      declaraciones: [declaracion()],
+      valores: [valores({ '538': 190_000, '537': 0, '89': 190_000 })],
+    });
+    expect(await e.correr('iva', RUT_EMPRESA, '2026-09')).toBe(0);
+    const salida = e.salidaTexto.join('\n');
+    expect(salida.split('\n')[0]).toMatch(/^✅ IVA 2026-09 de 22222222-2: el RCV cuadra con el F29/);
+    expect(salida).toMatch(/Débito \| \$190\.000 \| \$190\.000/);
+    expect(salida).toContain('total a pagar $171.000');
+  });
+
   it('un error tipado se muestra con código y acción, y sale con 1', async () => {
     const e = entorno();
     expect(await e.correr('iva', RUT_EMPRESA, '2026-09')).toBe(1);

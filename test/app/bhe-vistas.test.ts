@@ -55,7 +55,7 @@ describe('resumenIva con las boletas de honorarios recibidas', () => {
     expect(r.disponibilidad.bheRecibidas).toBe(true);
     const texto = textoResumenIva(r);
     expect(texto).toContain(`Boletas de honorarios recibidas: 3 (1 anulada) · bruto ${formatearClp(1_500_000)} · retención ${formatearClp(228_750)}`);
-    expect(texto).toContain(`boletas al ${T_SEMBRADO}`);
+    expect(texto).toContain(`boletas al ${T_SEMBRADO.slice(0, 10)}`);
   });
 
   it('consultadas sin boletas lo dice', () => {

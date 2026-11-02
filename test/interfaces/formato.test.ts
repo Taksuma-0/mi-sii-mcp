@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { ResultadoRelectura } from '../../src/app/releer-f29.js';
-import { textoHallazgos, textoPerfiles, textoPlazos, textoReleerF29, textoRenta, textoResumenRenta, textoSync } from '../../src/interfaces/formato.js';
+import type { FilaCartera } from '../../src/app/vigilancia.js';
+import type { Aviso } from '../../src/domain/avisos.js';
+import type { Severidad } from '../../src/domain/tipos.js';
+import { textoCartera, textoHallazgos, textoNovedades, textoPerfiles, textoPlazos, textoReleerF29, textoRenta, textoResumenRenta, textoSync } from '../../src/interfaces/formato.js';
 
 describe('formato', () => {
   it('textoPerfiles dice si la sesión se renueva sola o habrá que conectar de nuevo en la página', () => {
@@ -81,21 +84,91 @@ describe('formato', () => {
     );
   });
 
-  it('muestra hallazgos con severidad legible', () => {
-    expect(textoHallazgos([])).toBe('Sin hallazgos.');
+  it('muestra los hallazgos con el ícono de su severidad', () => {
+    expect(textoHallazgos([])).toBe('✅ Sin hallazgos.');
     const texto = textoHallazgos([
       { regla: 'IVA-01', severidad: 'critico', naturaleza: 'DERIVADO', rut: '22222222-2', periodo: '2026-09', titulo: 'Débito distinto', detalle: 'detalle', montos: null, evidencia: [] },
     ]);
-    expect(texto).toBe('[CRÍTICO] IVA-01 2026-09 — Débito distinto\n    detalle');
+    expect(texto).toBe('⛔ IVA-01 2026-09 — Débito distinto\n   detalle');
   });
 
-  it('muestra plazos vencidos y por vencer', () => {
+  it('muestra los plazos con una conclusión y un ícono: ⛔ vencido, ⚠️ en 7 días o menos, ℹ️ más adelante', () => {
     expect(
       textoPlazos([
         { rut: '22222222-2', tipo: 'F29', vence: '2026-10-20', diasRestantes: -1, descripcion: 'F29 vencido', referencia: '2026-09' },
         { rut: '22222222-2', tipo: 'RECLAMO_FACTURA', vence: '2026-10-27', diasRestantes: 6, descripcion: 'Reclamar', referencia: null },
+        { rut: '22222222-2', tipo: 'F29', vence: '2026-11-20', diasRestantes: 30, descripcion: 'F29 de 2026-10', referencia: '2026-10' },
       ]),
-    ).toBe('2026-10-20 (vencido hace 1 día(s)) — F29 vencido\n2026-10-27 (en 6 día(s)) — Reclamar');
+    ).toBe(
+      [
+        '⛔ 3 plazos: 1 vencido, 1 en 7 días o menos, 1 más adelante.',
+        '⛔ 2026-10-20 (vencido hace 1 día) — F29 vencido',
+        '⚠️ 2026-10-27 (en 6 días) — Reclamar',
+        'ℹ️ 2026-11-20 (en 30 días) — F29 de 2026-10',
+      ].join('\n'),
+    );
+    expect(textoPlazos([])).toBe('✅ Sin plazos próximos.');
+  });
+
+  it('un plazo que vence hoy no se muestra como vencido', () => {
+    const texto = textoPlazos([{ rut: '22222222-2', tipo: 'F29', vence: '2026-10-20', diasRestantes: 0, descripcion: 'F29 de 2026-09', referencia: '2026-09' }]);
+    expect(texto).toBe('⚠️ 1 plazo: 1 en 7 días o menos.\n⚠️ 2026-10-20 (vence hoy) — F29 de 2026-09');
+  });
+
+  describe('cartera', () => {
+    const base: FilaCartera = {
+      rut: '22222222-2',
+      alias: 'Pyme',
+      tipo: 'empresa',
+      sesion: 'activa',
+      ultimaSincronizacion: '2026-10-30T10:00:00.000Z',
+      f29PorVencer: 1,
+      f29Vencidos: 0,
+      masAntiguoVencido: null,
+      hallazgosCriticos: 0,
+      proximoPlazo: { vence: '2026-11-20', descripcion: 'F29 de 2026-10' },
+      avisosSinVer: 0,
+      movimientosSinConciliar: null,
+    };
+
+    it('una fila por cuenta con el ícono de su peor estado y una conclusión con las que necesitan atención', () => {
+      const texto = textoCartera([
+        base,
+        { ...base, rut: '33333333-3', alias: 'Juana', tipo: 'persona', f29Vencidos: 1, masAntiguoVencido: '2026-09' },
+        { ...base, rut: '11111111-1', alias: 'Yo', tipo: 'persona', sesion: 'sin_sesion' },
+      ]);
+      expect(texto.split('\n')[0]).toBe('⛔ Cartera de 3 cuentas: 2 necesitan atención.');
+      expect(texto).toMatch(/^\| ✅ \| Pyme \(22222222-2\) \| activa \| 0 vencidos, 1 por vencer \| 0 \| 2026-11-20 F29 de 2026-10 \| 0 \| 2026-10-30 \|$/m);
+      expect(texto).toMatch(/^\| ⛔ \| Juana \(33333333-3\) \| activa \| 1 vencido \(desde 2026-09\), 1 por vencer \|/m);
+      expect(texto).toMatch(/^\| ⚠️ \| Yo \(11111111-1\) \| sin sesión \|/m);
+      expect(texto).not.toContain('Banco');
+    });
+
+    it('con todo al día lo dice con ✅, y muestra el banco solo si hay cartolas', () => {
+      const texto = textoCartera([{ ...base, movimientosSinConciliar: 4 }]);
+      expect(texto.split('\n')[0]).toBe('✅ Cartera de 1 cuenta: todo al día.');
+      expect(texto).toContain('| Banco |');
+      expect(texto).toMatch(/\| 4 sin conciliar \|/);
+    });
+  });
+
+  it('las novedades llevan el ícono de su severidad, las más graves primero', () => {
+    const aviso = (id: number, severidad: Severidad, titulo: string): Aviso => ({
+      id,
+      rut: '22222222-2',
+      clave: `P:${id}`,
+      tipo: 'plazo',
+      severidad,
+      titulo,
+      detalle: 'Detalle.',
+      creadoEn: '2026-10-30T10:00:00.000Z',
+      notificadoEn: null,
+      vistoEn: null,
+    });
+    expect(textoNovedades([aviso(1, 'advertencia', 'Revisar compras'), aviso(2, 'critico', 'F29 no presentado')])).toBe(
+      '⛔ Novedades: 2 avisos sin ver.\n⛔ F29 no presentado — Detalle. (22222222-2)\n⚠️ Revisar compras — Detalle. (22222222-2)',
+    );
+    expect(textoNovedades([])).toMatch(/^✅ Sin novedades/);
   });
 
   it('resume una sincronización con errores y aborto', () => {
@@ -210,7 +283,7 @@ describe('formato: renta F22', () => {
 
     expect(textoResumenRenta({ rut: '22222222-2', anios: [anio, sinVigente] })).toBe(
       [
-        'Renta (F22) 22222222-2 — 2 años tributarios guardados',
+        '⚠️ Renta (F22) 22222222-2 — 2 años tributarios guardados; con observaciones del SII en AT2026.',
         'AT2026 · folio 123456789 (vigente) de 2 declaraciones · ingreso 2026-04-15 · Conclusión ficticia',
         '  Impuesto pagado $1.234.567 · giro $0 · remanente solicitado $0 · devuelto $0',
         '  305 Resultado ficticio: -$250.000',
@@ -306,7 +379,7 @@ describe('formato: renta F22', () => {
       });
       expect(texto).toBe(
         [
-          'Renta (F22) 11111111-1 — 1 año tributario guardado',
+          'ℹ️ Renta (F22) 11111111-1 — 1 año tributario guardado.',
           'AT2027 · sin F22 guardado',
           '  Boletas de honorarios emitidas en 2026: 1 vigente · bruto $100.000 · retención $0 · retención propia $14.500',
         ].join('\n'),
@@ -411,7 +484,7 @@ describe('formato: renta F22', () => {
 
     expect(textoResumenRenta({ rut: '11111111-1', anios: [anio] })).toBe(
       [
-        'Renta (F22) 11111111-1 — 1 año tributario guardado',
+        'ℹ️ Renta (F22) 11111111-1 — 1 año tributario guardado.',
         'AT2026 · sin F22 guardado',
         '  Informado por terceros (DJ): 4 informantes',
         '    DJ 1879 · Cliente Ficticio SpA (33333333-3) · jul · retención $44.000 · No Observada',

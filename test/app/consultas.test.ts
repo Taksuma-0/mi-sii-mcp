@@ -64,7 +64,7 @@ describe('resumenIva', () => {
     expect(r.ventas.debito).toBeNull();
     expect(r.compras.credito).toBeNull();
     expect(r.disponibilidad).toEqual({ ventasRcv: false, comprasRcv: false, f29: true, propuestaF29: false, bheRecibidas: false });
-    expect(textoResumenIva(r)).toContain('Falta sincronizar: ventas RCV, compras RCV');
+    expect(textoResumenIva(r)).toContain('falta sincronizar ventas RCV, compras RCV para comparar');
     expect(textoResumenIva(r)).toContain('sin dato');
   });
 
@@ -76,7 +76,7 @@ describe('resumenIva', () => {
     expect(r.hallazgos).toEqual([]);
     expect(r.comparaciones).toMatchObject({ debitoRcv: 0, creditoRcv: 0 });
     expect(r.disponibilidad).toEqual({ ventasRcv: true, comprasRcv: true, f29: false, propuestaF29: false, bheRecibidas: false });
-    expect(textoResumenIva(r)).toContain('Falta sincronizar: F29');
+    expect(textoResumenIva(r)).toContain('falta sincronizar F29 para comparar');
     expect(textoResumenIva(r)).not.toContain('no presentado');
     await sincronizar(deps, RUT_EMPRESA, sept, sept, ['f29']);
     expect(resumenIva(deps, RUT_EMPRESA, sept.texto).hallazgos.map((h) => h.regla)).toEqual(['IVA-04']);
@@ -125,7 +125,7 @@ describe('resumenIva', () => {
     const r = resumenIva(deps, RUT_EMPRESA, '2026-09');
     expect(r.venceF29).toBe('2026-10-13');
     expect(r.venceF29SinPago).toBe('2026-10-28');
-    expect(textoResumenIva(r)).toContain('vence 2026-10-13 con pago (2026-10-28 sin pago)');
+    expect(textoResumenIva(r)).toContain('vence el 2026-10-13 con pago (2026-10-28 sin pago)');
     expect(r.hallazgos).toMatchObject([{ regla: 'IVA-04', titulo: 'F29 posiblemente vencido' }]);
     expect(r.hallazgos[0]!.detalle).toContain('venció el 2026-10-13');
   });

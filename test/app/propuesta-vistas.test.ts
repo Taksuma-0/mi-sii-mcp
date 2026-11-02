@@ -51,8 +51,8 @@ describe('resumenIva con la propuesta del SII', () => {
     expect(r.frescura.propuesta).toBe(T_SEMBRADO);
     const texto = textoResumenIva(r);
     expect(texto).toContain(`Propuesta del SII: crédito ${formatearClp(950_000)} · remanente ${formatearClp(120_000)} · retención ${formatearClp(30_000)}`);
-    expect(texto).not.toContain('Falta sincronizar: propuesta');
-    expect(texto).toContain(`propuesta al ${T_SEMBRADO}`);
+    expect(texto).not.toMatch(/sincronizar[^\n]*propuesta/i);
+    expect(texto).toContain(`propuesta al ${T_SEMBRADO.slice(0, 10)}`);
   });
 
   it('un mes sin propuesta lo dice', () => {

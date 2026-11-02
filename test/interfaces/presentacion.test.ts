@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { conclusion, estado, siguientesPasos, tabla } from '../../src/interfaces/presentacion.js';
+import { bloques, conclusion, estado, siguientesPasos, tabla } from '../../src/interfaces/presentacion.js';
 
 describe('piezas de la plantilla de respuestas', () => {
   it.each([
@@ -25,6 +25,11 @@ describe('piezas de la plantilla de respuestas', () => {
 
   it('sin filas no hay tabla', () => {
     expect(tabla(['Concepto', 'Monto'], [])).toBe('');
+  });
+
+  it('separa los bloques con una línea en blanco, para que la tabla no se trague la línea siguiente, y omite los vacíos', () => {
+    const t = tabla(['A'], [['1']]);
+    expect(bloques(['✅ Listo.'], [t], ['Dato 1', '', 'Dato 2'], [siguientesPasos([])])).toBe(`✅ Listo.\n\n${t}\n\nDato 1\nDato 2`);
   });
 
   it('los siguientes pasos van en una línea y desaparecen si no hay', () => {
