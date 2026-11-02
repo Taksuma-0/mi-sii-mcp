@@ -1,5 +1,6 @@
 import { ErrorMiSiiMcp } from '../../src/domain/errores.js';
 import type { Periodo } from '../../src/domain/periodo.js';
+import type { SituacionSii } from '../../src/domain/situacion-sii.js';
 import type { DjInformada, DjTercero, DocumentoRcv, EmpresaAutorizada, EstadoRcv, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBhe, InformeBheEmitidas, InformeBheEmitidasMes, Lado, PerfilTributario, PropuestaF29, RcvResumen, RcvResumenFila, TablaAsistente } from '../../src/domain/tipos.js';
 import type { SiiReader, SumideroRespuestas } from '../../src/ports/index.js';
 
@@ -35,6 +36,8 @@ export class SiiFalso implements SiiReader {
   readonly bheEmitidas = new Map<number, InformeBheEmitidas>();
   readonly bheEmitidasDetalle = new Map<string, InformeBheEmitidasMes | null>();
   readonly fallas = new Map<string, Error>();
+  /** Lo que devuelve situacionSii; por defecto, sin anotaciones ni mensajes. */
+  situacion: SituacionSii = { anotaciones: [], cumplimiento: null, mensajes: [] };
   readonly f22 = new Map<number, F22Declaracion[]>();
   readonly f22Detalles = new Map<string, F22Detalle>();
   readonly terceros = new Map<number, DjInformada[]>();
@@ -107,6 +110,11 @@ export class SiiFalso implements SiiReader {
     await this.registrar('perfil');
     if (!this.perfil) throw new ErrorMiSiiMcp('PORTAL_CAMBIO', 'Mi SII no entregó datos del contribuyente.');
     return this.perfil;
+  }
+
+  async situacionSii(_rut: string): Promise<SituacionSii> {
+    await this.registrar('situacion');
+    return this.situacion;
   }
 
   async empresasAutorizadas(): Promise<EmpresaAutorizada[]> {

@@ -4,6 +4,7 @@ import { fechaEnSantiago } from '../domain/fechas.js';
 import { parseRut } from '../domain/rut.js';
 import { f22Vigente } from '../domain/renta.js';
 import { periodoAnterior, periodoDeFecha, restarPeriodos } from '../domain/periodo.js';
+import { avisosDeSituacion } from '../domain/situacion-sii.js';
 import type { Perfil } from '../domain/tipos.js';
 import { hallazgos, plazos } from './consultas.js';
 import type { DepsApp } from './deps.js';
@@ -66,6 +67,13 @@ async function revisarCuenta(deps: DepsApp, perfil: Perfil, signal: AbortSignal 
     // El F29 por presentar ya lo avisa su hallazgo (IVA-04), con más detalle: aquí quedan el reclamo de facturas y el F22.
     ...plazos(deps, perfil.rut, DIAS_AVISO_PLAZO).filter((p) => p.tipo !== 'F29').map(avisoDePlazo),
   ];
+  // Anotaciones vigentes y requisitos incumplidos de Mi SII; si no responde, la revisión sigue con lo demás.
+  try {
+    const sii = await deps.abrirSii(perfil.rut, () => {}, signal);
+    candidatos.push(...avisosDeSituacion(perfil.rut, await sii.situacionSii(perfil.rut)));
+  } catch (e) {
+    if (signal?.aborted) throw e;
+  }
   if (MESES_RENTA.has(actual.mes)) {
     await sincronizarRenta(deps, perfil.rut, String(actual.anio), undefined, signal);
     const vigente = f22Vigente(deps.store.declaracionesF22(perfil.rut, actual.anio));

@@ -1,6 +1,7 @@
 import type { ArchivoImportado, CartolaLeida, ConciliacionGuardada, MapeoColumnas, MovimientoBancario, MovimientoLeido, ParConciliado, TipoPartida } from '../domain/banco.js';
 import type { Aviso, AvisoCandidato } from '../domain/avisos.js';
 import type { CuentaContable } from '../domain/contabilidad.js';
+import type { SituacionSii } from '../domain/situacion-sii.js';
 import type { Periodo } from '../domain/periodo.js';
 import type {
   BheEmitidaMes,
@@ -56,6 +57,8 @@ export interface SiiReader {
   bheEmitidasMes(rut: string, periodo: Periodo): Promise<InformeBheEmitidasMes | null>;
   /** Datos tributarios de Mi SII del contribuyente de la sesión (lista permitida, sin datos personales). */
   perfilTributario(rut: string): Promise<PerfilTributario>;
+  /** Anotaciones vigentes, estado de cumplimiento y mensajes de Mi SII del contribuyente de la sesión. */
+  situacionSii(rut: string): Promise<SituacionSii>;
   /** Empresas que el contribuyente de la sesión puede consultar en el SII. */
   empresasAutorizadas(): Promise<EmpresaAutorizada[]>;
   /** Declaraciones de renta (F22) del año tributario, solo con campos permitidos; vacía si el SII no informó ninguna. */

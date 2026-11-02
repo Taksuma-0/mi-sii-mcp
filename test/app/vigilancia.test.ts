@@ -42,6 +42,25 @@ describe('vigilar', () => {
     return { ...p, deps };
   }
 
+  it('avisa una vez cada anotación vigente de Mi SII, y si Mi SII falla la revisión sigue', async () => {
+    const { deps, sii } = preparar();
+    sii.situacion = { anotaciones: [{ codigo: '4310', cantidad: 1, fechaActivacion: '2026-10-13', descripcion: 'No ha presentado su F29.', accion: 'Envíe la declaración.' }], cumplimiento: null, mensajes: [] };
+
+    const primera = await vigilar(deps);
+    const segunda = await vigilar(deps);
+    sii.situacionSii = async () => {
+      throw new Error('Mi SII no responde');
+    };
+    const tercera = await vigilar(deps);
+
+    expect(primera.nuevos.filter((a) => a.tipo === 'anotacion').map((a) => [a.rut, a.clave])).toEqual([
+      [RUT_EMPRESA, 'A:4310:2026-10-13'],
+      [RUT_PERSONA, 'A:4310:2026-10-13'],
+    ]);
+    expect(segunda.nuevos).toEqual([]);
+    expect(tercera.revisadas.map((r) => r.estado)).toEqual(['ok', 'ok']);
+  });
+
   it('trae el mes anterior y el actual de cada cuenta con sesión y registra los avisos una sola vez', async () => {
     const { deps, sii } = preparar();
 

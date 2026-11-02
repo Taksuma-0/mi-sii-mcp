@@ -32,10 +32,10 @@ describe('servidor MCP', () => {
     expect(p.sii.llamadas).toEqual([]);
   });
 
-  it('expone exactamente las 29 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
+  it('expone exactamente las 30 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
     const cliente = await conectar(depsDePrueba().deps);
     const { tools } = await cliente.listTools();
-    expect(tools).toHaveLength(29);
+    expect(tools).toHaveLength(30);
     expect(tools.map((t) => t.name).sort()).toEqual([...HERRAMIENTAS].sort());
     expect(JSON.stringify(tools.map((t) => t.inputSchema)).toLowerCase()).not.toMatch(/clave|password|contrase/);
     expect(tools.find((t) => t.name === 'iva_resumen')?.annotations?.readOnlyHint).toBe(true);
@@ -481,6 +481,26 @@ describe('servidor MCP', () => {
     expect(textoDe(r)).toContain('Este año ambos pagan lo mismo.');
     expect(textoDe(r)).toContain('30 de abril');
     expect(textoDe(r)).toContain('no una recomendación');
+    await cliente.close();
+  });
+
+  it('sii_avisos muestra las anotaciones vigentes de Mi SII y las suma a novedades', async () => {
+    const { deps, store, sii } = depsDePrueba();
+    store.guardarContribuyente(perfilEmpresa());
+    sii.situacion = {
+      anotaciones: [{ codigo: '4310', cantidad: 2, fechaActivacion: '2026-10-13', descripcion: 'No ha presentado su F29.', accion: 'Envíe la declaración faltante.' }],
+      cumplimiento: { estado: 'Cumple sus obligaciones tributarias', periodo: null, requisitos: [{ codigo: 'NDIR', condicion: 'B', titulo: 'No tener atrasos', cumple: true }] },
+      mensajes: [],
+    };
+    const cliente = await conectar(deps);
+
+    const r = await cliente.callTool({ name: 'sii_avisos', arguments: { rut: RUT_EMPRESA } });
+
+    expect(esError(r)).toBe(false);
+    expect(textoDe(r)).toContain('[4310] desde 2026-10-13 (2): No ha presentado su F29. Qué hacer: Envíe la declaración faltante.');
+    expect(textoDe(r)).toContain('cumple: No tener atrasos');
+    expect(textoDe(r)).toContain('Se sumó 1 aviso nuevo a novedades.');
+    expect(store.avisos({ rut: RUT_EMPRESA }).map((a) => a.tipo)).toEqual(['anotacion']);
     await cliente.close();
   });
 

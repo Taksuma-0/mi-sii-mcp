@@ -1,5 +1,6 @@
 import type { Periodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
+import type { SituacionSii } from '../../domain/situacion-sii.js';
 import type { DjInformada, DjTercero, DocumentoRcv, EmpresaAutorizada, EstadoRcv, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBhe, InformeBheEmitidas, InformeBheEmitidasMes, Lado, PerfilTributario, PropuestaF29, RcvResumen, TablaAsistente } from '../../domain/tipos.js';
 import type { LectorPdfF29, SiiReader, SumideroRespuestas } from '../../ports/index.js';
 import { bheRecibidas } from './bhe.js';
@@ -12,6 +13,7 @@ import type { Http } from './http.js';
 import { leerPerfilTributario } from './login.js';
 import { f29Propuesta } from './propuesta.js';
 import { rcvDetalle, rcvResumen } from './rcv.js';
+import { situacionSii } from './situacion.js';
 import { asistenteF22, djDetalle, djInformadas } from './terceros.js';
 
 /** Lee el portal del SII con una sesión ya iniciada (clave tributaria). */
@@ -58,6 +60,11 @@ export class LectorPortalSii implements SiiReader {
   /** La evidencia cruda de Mi SII no se guarda: trae datos personales y el sumidero no la recibe. */
   perfilTributario(rut: string): Promise<PerfilTributario> {
     return leerPerfilTributario(this.http, parseRut(rut).canonico);
+  }
+
+  /** Como el perfil, no pasa por el sumidero: se lee al momento y solo se guardan sus avisos. */
+  situacionSii(rut: string): Promise<SituacionSii> {
+    return situacionSii(this.http, parseRut(rut).canonico);
   }
 
   empresasAutorizadas(): Promise<EmpresaAutorizada[]> {

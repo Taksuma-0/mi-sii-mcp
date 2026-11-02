@@ -1,6 +1,6 @@
 import type { Hallazgo, Plazo, Severidad } from './tipos.js';
 
-export type TipoAviso = 'hallazgo' | 'plazo' | 'renta' | 'sesion';
+export type TipoAviso = 'hallazgo' | 'plazo' | 'renta' | 'sesion' | 'anotacion';
 
 /** Algo que merece avisarse; `clave` lo identifica para no repetirlo aunque se vuelva a detectar cada día. */
 export interface AvisoCandidato {

@@ -185,6 +185,20 @@ describe('db', () => {
     db.close();
   });
 
+  it('la migración 16 suma el tipo de aviso «anotacion» y conserva los avisos, sus ids y sus marcas', () => {
+    const db = new Database(':memory:');
+    aplicarMigraciones(db, MIGRACIONES.filter((m) => m.version <= 15));
+    db.prepare("INSERT INTO aviso (rut, clave, tipo, severidad, titulo, detalle, creado_en, visto_en) VALUES ('1', 'P:x', 'plazo', 'critico', 'T', 'D', 't1', 't2')").run();
+    expect(() => db.prepare("INSERT INTO aviso (rut, clave, tipo, severidad, titulo, detalle, creado_en) VALUES ('1', 'A:x', 'anotacion', 'advertencia', 'T', 'D', 't')").run()).toThrow(/CHECK/);
+
+    aplicarMigraciones(db);
+
+    expect(db.prepare('SELECT id, clave, tipo, visto_en FROM aviso').all()).toEqual([{ id: 1, clave: 'P:x', tipo: 'plazo', visto_en: 't2' }]);
+    db.prepare("INSERT INTO aviso (rut, clave, tipo, severidad, titulo, detalle, creado_en) VALUES ('1', 'A:x', 'anotacion', 'advertencia', 'T', 'D', 't')").run();
+    expect(db.prepare("SELECT id FROM aviso WHERE clave = 'A:x'").get()).toEqual({ id: 2 });
+    db.close();
+  });
+
   it('activa las claves foráneas y rechaza respuestas sin sincronización', () => {
     const db = nuevaDb();
     expect(db.pragma('foreign_keys', { simple: true })).toBe(1);

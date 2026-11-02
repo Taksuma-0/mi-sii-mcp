@@ -10,6 +10,7 @@ import { REGLA_ESTIMACION_RENTA, type FuenteOficial } from '../app/fuentes.js';
 import type { PerfilConSesion } from '../app/perfiles.js';
 import type { ResultadoReleerF29, ResultadoRelectura } from '../app/releer-f29.js';
 import type { ResultadoCierre, ResultadoSimulacionRegimen } from '../app/simuladores.js';
+import type { ResultadoSituacion } from '../app/situacion.js';
 import type { FilaCartera } from '../app/vigilancia.js';
 import type { AnioRenta, AsistenteAnio, HonorariosEmitidos, InformadoTerceros, InformanteTercero, ResultadoAnioRenta, ResultadoRenta, ResumenRenta } from '../app/renta.js';
 import { SINCRONIZACION_CANCELADA, type ResultadoPeriodo, type ResultadoSync } from '../app/sincronizar.js';
@@ -690,5 +691,29 @@ export function textoSimulacionRegimen(r: ResultadoSimulacionRegimen): string {
     conclusion,
     `Requisitos: ${r.requisitos.join(' ')}`,
     `Supuestos: ${r.supuestos.join(' ')}`,
+  ].join('\n');
+}
+
+/** Anotaciones vigentes, cumplimiento y mensajes de Mi SII, con cuántos avisos nuevos sumó. */
+export function textoSituacionSii(r: ResultadoSituacion): string {
+  const anotaciones =
+    r.anotaciones.length === 0
+      ? ['Anotaciones vigentes: ninguna.']
+      : [
+          `Anotaciones vigentes: ${r.anotaciones.length}.`,
+          ...r.anotaciones.map((a) => `  [${a.codigo}]${a.fechaActivacion ? ` desde ${a.fechaActivacion}` : ''}${a.cantidad > 1 ? ` (${a.cantidad})` : ''}: ${a.descripcion} Qué hacer: ${a.accion}`),
+        ];
+  const cumplimiento =
+    r.cumplimiento === null
+      ? []
+      : [`Estado de cumplimiento: ${r.cumplimiento.estado ?? 'sin estado informado'}${r.cumplimiento.periodo ? ` (${r.cumplimiento.periodo})` : ''}.`, ...r.cumplimiento.requisitos.map((q) => `  ${q.cumple === true ? 'cumple' : q.cumple === false ? 'NO cumple' : 'sin dato'}: ${q.titulo}`)];
+  const mensajes = r.mensajes.map((m) => `Mensaje del SII: ${m.titulo}. ${m.descripcion}${m.solucion ? ` ${m.solucion}` : ''}`);
+  return [
+    `Situación en Mi SII de ${r.rut}:`,
+    ...anotaciones,
+    ...cumplimiento,
+    ...mensajes,
+    r.nuevos.length > 0 ? `${r.nuevos.length === 1 ? 'Se sumó' : 'Se sumaron'} ${plural(r.nuevos.length, 'aviso nuevo', 'avisos nuevos')} a novedades.` : 'Sin avisos nuevos.',
+    ...(r.anotaciones.length > 0 ? ['Las anotaciones se regularizan ante el SII (sii.cl o la oficina de tu jurisdicción): mi-sii-mcp solo las muestra.'] : []),
   ].join('\n');
 }

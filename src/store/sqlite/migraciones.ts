@@ -479,6 +479,30 @@ CREATE TABLE asistente_f22 (
 );
 `;
 
+/**
+ * Los avisos suman el tipo «anotacion» (anotaciones vigentes y requisitos de cumplimiento de Mi SII). SQLite no cambia un
+ * CHECK en su lugar: se rehace la tabla con los mismos avisos, sus ids y sus marcas de notificado y visto.
+ */
+const V16 = `
+CREATE TABLE aviso_v16 (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  rut TEXT NOT NULL,
+  clave TEXT NOT NULL,
+  tipo TEXT NOT NULL CHECK (tipo IN ('hallazgo', 'plazo', 'renta', 'sesion', 'anotacion')),
+  severidad TEXT NOT NULL,
+  titulo TEXT NOT NULL,
+  detalle TEXT NOT NULL,
+  creado_en TEXT NOT NULL,
+  notificado_en TEXT,
+  visto_en TEXT,
+  UNIQUE (rut, clave)
+);
+INSERT INTO aviso_v16 (id, rut, clave, tipo, severidad, titulo, detalle, creado_en, notificado_en, visto_en)
+  SELECT id, rut, clave, tipo, severidad, titulo, detalle, creado_en, notificado_en, visto_en FROM aviso;
+DROP TABLE aviso;
+ALTER TABLE aviso_v16 RENAME TO aviso;
+`;
+
 export const MIGRACIONES: readonly Migracion[] = [
   { version: 1, sql: V1 },
   { version: 2, sql: V2 },
@@ -495,4 +519,5 @@ export const MIGRACIONES: readonly Migracion[] = [
   { version: 13, sql: V13 },
   { version: 14, sql: V14 },
   { version: 15, sql: V15 },
+  { version: 16, sql: V16 },
 ];

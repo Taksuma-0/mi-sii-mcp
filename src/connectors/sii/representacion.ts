@@ -1,5 +1,6 @@
 import { ErrorMiSiiMcp } from '../../domain/errores.js';
 import type { Periodo } from '../../domain/periodo.js';
+import type { SituacionSii } from '../../domain/situacion-sii.js';
 import type { DjInformada, DjTercero, DocumentoRcv, EmpresaAutorizada, EstadoRcv, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBhe, InformeBheEmitidas, InformeBheEmitidasMes, Lado, PerfilTributario, PropuestaF29, RcvResumen, TablaAsistente } from '../../domain/tipos.js';
 import type { SiiReader } from '../../ports/index.js';
 
@@ -64,6 +65,10 @@ export class LectorPorRepresentacion implements SiiReader {
 
   perfilTributario(rut: string): Promise<PerfilTributario> {
     return this.sinPermiso('el perfil tributario', rut);
+  }
+
+  situacionSii(rut: string): Promise<SituacionSii> {
+    return this.sinPermiso('las anotaciones de Mi SII', rut);
   }
 
   empresasAutorizadas(): Promise<EmpresaAutorizada[]> {

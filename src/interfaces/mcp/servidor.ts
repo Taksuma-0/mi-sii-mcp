@@ -16,12 +16,13 @@ import { listarPerfilesConRenovacion } from '../../app/perfiles.js';
 import { releerF29 } from '../../app/releer-f29.js';
 import { resumenRenta, sincronizarRenta } from '../../app/renta.js';
 import { proyeccionCierre, simulacionRegimen } from '../../app/simuladores.js';
+import { consultarSituacionSii } from '../../app/situacion.js';
 import { sincronizar, type Avance } from '../../app/sincronizar.js';
 import { carteraEstado, novedades } from '../../app/vigilancia.js';
 import { ErrorMiSiiMcp, esErrorMiSiiMcp, type CodigoError } from '../../domain/errores.js';
 import { parsePeriodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
-import { lineaReintento, textoAsientos, textoCartera, textoDocumentos, textoHallazgos, textoHistorialF29, textoConciliacion, textoCuenta, textoCuentas, textoEstimacionF29, textoEstimacionRenta, textoFuentes, textoImportacion, textoLibro, textoNovedades, textoOportunidades, textoPendientes, textoPerfiles, textoPlazos, textoProyeccionCierre, textoReintentables, textoReintentablesCuenta, textoReintentablesRenta, textoReleerF29, textoRenta, textoResultado, textoResumenIva, textoResumenRenta, textoSimulacionRegimen, textoSync } from '../formato.js';
+import { lineaReintento, textoAsientos, textoCartera, textoDocumentos, textoHallazgos, textoHistorialF29, textoConciliacion, textoCuenta, textoCuentas, textoEstimacionF29, textoEstimacionRenta, textoFuentes, textoImportacion, textoLibro, textoNovedades, textoOportunidades, textoPendientes, textoPerfiles, textoPlazos, textoProyeccionCierre, textoReintentables, textoReintentablesCuenta, textoReintentablesRenta, textoReleerF29, textoRenta, textoResultado, textoResumenIva, textoResumenRenta, textoSimulacionRegimen, textoSituacionSii, textoSync } from '../formato.js';
 import { registrarRecetas } from './recetas.js';
 
 export const HERRAMIENTAS = [
@@ -54,6 +55,7 @@ export const HERRAMIENTAS = [
   'ahorro_oportunidades',
   'regimen_simular',
   'cierre_proyectar',
+  'sii_avisos',
 ] as const;
 
 /** Lo que lee el asistente al conectarse: flujo de uso, regla de la clave y cobertura (máximo 1 500 caracteres). */
@@ -62,7 +64,7 @@ export const INSTRUCCIONES_MCP = [
   '2. Si falta o está viejo: sincronizar en tramos de hasta 12 meses (rcv y f29; propuesta y bhe opcionales), renta_sincronizar (F22) y perfil_sincronizar (perfil y empresas autorizadas).',
   '3. IVA: iva_resumen, iva_hallazgos, f29_historial y plazos_proximos; f29_estimar calcula un F29 antes de declararlo; f29_releer relee los PDF. Renta: renta_resumen; renta_estimar con los datos públicos de fuentes_oficiales.',
   '4. Banco y contabilidad: banco_importar (cartola CSV), banco_conciliar, cuentas_pendientes; contabilidad_cuentas, contabilidad_libro, contabilidad_asientos y contabilidad_resultado (exportables a CSV).',
-  '5. Seguimiento: novedades y cartera_estado. Ahorro legal: ahorro_oportunidades, regimen_simular y cierre_proyectar. Cruces libres: datos_esquema y luego consulta_sql (solo lectura).',
+  '5. Seguimiento: novedades, cartera_estado y sii_avisos (anotaciones del SII). Ahorro legal: ahorro_oportunidades, regimen_simular y cierre_proyectar. Cruces libres: datos_esquema y luego consulta_sql (solo lectura).',
   '6. Nunca pidas la clave ni intentes un login. Ante SESION_REQUERIDA (o CLAVE_RECHAZADA, RUT_BLOQUEADO_LOCAL) pide abrir «Abrir mi-sii-mcp.cmd» y conectar la cuenta, o da el comando del mensaje (login-navegador para ClaveÚnica). Luego reintenta.',
   '7. Reintenta solo con «Reintentar: ahora mismo» o «más tarde» (o «Reintentables más tarde»).',
   '8. Cobertura: RCV, F29 y su propuesta, boletas de honorarios recibidas y emitidas, F22, perfil y empresas autorizadas; banco y contabilidad locales. Solo lee el SII. No es oficial del SII ni asesoría tributaria.',
@@ -238,6 +240,22 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
         const guia = codigos.map((c) => guiaDelCodigo(comandoLogin, c, r.rut)).find((g) => g !== null);
         const texto = [textoSync(r), textoReintentables(r), guia].filter((t) => t !== null).join('\n');
         return respuesta(texto, r);
+      }, rut),
+  );
+
+  servidor.registerTool(
+    'sii_avisos',
+    {
+      title: 'Anotaciones y avisos de Mi SII',
+      description:
+        'Consulta en Mi SII, con la sesión guardada y solo leyendo, las anotaciones vigentes que restringen trámites (por ejemplo, F29 no presentado o domicilio sin acreditar, que impiden timbrar o emitir documentos), el estado de cumplimiento de las obligaciones tributarias y los mensajes informativos. Registra cada anotación y cada requisito incumplido como aviso en novedades (la revisión diaria también lo hace). No muestra deudas de la Tesorería. Solo para el RUT de la sesión: una empresa que entra con la sesión de quien la representa debe conectar su propia cuenta. Si no hay sesión, la respuesta indica cómo conectar la cuenta en «Abrir mi-sii-mcp.cmd»; nunca pidas la clave.',
+      inputSchema: z.object({ rut: RUT }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async ({ rut }, ctx) =>
+      seguro(async () => {
+        const r = await consultarSituacionSii(deps, rut, ctx.mcpReq.signal);
+        return respuesta(textoSituacionSii(r), r);
       }, rut),
   );
 
