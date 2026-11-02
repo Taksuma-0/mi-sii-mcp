@@ -2,7 +2,7 @@
 
 Cómo se presenta **mi-sii-mcp** fuera del repositorio: sitio web, Google Search Console y directorios de servidores MCP. Revisado el 27 de octubre de 2026. Nada de lo que está marcado como «pendiente» se ha enviado ni registrado todavía.
 
-## Estado (27-10-2026)
+## Estado (01-11-2026)
 
 | Acción | Estado |
 | --- | --- |
@@ -17,12 +17,19 @@ Cómo se presenta **mi-sii-mcp** fuera del repositorio: sitio web, Google Search
 | mcpservers.org: aprobado y publicado (https://mcpservers.org/servers/taksuma-0/mi-sii-mcp), con su insignia en el README | ✅ Hecho |
 | MCP Market (cola gratuita) | ✅ Enviado, en cola (4 a 6 semanas) |
 | XERJ Corpus Hub (biblioteca de código que consultan los agentes de programación): página de colaborador publicada el 29-10-2026 (https://hub.xerj.org/contributors/Taksuma-0), con el commit `4c038c1` de mi-sii-mcp seleccionado, y su insignia en el README. Se pueden sumar más repos en https://hub.xerj.org/add | ✅ Hecho |
-| npm (`npm publish`) | Pendiente: la suspensión temporal ya se levantó; falta publicar con el código de 6 dígitos de la app de verificación |
-| MCP Registry oficial | Pendiente: requiere el paquete en npm |
+| npm: `mi-sii-mcp@0.1.0` (15 herramientas) y `mi-sii-mcp@0.2.0` (30 herramientas, `latest`) publicados el 01-11-2026 (https://www.npmjs.com/package/mi-sii-mcp), cada uno con el código de su tag; probados con `npx mi-sii-mcp` en una carpeta limpia | ✅ Hecho |
+| MCP Registry oficial: `io.github.Taksuma-0/mi-sii-mcp` 0.1.0 y 0.2.0 publicados el 01-11-2026 (https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.Taksuma-0/mi-sii-mcp) | ✅ Hecho |
 | Release `v0.1.0` en GitHub (https://github.com/Taksuma-0/mi-sii-mcp/releases/tag/v0.1.0) | ✅ Hecho |
 | PR a awesome-mcp-servers, sección Finance & Fintech (https://github.com/punkpeye/awesome-mcp-servers/pull/17810) | ✅ Abierto, en revisión |
 
-Nota sobre la instalación con npm: en Glama, `npm ci` intentó compilar `better-sqlite3` con `node-gyp` y falló por falta de compilador; con `--ignore-scripts` usa los binarios precompilados que trae el paquete (`prebuilds/`). Al publicar en npm, conviene probar `npx mi-sii-mcp --help` en un equipo limpio.
+Nota sobre la instalación con npm: `npm ci` (con el `package-lock.json` del repo) intenta compilar `better-sqlite3` con `node-gyp` y falla sin compilador, en Glama y también en Windows; con `--ignore-scripts` usa los binarios precompilados que trae el paquete (`prebuilds/`). Instalar el paquete publicado (`npm install mi-sii-mcp` o `npx mi-sii-mcp`) no compila nada: se probó el 01-11-2026 en una carpeta limpia.
+
+Cómo se publicó en npm (sirve para las versiones siguientes):
+
+1. Se extrae el código del tag con `git archive` en una carpeta aparte, `npm ci --ignore-scripts`, `npm run typecheck`, `npm test`, `npm run build` y `npm pack`.
+2. Se prueba el `.tgz` instalándolo en una carpeta limpia (`npm install <archivo>.tgz`) y con `initialize` + `tools/list`.
+3. `npm login --auth-type=web`, y se publica el mismo `.tgz` desde **una ventana de terminal propia** (cmd): `npm publish <archivo>.tgz --access public --ignore-scripts --auth-type=web`. La cuenta tiene verificación en dos pasos para publicar; sin terminal interactiva npm no espera la verificación en el navegador y termina con `EOTP`.
+4. npm responde «Your package is being processed» y muestra por un par de minutos una versión de reserva `0.0.0-stage` («placeholder for staged publishing»); luego aparece la versión real como `latest`. Para probarla al tiro usa `npx --prefer-online`, porque la caché local puede tener la ficha anterior.
 
 ## Lo que ya está en el repositorio
 
@@ -73,7 +80,7 @@ Nota sobre la instalación con npm: en Glama, `npm ci` intentó compilar `better
 
 | Directorio | ¿Califica hoy? | Qué hacer |
 | --- | --- | --- |
-| **MCP Registry oficial** (registry.modelcontextprotocol.io) | No: exige un paquete publicado (npm, PyPI, NuGet, OCI, MCPB o cargo). | Publicar en npm y luego con `mcp-publisher` (ver abajo). |
+| **MCP Registry oficial** (registry.modelcontextprotocol.io) | Sí. | Hecho: 0.1.0 y 0.2.0 publicados el 01-11-2026 con `mcp-publisher` (ver abajo). |
 | **Glama** (glama.ai/mcp/servers) | Sí: https://glama.ai/mcp/servers/Taksuma-0/mi-sii-mcp | Hecho: ficha reclamada, Dockerfile, build y release 0.1.0. |
 | **MCP Market** (mcpmarket.com) | Sí. | Enviado el 27-10-2026 (cola gratuita, 4–6 semanas). |
 | **mcpservers.org** | Sí. | Hecho: aprobado (https://mcpservers.org/servers/taksuma-0/mi-sii-mcp). |
@@ -84,9 +91,9 @@ Nota sobre la instalación con npm: en Glama, `npm ci` intentó compilar `better
 | **Smithery** | No recomendable: cierra sus servicios de conexión el 31-10-2026 y para servidores locales exige un paquete `.mcpb`. | — |
 | **modelcontextprotocol/servers** | No aplica: ya no acepta servidores nuevos y remite al Registry. | — |
 
-### MCP Registry oficial (pendiente: requiere publicar en npm)
+### MCP Registry oficial (hecho: 0.1.0 y 0.2.0)
 
-El nombre `mi-sii-mcp` estaba libre en npm el 27-10-2026. El nombre en el Registry distingue mayúsculas y debe usar el usuario exacto de GitHub: `io.github.Taksuma-0/mi-sii-mcp`.
+`mi-sii-mcp@0.1.0` se publicó en npm y en el Registry el 01-11-2026, con `mcp-publisher` v1.8.7 (binario de https://github.com/modelcontextprotocol/registry/releases). `mcp-publisher login github` entrega un código para https://github.com/login/device; si caduca, se lanza de nuevo. El nombre en el Registry distingue mayúsculas y debe usar el usuario exacto de GitHub: `io.github.Taksuma-0/mi-sii-mcp`.
 
 1. Crea una cuenta en npm e inicia sesión: `npm login`.
 2. Publica: `npm publish` (el script `prepublishOnly` corre los tipos, las pruebas y la compilación). Las versiones publicadas no se pueden reutilizar.
