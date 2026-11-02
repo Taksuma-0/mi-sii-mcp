@@ -79,7 +79,7 @@ const avisoSinSesion = (perfil: Perfil, guardadaEn: string | null): AvisoCandida
   tipo: 'sesion',
   severidad: 'advertencia',
   titulo: `${perfil.alias}: sin sesión del SII`,
-  detalle: 'La revisión diaria no pudo consultar el SII: abre «Abrir mi-sii-mcp.cmd» y conecta la cuenta (con «Mantener conectada» se renueva sola).',
+  detalle: 'La revisión diaria no pudo consultar el SII: conecta la cuenta en la página de mi-sii-mcp (pídele a tu asistente «conecta mi cuenta»; con «Mantener conectada» se renueva sola).',
 });
 
 /** Superficies que vale la pena traer cada día: las que el perfil ya usa. Una persona sin RCV no declara IVA. */

@@ -8,8 +8,9 @@ import { depsDePrueba } from '../helpers/deps.js';
 import { guardarPdfF29, pdfFalso } from '../helpers/lector-falso.js';
 import { sembrarMes, T_SEMBRADO } from '../helpers/sembrar.js';
 import { VERSION } from '../../src/main/version.js';
+import type { PaginaLocal } from '../../src/interfaces/web/lanzador.js';
 
-function entorno(o: { claveStdin?: string; fallaAlAbrir?: Error; falloNavegador?: Error } = {}) {
+function entorno(o: { claveStdin?: string; fallaAlAbrir?: Error; falloNavegador?: Error; pagina?: () => Promise<PaginaLocal> } = {}) {
   const p = depsDePrueba({ fallaAlAbrir: o.fallaAlAbrir });
   const salidaTexto: string[] = [];
   const errores: string[] = [];
@@ -62,14 +63,65 @@ function entorno(o: { claveStdin?: string; fallaAlAbrir?: Error; falloNavegador?
     leerStdin: async () => o.claveStdin ?? '',
   };
   const correr = async (...args: string[]): Promise<number> => {
-    const { programa, salida } = crearPrograma(io, () => contenedor, () => {
-      contadores.mcp++;
-    });
+    const { programa, salida } = crearPrograma(
+      io,
+      () => contenedor,
+      () => {
+        contadores.mcp++;
+      },
+      o.pagina,
+    );
     await programa.parseAsync(['node', 'mi-sii-mcp', ...args]);
     return salida.codigo;
   };
   return { ...p, correr, salidaTexto, errores, logins, navegador, contadores, notificaciones, tarea };
 }
+
+describe('CLI: conectar', () => {
+  const URL_PAGINA = 'http://127.0.0.1:47529';
+  /** Una página recién levantada que sigue abierta hasta que la prueba la cierra. */
+  function paginaAbierta(enNavegador: boolean) {
+    let cerrar!: () => void;
+    const cerrado = new Promise<void>((resolve) => { cerrar = resolve; });
+    const pagina: PaginaLocal = { url: URL_PAGINA, servidor: { url: URL_PAGINA, cerrado, cerrar: async () => cerrar() }, enNavegador };
+    return { pagina, cerrar };
+  }
+  const tick = () => new Promise((resolve) => setTimeout(resolve, 20));
+
+  it('abre la página en el navegador, muestra su dirección y sigue mientras la página esté abierta', async () => {
+    const { pagina, cerrar } = paginaAbierta(true);
+    const e = entorno({ pagina: async () => pagina });
+    let terminado = false;
+
+    const corrida = e.correr('conectar').then((codigo) => { terminado = true; return codigo; });
+    await tick();
+
+    expect(terminado).toBe(false);
+    expect(e.salidaTexto.join('\n')).toContain(URL_PAGINA);
+    cerrar();
+    expect(await corrida).toBe(0);
+    expect(e.contadores.cerrado).toBe(0);
+  });
+
+  it('si el navegador no se abre, pide abrir la dirección a mano', async () => {
+    const { pagina, cerrar } = paginaAbierta(false);
+    const e = entorno({ pagina: async () => pagina });
+
+    const corrida = e.correr('conectar');
+    await tick();
+
+    expect(e.salidaTexto.join('\n')).toMatch(/no se pudo abrir el navegador[^]*http:\/\/127\.0\.0\.1:47529/i);
+    cerrar();
+    expect(await corrida).toBe(0);
+  });
+
+  it('si la página ya estaba abierta, la muestra y termina sin esperar', async () => {
+    const e = entorno({ pagina: async () => ({ url: URL_PAGINA, servidor: null, enNavegador: true }) });
+
+    expect(await e.correr('conectar')).toBe(0);
+    expect(e.salidaTexto.join('\n')).toContain(URL_PAGINA);
+  });
+});
 
 describe('CLI: revisión diaria', () => {
   it('vigilar revisa las cuentas y con --notificar muestra una sola notificación con los avisos nuevos', async () => {

@@ -207,7 +207,7 @@ export interface ResumenConciliacion {
 
 function exigirCartolas(deps: DepsApp, rut: string): void {
   if (deps.store.cuentasBanco(rut).length === 0) {
-    throw new ErrorMiSiiMcp('SIN_DATOS_LOCALES', `No hay cartolas importadas de ${rut}: importa una con banco_importar o en la página «Abrir mi-sii-mcp.cmd».`);
+    throw new ErrorMiSiiMcp('SIN_DATOS_LOCALES', `No hay cartolas importadas de ${rut}: importa una con banco_importar o en la página local de mi-sii-mcp.`);
   }
 }
 

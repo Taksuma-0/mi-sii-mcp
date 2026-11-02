@@ -35,10 +35,10 @@ describe('servidor MCP', () => {
     expect(p.sii.llamadas).toEqual([]);
   });
 
-  it('expone exactamente las 31 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
+  it('expone exactamente las 32 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
     const cliente = await conectar(depsDePrueba().deps);
     const { tools } = await cliente.listTools();
-    expect(tools).toHaveLength(31);
+    expect(tools).toHaveLength(32);
     expect(tools.map((t) => t.name).sort()).toEqual([...HERRAMIENTAS].sort());
     expect(JSON.stringify(tools.map((t) => t.inputSchema)).toLowerCase()).not.toMatch(/clave|password|contrase/);
     expect(tools.find((t) => t.name === 'iva_resumen')?.annotations?.readOnlyHint).toBe(true);
@@ -829,7 +829,7 @@ describe('servidor MCP', () => {
     expect(instrucciones).toBe(INSTRUCCIONES_MCP);
     expect(instrucciones.length).toBeGreaterThan(0);
     expect(instrucciones.length).toBeLessThanOrEqual(1_500);
-    for (const clave of ['perfiles_listar', 'sii_panorama', 'sincronizar', '12 meses', 'iva_resumen', 'iva_hallazgos', 'f29_historial', 'plazos_proximos', 'datos_esquema', 'consulta_sql', 'f29_releer', 'perfil_sincronizar', 'renta_sincronizar', 'renta_resumen', 'f29_estimar', 'banco_importar', 'banco_conciliar', 'contabilidad_asientos', 'novedades', 'cartera_estado', 'renta_estimar', 'ahorro_oportunidades', 'propuesta', 'bhe', 'Reintentar: ahora mismo', 'Reintentables más tarde', 'SESION_REQUERIDA', 'login-navegador', 'Abrir mi-sii-mcp.cmd', 'RCV', 'F29', 'F22']) {
+    for (const clave of ['perfiles_listar', 'sii_panorama', 'sincronizar', '12 meses', 'iva_resumen', 'iva_hallazgos', 'f29_historial', 'plazos_proximos', 'datos_esquema', 'consulta_sql', 'f29_releer', 'perfil_sincronizar', 'renta_sincronizar', 'renta_resumen', 'f29_estimar', 'banco_importar', 'banco_conciliar', 'contabilidad_asientos', 'novedades', 'cartera_estado', 'renta_estimar', 'ahorro_oportunidades', 'propuesta', 'bhe', 'Reintentar: ahora mismo', 'Reintentables más tarde', 'SESION_REQUERIDA', 'login-navegador', 'cuenta_conectar', 'RCV', 'F29', 'F22']) {
       expect(instrucciones).toContain(clave);
     }
     expect(instrucciones).toMatch(/boletas de honorarios recibidas y emitidas/);
@@ -937,6 +937,46 @@ describe('servidor MCP', () => {
     });
   });
 
+  describe('cuenta_conectar', () => {
+    const direccion = (texto: string): string => /http:\/\/127\.0\.0\.1:\d+/.exec(texto)?.[0] ?? '';
+    const estado = async (url: string): Promise<unknown> => (await fetch(`${url}/estado`)).json();
+
+    it('abre la página local en el navegador, entrega su dirección y la cierra al terminar la sesión', async () => {
+      const abiertas: string[] = [];
+      const cliente = await conectar(depsDePrueba().deps, { pagina: { puerto: 0, abrir: async (url) => { abiertas.push(url); } } });
+
+      const r = await cliente.callTool({ name: 'cuenta_conectar', arguments: {} });
+
+      expect(esError(r)).toBe(false);
+      const url = direccion(textoDe(r));
+      expect(abiertas).toEqual([url]);
+      expect(await estado(url)).toMatchObject({ aplicacion: 'mi-sii-mcp-local-v1' });
+      expect(textoDe(r)).toMatch(/nunca pidas la clave en el chat/i);
+      await cliente.close();
+      await expect(fetch(`${url}/estado`)).rejects.toThrow();
+    });
+
+    it('si el navegador no se abre, deja la página disponible y pide abrir la dirección a mano', async () => {
+      const cliente = await conectar(depsDePrueba().deps, { pagina: { puerto: 0, abrir: async () => { throw new Error('sin navegador'); } } });
+
+      const r = await cliente.callTool({ name: 'cuenta_conectar', arguments: {} });
+
+      expect(esError(r)).toBe(false);
+      const url = direccion(textoDe(r));
+      expect(textoDe(r)).toMatch(/no se pudo abrir el navegador/i);
+      expect(await estado(url)).toMatchObject({ aplicacion: 'mi-sii-mcp-local-v1' });
+      await cliente.close();
+    });
+
+    it('no recibe datos: la clave se escribe solo en la página', async () => {
+      const cliente = await conectar(depsDePrueba().deps);
+      const { tools } = await cliente.listTools();
+      const herramienta = tools.find((t) => t.name === 'cuenta_conectar');
+      expect(herramienta).toBeDefined();
+      expect(Object.keys(herramienta?.inputSchema.properties ?? {})).toEqual([]);
+      await cliente.close();
+    });
+  });
   describe('comando de login', () => {
     const LOGIN = { comandoLogin: (rut: string) => `LOGIN ${rut}` };
 
@@ -950,7 +990,7 @@ describe('servidor MCP', () => {
       const texto = textoDe(r);
       expect(texto).toContain(`[${codigo}]`);
       expect(texto).toContain('LOGIN 22222222-2');
-      expect(texto).toContain('Abrir mi-sii-mcp.cmd');
+      expect(texto).toContain('cuenta_conectar');
       expect(texto).toMatch(/nunca pidas la clave en el chat/i);
       expect(texto).not.toContain('mi-sii-mcp login');
       await cliente.close();
@@ -1012,7 +1052,7 @@ describe('servidor MCP', () => {
       expect(esError(r)).toBe(false);
       const texto = textoDe(r);
       expect(texto).toContain('LOGIN <rut>');
-      expect(texto).toContain('Abrir mi-sii-mcp.cmd');
+      expect(texto).toContain('cuenta_conectar');
       expect(texto).toMatch(/nunca pidas la clave en el chat/i);
       expect(texto).not.toContain('mi-sii-mcp perfil');
       await cliente.close();
@@ -1085,7 +1125,7 @@ describe('servidor MCP', () => {
       const descripcion = tools.find((t) => t.name === 'sincronizar')?.description ?? '';
       expect(descripcion).toMatch(/120 meses/);
       expect(descripcion).toMatch(/tramos de 12 meses/);
-      expect(descripcion).toContain('Abrir mi-sii-mcp.cmd');
+      expect(descripcion).toContain('cuenta_conectar');
       expect(descripcion).not.toContain('mi-sii-mcp login');
       expect(descripcion).toMatch(/por defecto trae rcv y f29/i);
       expect(descripcion).toMatch(/«propuesta».*no va por defecto/i);

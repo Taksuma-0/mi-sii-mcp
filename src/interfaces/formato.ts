@@ -299,7 +299,7 @@ export function textoPerfiles(perfiles: readonly PerfilConSesion[]): string {
           : p.sesion.renuevaSola === true
             ? ' (se renueva sola)'
             : p.sesion.renuevaSola === false
-              ? ' (sin clave guardada: cuando venza, hay que conectar de nuevo en «Abrir mi-sii-mcp.cmd»)'
+              ? ' (sin clave guardada: cuando venza, hay que conectar de nuevo)'
               : '';
       const sesion = p.sesion.bloqueado ? 'BLOQUEADA (clave rechazada)' : p.sesion.tieneSesion ? `guardada ${p.sesion.guardadaEn}${navegador}` : 'sin sesión';
       const acceso = p.accedeCon ? ` · accede con ${p.accedeCon}` : '';
@@ -603,7 +603,7 @@ export function textoAvisos(avisos: readonly Aviso[]): string[] {
 /** Avisos sin ver de la revisión diaria; si no hay, cómo activarla. */
 export function textoNovedades(avisos: readonly Aviso[]): string {
   if (avisos.length === 0) {
-    return 'Sin novedades: no hay avisos sin ver. La revisión diaria (vigilar) los registra; actívala en la página «Abrir mi-sii-mcp.cmd».';
+    return 'Sin novedades: no hay avisos sin ver. La revisión diaria (vigilar) los registra; actívala en la página local de mi-sii-mcp.';
   }
   return [`Novedades: ${plural(avisos.length, 'aviso sin ver', 'avisos sin ver')}.`, ...textoAvisos(avisos)].join('\n');
 }

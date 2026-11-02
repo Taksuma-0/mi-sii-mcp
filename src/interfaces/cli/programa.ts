@@ -13,6 +13,7 @@ import { parseRut } from '../../domain/rut.js';
 import type { EstadoRcv, Lado, Severidad, TipoContribuyente } from '../../domain/tipos.js';
 import { VERSION } from '../../main/version.js';
 import type { EstadoSesion, IdentidadSii, Notificador, ResultadoLogin, TareaProgramada } from '../../ports/index.js';
+import { abrirPagina, type PaginaLocal } from '../web/lanzador.js';
 import { lineaReintento, textoAvisos, textoCuenta, textoDocumentos, textoHallazgos, textoHistorialF29, textoPerfiles, textoPlazos, textoReleerF29, textoRenta, textoResumenIva, textoResumenRenta, textoSync } from '../formato.js';
 
 export interface IoCli {
@@ -41,6 +42,13 @@ export interface ContenedorCli {
   cerrar(): void;
 }
 
+function textoPagina(p: PaginaLocal): string {
+  const donde = p.enNavegador ? `Abrí la página de mi-sii-mcp en tu navegador: ${p.url}` : `No se pudo abrir el navegador. Abre esta dirección en tu navegador: ${p.url}`;
+  const uso = 'Conecta ahí tu cuenta del SII con tu RUT y tu clave tributaria, o con ClaveÚnica; también puedes importar cartolas y activar la revisión diaria.';
+  const duracion = p.servidor ? 'La página funciona mientras esta ventana siga abierta y se cierra sola tras 30 minutos sin uso.' : 'La página ya estaba abierta en otra ventana.';
+  return [donde, uso, duracion].join('\n');
+}
+
 function numeroFinito(valor: string): number {
   const numero = Number(valor);
   if (!Number.isFinite(numero)) throw new InvalidArgumentError('Debe ser un número finito.');
@@ -51,6 +59,7 @@ export function crearPrograma(
   io: IoCli,
   obtener: () => ContenedorCli,
   iniciarMcp: (c: ContenedorCli) => void | Promise<void>,
+  abrirPaginaLocal: () => Promise<PaginaLocal> = () => abrirPagina(),
 ): { programa: Command; salida: { codigo: number } } {
   const salida = { codigo: 0 };
   const programa = new Command('mi-sii-mcp')
@@ -311,7 +320,7 @@ export function crearPrograma(
         const titulos = pendientes.slice(0, 3).map((a) => a.titulo).join(' · ');
         const resto = pendientes.length > 3 ? ` y ${pendientes.length - 3} más` : '';
         const titulo = `mi-sii-mcp: ${pendientes.length} ${pendientes.length === 1 ? 'aviso nuevo' : 'avisos nuevos'}`;
-        if (await c.notificador.notificar(titulo, `${titulos}${resto}. Pide «novedades» al asistente o abre «Abrir mi-sii-mcp.cmd».`)) {
+        if (await c.notificador.notificar(titulo, `${titulos}${resto}. Pide «novedades» a tu asistente.`)) {
           c.deps.store.marcarAvisos(pendientes.map((a) => a.id), 'notificado', c.deps.reloj.ahora().toISOString());
         }
       }),
@@ -346,6 +355,17 @@ export function crearPrograma(
         io.escribir(e.activa ? `Revisión diaria: activa, cada día a las ${e.hora ?? '(hora no leída)'}.` : 'Revisión diaria: desactivada.');
       }),
     );
+
+  programa
+    .command('conectar')
+    .alias('abrir')
+    .description('Abre en tu navegador la página local para conectar tus cuentas del SII (también importa cartolas y activa la revisión diaria)')
+    .action(async () => {
+      // No abre la base: la página la usa solo cuando la persona hace algo en ella.
+      const pagina = await abrirPaginaLocal();
+      io.escribir(textoPagina(pagina));
+      if (pagina.servidor) await pagina.servidor.cerrado;
+    });
 
   programa
     .command('mcp')

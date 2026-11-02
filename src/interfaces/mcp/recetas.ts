@@ -2,7 +2,7 @@ import type { McpServer } from '@modelcontextprotocol/server';
 import * as z from 'zod';
 
 /** Cierre común de toda receta: las reglas que el asistente nunca rompe. */
-const REGLAS = 'Nunca pidas la clave tributaria ni la ClaveÚnica: si falta la sesión, pide abrir «Abrir mi-sii-mcp.cmd». Solo lee el SII; no es asesoría tributaria: recomienda confirmar con un contador cuando haya dinero en juego.';
+const REGLAS = 'Nunca pidas la clave tributaria ni la ClaveÚnica: si falta la sesión, usa cuenta_conectar. Solo lee el SII; no es asesoría tributaria: recomienda confirmar con un contador cuando haya dinero en juego.';
 
 const RUT = z.string().describe('RUT del contribuyente, por ejemplo 22.222.222-2');
 const PERIODO = z.string().regex(/^\d{4}-\d{2}$/, 'Usa el formato AAAA-MM').describe('Período tributario AAAA-MM; si no se indica, el mes anterior');
@@ -45,7 +45,7 @@ export function registrarRecetas(servidor: McpServer): void {
       mensaje(
         [
           `Prepara con mi-sii-mcp el cierre contable de ${rut} del mes ${periodo ?? 'anterior al actual'}:`,
-          '1. Si falta la cartola del mes, pide importarla (banco_importar o la página «Abrir mi-sii-mcp.cmd»).',
+          '1. Si falta la cartola del mes, pide importarla (banco_importar o la página que abre cuenta_conectar).',
           '2. banco_conciliar del mes: revisa los movimientos sin conciliar y pregunta qué son antes de asignarlos o descartarlos.',
           '3. cuentas_pendientes para lo que falta cobrar o pagar.',
           '4. contabilidad_libro (compras, ventas, honorarios y banco) y contabilidad_asientos, con exportar si los quiere en Excel.',
@@ -126,7 +126,7 @@ export function registrarRecetas(servidor: McpServer): void {
           'Revisa con mi-sii-mcp todas las cuentas configuradas:',
           '1. cartera_estado para ver cada cuenta en una línea.',
           '2. A las que tengan F29 vencidos o por vencer, f29_estimar del mes; a las que tengan hallazgos críticos, iva_hallazgos.',
-          '3. A las sin sesión, recuerda conectar la cuenta en «Abrir mi-sii-mcp.cmd»; a las con datos viejos, sincronizar el mes.',
+          '3. A las sin sesión, ofrece conectarlas con cuenta_conectar; a las con datos viejos, sincronizar el mes.',
           'Responde con una tabla por cuenta ordenada por urgencia: qué vence, cuánto pagar y el siguiente paso.',
         ].join('\n'),
       ),

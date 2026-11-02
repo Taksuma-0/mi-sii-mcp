@@ -25,6 +25,8 @@ import { parsePeriodo } from '../../domain/periodo.js';
 import { esMasNueva } from '../../domain/version.js';
 import { parseRut } from '../../domain/rut.js';
 import { lineaReintento, textoAsientos, textoCartera, textoDocumentos, textoHallazgos, textoHistorialF29, textoConciliacion, textoCuenta, textoCuentas, textoEstimacionF29, textoEstimacionRenta, textoFuentes, textoImportacion, textoLibro, textoNovedades, textoOportunidades, textoPendientes, textoPerfiles, textoPlazos, textoProyeccionCierre, textoReintentables, textoReintentablesCuenta, textoReintentablesRenta, textoReleerF29, textoRenta, textoResultado, textoResumenIva, textoResumenRenta, textoSimulacionRegimen, textoSituacionSii, textoSync, textoDiagnostico } from '../formato.js';
+import { abrirPagina, type OpcionesPagina } from '../web/lanzador.js';
+import type { ServidorLocal } from '../web/servidor.js';
 import { asientosLivianos, libroLiviano, panoramaLiviano, rentaLiviana } from './proyecciones.js';
 import { registrarRecetas } from './recetas.js';
 
@@ -60,6 +62,7 @@ export const HERRAMIENTAS = [
   'cierre_proyectar',
   'sii_avisos',
   'diagnostico',
+  'cuenta_conectar',
 ] as const;
 
 /** Lo que lee el asistente al conectarse: flujo de uso, regla de la clave y cobertura (máximo 1 500 caracteres). */
@@ -69,7 +72,7 @@ export const INSTRUCCIONES_MCP = [
   '3. IVA: iva_resumen, iva_hallazgos, f29_historial y plazos_proximos; f29_estimar calcula un F29 antes de declararlo; f29_releer relee los PDF. Renta: renta_resumen; renta_estimar con datos públicos de fuentes_oficiales.',
   '4. Banco y contabilidad: banco_importar (cartola CSV), banco_conciliar, cuentas_pendientes; contabilidad_cuentas, contabilidad_libro, contabilidad_asientos y contabilidad_resultado (exportan CSV).',
   '5. Seguimiento: novedades, cartera_estado, sii_avisos (anotaciones) y diagnostico (salud). Ahorro legal: ahorro_oportunidades, regimen_simular y cierre_proyectar. Cruces libres: datos_esquema y luego consulta_sql (solo lectura).',
-  '6. Nunca pidas la clave ni intentes un login. Ante SESION_REQUERIDA (o CLAVE_RECHAZADA, RUT_BLOQUEADO_LOCAL) pide abrir «Abrir mi-sii-mcp.cmd» y conectar la cuenta, o da el comando del mensaje (login-navegador para ClaveÚnica). Luego reintenta.',
+  '6. Nunca pidas la clave ni intentes un login. Ante SESION_REQUERIDA (o CLAVE_RECHAZADA, RUT_BLOQUEADO_LOCAL) usa cuenta_conectar o da el comando del mensaje (login-navegador para ClaveÚnica). Luego reintenta.',
   '7. Reintenta solo con «Reintentar: ahora mismo» o «más tarde» (o «Reintentables más tarde»).',
   '8. Cobertura: RCV, F29 y su propuesta, boletas de honorarios recibidas y emitidas, F22, perfil y empresas autorizadas; banco y contabilidad locales. Solo lee el SII. No es oficial del SII ni asesoría tributaria.',
 ].join('\n');
@@ -82,6 +85,8 @@ export interface OpcionesMcp {
    * `mi-sii-mcp` en el PATH; si solo se indicó `comandoLogin`, no se menciona (no se sabe cómo llamarlo).
    */
   readonly comandoLoginNavegador?: (rut: string) => string;
+  /** Dónde y cómo abre cuenta_conectar la página local; por defecto, el puerto fijo y el navegador del sistema. */
+  readonly pagina?: OpcionesPagina;
 }
 
 /** Los dos comandos con que la persona entra por su cuenta. */
@@ -144,7 +149,7 @@ function guiaLogin(comandos: ComandosLogin, rutTexto: string | undefined, explic
   const navegador = comandos.navegador
     ? ` Si entra con ClaveÚnica, que ejecute \`${comandos.navegador(rut)}\`: abre la página real del SII en su navegador y la sesión no se renueva sola.`
     : '';
-  return `${antes}Pide a la persona que abra «Abrir mi-sii-mcp.cmd» (doble clic en la carpeta mi-sii-mcp), escriba ${rut} y su clave tributaria en la página y deje marcado «Mantener conectada»; también puede entrar ahí con ClaveÚnica. Si prefiere su propia terminal: \`${comandos.clave(rut)}\` (con --guardar-clave la sesión se renueva sola).${navegador} Después reintenta. Nunca pidas la clave en el chat.`;
+  return `${antes}Usa cuenta_conectar: abre en el navegador de la persona la página donde escribe ${rut} y su clave tributaria y deja marcado «Mantener conectada»; también puede entrar ahí con ClaveÚnica. Si prefiere su propia terminal: \`${comandos.clave(rut)}\` (con --guardar-clave la sesión se renueva sola).${navegador} Después reintenta. Nunca pidas la clave en el chat.`;
 }
 
 /** La guía de login que corresponde a un código de error, o `null` si el error no se resuelve entrando. `codigo` es texto porque los errores de sincronización no lo tipan. */
@@ -168,7 +173,7 @@ function crearSeguro(comandos: ComandosLogin) {
   };
 }
 
-/** Ninguna herramienta recibe claves: el login lo hace la persona en la interfaz local «Abrir mi-sii-mcp.cmd» o en su terminal con `opciones.comandoLogin`. */
+/** Ninguna herramienta recibe claves: el login lo hace la persona en la página local (cuenta_conectar la abre) o en su terminal con `opciones.comandoLogin`. */
 export function crearServidorMcp(deps: DepsApp, version: string, opciones: OpcionesMcp = {}): McpServer {
   const comandoLogin: ComandosLogin = {
     clave: opciones.comandoLogin ?? COMANDO_LOGIN_POR_DEFECTO,
@@ -197,6 +202,35 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
         // Sin perfiles, el primer paso es el login (registra el perfil solo); `mi-sii-mcp perfil agregar` no abre sesión ni está en el PATH.
         const texto = perfiles.length === 0 ? `No hay perfiles todavía. ${guiaLogin(comandoLogin, undefined, 'El login con la clave de un RUT crea su perfil.')}` : textoPerfiles(perfiles);
         return respuesta(`${texto}${lineaVersion()}`, perfiles);
+      }),
+  );
+
+  // Las páginas que levantó esta sesión se cierran con ella; una que ya estaba abierta (por el lanzador) no es suya.
+  const paginasPropias: ServidorLocal[] = [];
+  const alCerrar = servidor.server.onclose;
+  servidor.server.onclose = () => {
+    alCerrar?.();
+    for (const pagina of paginasPropias.splice(0)) void pagina.cerrar();
+  };
+
+  servidor.registerTool(
+    'cuenta_conectar',
+    {
+      title: 'Conectar una cuenta del SII',
+      description:
+        'Abre en el navegador de la persona la página local de mi-sii-mcp, donde conecta una cuenta del SII con su RUT y su clave tributaria (o con ClaveÚnica) sin que la clave pase por el chat; ahí también importa cartolas y activa la revisión diaria. Úsala cuando falte la sesión o la persona quiera conectar una cuenta. No recibe datos.',
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async () =>
+      seguro(async () => {
+        const pagina = await abrirPagina(opciones.pagina);
+        if (pagina.servidor) paginasPropias.push(pagina.servidor);
+        const pasos = 'escriba su RUT y su clave tributaria y deje marcado «Mantener conectada» (así la sesión se renueva sola), o entre con ClaveÚnica. Cuando termine, reintenta. Nunca pidas la clave en el chat.';
+        const texto = pagina.enNavegador
+          ? `Abrí la página de mi-sii-mcp en el navegador de la persona (${pagina.url}). Pídele que ${pasos}`
+          : `No se pudo abrir el navegador. Pide a la persona que abra ${pagina.url} en su navegador, ${pasos}`;
+        return respuesta(texto, { url: pagina.url, enNavegador: pagina.enNavegador });
       }),
   );
 
@@ -239,7 +273,7 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
     {
       title: 'Sincronizar con el SII',
       description:
-        'Trae desde el portal del SII el RCV (compras y ventas) y el F29 de un rango de meses y los guarda en la base local. Solo lee el SII: nunca presenta ni modifica nada allí. Por defecto trae rcv y f29 (propuesta y bhe son opcionales); con superficies puedes elegir, y «propuesta» (opcional, no va por defecto) agrega la propuesta de F29 del SII: crédito, remanente y retención propuestos, sin débito ni total a pagar; «bhe» (opcional, no va por defecto) agrega las boletas de honorarios recibidas del mes, con su retención, que se cruza con el código 151 del F29. La renta (F22) no va aquí: usa renta_sincronizar, y el perfil y las empresas autorizadas, perfil_sincronizar. Admite hasta 120 meses por llamada; para historia larga llama por tramos de 12 meses, así avanzas por partes y evitas que el cliente agote el plazo de espera. Si no hay sesión, la respuesta indica cómo conectar la cuenta en la página «Abrir mi-sii-mcp.cmd»; nunca pidas la clave en el chat.',
+        'Trae desde el portal del SII el RCV (compras y ventas) y el F29 de un rango de meses y los guarda en la base local. Solo lee el SII: nunca presenta ni modifica nada allí. Por defecto trae rcv y f29 (propuesta y bhe son opcionales); con superficies puedes elegir, y «propuesta» (opcional, no va por defecto) agrega la propuesta de F29 del SII: crédito, remanente y retención propuestos, sin débito ni total a pagar; «bhe» (opcional, no va por defecto) agrega las boletas de honorarios recibidas del mes, con su retención, que se cruza con el código 151 del F29. La renta (F22) no va aquí: usa renta_sincronizar, y el perfil y las empresas autorizadas, perfil_sincronizar. Admite hasta 120 meses por llamada; para historia larga llama por tramos de 12 meses, así avanzas por partes y evitas que el cliente agote el plazo de espera. Si no hay sesión, usa cuenta_conectar para que la persona conecte la cuenta; nunca pidas la clave en el chat.',
       inputSchema: z.object({ rut: RUT, desde: PERIODO, hasta: PERIODO.optional(), superficies: z.array(z.enum(['rcv', 'f29', 'propuesta', 'bhe'])).min(1).optional() }),
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
@@ -277,7 +311,7 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
     {
       title: 'Anotaciones y avisos de Mi SII',
       description:
-        'Consulta en Mi SII, con la sesión guardada y solo leyendo, las anotaciones vigentes que restringen trámites (por ejemplo, F29 no presentado o domicilio sin acreditar, que impiden timbrar o emitir documentos), el estado de cumplimiento de las obligaciones tributarias y los mensajes informativos. Registra cada anotación y cada requisito incumplido como aviso en novedades (la revisión diaria también lo hace). No muestra deudas de la Tesorería. Solo para el RUT de la sesión: una empresa que entra con la sesión de quien la representa debe conectar su propia cuenta. Si no hay sesión, la respuesta indica cómo conectar la cuenta en «Abrir mi-sii-mcp.cmd»; nunca pidas la clave.',
+        'Consulta en Mi SII, con la sesión guardada y solo leyendo, las anotaciones vigentes que restringen trámites (por ejemplo, F29 no presentado o domicilio sin acreditar, que impiden timbrar o emitir documentos), el estado de cumplimiento de las obligaciones tributarias y los mensajes informativos. Registra cada anotación y cada requisito incumplido como aviso en novedades (la revisión diaria también lo hace). No muestra deudas de la Tesorería. Solo para el RUT de la sesión: una empresa que entra con la sesión de quien la representa debe conectar su propia cuenta. Si no hay sesión, usa cuenta_conectar; nunca pidas la clave.',
       inputSchema: z.object({ rut: RUT }),
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
@@ -293,7 +327,7 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
     {
       title: 'Sincronizar la cuenta del SII',
       description:
-        'Trae del SII el perfil tributario (si está autorizado a declarar el F29 hasta el día 20, régimen y segmento) y las empresas que el contribuyente puede consultar, y reemplaza `representa` del perfil por las empresas activas que informa el SII (lo que el SII reporta sobrescribe lo que se haya anotado a mano). Solo lee el SII; de las empresas autorizadas guarda RUT, razón social (que puede ser el nombre de una persona), privilegios y fecha de desautorización, y no guarda correos, teléfonos ni direcciones. Los plazos del F29 usan el día 20 solo si el SII lo autoriza (si no, el 12): sincroniza la cuenta antes de revisar plazos. Si no hay sesión, la respuesta indica cómo conectar la cuenta en la página «Abrir mi-sii-mcp.cmd»; nunca pidas la clave en el chat.',
+        'Trae del SII el perfil tributario (si está autorizado a declarar el F29 hasta el día 20, régimen y segmento) y las empresas que el contribuyente puede consultar, y reemplaza `representa` del perfil por las empresas activas que informa el SII (lo que el SII reporta sobrescribe lo que se haya anotado a mano). Solo lee el SII; de las empresas autorizadas guarda RUT, razón social (que puede ser el nombre de una persona), privilegios y fecha de desautorización, y no guarda correos, teléfonos ni direcciones. Los plazos del F29 usan el día 20 solo si el SII lo autoriza (si no, el 12): sincroniza la cuenta antes de revisar plazos. Si no hay sesión, usa cuenta_conectar para que la persona conecte la cuenta; nunca pidas la clave en el chat.',
       inputSchema: z.object({ rut: RUT }),
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
@@ -312,7 +346,7 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
     {
       title: 'Sincronizar la renta (F22)',
       description:
-        'Trae del SII la declaración anual de renta (F22) de un rango de años tributarios (AAAA; el año tributario es el año comercial + 1) y la guarda en la base local: las declaraciones del año, su conclusión y, del folio vigente, los códigos con su glosa, las observaciones y los eventos. A una persona (no a una empresa) le trae además el informe anual de boletas de honorarios emitidas del año comercial y, de los meses con boletas, su detalle boleta por boleta (a quién, bruto y retenciones; no repite meses que ya calzan); con el año tributario siguiente al actual (p. ej. 2027 en 2026) ves las boletas del año en curso aunque aún no haya F22. A cualquier perfil le trae también las rentas informadas por terceros: las declaraciones juradas (DJ) que otros presentaron sobre él, como la 1879 (quien pagó honorarios y retuvo) o la 1887 (sueldos del empleador), con cada informante, sus meses, montos y si el SII observó su declaración. Máximo 10 años por llamada. Solo lee el SII y no guarda nombres, domicilio, cuenta ni banco. Si el SII responde vacío donde había datos, se conservan los guardados. Si no hay sesión, la respuesta indica cómo conectar la cuenta en la página «Abrir mi-sii-mcp.cmd»; nunca pidas la clave en el chat.',
+        'Trae del SII la declaración anual de renta (F22) de un rango de años tributarios (AAAA; el año tributario es el año comercial + 1) y la guarda en la base local: las declaraciones del año, su conclusión y, del folio vigente, los códigos con su glosa, las observaciones y los eventos. A una persona (no a una empresa) le trae además el informe anual de boletas de honorarios emitidas del año comercial y, de los meses con boletas, su detalle boleta por boleta (a quién, bruto y retenciones; no repite meses que ya calzan); con el año tributario siguiente al actual (p. ej. 2027 en 2026) ves las boletas del año en curso aunque aún no haya F22. A cualquier perfil le trae también las rentas informadas por terceros: las declaraciones juradas (DJ) que otros presentaron sobre él, como la 1879 (quien pagó honorarios y retuvo) o la 1887 (sueldos del empleador), con cada informante, sus meses, montos y si el SII observó su declaración. Máximo 10 años por llamada. Solo lee el SII y no guarda nombres, domicilio, cuenta ni banco. Si el SII responde vacío donde había datos, se conservan los guardados. Si no hay sesión, usa cuenta_conectar para que la persona conecte la cuenta; nunca pidas la clave en el chat.',
       inputSchema: z.object({ rut: RUT, desde: ANIO_TRIBUTARIO, hasta: ANIO_TRIBUTARIO.optional() }),
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
@@ -565,7 +599,7 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
     {
       title: 'Novedades',
       description:
-        'Avisos que la persona aún no ve, de una cuenta o de todas: F29 vencidos o por vencer, hallazgos críticos de la conciliación, facturas por reclamar, eventos de la renta y cuentas sin sesión. Los registra la revisión diaria (vigilar), que se activa en la página «Abrir mi-sii-mcp.cmd». Por defecto quedan marcados como vistos. Solo usa la base local.',
+        'Avisos que la persona aún no ve, de una cuenta o de todas: F29 vencidos o por vencer, hallazgos críticos de la conciliación, facturas por reclamar, eventos de la renta y cuentas sin sesión. Los registra la revisión diaria (vigilar), que se activa en la página local (la abre cuenta_conectar). Por defecto quedan marcados como vistos. Solo usa la base local.',
       inputSchema: z.object({ rut: RUT.optional(), marcar_vistas: z.boolean().optional() }),
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     },

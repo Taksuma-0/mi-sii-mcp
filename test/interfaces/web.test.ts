@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ErrorMiSiiMcp } from '../../src/domain/errores.js';
 import { crearServidorLocal, type ServidorLocal } from '../../src/interfaces/web/servidor.js';
 import type { ResultadoVerificacion } from '../../src/interfaces/web/verificar.js';
-import { iniciarLocal } from '../../scripts/abrir-local.js';
+import { iniciarLocal } from '../../src/interfaces/web/lanzador.js';
 
 const entrada = { rut: '22222222-2', clave: 'clave ficticia', mes: '2026-09' };
 const resultado: ResultadoVerificacion = { estado: 'completo', sincronizacion: 'Sincronización de prueba', resumen: 'Resumen de prueba', plazos: 'Sin plazos próximos.', codigosF29: { '538': 19000 } };
