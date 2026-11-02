@@ -383,6 +383,8 @@ La skill complementa al servidor, que además entrega sus propias instrucciones 
 - **Las respuestas del SII que se guardan como respaldo se sanean**: sin correos, direcciones, códigos de barra ni el token de la sesión. De terceros se guarda solo lo necesario (p. ej. la razón social de un pagador).
 - **Lo que consultas pasa a la conversación** con tu asistente (y a su proveedor de IA): pregunta solo por los contribuyentes que estés dispuesto a comentar ahí.
 
+Cómo protege cada dato (claves, sesiones, página local, qué llega al proveedor de IA): [docs/seguridad.md](docs/seguridad.md). Para reportar una vulnerabilidad en privado: [SECURITY.md](SECURITY.md).
+
 ## Preguntas frecuentes
 
 ### ¿Qué es mi-sii-mcp?
