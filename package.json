@@ -1,6 +1,6 @@
 {
   "name": "mi-sii-mcp",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "mcpName": "io.github.Taksuma-0/mi-sii-mcp",
   "description": "Servidor MCP para el SII de Chile: conecta Claude, Codex, Cursor o Gemini CLI con tu IVA, F29, F22, boletas de honorarios y renta; estima, concilia el banco, arma libros y asientos y muestra ahorros legales. Solo lectura y datos locales.",
   "type": "module",
