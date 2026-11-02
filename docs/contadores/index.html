@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mi-sii-mcp para contadores: tu cartera del SII con IA</title>
+<meta name="description" content="Revisa con IA qué empresas de tu cartera tienen F29 por vencer, descuadres de IVA o anotaciones en el SII. Concilia cartolas y arma libros y asientos exportables a Excel.">
+<link rel="canonical" href="https://taksuma-0.github.io/mi-sii-mcp/contadores/">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Welinton Barrera">
+<meta name="theme-color" content="#0f2a44">
+<link rel="icon" type="image/svg+xml" href="../img/marca/kit/02_Favicons/favicon.svg">
+<link rel="alternate icon" href="../img/marca/kit/02_Favicons/favicon.ico">
+<link rel="apple-touch-icon" href="../img/marca/kit/02_Favicons/apple-touch-icon.png">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="mi-sii-mcp">
+<meta property="og:locale" content="es_CL">
+<meta property="og:title" content="mi-sii-mcp para contadores y oficinas contables">
+<meta property="og:description" content="La cartera de empresas del SII revisada con IA: vencimientos, descuadres, anotaciones, conciliación bancaria, libros y asientos.">
+<meta property="og:url" content="https://taksuma-0.github.io/mi-sii-mcp/contadores/">
+<meta property="og:image" content="https://taksuma-0.github.io/mi-sii-mcp/img/marca/social-preview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../css/guias.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "TechArticle",
+      "headline": "mi-sii-mcp para contadores y oficinas contables",
+      "description": "Cómo usar un asistente de IA con mi-sii-mcp para revisar una cartera de empresas en el SII, conciliar cartolas y preparar libros y asientos.",
+      "inLanguage": "es-CL",
+      "datePublished": "2026-11-02",
+      "dateModified": "2026-11-02",
+      "author": { "@type": "Person", "name": "Welinton Barrera", "url": "https://github.com/Taksuma-0" },
+      "image": "https://taksuma-0.github.io/mi-sii-mcp/img/marca/social-preview.png",
+      "mainEntityOfPage": "https://taksuma-0.github.io/mi-sii-mcp/contadores/",
+      "about": { "@id": "https://taksuma-0.github.io/mi-sii-mcp/#app" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Inicio", "item": "https://taksuma-0.github.io/mi-sii-mcp/" },
+        { "@type": "ListItem", "position": 2, "name": "Para contadores", "item": "https://taksuma-0.github.io/mi-sii-mcp/contadores/" }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        { "@type": "Question", "name": "¿Puedo conectar las empresas de mis clientes?", "acceptedAnswer": { "@type": "Answer", "text": "Sí, con su autorización: cada RUT se conecta con su propia sesión y queda en tu equipo. Ten presente que lo que consultes pasa a la conversación con tu asistente y con su proveedor de IA, así que consulta solo lo que tus clientes aceptarían compartir ahí." } },
+        { "@type": "Question", "name": "¿Reemplaza a mi software contable?", "acceptedAnswer": { "@type": "Answer", "text": "No. mi-sii-mcp propone libros y asientos para revisar, exportables a CSV, pero no es una contabilidad completa: no ve sueldos, depreciación ni gastos sin documento tributario. Sirve para revisar, conciliar y adelantarte a los problemas." } },
+        { "@type": "Question", "name": "¿Presenta declaraciones de mis clientes?", "acceptedAnswer": { "@type": "Answer", "text": "No. Solo lee el portal del SII. Las declaraciones se presentan en sii.cl, como siempre." } }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="saltar" href="#contenido">Saltar al contenido</a>
+<header class="barra">
+  <div class="contenedor">
+    <a href="../" aria-label="mi-sii-mcp, inicio"><img src="../img/marca/logo-horizontal.svg" alt="mi-sii-mcp" width="168" height="40"></a>
+    <nav aria-label="Secciones">
+      <ul>
+        <li><a href="../">Inicio</a></li>
+        <li><a href="../#guias">Guías</a></li>
+        <li><a href="../#instalacion">Instalación</a></li>
+        <li><a href="../#preguntas">Preguntas</a></li>
+      </ul>
+    </nav>
+    <a class="boton oscuro" href="https://github.com/Taksuma-0/mi-sii-mcp">GitHub</a>
+  </div>
+</header>
+
+<main id="contenido">
+  <div class="cabecera">
+    <div class="contenedor">
+      <nav class="miga" aria-label="Ruta"><ol><li><a href="../">Inicio</a></li><li><a href="../#guias">Guías</a></li><li aria-current="page">Para contadores</li></ol></nav>
+      <h1>mi-sii-mcp para contadores y oficinas contables</h1>
+      <p>Pregúntale a tu asistente qué empresa de tu cartera necesita atención esta semana, y recibe la respuesta con los datos reales del SII de cada una.</p>
+    </div>
+  </div>
+
+  <div class="contenedor">
+    <article class="articulo">
+      <p>Quien lleva varias empresas pasa buena parte del mes entrando al SII cuenta por cuenta para revisar el RCV, los F29, la propuesta y los plazos. <a href="../">mi-sii-mcp</a> trae esa información a tu equipo y la concilia; tu asistente de IA (Claude, Codex, Gemini CLI, Cursor u otro) la convierte en respuestas y listas de trabajo.</p>
+
+      <h2>Toda la cartera en una vista</h2>
+      <p>Conecta tu RUT y los de las empresas que llevas, cada uno con su propia sesión. Después pregunta «¿qué cuenta necesita atención esta semana?»: mi-sii-mcp entrega una línea por cuenta con lo vencido, lo pendiente y los avisos, y el asistente te propone por dónde empezar.</p>
+      <p>Para cada empresa revisa el IVA del RCV contra el F29, los F29 faltantes o por vencer según su caso (día 12, 20 o 28), las facturas por reclamar, la retención de las boletas de honorarios recibidas y las anotaciones vigentes en Mi SII.</p>
+
+      <h2>Revisión diaria, sin entrar al portal</h2>
+      <p>En Windows puedes activar una revisión automática cada día a la hora que elijas. Revisa todas las cuentas con sesión (el mes anterior y el actual, hallazgos, plazos, anotaciones y, entre abril y junio, la renta) y muestra una sola notificación con lo nuevo. Cada aviso se notifica una vez; después los repasas con «¿qué novedades hay?». La <a href="https://github.com/Taksuma-0/mi-sii-mcp/blob/main/docs/guias/asistente-mcp.md">guía completa</a> explica cómo activarla.</p>
+
+      <h2>Banco y contabilidad</h2>
+      <ul>
+        <li><strong>Cartolas:</strong> importa la cartola en CSV de cualquier banco y concilia cada movimiento con facturas, boletas, F29 y F22, con ajustes a mano cuando haga falta.</li>
+        <li><strong>Por cobrar y por pagar:</strong> las facturas sin movimiento en el banco, ordenadas por antigüedad.</li>
+        <li><strong>Libros y asientos:</strong> un plan de cuentas base, los libros de compras, ventas, honorarios y banco, una propuesta de asientos que cuadran y el resultado del período, devengado o percibido.</li>
+        <li><strong>Exportables:</strong> todo se exporta a CSV para abrirlo en Excel o cargarlo en tu sistema.</li>
+      </ul>
+
+      <h2>Ahorro tributario legal, con su norma</h2>
+      <p>mi-sii-mcp busca oportunidades que los datos de cada cliente sostienen, como crédito de IVA por usar, postergación del IVA, gastos efectivos o APV, y cada una viene con su norma y la página oficial. También simula el régimen Pro Pyme General frente al Transparente y proyecta el cierre del año contra los PPM pagados. Nunca sugiere simular gastos ni contratos.</p>
+
+      <h2>Recetas listas</h2>
+      <p>El servidor trae recetas (prompts MCP) que tu cliente muestra en su menú: revisión del mes, qué tengo pendiente, cierre contable, cartera semanal, preparar la renta y ahorro tributario. Son un buen punto de partida para una rutina semanal.</p>
+
+      <h2>Preguntas que puedes hacerle a tu asistente</h2>
+      <ul>
+        <li>«¿Qué cuenta necesita atención esta semana?»</li>
+        <li>«¿Qué empresas tienen F29 por vencer este mes?»</li>
+        <li>«Concilia la cartola de octubre de esta empresa».</li>
+        <li>«¿Qué le falta cobrar a esta empresa?»</li>
+        <li>«Dame el libro de compras y los asientos de septiembre en Excel».</li>
+        <li>«¿Le conviene a esta empresa el régimen Pro Pyme Transparente?»</li>
+      </ul>
+
+      <h2>Privacidad de los datos de tus clientes</h2>
+      <ul>
+        <li>Los datos se guardan en una base local en tu equipo; no hay servidores intermedios.</li>
+        <li>Ninguna herramienta del MCP recibe claves. Si guardas la clave de una cuenta, queda en el almacén de credenciales del sistema, no en archivos.</li>
+        <li>Lo que consultas sí pasa a la conversación con tu asistente y con su proveedor de IA: pregunta solo por los contribuyentes que estés dispuesto a comentar ahí.</li>
+      </ul>
+
+      <div class="aviso">mi-sii-mcp solo lee el SII: no presenta declaraciones, no emite documentos y no es una contabilidad completa. Es una herramienta de revisión que apoya tu criterio profesional.</div>
+
+      <h2>Cómo empezar</h2>
+      <ol>
+        <li><a href="../conectar-ia-al-sii/">Conecta mi-sii-mcp a tu asistente</a>.</li>
+        <li>Inicia sesión una vez por cada RUT con <code>npx -y mi-sii-mcp@latest login</code>.</li>
+        <li>Pide «trae el IVA y los F29 de este año de todas mis cuentas» y luego «¿qué cuenta necesita atención?».</li>
+      </ol>
+
+      <h2>Preguntas frecuentes</h2>
+      <div class="preguntas">
+        <details><summary>¿Puedo conectar las empresas de mis clientes?</summary><p>Sí, con su autorización: cada RUT se conecta con su propia sesión y queda en tu equipo. Ten presente que lo que consultes pasa a la conversación con tu asistente y con su proveedor de IA, así que consulta solo lo que tus clientes aceptarían compartir ahí.</p></details>
+        <details><summary>¿Reemplaza a mi software contable?</summary><p>No. mi-sii-mcp propone libros y asientos para revisar, exportables a CSV, pero no es una contabilidad completa: no ve sueldos, depreciación ni gastos sin documento tributario. Sirve para revisar, conciliar y adelantarte a los problemas.</p></details>
+        <details><summary>¿Presenta declaraciones de mis clientes?</summary><p>No. Solo lee el portal del SII. Las declaraciones se presentan en sii.cl, como siempre.</p></details>
+      </div>
+
+      <h2>Sigue leyendo</h2>
+      <ul class="otras">
+        <li><a href="../conectar-ia-al-sii/">Cómo conectar tu IA con el SII</a></li>
+        <li><a href="../revisar-iva-f29-con-ia/">Revisa tu IVA y tu F29 con IA</a></li>
+        <li><a href="../boletas-de-honorarios-y-renta-con-ia/">Boletas de honorarios y Operación Renta 2027</a></li>
+      </ul>
+    </article>
+  </div>
+
+  <section class="cta" aria-labelledby="cta-titulo">
+    <div class="contenedor">
+      <h2 id="cta-titulo">Tu cartera, revisada en una conversación</h2>
+      <p>Gratuito, de código abierto, en solo lectura y con los datos en tu equipo.</p>
+      <div class="acciones">
+        <a class="boton primario" href="../#instalacion">Instalar ahora</a>
+        <a class="boton secundario" href="https://github.com/Taksuma-0/mi-sii-mcp">Ver en GitHub</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="contenedor">
+    <p>© 2026 Welinton Barrera · <a href="https://github.com/Taksuma-0/mi-sii-mcp/blob/main/LICENSE">Licencia MIT</a> · <a href="https://github.com/Taksuma-0/mi-sii-mcp">Código fuente</a></p>
+    <p>Proyecto independiente; no está afiliado al Servicio de Impuestos Internos.</p>
+  </div>
+</footer>
+</body>
+</html>

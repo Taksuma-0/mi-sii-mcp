@@ -10,6 +10,8 @@
 <p align="center"><b>Tus impuestos del SII, conversados con tu asistente de IA.</b></p>
 
 <p align="center">
+  <a href="https://www.npmjs.com/package/mi-sii-mcp"><img alt="Versión en npm" src="https://img.shields.io/npm/v/mi-sii-mcp?style=flat-square&color=0f2a44&label=npm"></a>
+  <a href="https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.Taksuma-0/mi-sii-mcp"><img alt="Publicado en el MCP Registry oficial" src="https://img.shields.io/badge/MCP%20Registry-publicado-0f2a44?style=flat-square&labelColor=7cb6fb"></a>
   <a href="LICENSE"><img alt="Licencia MIT" src="https://img.shields.io/badge/licencia-MIT-0f2a44?style=flat-square"></a>
   <img alt="Open source" src="https://img.shields.io/badge/open%20source-TypeScript-0f2a44?style=flat-square&labelColor=3dd6c3">
   <img alt="Node.js 22.12 o superior" src="https://img.shields.io/badge/node-%E2%89%A522.12-0f2a44?style=flat-square&logo=nodedotjs&logoColor=3dd6c3">
@@ -29,7 +31,8 @@
   <a href="#compatibilidad-con-agentes-de-ia">Compatibilidad</a> ·
   <a href="#ejemplos-de-consultas-tributarias">Ejemplos</a> ·
   <a href="#preguntas-frecuentes">Preguntas frecuentes</a> ·
-  <a href="docs/guias/asistente-mcp.md">Guía completa</a>
+  <a href="docs/guias/asistente-mcp.md">Guía completa</a> ·
+  <a href="#in-english">English</a>
 </p>
 
 **mi-sii-mcp** es un servidor [Model Context Protocol (MCP)](https://modelcontextprotocol.io) de código abierto que conecta asistentes de inteligencia artificial —**Claude, Codex, Cursor, Gemini CLI, VS Code con Copilot** y otros clientes MCP— con tu información tributaria del **Servicio de Impuestos Internos (SII) de Chile**. Lee tu IVA, tus F29, tu renta (F22), tus boletas de honorarios, lo que otros informan sobre ti y tus anotaciones en Mi SII; lo guarda **en tu equipo** y lo **concilia** para mostrarte qué cuadra, qué no y qué vence. Además estima el F29 y la renta antes de declarar, concilia tus cartolas del banco, arma libros y asientos para tu contador, te avisa cada día solo si algo requiere atención y muestra las formas **legales** de pagar menos, con su norma. Funciona en **solo lectura** frente al SII y el asistente nunca recibe tu clave.
@@ -105,15 +108,15 @@ mi-sii-mcp es un servidor MCP local (transporte **stdio**), así que funciona co
 
 | Cliente | Estado | Cómo se configura |
 | --- | --- | --- |
-| **Claude Code** | ✅ Probado | `claude mcp add` ([ver instalación](#1-registrar-el-servidor-en-tu-asistente)) |
+| **Claude Code** | ✅ Probado | Plugin (`/plugin install`) o `claude mcp add` ([ver instalación](#1-registrar-el-servidor-en-tu-asistente)) |
+| **Gemini CLI** | ✅ Conexión probada | Extensión (`gemini extensions install`) o `~/.gemini/settings.json` |
 | **Claude Desktop** | Configuración documentada | `claude_desktop_config.json` (formato `mcpServers`) |
-| **Codex CLI** | Configuración documentada | `~/.codex/config.toml` |
-| **Cursor** | Configuración documentada | `~/.cursor/mcp.json` (formato `mcpServers`) |
-| **VS Code con GitHub Copilot** | Configuración documentada | `.vscode/mcp.json` |
-| **Gemini CLI** | Configuración documentada | `~/.gemini/settings.json` (formato `mcpServers`) |
+| **Codex CLI** | Configuración documentada | `codex mcp add` o `~/.codex/config.toml` |
+| **Cursor** | Configuración documentada | Botón de instalación o `~/.cursor/mcp.json` |
+| **VS Code con GitHub Copilot** | Configuración documentada | Botón de instalación o `.vscode/mcp.json` |
 | **Windsurf, Cline** y otros | Configuración documentada | Formato `mcpServers` |
 
-«Configuración documentada» significa que se usa el formato MCP estándar de cada cliente; el desarrollo y las pruebas en vivo se hicieron con Claude Code.
+«Configuración documentada» significa que se usa el formato MCP estándar de cada cliente. «Conexión probada» significa que el cliente instaló el servidor y se conectó a él en Windows. El desarrollo y las pruebas en vivo se hicieron con Claude Code.
 
 ## Cómo funciona
 
@@ -130,11 +133,11 @@ flowchart LR
     A <-- herramientas MCP --> M[mi-sii-mcp]
     M -- solo lectura --> S[(Portal del SII)]
     M <--> D[(Base local<br/>~/.mi-sii-mcp)]
-    P -. conecta su cuenta .-> W[Página local<br/>Abrir mi-sii-mcp.cmd]
+    P -. conecta su cuenta .-> W[Terminal o página local<br/>login]
     W --> M
 ```
 
-1. **Conectas tu cuenta** una vez en una página local; la clave no pasa por el chat.
+1. **Conectas tu cuenta** una vez, en la terminal o en una página local; la clave no pasa por el chat.
 2. **El asistente pide datos** al servidor MCP, que los lee del SII y los guarda en tu equipo.
 3. **mi-sii-mcp concilia la información** con reglas tributarias y responde con hallazgos claros.
 
@@ -143,36 +146,63 @@ flowchart LR
 - [Node.js](https://nodejs.org) 22.12 o superior (probado con Node 24).
 - Un cliente MCP que ejecute servidores locales (ver [compatibilidad](#compatibilidad-con-agentes-de-ia)).
 - Clave tributaria del SII.
-- Windows es la plataforma probada; el código es multiplataforma y en macOS o Linux la página local se abre con `npm run local`.
+- Windows es la plataforma probada; el código es multiplataforma (en macOS o Linux, conecta la cuenta con `login` desde la terminal o, si instalaste desde el código, con `npm run local`).
 
 ## Instalación
 
-```bash
-git clone https://github.com/Taksuma-0/mi-sii-mcp.git
-cd mi-sii-mcp
-npm install
-npm run build
-```
+Lo más simple es **npx**: tu asistente descarga y arranca la versión publicada en [npm](https://www.npmjs.com/package/mi-sii-mcp), sin clonar ni compilar nada. Solo necesitas Node.js 22.12 o superior.
 
 ### 1. Registrar el servidor en tu asistente
 
-El servidor se inicia con `node <carpeta>/dist/interfaces/cli/bin.js mcp`. Reemplaza `C:\ruta\a\mi-sii-mcp` por la carpeta donde clonaste el proyecto (en macOS/Linux, una ruta como `/home/tu-usuario/mi-sii-mcp`).
+**En un clic:**
+
+<p>
+  <a href="https://insiders.vscode.dev/redirect/mcp/install?name=mi-sii-mcp&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22mi-sii-mcp%40latest%22%2C%22mcp%22%5D%7D"><img alt="Instalar mi-sii-mcp en VS Code" src="https://img.shields.io/badge/VS%20Code-Instalar%20mi--sii--mcp-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white"></a>
+  <a href="https://insiders.vscode.dev/redirect/mcp/install?name=mi-sii-mcp&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22mi-sii-mcp%40latest%22%2C%22mcp%22%5D%7D&quality=insiders"><img alt="Instalar mi-sii-mcp en VS Code Insiders" src="https://img.shields.io/badge/VS%20Code%20Insiders-Instalar%20mi--sii--mcp-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white"></a>
+  <a href="https://cursor.com/install-mcp?name=mi-sii-mcp&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIm1pLXNpaS1tY3BAbGF0ZXN0IiwibWNwIl19"><img alt="Instalar mi-sii-mcp en Cursor" src="https://cursor.com/deeplink/mcp-install-dark.svg" height="20"></a>
+</p>
 
 <details open>
 <summary><b>Claude Code</b></summary>
 
+Como **plugin**, que trae el servidor y la [skill](#skill-para-agentes). Dentro de Claude Code:
+
+```text
+/plugin install mi-sii-mcp --marketplace Taksuma-0/mi-sii-mcp
+```
+
+En versiones anteriores a la 2.1.275, en dos pasos: `/plugin marketplace add Taksuma-0/mi-sii-mcp` y luego `/plugin install mi-sii-mcp@mi-sii-mcp`.
+
+O solo el servidor, desde la terminal:
+
 ```bash
-claude mcp add --scope user mi-sii-mcp -- node "C:\ruta\a\mi-sii-mcp\dist\interfaces\cli\bin.js" mcp
+claude mcp add --scope user mi-sii-mcp -- npx -y mi-sii-mcp@latest mcp
 ```
 </details>
 
 <details>
-<summary><b>Codex CLI</b> (<code>~/.codex/config.toml</code>)</summary>
+<summary><b>Gemini CLI</b></summary>
+
+Como **extensión**, que trae el servidor y la skill:
+
+```bash
+gemini extensions install https://github.com/Taksuma-0/mi-sii-mcp
+```
+</details>
+
+<details>
+<summary><b>Codex CLI</b></summary>
+
+```bash
+codex mcp add mi-sii-mcp -- npx -y mi-sii-mcp@latest mcp
+```
+
+O en `~/.codex/config.toml`:
 
 ```toml
 [mcp_servers.mi-sii-mcp]
-command = "node"
-args = ["C:\\ruta\\a\\mi-sii-mcp\\dist\\interfaces\\cli\\bin.js", "mcp"]
+command = "npx"
+args = ["-y", "mi-sii-mcp@latest", "mcp"]
 ```
 </details>
 
@@ -184,8 +214,8 @@ args = ["C:\\ruta\\a\\mi-sii-mcp\\dist\\interfaces\\cli\\bin.js", "mcp"]
   "servers": {
     "mi-sii-mcp": {
       "type": "stdio",
-      "command": "node",
-      "args": ["C:\\ruta\\a\\mi-sii-mcp\\dist\\interfaces\\cli\\bin.js", "mcp"]
+      "command": "npx",
+      "args": ["-y", "mi-sii-mcp@latest", "mcp"]
     }
   }
 }
@@ -193,27 +223,54 @@ args = ["C:\\ruta\\a\\mi-sii-mcp\\dist\\interfaces\\cli\\bin.js", "mcp"]
 </details>
 
 <details>
-<summary><b>Claude Desktop, Cursor, Windsurf, Cline, Gemini CLI</b> y otros con formato <code>mcpServers</code></summary>
+<summary><b>Claude Desktop, Cursor, Windsurf, Cline</b> y otros con formato <code>mcpServers</code></summary>
 
-Agrega esto al archivo de configuración MCP de tu cliente (Claude Desktop: `claude_desktop_config.json`; Cursor: `~/.cursor/mcp.json`; Gemini CLI: `~/.gemini/settings.json`; Windsurf: `~/.codeium/windsurf/mcp_config.json`):
+Agrega esto al archivo de configuración MCP de tu cliente (Claude Desktop: `claude_desktop_config.json`; Cursor: `~/.cursor/mcp.json`; Windsurf: `~/.codeium/windsurf/mcp_config.json`; Gemini CLI sin la extensión: `~/.gemini/settings.json`):
 
 ```json
 {
   "mcpServers": {
     "mi-sii-mcp": {
-      "command": "node",
-      "args": ["C:\\ruta\\a\\mi-sii-mcp\\dist\\interfaces\\cli\\bin.js", "mcp"]
+      "command": "npx",
+      "args": ["-y", "mi-sii-mcp@latest", "mcp"]
     }
   }
 }
 ```
 </details>
 
-El servidor trae sus propias instrucciones de uso para el asistente (por dónde empezar, cómo reintentar, que nunca pida la clave), así que se comporta igual con cualquier cliente.
+<details>
+<summary><b>Desde el código</b> (sin npx, o para usar la página local)</summary>
+
+```bash
+git clone https://github.com/Taksuma-0/mi-sii-mcp.git
+cd mi-sii-mcp
+npm install
+npm run build
+```
+
+El servidor se inicia con `node <carpeta>/dist/interfaces/cli/bin.js mcp`. En las configuraciones de arriba, cambia `npx` por `node` y los argumentos por la ruta de `bin.js` y `mcp`. Por ejemplo, en Claude Code (reemplaza `C:\ruta\a\mi-sii-mcp` por la carpeta donde clonaste el proyecto):
+
+```bash
+claude mcp add --scope user mi-sii-mcp -- node "C:\ruta\a\mi-sii-mcp\dist\interfaces\cli\bin.js" mcp
+```
+</details>
+
+`@latest` hace que npx use siempre la última versión publicada. El servidor trae sus propias instrucciones de uso para el asistente (por dónde empezar, cómo reintentar, que nunca pida la clave), así que se comporta igual con cualquier cliente.
 
 ### 2. Conectar tu cuenta del SII
 
-En Windows, haz doble clic en **`Abrir mi-sii-mcp.cmd`** (en la carpeta del proyecto). Se abre una página local donde:
+Inicias sesión una vez y la clave nunca pasa por el chat.
+
+**Desde la terminal, con npx** (cualquier sistema). Reemplaza `11111111-1` por tu RUT:
+
+```bash
+npx -y mi-sii-mcp@latest login 11111111-1 --guardar-clave
+```
+
+Te pide la clave tributaria sin mostrarla. Con `--guardar-clave` la guarda en el almacén de credenciales del sistema para que la sesión se renueve sola. Para entrar con **ClaveÚnica** (experimental; su sesión no se renueva sola): `npx -y mi-sii-mcp@latest login-navegador --rut 11111111-1`. Se abre Edge o Chrome y mi-sii-mcp no ve la clave.
+
+**Con la página local** (si instalaste desde el código). En Windows, haz doble clic en **`Abrir mi-sii-mcp.cmd`** (en la carpeta del proyecto). Se abre una página local donde:
 
 1. Escribes tu RUT (los puntos y el guion se ponen solos) y tu clave tributaria.
 2. Dejas marcado **Mantener conectada** para que la sesión se renueve sola.
@@ -225,7 +282,7 @@ En Windows, haz doble clic en **`Abrir mi-sii-mcp.cmd`** (en la carpeta del proy
 
 Puedes conectar varias cuentas (tu RUT personal y tus empresas). La misma página ofrece entrar con **ClaveÚnica** desde el navegador; esa opción es **experimental** (aún no se ha probado con una cuenta real) y su sesión no se renueva sola.
 
-En otras plataformas, abre la página con `npm run local`, o inicia sesión desde la terminal con `node dist/interfaces/cli/bin.js login <rut> --guardar-clave`.
+En macOS o Linux, la página se abre con `npm run local` desde la carpeta del proyecto.
 
 ### 3. Preguntar
 
@@ -256,7 +313,8 @@ El servidor trae además **recetas** listas (prompts MCP) que tu cliente muestra
 
 El repositorio incluye una skill en el formato estándar **Agent Skills** (`SKILL.md`): [`skills/mi-sii-mcp`](skills/mi-sii-mcp/SKILL.md). Le enseña a tu agente cuándo usar mi-sii-mcp, qué herramienta usar para cada tarea (revisión de IVA, boletas, renta, vencimientos, preguntas libres), las reglas de seguridad y cómo **repartir el trabajo entre varios agentes**: un solo agente consulta el SII y el resto analiza los datos guardados en paralelo.
 
-- **Claude Code:** copia la carpeta `skills/mi-sii-mcp` a `~/.claude/skills/` (para todos tus proyectos) o a `.claude/skills/` dentro de un proyecto.
+- **Claude Code:** el [plugin](#1-registrar-el-servidor-en-tu-asistente) la instala junto con el servidor. También puedes copiar la carpeta `skills/mi-sii-mcp` a `~/.claude/skills/` (para todos tus proyectos) o a `.claude/skills/` dentro de un proyecto.
+- **Gemini CLI:** la extensión la trae.
 - **Otros agentes compatibles con `SKILL.md`:** copia la misma carpeta en su directorio de skills.
 
 La skill complementa al servidor, que además entrega sus propias instrucciones a cualquier cliente MCP.
@@ -308,7 +366,7 @@ Es un servidor MCP de código abierto que permite que un asistente de IA consult
 MCP (Model Context Protocol) es un estándar abierto para que los asistentes de IA usen herramientas externas. Un servidor MCP para el SII le da a tu asistente herramientas para leer tus datos tributarios y aplicar reglas de conciliación, en vez de que copies y pegues información del portal.
 
 ### ¿Cómo conecto Claude, Codex, Cursor o Gemini CLI al SII?
-Instala mi-sii-mcp, regístralo en tu cliente con la [configuración de la instalación](#1-registrar-el-servidor-en-tu-asistente) y conecta tu cuenta en la página local. Claude Code está probado; para los demás clientes se usa su formato MCP estándar.
+Regístralo en tu cliente con npx: es un comando o un clic, sin descargar el código ([ver instalación](#1-registrar-el-servidor-en-tu-asistente)). En Claude Code también está el plugin y en Gemini CLI la extensión, que traen el servidor y la skill. Después conecta tu cuenta con `login` en la terminal o en la página local. Claude Code está probado y Gemini CLI se conecta; para los demás clientes se usa su formato MCP estándar.
 
 ### ¿El asistente puede ver mi clave tributaria?
 No. La clave se escribe solo en la página local (o en la terminal) y ninguna herramienta del MCP la recibe. Si eliges mantener la sesión, la clave queda en el almacén de credenciales de tu sistema.
@@ -329,18 +387,18 @@ No. Es un proyecto independiente de código abierto y no reemplaza la asesoría 
 Es gratuito y de código abierto (licencia MIT). Solo necesitas un cliente MCP; el costo del asistente de IA depende de su proveedor.
 
 ### ¿Funciona en macOS o Linux?
-El código es multiplataforma, pero la plataforma probada es Windows. En macOS o Linux la página para conectar la cuenta se abre con `npm run local`.
+El código es multiplataforma, pero la plataforma probada es Windows. En macOS o Linux, conecta la cuenta con `npx -y mi-sii-mcp@latest login` o, si instalaste desde el código, abre la página local con `npm run local`.
 
 ## Uso desde la terminal (opcional)
 
-Todo lo anterior también está disponible como comandos:
+Todo lo anterior también está disponible como comandos (si instalaste desde el código, cambia `npx -y mi-sii-mcp@latest` por `node dist/interfaces/cli/bin.js`):
 
 ```bash
-node dist/interfaces/cli/bin.js --help
-node dist/interfaces/cli/bin.js perfil listar
-node dist/interfaces/cli/bin.js sync <rut> --desde 2026-01 --hasta 2026-09
-node dist/interfaces/cli/bin.js renta sync <rut> --desde 2025 --hasta 2027
-node dist/interfaces/cli/bin.js renta ver <rut>
+npx -y mi-sii-mcp@latest --help
+npx -y mi-sii-mcp@latest perfil listar
+npx -y mi-sii-mcp@latest sync 11111111-1 --desde 2026-01 --hasta 2026-09
+npx -y mi-sii-mcp@latest renta sync 11111111-1 --desde 2025 --hasta 2027
+npx -y mi-sii-mcp@latest renta ver 11111111-1
 ```
 
 ## Configuración
@@ -387,6 +445,17 @@ Las contribuciones son bienvenidas. Por favor, **nunca incluyas datos tributario
 - La declaración de sueldos del empleador (DJ 1887) se lee de forma genérica: su formato no se ha verificado con datos reales.
 - El inicio de sesión con ClaveÚnica desde el navegador es experimental.
 - Si el SII cambia su portal, mi-sii-mcp se adapta solo cuando puede comprobarlo con los totales del SII (hoy, los montos del detalle del RCV); los demás cambios detienen la lectura sin tocar lo guardado hasta actualizar el lector, y `diagnostico` los muestra.
+
+## In English
+
+**mi-sii-mcp** is an open-source, read-only [Model Context Protocol](https://modelcontextprotocol.io) server for **Chile's Internal Revenue Service (SII)**. It lets AI assistants such as Claude, Codex, Cursor, Gemini CLI and VS Code with Copilot read a taxpayer's VAT purchase and sales records (RCV), F29 returns, income tax returns (F22), fee receipts (boletas de honorarios) and third-party sworn statements. It stores them locally in SQLite and cross-checks them for mismatches and upcoming deadlines. It also estimates the F29 and F22, reconciles bank statements and drafts bookkeeping entries. The assistant never receives the taxpayer's password.
+
+```bash
+claude mcp add --scope user mi-sii-mcp -- npx -y mi-sii-mcp@latest mcp
+npx -y mi-sii-mcp@latest login 11111111-1 --guardar-clave   # connect your SII account once
+```
+
+It is also a Claude Code plugin (`/plugin install mi-sii-mcp --marketplace Taksuma-0/mi-sii-mcp`) and a Gemini CLI extension (`gemini extensions install https://github.com/Taksuma-0/mi-sii-mcp`). Answers and documentation are in Spanish. Not affiliated with the SII; not tax advice.
 
 ## Licencia
 

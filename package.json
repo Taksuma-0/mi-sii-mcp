@@ -42,10 +42,17 @@
     "rcv",
     "renta",
     "boletas-de-honorarios",
+    "operacion-renta",
+    "contabilidad",
+    "contador",
+    "pyme",
+    "chile-tax",
     "claude",
+    "claude-code-plugin",
     "codex",
     "cursor",
     "gemini-cli",
+    "gemini-cli-extension",
     "ai-agents"
   ],
   "scripts": {

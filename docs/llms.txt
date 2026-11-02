@@ -49,24 +49,30 @@ Para no confundirlo con otros proyectos de nombre parecido:
 
 ## Compatibilidad
 
-Servidor MCP local (transporte stdio). Probado con Claude Code. Configuración documentada para Claude Desktop, Codex CLI, Cursor, VS Code con GitHub Copilot, Gemini CLI, Windsurf y Cline.
+Servidor MCP local (transporte stdio). Probado con Claude Code; Gemini CLI instaló la extensión y se conectó en Windows. Configuración documentada para Claude Desktop, Codex CLI, Cursor, VS Code con GitHub Copilot, Windsurf y Cline.
 
 ## Instalación
 
-Requiere Node.js 22.12 o superior.
+Requiere Node.js 22.12 o superior. Publicado en npm (`mi-sii-mcp`) y en el MCP Registry oficial (`io.github.Taksuma-0/mi-sii-mcp`); con npx no hay que descargar ni compilar nada.
 
-```
-git clone https://github.com/Taksuma-0/mi-sii-mcp.git
-cd mi-sii-mcp
-npm install
-npm run build
-```
+- Claude Code: `claude mcp add --scope user mi-sii-mcp -- npx -y mi-sii-mcp@latest mcp`, o el plugin con servidor y skill: `/plugin install mi-sii-mcp --marketplace Taksuma-0/mi-sii-mcp`.
+- Gemini CLI: `gemini extensions install https://github.com/Taksuma-0/mi-sii-mcp` (servidor y skill).
+- Codex CLI: `codex mcp add mi-sii-mcp -- npx -y mi-sii-mcp@latest mcp`.
+- Claude Desktop, Cursor, VS Code, Windsurf, Cline: comando `npx` con argumentos `["-y", "mi-sii-mcp@latest", "mcp"]`.
 
-Registrar en Claude Code: `claude mcp add --scope user mi-sii-mcp -- node "<carpeta>/dist/interfaces/cli/bin.js" mcp`. Luego conectar la cuenta del SII en la página local («Abrir mi-sii-mcp.cmd» en Windows o `npm run local`).
+Conectar la cuenta del SII una vez, en la terminal: `npx -y mi-sii-mcp@latest login <RUT> --guardar-clave` (ClaveÚnica: `login-navegador --rut <RUT>`). Instalando desde el código (`git clone`, `npm install`, `npm run build`) también está la página local «Abrir mi-sii-mcp.cmd».
+
+## Guías
+
+- [Cómo conectar tu asistente de IA con el SII](https://taksuma-0.github.io/mi-sii-mcp/conectar-ia-al-sii/)
+- [Revisa tu IVA y tu F29 con IA](https://taksuma-0.github.io/mi-sii-mcp/revisar-iva-f29-con-ia/)
+- [Boletas de honorarios y Operación Renta 2027 con IA](https://taksuma-0.github.io/mi-sii-mcp/boletas-de-honorarios-y-renta-con-ia/)
+- [mi-sii-mcp para contadores](https://taksuma-0.github.io/mi-sii-mcp/contadores/)
 
 ## Enlaces
 
 - [Repositorio y README](https://github.com/Taksuma-0/mi-sii-mcp)
+- [Paquete en npm](https://www.npmjs.com/package/mi-sii-mcp)
 - [Guía de uso con un asistente](https://github.com/Taksuma-0/mi-sii-mcp/blob/main/docs/guias/asistente-mcp.md)
 - [Sitio web](https://taksuma-0.github.io/mi-sii-mcp/)
 - [Licencia MIT](https://github.com/Taksuma-0/mi-sii-mcp/blob/main/LICENSE)

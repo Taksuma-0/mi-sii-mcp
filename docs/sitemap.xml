@@ -2,10 +2,26 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://taksuma-0.github.io/mi-sii-mcp/</loc>
-    <lastmod>2026-10-27</lastmod>
+    <lastmod>2026-11-02</lastmod>
+  </url>
+  <url>
+    <loc>https://taksuma-0.github.io/mi-sii-mcp/conectar-ia-al-sii/</loc>
+    <lastmod>2026-11-02</lastmod>
+  </url>
+  <url>
+    <loc>https://taksuma-0.github.io/mi-sii-mcp/revisar-iva-f29-con-ia/</loc>
+    <lastmod>2026-11-02</lastmod>
+  </url>
+  <url>
+    <loc>https://taksuma-0.github.io/mi-sii-mcp/boletas-de-honorarios-y-renta-con-ia/</loc>
+    <lastmod>2026-11-02</lastmod>
+  </url>
+  <url>
+    <loc>https://taksuma-0.github.io/mi-sii-mcp/contadores/</loc>
+    <lastmod>2026-11-02</lastmod>
   </url>
   <url>
     <loc>https://taksuma-0.github.io/mi-sii-mcp/llms.txt</loc>
-    <lastmod>2026-10-27</lastmod>
+    <lastmod>2026-11-02</lastmod>
   </url>
 </urlset>

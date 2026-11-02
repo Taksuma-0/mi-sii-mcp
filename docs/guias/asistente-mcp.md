@@ -21,12 +21,23 @@ Los ejemplos de esta guía usan Claude Code; para registrar el servidor en otros
 
 No incluye carpeta tributaria, deuda en la Tesorería, otros impuestos ni otras áreas del portal, ni emite ni presenta nada en el SII: solo lee. Esta herramienta no es oficial, no está afiliada al SII y no es asesoría tributaria.
 
-Todo se ejecuta en PowerShell, en la carpeta del proyecto: `C:\ruta\a\mi-sii-mcp`.
+Hay dos formas de instalarlo:
 
-## 1. Compilar
+- **Con npx (recomendada):** no descargas el código; el asistente ejecuta la versión publicada en [npm](https://www.npmjs.com/package/mi-sii-mcp). Solo necesitas Node.js 22.12 o superior.
+- **Desde el código:** clonas el repositorio y lo compilas. Incluye la página local «Abrir mi-sii-mcp.cmd».
+
+Los ejemplos son de PowerShell y usan la instalación desde el código, con `node "C:\ruta\a\mi-sii-mcp\dist\interfaces\cli\bin.js"`. **Si instalaste con npx, en todos los comandos cambia eso por `npx -y mi-sii-mcp@latest`**; por ejemplo, `npx -y mi-sii-mcp@latest login 11111111-1 --guardar-clave`.
+
+## 1. Instalar
+
+**Con npx** no hay nada que instalar: pasa a la sección 2.
+
+**Desde el código**, en la carpeta del proyecto (`C:\ruta\a\mi-sii-mcp`):
 
 ```powershell
-cd 'C:\ruta\a\mi-sii-mcp'
+git clone https://github.com/Taksuma-0/mi-sii-mcp.git
+cd mi-sii-mcp
+npm.cmd install
 npm.cmd run build
 ```
 
@@ -40,11 +51,21 @@ Debe terminar con una línea que empieza con `OK`. La prueba usa una carpeta tem
 
 ## 2. Registrar el servidor en Claude Code
 
+Con npx:
+
+```powershell
+claude mcp add --scope user mi-sii-mcp -- npx -y mi-sii-mcp@latest mcp
+```
+
+O instala el **plugin**, que trae el servidor y la skill: dentro de Claude Code, `/plugin install mi-sii-mcp --marketplace Taksuma-0/mi-sii-mcp`.
+
+Desde el código:
+
 ```powershell
 claude mcp add --scope user mi-sii-mcp -- node "C:\ruta\a\mi-sii-mcp\dist\interfaces\cli\bin.js" mcp
 ```
 
-`--scope user` lo deja disponible en cualquier carpeta y sesión de Claude Code, no solo dentro del proyecto. Se usa `node` con la ruta completa, así que no hace falta instalar nada de forma global.
+`--scope user` lo deja disponible en cualquier carpeta y sesión de Claude Code, no solo dentro del proyecto. En ninguno de los dos casos hace falta instalar nada de forma global.
 
 Comprueba que quedó conectado:
 
@@ -188,18 +209,20 @@ Los resultados de las herramientas pasan a la conversación con el asistente, ig
 
 ## 5. Claude Desktop
 
-Si usas Claude Desktop en vez de Claude Code, agrega el servidor a su archivo de configuración (en Claude Desktop: Configuración → Desarrollador → Editar configuración; normalmente es `%APPDATA%\Claude\claude_desktop_config.json`):
+Si usas Claude Desktop en vez de Claude Code, agrega el servidor a su archivo de configuración (en Claude Desktop: Configuración → Desarrollador → Editar configuración; normalmente es `%APPDATA%\Claude\claude_desktop_config.json`). Con npx:
 
 ```json
 {
   "mcpServers": {
     "mi-sii-mcp": {
-      "command": "node",
-      "args": ["C:\\ruta\\a\\mi-sii-mcp\\dist\\interfaces\\cli\\bin.js", "mcp"]
+      "command": "npx",
+      "args": ["-y", "mi-sii-mcp@latest", "mcp"]
     }
   }
 }
 ```
+
+Desde el código, usa `"command": "node"` y `"args": ["C:\\ruta\\a\\mi-sii-mcp\\dist\\interfaces\\cli\\bin.js", "mcp"]`.
 
 Si el archivo ya tiene otros servidores, agrega solo la entrada `mi-sii-mcp` dentro de `mcpServers`. Reinicia Claude Desktop por completo para que lo cargue. El login (sección 3) se hace igual, en tu terminal.
 
@@ -211,7 +234,7 @@ Si el archivo ya tiene otros servidores, agrega solo la entrada `mi-sii-mcp` den
 
 ## 7. Si algo falla
 
-- **`claude mcp list` muestra un error en `mi-sii-mcp`** (o la conexión se cae al abrir Claude): ejecuta el servidor a mano para ver el mensaje real.
+- **`claude mcp list` muestra un error en `mi-sii-mcp`** (o la conexión se cae al abrir Claude): ejecuta el servidor a mano para ver el mensaje real (con npx, `npx -y mi-sii-mcp@latest mcp`).
 
   ```powershell
   node "C:\ruta\a\mi-sii-mcp\dist\interfaces\cli\bin.js" mcp
@@ -239,9 +262,11 @@ claude mcp remove --scope user mi-sii-mcp
 
 Esto desconecta al asistente. No borra tus datos guardados ni tu clave: para la clave, usa `logout <tu RUT> --olvidar-clave` (sección 3). Tus datos locales están en la carpeta `.mi-sii-mcp` de tu usuario de Windows. En Claude Desktop, borra la entrada `mi-sii-mcp` del archivo de configuración y reinicia la aplicación.
 
-## 9. Actualizar el código
+## 9. Actualizar
 
-Cada vez que cambie el código del proyecto (por ejemplo, tras bajar una versión nueva), recompila:
+**Con npx y `@latest`** no hay que hacer nada: cada vez que el asistente arranca el servidor, usa la última versión publicada. El plugin de Claude Code fija una versión: actualízalo con `claude plugin update mi-sii-mcp@mi-sii-mcp`; la extensión de Gemini CLI, con `gemini extensions update mi-sii-mcp`.
+
+**Desde el código**, cada vez que cambie el código del proyecto (por ejemplo, tras bajar una versión nueva), recompila:
 
 ```powershell
 cd 'C:\ruta\a\mi-sii-mcp'
