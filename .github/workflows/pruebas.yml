@@ -34,6 +34,10 @@ jobs:
       # better-sqlite3 trae binarios precompilados para cada sistema: sin scripts no hace falta compilar nada.
       - name: Instalar dependencias
         run: npm ci --ignore-scripts
+      # Vulnerabilidades altas o críticas en lo que se instala con el paquete (no en las herramientas de desarrollo).
+      - name: Revisar dependencias de producción
+        if: matrix.os == 'ubuntu-latest' && matrix.node == 24
+        run: npm audit --omit=dev --audit-level=high
       - name: Tipos
         run: npm run typecheck
       - name: Pruebas
