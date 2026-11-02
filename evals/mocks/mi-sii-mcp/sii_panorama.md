@@ -1,0 +1,7 @@
+---
+type: fixed
+---
+
+Panorama local: 3 meses. Fuentes: RCV (compras y ventas) y F29. Cobertura: ventas 3/3, compras 3/3 y F29 3/3 meses consultados.
+
+{"perfil":{"rut":"22222222-2","alias":"Pyme Demo","tipo":"empresa","razonSocial":"EMPRESA DEMO SPA","representa":[]},"periodos":[{"periodo":"2026-07","disponibilidad":{"ventasRcv":true,"comprasRcv":true,"f29":true,"propuestaF29":false,"bheRecibidas":false},"ventas":9520000,"compras":3820526,"ivaDebito":1520000,"ivaCredito":610000,"f29":{"consultado":true,"presentado":true,"folio":555001,"estado":"Vigente","totalAPagar":910000}},{"periodo":"2026-08","disponibilidad":{"ventasRcv":true,"comprasRcv":true,"f29":true,"propuestaF29":false,"bheRecibidas":false},"ventas":10083684,"compras":4071053,"ivaDebito":1610000,"ivaCredito":650000,"f29":{"consultado":true,"presentado":true,"folio":555001,"estado":"Vigente","totalAPagar":960000}},{"periodo":"2026-09","disponibilidad":{"ventasRcv":true,"comprasRcv":true,"f29":true,"propuestaF29":false,"bheRecibidas":false},"ventas":12254288,"compras":4522000,"ivaDebito":1956567,"ivaCredito":722000,"f29":{"consultado":true,"presentado":true,"folio":555001,"estado":"Vigente","totalAPagar":1234567}}],"totales":{"ventas":{"monto":31857972,"mesesConDatos":3,"mesesSinDatos":0},"compras":{"monto":12413579,"mesesConDatos":3,"mesesSinDatos":0},"ivaDebito":{"monto":5086567,"mesesConDatos":3,"mesesSinDatos":0},"ivaCredito":{"monto":1982000,"mesesConDatos":3,"mesesSinDatos":0},"f29":{"monto":3104567,"mesesConDatos":3,"mesesSinDatos":0}},"frescuraMasVieja":"2026-10-21T10:00:00.000Z"}

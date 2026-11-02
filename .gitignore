@@ -8,3 +8,6 @@ coverage/
 .impuestocl/
 diagnostico/
 .spike/
+
+# Resultados de las evals del asistente (claude plugin eval)
+evals/results/

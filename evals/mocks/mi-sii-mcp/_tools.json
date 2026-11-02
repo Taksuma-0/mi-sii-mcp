@@ -1,0 +1,1308 @@
+{
+  "tools": [
+    {
+      "name": "perfiles_listar",
+      "title": "Perfiles configurados",
+      "description": "Lista los contribuyentes configurados (persona natural y empresa) y el estado de su sesión SII. Úsala primero para saber qué RUT consultar.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "cuenta_conectar",
+      "title": "Conectar una cuenta del SII",
+      "description": "Abre en el navegador de la persona la página local de mi-sii-mcp, donde conecta una cuenta del SII con su RUT y su clave tributaria (o con ClaveÚnica) sin que la clave pase por el chat; ahí también importa cartolas y activa la revisión diaria. Úsala cuando falte la sesión o la persona quiera conectar una cuenta. No recibe datos.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "sii_panorama",
+      "title": "Panorama local del SII",
+      "description": "Muestra el panorama de todos los meses almacenados localmente para un RUT, con montos y cobertura de RCV (compras y ventas) y F29 y, si se sincronizaron, la propuesta de F29, las boletas de honorarios recibidas y la renta (F22) por año tributario, además de los datos de la cuenta. No requiere un período y no descarga datos del SII: consulta solo lo almacenado localmente.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rut": {
+            "type": "string",
+            "description": "RUT del contribuyente, por ejemplo 22.222.222-2"
+          },
+          "detalle": {
+            "description": "true trae todo el detalle (más largo); por defecto, una versión liviana suficiente para responder",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "rut"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "sincronizar",
+      "title": "Sincronizar con el SII",
+      "description": "Trae desde el portal del SII el RCV (compras y ventas) y el F29 de un rango de meses y los guarda en la base local. Solo lee el SII: nunca presenta ni modifica nada allí. Por defecto trae rcv y f29 (propuesta y bhe son opcionales); con superficies puedes elegir, y «propuesta» (opcional, no va por defecto) agrega la propuesta de F29 del SII: crédito, remanente y retención propuestos, sin débito ni total a pagar; «bhe» (opcional, no va por defecto) agrega las boletas de honorarios recibidas del mes, con su retención, que se cruza con el código 151 del F29. La renta (F22) no va aquí: usa renta_sincronizar, y el perfil y las empresas autorizadas, perfil_sincronizar. Admite hasta 120 meses por llamada; para historia larga llama por tramos de 12 meses, así avanzas por partes y evitas que el cliente agote el plazo de espera. Si no hay sesión, usa cuenta_conectar para que la persona conecte la cuenta; nunca pidas la clave en el chat.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rut": {
+            "type": "string",
+            "description": "RUT del contribuyente, por ejemplo 22.222.222-2"
+          },
+          "desde": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}$",
+            "description": "Período tributario AAAA-MM"
+          },
+          "hasta": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}$",
+            "description": "Período tributario AAAA-MM"
+          },
+          "superficies": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "rcv",
+                "f29",
+                "propuesta",
+                "bhe"
+              ]
+            }
+          }
+        },
+        "required": [
+          "rut",
+          "desde"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "diagnostico",
+      "title": "Diagnóstico de mi-sii-mcp",
+      "description": "Salud de mi-sii-mcp con lo guardado, sin ir al SII: versión (y si hay una nueva en npm), integridad de la base y su último respaldo, por cuenta la sesión, la última lectura buena y las fallas del SII que la revisión diaria reintentará, y lo que se sabe de los cambios del portal del SII (campos nuevos, nombres que se adaptaron solos con los totales cuadrados y lecturas que fallaron). Úsala si algo no cuadra o falla una sincronización.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rut": {
+            "type": "string",
+            "description": "RUT del contribuyente, por ejemplo 22.222.222-2"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "sii_avisos",
+      "title": "Anotaciones y avisos de Mi SII",
+      "description": "Consulta en Mi SII, con la sesión guardada y solo leyendo, las anotaciones vigentes que restringen trámites (por ejemplo, F29 no presentado o domicilio sin acreditar, que impiden timbrar o emitir documentos), el estado de cumplimiento de las obligaciones tributarias y los mensajes informativos. Registra cada anotación y cada requisito incumplido como aviso en novedades (la revisión diaria también lo hace). No muestra deudas de la Tesorería. Solo para el RUT de la sesión: una empresa que entra con la sesión de quien la representa debe conectar su propia cuenta. Si no hay sesión, usa cuenta_conectar; nunca pidas la clave.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rut": {
+            "type": "string",
+            "description": "RUT del contribuyente, por ejemplo 22.222.222-2"
+          }
+        },
+        "required": [
+          "rut"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "perfil_sincronizar",
+      "title": "Sincronizar la cuenta del SII",
+      "description": "Trae del SII el perfil tributario (si está autorizado a declarar el F29 hasta el día 20, régimen y segmento) y las empresas que el contribuyente puede consultar, y reemplaza `representa` del perfil por las empresas activas que informa el SII (lo que el SII reporta sobrescribe lo que se haya anotado a mano). Solo lee el SII; de las empresas autorizadas guarda RUT, razón social (que puede ser el nombre de una persona), privilegios y fecha de desautorización, y no guarda correos, teléfonos ni direcciones. Los plazos del F29 usan el día 20 solo si el SII lo autoriza (si no, el 12): sincroniza la cuenta antes de revisar plazos. Si no hay sesión, usa cuenta_conectar para que la persona conecte la cuenta; nunca pidas la clave en el chat.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rut": {
+            "type": "string",
+            "description": "RUT del contribuyente, por ejemplo 22.222.222-2"
+          }
+        },
+        "required": [
+          "rut"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "renta_sincronizar",
+      "title": "Sincronizar la renta (F22)",
+      "description": "Trae del SII la declaración anual de renta (F22) de un rango de años tributarios (AAAA; el año tributario es el año comercial + 1) y la guarda en la base local: las declaraciones del año, su conclusión y, del folio vigente, los códigos con su glosa, las observaciones y los eventos. A una persona (no a una empresa) le trae además el informe anual de boletas de honorarios emitidas del año comercial y, de los meses con boletas, su detalle boleta por boleta (a quién, bruto y retenciones; no repite meses que ya calzan); con el año tributario siguiente al actual (p. ej. 2027 en 2026) ves las boletas del año en curso aunque aún no haya F22. A cualquier perfil le trae también las rentas informadas por terceros: las declaraciones juradas (DJ) que otros presentaron sobre él, como la 1879 (quien pagó honorarios y retuvo) o la 1887 (sueldos del empleador), con cada informante, sus meses, montos y si el SII observó su declaración. Máximo 10 años por llamada. Solo lee el SII y no guarda nombres, domicilio, cuenta ni banco. Si el SII responde vacío donde había datos, se conservan los guardados. Si no hay sesión, usa cuenta_conectar para que la persona conecte la cuenta; nunca pidas la clave en el chat.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rut": {
+            "type": "string",
+            "description": "RUT del contribuyente, por ejemplo 22.222.222-2"
+          },
+          "desde": {
+            "type": "string",
+            "pattern": "^\\d{4}$",
+            "description": "Año tributario AAAA (año comercial + 1): 2026 es la renta del año 2025"
+          },
+          "hasta": {
+            "type": "string",
+            "pattern": "^\\d{4}$",
+            "description": "Año tributario AAAA (año comercial + 1): 2026 es la renta del año 2025"
+          }
+        },
+        "required": [
+          "rut",
+          "desde"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "renta_resumen",
+      "title": "Resumen de la renta (F22)",
+      "description": "Muestra la renta (F22) guardada localmente por año tributario: folio vigente, conclusión del SII, impuesto pagado, giro y remanente, los códigos del resultado con su glosa del SII, observaciones y eventos. De una persona muestra además sus boletas de honorarios emitidas del año comercial (vigentes, anuladas, bruto y retención) y su cruce con los códigos 547 (ingresos brutos) y 492 (retención) del F22, que vienen reajustados por IPC: cuadra si el F22 trae entre 0 % y 10 % más; con el detalle boleta por boleta, también sus 5 principales pagadores. También muestra lo informado por terceros (DJ): cada informante con sus meses, monto y estado, con un aviso si su declaración está observada por el SII; en la DJ 1879 cruza la retención informada con las boletas emitidas a ese RUT y la total con las boletas del año y con el 492 del F22 (cuadra o difiere por cuánto). Para preguntas como «¿a quién le emití boletas?» o por mes y receptor, usa consulta_sql sobre bhe_emitida. Lo informado por terceros está en dj_tercero. No va al SII: si no hay datos, usa renta_sincronizar. Los demás códigos están en f22_valor y las boletas por mes en bhe_emitida_mes (consulta_sql).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rut": {
+            "type": "string",
+            "description": "RUT del contribuyente, por ejemplo 22.222.222-2"
+          },
+          "anio": {
+            "type": "string",
+            "pattern": "^\\d{4}$",
+            "description": "Año tributario AAAA (año comercial + 1): 2026 es la renta del año 2025"
+          },
+          "detalle": {
+            "description": "true trae todo el detalle (más largo); por defecto, una versión liviana suficiente para responder",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "rut"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "fuentes_oficiales",
+      "title": "Fuentes oficiales de datos públicos",
+      "description": "Datos públicos de la renta (UTM y UTA, tablas del Impuesto Global Complementario y del Impuesto Único, factores de actualización por IPC, gastos presuntos, tasa de retención de honorarios, obligación y cobertura de la cotización de honorarios, tasas de ATEP, SANNA y salud, comisiones de las AFP y tasa del SIS): mi-sii-mcp no los guarda. Esta herramienta dice en qué página oficial (SII, Superintendencia de Pensiones, Previsión Social, ChileAtiende) consultar cada uno y qué buscar ahí, y con regla=true la regla paso a paso para estimar el F22 de una persona con sueldo y honorarios. Úsala antes de estimar una renta: los datos privados salen de renta_resumen y los públicos de esas páginas, del año que se calcula. No va al SII.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "buscar": {
+            "description": "Palabras para filtrar (p. ej. «UTM», «cotización», «AFP»); sin filtro, todas",
+            "type": "string",
+            "maxLength": 100
+          },
+          "regla": {
+            "description": "Incluir la regla para estimar el F22 de una persona",
+            "type": "boolean"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "f29_releer",
+      "title": "Releer el F29 guardado",
+      "description": "Relee los PDF ya guardados con el lector actual, sin ir al SII: vuelve a leer el PDF del F29 de cada folio que trajo una sincronización anterior y actualiza sus valores si cambian. Una lectura que no cuadra no reemplaza a una guardada que sí cuadra. Úsala tras actualizar mi-sii-mcp o ante un F29 leído que no cuadra; sin rango relee todos los meses guardados.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rut": {
+            "type": "string",
+            "description": "RUT del contribuyente, por ejemplo 22.222.222-2"
+          },
+          "desde": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}$",
+            "description": "Período tributario AAAA-MM"
+          },
+          "hasta": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}$",
+            "description": "Período tributario AAAA-MM"
+          }
+        },
+        "required": [
+          "rut"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "f29_estimar",
+      "title": "Estimar el F29 de un mes",
+      "description": "Estima el F29 de un mes con lo guardado, sin ir al SII ni presentar nada: débito y crédito del RCV, remanente del mes anterior (del F29 presentado o estimado si ese mes no se presentó), PPM con la tasa del último F29 presentado y retención de las boletas de honorarios recibidas. Si el mes ya tiene F29, compara. El impuesto único de los trabajadores (código 48) no está en el SII: pásalo en impuesto_unico si hubo sueldos. Para reajustar el remanente pasa utm_actual y utm_anterior (https://www.sii.cl/valores_y_fechas/utm/utm2026.htm, cambia el año). Un F29 atrasado paga reajustes, intereses y multas que calcula el portal del SII al declarar; aquí solo va el monto base y los días de atraso.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rut": {
+            "type": "string",
+            "description": "RUT del contribuyente, por ejemplo 22.222.222-2"
+          },
+          "periodo": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}$",
+            "description": "Período tributario AAAA-MM"
+          },
+          "utm_actual": {
+            "description": "UTM del mes del F29",
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "utm_anterior": {
+            "description": "UTM del mes anterior",
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "impuesto_unico": {
+            "description": "Impuesto único retenido a los trabajadores en el mes (código 48)",
+            "type": "number",
+            "minimum": 0
+          },
+          "tasa_ppm": {
+            "description": "Tasa del PPM en porcentaje (0,25 es 0,25 %); por defecto, la del último F29",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10
+          }
+        },
+        "required": [
+          "rut",
+          "periodo"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "banco_importar",
+      "title": "Importar una cartola bancaria",
+      "description": "Importa una cartola bancaria (CSV o TXT de cualquier banco, máximo 5 MB) que la persona tiene en su equipo: pasa la ruta completa del archivo. Guarda los movimientos solo en la base local, sin repetir los que ya estaban (se pueden importar cartolas que se solapan), y revisa que el saldo no se corte. Reconoce solas las columnas de fecha, descripción, cargo y abono (o monto con signo), saldo y documento; si no, indícalas en columnas con el nombre de la cabecera o su número desde 1. Desde Excel: Guardar como CSV. No va al SII ni al banco. Después usa banco_conciliar.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rut": {
+            "type": "string",
+            "description": "RUT del contribuyente, por ejemplo 22.222.222-2"
+          },
+          "archivo": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Ruta completa del archivo en el equipo"
+          },
+          "cuenta": {
+            "description": "Alias de la cuenta (p. ej. «corriente»); por defecto «principal». Nunca el número de cuenta",
+            "type": "string"
+          },
+          "columnas": {
+            "type": "object",
+            "properties": {
+              "fecha": {
+                "type": "string",
+                "minLength": 1
+              },
+              "descripcion": {
+                "type": "string",
+                "minLength": 1
+              },
+              "cargo": {
+                "type": "string",
+                "minLength": 1
+              },
+              "abono": {
+                "type": "string",
+                "minLength": 1
+              },
+              "monto": {
+                "type": "string",
+                "minLength": 1
+              },
+              "saldo": {
+                "type": "string",
+                "minLength": 1
+              },
+              "documento": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "required": [
+          "rut",
+          "archivo"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "banco_conciliar",
+      "title": "Conciliar el banco",
+      "description": "Concilia los movimientos de las cartolas importadas en un rango de meses con lo que mi-sii-mcp conoce: ventas y compras del RCV, boletas de honorarios recibidas y emitidas, F29 pagados y devoluciones del F22. Empareja por monto exacto, primero si la glosa trae el RUT de la contraparte y luego por la fecha más cercana. Muestra lo conciliado, los movimientos sin partida (comisiones, sueldos, retiros) y lo facturado que no aparece en el banco. Para corregir: accion «asignar» con huella (o su comienzo) y partida, o «descartar» con huella. Solo usa la base local.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rut": {
+            "type": "string",
+            "description": "RUT del contribuyente, por ejemplo 22.222.222-2"
+          },
+          "desde": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}$",
+            "description": "Período tributario AAAA-MM"
+          },
+          "hasta": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}$",
+            "description": "Período tributario AAAA-MM"
+          },
+          "accion": {
+            "type": "string",
+            "enum": [
+              "asignar",
+              "descartar"
+            ]
+          },
+          "huella": {
+            "description": "Huella del movimiento (o su comienzo, desde 8 caracteres)",
+            "type": "string",
+            "minLength": 1
+          },
+          "partida": {
+            "description": "Identificador de la partida (factura, boleta, F29 o F22), tal como lo muestra banco_conciliar entre corchetes",
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "rut",
+          "desde"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "cuentas_pendientes",
+      "title": "Cuentas por cobrar y por pagar",
+      "description": "Cuentas por cobrar y por pagar a una fecha: las facturas, notas y boletas de honorarios que no aparecen en las cartolas importadas, con su antigüedad (0-30, 31-60, 61-90 y más de 90 días). Necesita cartolas (banco_importar) y concilia antes de calcular. Lo que no está en el banco pudo pagarse por otra vía: es para revisar, no una deuda confirmada.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rut": {
+            "type": "string",
+            "description": "RUT del contribuyente, por ejemplo 22.222.222-2"
+          },
+          "al": {
+            "description": "Fecha de corte AAAA-MM-DD; por defecto, hoy",
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "lado": {
+            "type": "string",
+            "enum": [
+              "cobrar",
+              "pagar"
+            ]
+          }
+        },
+        "required": [
+          "rut"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "contabilidad_cuentas",
+      "title": "Plan de cuentas",
+      "description": "Plan de cuentas del contribuyente para los asientos propuestos: el básico de una pyme más sus cuentas propias, y las reglas que clasifican las compras de un proveedor. accion «listar» lo muestra; «crear» suma (o renombra) una cuenta con cuenta, nombre y tipo; «asignar» lleva las compras de rut_contraparte a una cuenta de gasto o de activo; «quitar» borra esa regla. Sin regla, cada compra va a la cuenta que indica su tipo de compra en el RCV (del giro, activo fijo, supermercado…). Solo usa la base local.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rut": {
+            "type": "string",
+            "description": "RUT del contribuyente, por ejemplo 22.222.222-2"
+          },
+          "accion": {
+            "type": "string",
+            "enum": [
+              "listar",
+              "crear",
+              "asignar",
+              "quitar"
+            ]
+          },
+          "cuenta": {
+            "description": "Código de la cuenta (3 a 6 dígitos)",
+            "type": "string"
+          },
+          "nombre": {
+            "description": "Nombre de la cuenta, para crear",
+            "type": "string"
+          },
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "activo",
+              "pasivo",
+              "patrimonio",
+              "ingreso",
+              "gasto"
+            ]
+          },
+          "rut_contraparte": {
+            "description": "RUT del proveedor, para asignar o quitar",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rut",
+          "accion"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "contabilidad_libro",
+      "title": "Libros contables",
+      "description": "Libro de un rango de meses con lo guardado: compras o ventas del RCV (registradas; las notas de crédito restan y las boletas de venta van como resumen del mes), boletas de honorarios recibidas o emitidas, o el banco (movimientos de las cartolas con su conciliación). Con exportar=true lo guarda como CSV para Excel o el software contable (punto y coma, fechas dd-mm-aaaa) en la carpeta exportaciones de mi-sii-mcp y devuelve la ruta. Solo usa la base local.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rut": {
+            "type": "string",
+            "description": "RUT del contribuyente, por ejemplo 22.222.222-2"
+          },
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "compras",
+              "ventas",
+              "honorarios_recibidos",
+              "honorarios_emitidos",
+              "banco"
+            ]
+          },
+          "desde": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}$",
+            "description": "Período tributario AAAA-MM"
+          },
+          "hasta": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}$",
+            "description": "Período tributario AAAA-MM"
+          },
+          "exportar": {
+            "type": "boolean"
+          },
+          "detalle": {
+            "description": "true trae todo el detalle (más largo); por defecto, una versión liviana suficiente para responder",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "rut",
+          "tipo",
+          "desde"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "contabilidad_asientos",
+      "title": "Asientos contables propuestos",
+      "description": "Propone los asientos contables de un rango de meses con lo guardado: ventas y compras registradas del RCV (cada compra a la cuenta de su tipo o de la regla del proveedor), boletas de venta, boletas de honorarios, la centralización de cada F29 presentado y los movimientos de las cartolas según su conciliación. Todo asiento cuadra; lo que no se sabe dónde va queda en «por clasificar». Con exportar=true los guarda como CSV para Excel o el software contable. Es una propuesta para revisar: no incluye sueldos, inventario ni depreciación. Solo usa la base local.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rut": {
+            "type": "string",
+            "description": "RUT del contribuyente, por ejemplo 22.222.222-2"
+          },
+          "desde": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}$",
+            "description": "Período tributario AAAA-MM"
+          },
+          "hasta": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}$",
+            "description": "Período tributario AAAA-MM"
+          },
+          "exportar": {
+            "type": "boolean"
+          },
+          "detalle": {
+            "description": "true trae todo el detalle (más largo); por defecto, una versión liviana suficiente para responder",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "rut",
+          "desde"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "contabilidad_resultado",
+      "title": "Estado de resultados",
+      "description": "Estado de resultados de un rango de meses a partir de los asientos propuestos: base devengada (lo facturado y las boletas del período, por defecto) o percibida (solo lo cobrado y pagado según las cartolas conciliadas, como tributa una Pro Pyme; necesita banco_importar). Muestra ingresos y gastos por cuenta, el resultado y los 5 principales clientes y proveedores. No incluye sueldos, depreciación ni gastos que el SII no conoce. Solo usa la base local.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rut": {
+            "type": "string",
+            "description": "RUT del contribuyente, por ejemplo 22.222.222-2"
+          },
+          "desde": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}$",
+            "description": "Período tributario AAAA-MM"
+          },
+          "hasta": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}$",
+            "description": "Período tributario AAAA-MM"
+          },
+          "base": {
+            "type": "string",
+            "enum": [
+              "devengado",
+              "percibido"
+            ]
+          }
+        },
+        "required": [
+          "rut",
+          "desde"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "novedades",
+      "title": "Novedades",
+      "description": "Avisos que la persona aún no ve, de una cuenta o de todas: F29 vencidos o por vencer, hallazgos críticos de la conciliación, facturas por reclamar, eventos de la renta y cuentas sin sesión. Los registra la revisión diaria (vigilar), que se activa en la página local (la abre cuenta_conectar). Por defecto quedan marcados como vistos. Solo usa la base local.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rut": {
+            "type": "string",
+            "description": "RUT del contribuyente, por ejemplo 22.222.222-2"
+          },
+          "marcar_vistas": {
+            "type": "boolean"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "cartera_estado",
+      "title": "Estado de todas las cuentas",
+      "description": "Una línea por cada cuenta configurada (empresas y personas, útil para un contador): sesión, F29 vencidos y por vencer, hallazgos críticos, próximo plazo, avisos sin ver, movimientos del banco sin conciliar y fecha de los datos. No va al SII: sincroniza las cuentas que lo necesiten.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "informe_visual",
+      "title": "Informe visual",
+      "description": "Arma un informe visual en HTML (conclusión, tarjetas, gráficos y tablas; listo para imprimir o guardar como PDF) con lo guardado localmente y lo abre en el navegador de la persona: «iva» del mes (rut y periodo), «renta» (rut; anio opcional), «cartera» (todas las cuentas) o «vencimientos» (rut). Úsala cuando la persona pida verlo en un informe, en visual o para imprimir. No consulta el SII ni envía datos fuera del equipo: el archivo queda en la carpeta informes de mi-sii-mcp.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "iva",
+              "renta",
+              "cartera",
+              "vencimientos"
+            ],
+            "description": "Qué informe armar"
+          },
+          "rut": {
+            "type": "string",
+            "description": "RUT del contribuyente, por ejemplo 22.222.222-2"
+          },
+          "periodo": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}$",
+            "description": "Período tributario AAAA-MM"
+          },
+          "anio": {
+            "type": "string",
+            "pattern": "^\\d{4}$",
+            "description": "Año tributario AAAA (año comercial + 1): 2026 es la renta del año 2025"
+          },
+          "abrir": {
+            "description": "false solo guarda el archivo; por defecto lo abre en el navegador",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "tipo"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "renta_estimar",
+      "title": "Estimar la renta de una persona",
+      "description": "Estima el F22 de una persona (honorarios y sueldo) de un año tributario con lo guardado (boletas emitidas del año comercial y la DJ del empleador) y los datos públicos del año, que mi-sii-mcp no guarda: tabla del Impuesto Global Complementario, UTA de diciembre, gastos presuntos (porcentaje y tope en UTA), si está obligada a cotizar y sus cotizaciones, y los factores de actualización. Saca esos datos con fuentes_oficiales (regla=true trae el cálculo de las cotizaciones). Opcionales: gastos efectivos, APV régimen B, otras rentas. Si hay un F22 guardado, compara con su resultado (código 305). Es una estimación, no asesoría.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rut": {
+            "type": "string",
+            "description": "RUT del contribuyente, por ejemplo 22.222.222-2"
+          },
+          "anio": {
+            "type": "string",
+            "pattern": "^\\d{4}$",
+            "description": "Año tributario AAAA (año comercial + 1): 2026 es la renta del año 2025"
+          },
+          "tabla_igc": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "desde": {
+                  "type": "number"
+                },
+                "hasta": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "factor": {
+                  "type": "number"
+                },
+                "rebaja": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "desde",
+                "hasta",
+                "factor",
+                "rebaja"
+              ]
+            },
+            "description": "Tramos de la tabla del IGC del año tributario, en pesos"
+          },
+          "uta": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "UTA de diciembre del año comercial"
+          },
+          "gastos_presuntos_pct": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "tope_gastos_presuntos_uta": {
+            "type": "number",
+            "minimum": 0
+          },
+          "obligado_cotizar": {
+            "type": "boolean"
+          },
+          "cotizaciones": {
+            "description": "Cotizaciones de honorarios del año que se pagan con la retención",
+            "type": "number",
+            "minimum": 0
+          },
+          "factores_ipc": {
+            "description": "Factores de actualización de enero a diciembre",
+            "minItems": 12,
+            "maxItems": 12,
+            "type": "array",
+            "items": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          },
+          "gastos_efectivos": {
+            "type": "number",
+            "minimum": 0
+          },
+          "apv_regimen_b": {
+            "type": "number",
+            "minimum": 0
+          },
+          "otras_rentas": {
+            "type": "number",
+            "minimum": 0
+          },
+          "sueldos": {
+            "type": "number",
+            "minimum": 0
+          },
+          "impuesto_unico_retenido": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "rut",
+          "anio",
+          "tabla_igc",
+          "uta",
+          "gastos_presuntos_pct",
+          "tope_gastos_presuntos_uta",
+          "obligado_cotizar"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ahorro_oportunidades",
+      "title": "Oportunidades de ahorro tributario",
+      "description": "Oportunidades legales de pagar menos (o de pagar después) que sostienen los datos guardados: crédito de IVA de compras pendientes que aún se puede usar, remanente de crédito sin usar, postergación del pago del IVA para pymes, gastos efectivos en vez de presuntos en honorarios y APV régimen B. Cada una trae su norma con la página oficial del SII, el monto involucrado, qué hacer y los datos que faltan. Nunca sugiere operaciones sin sustancia. No es asesoría: confírmalas con un contador. Solo usa la base local.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rut": {
+            "type": "string",
+            "description": "RUT del contribuyente, por ejemplo 22.222.222-2"
+          }
+        },
+        "required": [
+          "rut"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "regimen_simular",
+      "title": "Simular régimen Pro Pyme",
+      "description": "Compara un año en Pro Pyme General (14 D N°3: la empresa paga Primera Categoría y los dueños tributan al retirar, con crédito total) y en Pro Pyme Transparente (14 D N°8: sin Primera Categoría; los dueños tributan por toda la base según su participación). Muestra el impuesto de la empresa, el de los dueños y el total. Base: la informada (mejor, si incluye sueldos y depreciación) o la del año guardado (percibida si hay cartolas de todo el año, si no devengada), proyectada si el año no terminó. Datos públicos que se informan: tasa_idpc y la tabla del Global Complementario (https://www.sii.cl/valores_y_fechas/renta/2026/personas_naturales.html, cambiando el año tributario). Trae los requisitos y el plazo para cambiarse. Simulación, no recomendación. Solo usa la base local.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rut": {
+            "type": "string",
+            "description": "RUT del contribuyente, por ejemplo 22.222.222-2"
+          },
+          "anio": {
+            "type": "string",
+            "pattern": "^\\d{4}$",
+            "description": "Año comercial AAAA (el de las operaciones; su renta se declara en abril del año siguiente)"
+          },
+          "socios": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "participacion": {
+                  "type": "number",
+                  "description": "Porcentaje de participación"
+                },
+                "otras_rentas": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Otras rentas del año del socio para el Global Complementario"
+                }
+              },
+              "required": [
+                "participacion",
+                "otras_rentas"
+              ]
+            }
+          },
+          "tasa_idpc": {
+            "type": "number",
+            "description": "Tasa de Primera Categoría del Pro Pyme General para ese año, en porcentaje; depende del año y de la condición de cotización (fuentes_oficiales: https://www.sii.cl/preguntas_frecuentes/declaracion_renta/001_140_4708.htm)"
+          },
+          "tabla_igc": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "desde": {
+                  "type": "number"
+                },
+                "hasta": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "factor": {
+                  "type": "number"
+                },
+                "rebaja": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "desde",
+                "hasta",
+                "factor",
+                "rebaja"
+              ]
+            },
+            "description": "Tramos anuales de la tabla del Global Complementario, en pesos"
+          },
+          "retiro_pct": {
+            "description": "Porcentaje de las utilidades que los dueños retiran en el General; 100 si no se indica",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "base": {
+            "description": "Base imponible anual de la empresa, si se conoce",
+            "type": "number"
+          }
+        },
+        "required": [
+          "rut",
+          "anio",
+          "socios",
+          "tasa_idpc",
+          "tabla_igc"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "cierre_proyectar",
+      "title": "Proyectar el cierre del año",
+      "description": "Proyecta el año comercial al cierre con lo guardado (RCV y, si cubren el año, cartolas) al ritmo de los meses con datos, y lo compara con los PPM pagados en los F29. Con tasa_idpc estima la Primera Categoría y el saldo de abril. Si se proyecta pérdida, recuerda la suspensión de PPM (art. 90 de la Ley de la Renta) como posible. Remite a ahorro_oportunidades y regimen_simular. No incluye sueldos ni depreciación. Estimación, no asesoría. Solo usa la base local.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rut": {
+            "type": "string",
+            "description": "RUT del contribuyente, por ejemplo 22.222.222-2"
+          },
+          "anio": {
+            "type": "string",
+            "pattern": "^\\d{4}$",
+            "description": "Año comercial AAAA (el de las operaciones; su renta se declara en abril del año siguiente)"
+          },
+          "tasa_idpc": {
+            "type": "number",
+            "description": "Tasa de Primera Categoría del Pro Pyme General para ese año, en porcentaje; depende del año y de la condición de cotización (fuentes_oficiales: https://www.sii.cl/preguntas_frecuentes/declaracion_renta/001_140_4708.htm)"
+          }
+        },
+        "required": [
+          "rut",
+          "anio"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "iva_resumen",
+      "title": "Resumen de IVA del mes",
+      "description": "Compara el débito y el crédito del RCV con el F29 presentado, revisa el remanente, los documentos pendientes y los plazos, y entrega los hallazgos de un mes. Lee solo la base local: revisa \"frescura\" y sincroniza si los datos están viejos.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rut": {
+            "type": "string",
+            "description": "RUT del contribuyente, por ejemplo 22.222.222-2"
+          },
+          "periodo": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}$",
+            "description": "Período tributario AAAA-MM"
+          }
+        },
+        "required": [
+          "rut",
+          "periodo"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "iva_hallazgos",
+      "title": "Hallazgos de conciliación",
+      "description": "Hallazgos de conciliación de IVA (descuadres, F29 faltantes, facturas por reclamar, cambios posteriores al F29 y, si se sincronizaron las boletas de honorarios recibidas, la retención de honorarios frente al código 151) de todos los meses con datos, o de un rango.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rut": {
+            "type": "string",
+            "description": "RUT del contribuyente, por ejemplo 22.222.222-2"
+          },
+          "desde": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}$",
+            "description": "Período tributario AAAA-MM"
+          },
+          "hasta": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}$",
+            "description": "Período tributario AAAA-MM"
+          },
+          "severidad": {
+            "type": "string",
+            "enum": [
+              "info",
+              "advertencia",
+              "critico"
+            ]
+          }
+        },
+        "required": [
+          "rut"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "rcv_documentos",
+      "title": "Documentos del RCV",
+      "description": "Lista paginada (50 por página) de documentos del RCV de un mes, con filtros por lado, estado, tipo de documento y contraparte.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rut": {
+            "type": "string",
+            "description": "RUT del contribuyente, por ejemplo 22.222.222-2"
+          },
+          "periodo": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}$",
+            "description": "Período tributario AAAA-MM"
+          },
+          "lado": {
+            "type": "string",
+            "enum": [
+              "COMPRA",
+              "VENTA"
+            ]
+          },
+          "estado": {
+            "type": "string",
+            "enum": [
+              "REGISTRO",
+              "PENDIENTE",
+              "NO_INCLUIR",
+              "RECLAMADO"
+            ]
+          },
+          "tipo_doc": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "rut_contraparte": {
+            "type": "string"
+          },
+          "pagina": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "rut",
+          "periodo"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "f29_historial",
+      "title": "Historial del F29",
+      "description": "Por cada mes del rango: si el F29 está presentado, folio, débitos, créditos y total a pagar; si se sincronizaron las boletas de honorarios recibidas del mes, también la retención declarada (código 151) junto a la de esas boletas.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rut": {
+            "type": "string",
+            "description": "RUT del contribuyente, por ejemplo 22.222.222-2"
+          },
+          "desde": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}$",
+            "description": "Período tributario AAAA-MM"
+          },
+          "hasta": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}$",
+            "description": "Período tributario AAAA-MM"
+          }
+        },
+        "required": [
+          "rut",
+          "desde",
+          "hasta"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "plazos_proximos",
+      "title": "Plazos próximos",
+      "description": "Vencimientos próximos: F29 por presentar y facturas recibidas cuyo plazo de reclamo (8 días) está por vencer.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rut": {
+            "type": "string",
+            "description": "RUT del contribuyente, por ejemplo 22.222.222-2"
+          },
+          "dias": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 365
+          }
+        },
+        "required": [
+          "rut"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "consulta_sql",
+      "title": "Consulta SQL libre",
+      "description": "Ejecuta una sola sentencia SELECT (o WITH … SELECT) de solo lectura sobre una copia de los datos locales (RCV, F29, propuesta de F29, boletas de honorarios recibidas, renta F22, hallazgos y bitácora de sincronización). Llama antes una vez a datos_esquema: describe tablas, columnas y reglas (signo de las notas de crédito, estados del RCV, códigos del F29). Sin parámetros: escribe los valores como literales. Devuelve como máximo 200 filas y 40000 caracteres: filtra por RUT y período, agrupa o usa LIMIT.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sql": {
+            "type": "string",
+            "description": "Una sola sentencia SELECT o WITH … SELECT"
+          }
+        },
+        "required": [
+          "sql"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "datos_esquema",
+      "title": "Esquema de los datos",
+      "description": "Describe las tablas que ve consulta_sql: cada columna con su tipo y significado, y las reglas para interpretar montos, notas de crédito, estados del RCV, códigos del F29 y la ausencia de datos. Llámala una vez antes de escribir consultas.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    }
+  ]
+}

@@ -1,6 +1,7 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { HERRAMIENTAS } from '../src/interfaces/mcp/servidor.js';
 
 const RAIZ = resolve(import.meta.dirname, '..');
 
@@ -63,5 +64,25 @@ describe('manifiestos de distribución (plugin de Claude Code, extensión de Gem
   it('el plugin trae la skill y su ícono', () => {
     expect(existsSync(resolve(RAIZ, 'skills', 'mi-sii-mcp', 'SKILL.md'))).toBe(true);
     expect(plugin.icon && existsSync(resolve(RAIZ, plugin.icon))).toBe(true);
+  });
+});
+
+describe('servidor simulado de las evals', () => {
+  const CARPETA = resolve(RAIZ, 'evals', 'mocks', 'mi-sii-mcp');
+
+  it('_tools.json trae exactamente las herramientas del servidor, para que las simulaciones no queden desfasadas', () => {
+    const guardado = leer<{ tools: { name: string; inputSchema: unknown }[] }>('evals/mocks/mi-sii-mcp/_tools.json');
+    expect(guardado.tools.map((t) => t.name).sort()).toEqual([...HERRAMIENTAS].sort());
+    expect(guardado.tools.every((t) => typeof t.inputSchema === 'object')).toBe(true);
+  });
+
+  it('cada simulación responde una herramienta que existe y solo usa RUT ficticios', () => {
+    const simulaciones = readdirSync(CARPETA).filter((f) => f.endsWith('.md') && !f.startsWith('_'));
+    expect(simulaciones.length).toBeGreaterThanOrEqual(10);
+    for (const archivo of simulaciones) {
+      expect(HERRAMIENTAS as readonly string[], archivo).toContain(archivo.slice(0, -'.md'.length));
+      const ruts = readFileSync(resolve(CARPETA, archivo), 'utf8').match(/\b\d{1,2}\.?\d{3}\.?\d{3}-[\dkK]\b/g) ?? [];
+      for (const rut of ruts) expect(['11111111-1', '22222222-2', '33333333-3'], `${archivo}: ${rut}`).toContain(rut.replace(/\./g, ''));
+    }
   });
 });

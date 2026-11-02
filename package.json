@@ -65,6 +65,8 @@
     "local": "tsx scripts/abrir-local.ts",
     "verificar:vivo": "tsx scripts/verificar-vivo.ts",
     "probar:mcp": "tsx scripts/probar-mcp-dist.ts",
+    "evals": "claude plugin eval . --no-publish",
+    "evals:herramientas": "npm run build && tsx scripts/herramientas-eval.ts",
     "prepublishOnly": "npm run typecheck && npm test && npm run build",
     "version:fijar": "node scripts/fijar-version.mjs"
   },
