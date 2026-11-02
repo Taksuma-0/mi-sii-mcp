@@ -199,6 +199,22 @@ describe('db', () => {
     db.close();
   });
 
+  it('la migración 17 suma los avisos del portal y de versión, conserva los avisos y crea las tablas del portal', () => {
+    const db = new Database(':memory:');
+    aplicarMigraciones(db, MIGRACIONES.filter((m) => m.version <= 16));
+    db.prepare("INSERT INTO aviso (rut, clave, tipo, severidad, titulo, detalle, creado_en, notificado_en) VALUES ('1', 'A:4310:x', 'anotacion', 'advertencia', 'T', 'D', 't1', 't2')").run();
+    expect(() => db.prepare("INSERT INTO aviso (rut, clave, tipo, severidad, titulo, detalle, creado_en) VALUES ('1', 'V:1', 'version', 'info', 'T', 'D', 't')").run()).toThrow(/CHECK/);
+
+    aplicarMigraciones(db);
+
+    expect(db.prepare('SELECT id, clave, tipo, notificado_en FROM aviso').all()).toEqual([{ id: 1, clave: 'A:4310:x', tipo: 'anotacion', notificado_en: 't2' }]);
+    db.prepare("INSERT INTO aviso (rut, clave, tipo, severidad, titulo, detalle, creado_en) VALUES ('1', 'V:1', 'version', 'info', 'T', 'D', 't')").run();
+    db.prepare("INSERT INTO aviso (rut, clave, tipo, severidad, titulo, detalle, creado_en) VALUES ('1', 'PA:1', 'portal', 'advertencia', 'T', 'D', 't')").run();
+    const tablas = (db.prepare("SELECT name FROM sqlite_master WHERE type IN ('table', 'index')").all() as { name: string }[]).map((t) => t.name);
+    expect(tablas).toEqual(expect.arrayContaining(['portal_huella', 'portal_cambio', 'portal_alias', 'ix_respuesta_cruda_sincronizacion']));
+    db.close();
+  });
+
   it('activa las claves foráneas y rechaza respuestas sin sincronización', () => {
     const db = nuevaDb();
     expect(db.pragma('foreign_keys', { simple: true })).toBe(1);

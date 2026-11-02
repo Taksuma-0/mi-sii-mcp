@@ -1,6 +1,7 @@
 import type { ArchivoImportado, CartolaLeida, ConciliacionGuardada, MapeoColumnas, MovimientoBancario, MovimientoLeido, ParConciliado, TipoPartida } from '../domain/banco.js';
 import type { Aviso, AvisoCandidato } from '../domain/avisos.js';
 import type { CuentaContable } from '../domain/contabilidad.js';
+import type { AliasAprendido, CambioPortal, HuellaPortal, TipoCambioPortal } from '../domain/portal.js';
 import type { SituacionSii } from '../domain/situacion-sii.js';
 import type { Periodo } from '../domain/periodo.js';
 import type {
@@ -339,6 +340,18 @@ export interface Store {
   /** Avisos guardados, del más antiguo al más nuevo. */
   avisos(filtro?: FiltroAvisos): Aviso[];
   marcarAvisos(ids: readonly number[], campo: 'visto' | 'notificado', ahora: string): void;
+  /**
+   * Une las rutas de campos de una respuesta a la forma conocida de su superficie y devuelve las que no se conocían. La
+   * primera vez solo guarda la base y devuelve una lista vacía.
+   */
+  registrarHuella(superficie: string, rutas: readonly string[], ahora: string): string[];
+  huellasPortal(): HuellaPortal[];
+  registrarCambioPortal(superficie: string, tipo: TipoCambioPortal, detalle: unknown, ahora: string): void;
+  /** Cambios del portal detectados, desde una fecha ISO si se indica, del más antiguo al más nuevo. */
+  cambiosPortal(desde?: string): CambioPortal[];
+  aliasAprendidos(): AliasAprendido[];
+  /** Guarda un alias aprendido; si ya existía (misma superficie, campo y alias), conserva el primero. */
+  guardarAlias(alias: AliasAprendido): void;
 }
 
 export interface TablaAsistenteGuardada extends TablaAsistente {

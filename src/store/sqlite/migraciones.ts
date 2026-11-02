@@ -503,6 +503,58 @@ DROP TABLE aviso;
 ALTER TABLE aviso_v16 RENAME TO aviso;
 `;
 
+/**
+ * Resiliencia ante cambios del portal: los avisos suman los tipos «portal» (el SII cambió una respuesta) y «version» (hay
+ * una versión nueva de mi-sii-mcp). `portal_huella` guarda la forma conocida de cada respuesta (solo nombres de campos,
+ * nunca valores), `portal_cambio` lo que cambió y `portal_alias` los nombres nuevos que se aprendieron con los totales
+ * cuadrados. El índice evita recorrer todas las respuestas crudas al buscar las de una sincronización.
+ */
+const V17 = `
+CREATE TABLE aviso_v17 (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  rut TEXT NOT NULL,
+  clave TEXT NOT NULL,
+  tipo TEXT NOT NULL CHECK (tipo IN ('hallazgo', 'plazo', 'renta', 'sesion', 'anotacion', 'portal', 'version')),
+  severidad TEXT NOT NULL,
+  titulo TEXT NOT NULL,
+  detalle TEXT NOT NULL,
+  creado_en TEXT NOT NULL,
+  notificado_en TEXT,
+  visto_en TEXT,
+  UNIQUE (rut, clave)
+);
+INSERT INTO aviso_v17 (id, rut, clave, tipo, severidad, titulo, detalle, creado_en, notificado_en, visto_en)
+  SELECT id, rut, clave, tipo, severidad, titulo, detalle, creado_en, notificado_en, visto_en FROM aviso;
+DROP TABLE aviso;
+ALTER TABLE aviso_v17 RENAME TO aviso;
+
+CREATE TABLE portal_huella (
+  superficie TEXT PRIMARY KEY,
+  rutas_json TEXT NOT NULL,
+  primera_vez TEXT NOT NULL,
+  ultima_vez TEXT NOT NULL
+);
+
+CREATE TABLE portal_cambio (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  superficie TEXT NOT NULL,
+  tipo TEXT NOT NULL CHECK (tipo IN ('aditivo', 'reparado', 'roto')),
+  detalle_json TEXT NOT NULL,
+  detectado_en TEXT NOT NULL
+);
+
+CREATE TABLE portal_alias (
+  superficie TEXT NOT NULL,
+  campo TEXT NOT NULL,
+  alias TEXT NOT NULL,
+  aprendido_en TEXT NOT NULL,
+  evidencia TEXT NOT NULL,
+  PRIMARY KEY (superficie, campo, alias)
+);
+
+CREATE INDEX ix_respuesta_cruda_sincronizacion ON respuesta_cruda (sincronizacion_id);
+`;
+
 export const MIGRACIONES: readonly Migracion[] = [
   { version: 1, sql: V1 },
   { version: 2, sql: V2 },
@@ -520,4 +572,5 @@ export const MIGRACIONES: readonly Migracion[] = [
   { version: 14, sql: V14 },
   { version: 15, sql: V15 },
   { version: 16, sql: V16 },
+  { version: 17, sql: V17 },
 ];

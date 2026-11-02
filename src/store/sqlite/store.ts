@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import type { ArchivoImportado, ConciliacionGuardada, CriterioConciliacion, MovimientoBancario, MovimientoLeido, ParConciliado, TipoPartida } from '../../domain/banco.js';
 import type { Aviso, AvisoCandidato } from '../../domain/avisos.js';
 import type { CuentaContable } from '../../domain/contabilidad.js';
+import type { AliasAprendido, CambioPortal, HuellaPortal, TipoCambioPortal } from '../../domain/portal.js';
 import { SUPERFICIE_DETALLE_BHE_EMITIDAS } from '../../domain/renta.js';
 import {
   claveDocumento,
@@ -1186,6 +1187,53 @@ export class SqliteStore implements Store {
     this.db.transaction(() => {
       for (const id of ids) upd.run(ahora, id);
     })();
+  }
+
+  registrarHuella(superficie: string, rutas: readonly string[], ahora: string): string[] {
+    return this.db.transaction(() => {
+      const fila = this.db.prepare('SELECT rutas_json FROM portal_huella WHERE superficie = ?').get(superficie) as { rutas_json: string } | undefined;
+      if (!fila) {
+        const base = [...new Set(rutas)].sort();
+        this.db.prepare('INSERT INTO portal_huella (superficie, rutas_json, primera_vez, ultima_vez) VALUES (?, ?, ?, ?)').run(superficie, JSON.stringify(base), ahora, ahora);
+        return [];
+      }
+      const conocidas = new Set(JSON.parse(fila.rutas_json) as string[]);
+      const nuevas = [...new Set(rutas)].filter((r) => !conocidas.has(r)).sort();
+      const unidas = [...conocidas, ...nuevas].sort();
+      this.db.prepare('UPDATE portal_huella SET rutas_json = ?, ultima_vez = ? WHERE superficie = ?').run(JSON.stringify(unidas), ahora, superficie);
+      return nuevas;
+    })();
+  }
+
+  huellasPortal(): HuellaPortal[] {
+    const filas = this.db.prepare('SELECT superficie, rutas_json, primera_vez, ultima_vez FROM portal_huella ORDER BY superficie').all() as { superficie: string; rutas_json: string; primera_vez: string; ultima_vez: string }[];
+    return filas.map((f) => ({ superficie: f.superficie, rutas: JSON.parse(f.rutas_json) as string[], primeraVez: f.primera_vez, ultimaVez: f.ultima_vez }));
+  }
+
+  registrarCambioPortal(superficie: string, tipo: TipoCambioPortal, detalle: unknown, ahora: string): void {
+    this.db.prepare('INSERT INTO portal_cambio (superficie, tipo, detalle_json, detectado_en) VALUES (?, ?, ?, ?)').run(superficie, tipo, JSON.stringify(detalle ?? null), ahora);
+  }
+
+  cambiosPortal(desde?: string): CambioPortal[] {
+    const filas = this.db
+      .prepare('SELECT id, superficie, tipo, detalle_json, detectado_en FROM portal_cambio WHERE (@desde IS NULL OR detectado_en >= @desde) ORDER BY detectado_en, id')
+      .all({ desde: desde ?? null }) as { id: number; superficie: string; tipo: TipoCambioPortal; detalle_json: string; detectado_en: string }[];
+    return filas.map((f) => ({ id: f.id, superficie: f.superficie, tipo: f.tipo, detalle: JSON.parse(f.detalle_json) as unknown, detectadoEn: f.detectado_en }));
+  }
+
+  aliasAprendidos(): AliasAprendido[] {
+    const filas = this.db.prepare('SELECT superficie, campo, alias, aprendido_en, evidencia FROM portal_alias ORDER BY superficie, campo, aprendido_en').all() as {
+      superficie: string;
+      campo: string;
+      alias: string;
+      aprendido_en: string;
+      evidencia: string;
+    }[];
+    return filas.map((f) => ({ superficie: f.superficie, campo: f.campo, alias: f.alias, aprendidoEn: f.aprendido_en, evidencia: f.evidencia }));
+  }
+
+  guardarAlias(a: AliasAprendido): void {
+    this.db.prepare('INSERT OR IGNORE INTO portal_alias (superficie, campo, alias, aprendido_en, evidencia) VALUES (?, ?, ?, ?, ?)').run(a.superficie, a.campo, a.alias, a.aprendidoEn, a.evidencia);
   }
 }
 
