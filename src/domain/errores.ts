@@ -83,6 +83,15 @@ export const ERRORES_FATALES: ReadonlySet<CodigoError> = new Set<CodigoError>([
   'SII_SESIONES_MAXIMAS',
 ]);
 
+/**
+ * Fallas que la revisión diaria reintenta sola: las del SII que se arreglan esperando. Las demás (portal cambiado,
+ * permisos, datos inválidos) no se resuelven insistiendo.
+ */
+export const REINTENTABLES_EN_COLA: readonly CodigoError[] = ['SII_NO_DISPONIBLE', 'SII_LIMITE', 'SII_EN_ESPERA', 'RESPUESTA_VACIA', 'DATOS_INCOMPLETOS'];
+
+/** Intentos fallidos seguidos tras los que la cola deja de insistir con una superficie. */
+export const MAX_INTENTOS_EN_COLA = 5;
+
 /** Si conviene volver a intentar: de inmediato (tras corregir la petición), más tarde (falla del SII) o no (requiere una decisión de la persona). */
 export type Reintento = 'inmediato' | 'mas_tarde' | 'no';
 

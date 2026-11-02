@@ -3,7 +3,7 @@ import { ERRORES_FATALES, esErrorMiSiiMcp, type CodigoError } from '../domain/er
 import { fechaEnSantiago } from '../domain/fechas.js';
 import { parseRut } from '../domain/rut.js';
 import { f22Vigente } from '../domain/renta.js';
-import { periodoAnterior, periodoDeFecha, restarPeriodos } from '../domain/periodo.js';
+import { parsePeriodo, periodoAnterior, periodoDeFecha, restarPeriodos } from '../domain/periodo.js';
 import { avisosDeSituacion } from '../domain/situacion-sii.js';
 import type { Perfil } from '../domain/tipos.js';
 import { hallazgos, plazos } from './consultas.js';
@@ -15,6 +15,8 @@ export interface RevisionCuenta {
   readonly rut: string;
   readonly estado: 'ok' | 'sin_sesion' | 'error';
   readonly detalle?: string;
+  /** Períodos que fallaron antes por el SII y se volvieron a traer en esta revisión; solo si hubo alguno. */
+  readonly reintentados?: number;
 }
 
 export interface ResultadoVigilancia {
@@ -29,6 +31,50 @@ const DIAS_AVISO_PLAZO = 10;
 const MESES_HALLAZGOS = 12;
 /** Meses en que se sigue la renta del año en curso (presentación, observaciones y devolución). */
 const MESES_RENTA = new Set([4, 5, 6]);
+/** Días hacia atrás en que se buscan fallas del SII para reintentar, y cuántos períodos se reintentan por cuenta y por día. */
+const DIAS_COLA_REINTENTOS = 30;
+const MAX_REINTENTOS_POR_CUENTA = 6;
+/** De qué superficie de `sincronizar` sale cada registro mensual de la bitácora. */
+const SUPERFICIE_DE_REGISTRO: Readonly<Record<string, Superficie>> = {
+  'rcv.VENTA': 'rcv',
+  'rcv.COMPRA': 'rcv',
+  f29: 'f29',
+  'f29.valores': 'f29',
+  'f29.propuesta': 'propuesta',
+  'bhe.recibidas': 'bhe',
+};
+const PERIODO_RENTA = /^AT(\d{4})$/;
+
+/**
+ * Vuelve a traer lo que falló antes por una causa del SII que se arregla esperando (la bitácora lo sabe), sin repetir lo
+ * que esta misma revisión ya trajo. Hasta `MAX_REINTENTOS_POR_CUENTA` períodos, los más nuevos primero; un error de
+ * sesión detiene los reintentos de la cuenta. Devuelve cuántos períodos se reintentaron.
+ */
+async function reintentarPendientes(deps: DepsApp, rut: string, yaTraidos: ReadonlySet<string>, signal: AbortSignal | undefined): Promise<number> {
+  const desde = new Date(deps.reloj.ahora().getTime() - DIAS_COLA_REINTENTOS * 86_400_000).toISOString();
+  const meses = new Map<string, Set<Superficie>>();
+  const anios = new Set<string>();
+  for (const p of deps.store.pendientesDeReintento(rut, desde)) {
+    if (yaTraidos.has(p.periodo)) continue;
+    if (PERIODO_RENTA.test(p.periodo)) {
+      anios.add(p.periodo);
+      continue;
+    }
+    const superficie = SUPERFICIE_DE_REGISTRO[p.superficie];
+    if (superficie) meses.set(p.periodo, (meses.get(p.periodo) ?? new Set<Superficie>()).add(superficie));
+  }
+  const tareas = [...meses.keys(), ...anios].sort((a, b) => b.localeCompare(a)).slice(0, MAX_REINTENTOS_POR_CUENTA);
+  let hechos = 0;
+  for (const periodo of tareas) {
+    const anio = PERIODO_RENTA.exec(periodo)?.[1];
+    const abortado = anio
+      ? (await sincronizarRenta(deps, rut, anio, undefined, signal)).abortado
+      : (await sincronizar(deps, rut, parsePeriodo(periodo), parsePeriodo(periodo), [...meses.get(periodo)!], signal)).abortado;
+    hechos += 1;
+    if (abortado && ERRORES_FATALES.has(abortado.codigo as CodigoError)) break;
+  }
+  return hechos;
+}
 
 const avisoSinSesion = (perfil: Perfil, guardadaEn: string | null): AvisoCandidato => ({
   rut: perfil.rut,
@@ -60,6 +106,8 @@ async function revisarCuenta(deps: DepsApp, perfil: Perfil, signal: AbortSignal 
       return { revision: { rut: perfil.rut, estado: 'sin_sesion', detalle: sync.abortado.mensaje }, candidatos: [avisoSinSesion(perfil, sesion.guardadaEn)] };
     }
   }
+  const yaTraidos = new Set([...(superficies.length > 0 ? [anterior.texto, actual.texto] : []), ...(MESES_RENTA.has(actual.mes) ? [`AT${actual.anio}`] : [])]);
+  const reintentados = await reintentarPendientes(deps, perfil.rut, yaTraidos, signal);
   const candidatos: AvisoCandidato[] = [
     ...hallazgos(deps, perfil.rut, { desde: restarPeriodos(actual, MESES_HALLAZGOS).texto })
       .filter((h) => h.severidad !== 'info')
@@ -81,7 +129,7 @@ async function revisarCuenta(deps: DepsApp, perfil: Perfil, signal: AbortSignal 
       candidatos.push({ rut: perfil.rut, clave: `R:AT${actual.anio}:${e.orden}:${e.codigoEvento ?? ''}`, tipo: 'renta', severidad: 'info', titulo: `Renta AT${actual.anio}: ${e.nombre ?? 'evento nuevo'}`, detalle: `Evento del ${e.fecha ?? 'SII'} en tu declaración de renta.` });
     }
   }
-  return { revision: { rut: perfil.rut, estado: 'ok' }, candidatos };
+  return { revision: { rut: perfil.rut, estado: 'ok', ...(reintentados > 0 ? { reintentados } : {}) }, candidatos };
 }
 
 /**

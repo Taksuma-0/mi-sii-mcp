@@ -61,6 +61,33 @@ describe('vigilar', () => {
     expect(tercera.revisadas.map((r) => r.estado)).toEqual(['ok', 'ok']);
   });
 
+  it('reintenta un mes que ayer falló por el SII, lo deja al día y lo cuenta en la revisión', async () => {
+    const { deps, store, sii } = preparar((rut) => rut === RUT_EMPRESA);
+    const id = store.iniciarSincronizacion(RUT_EMPRESA, 'rcv.VENTA', '2026-05', '2026-10-29T10:00:00.000Z');
+    store.terminarSincronizacion(id, '2026-10-29T10:00:01.000Z', 'error', { codigo: 'SII_NO_DISPONIBLE', detalle: 'El SII no respondió.' });
+
+    const r = await vigilar(deps);
+
+    expect(sii.llamadas).toContain('resumen|2026-05|VENTA|REGISTRO');
+    expect(r.revisadas.find((x) => x.rut === RUT_EMPRESA)).toMatchObject({ estado: 'ok', reintentados: 1 });
+    expect(store.pendientesDeReintento(RUT_EMPRESA, '2026-10-01T00:00:00.000Z')).toEqual([]);
+  });
+
+  it('no reintenta lo que el SII no resolvería esperando ni lo que ya falló 5 veces', async () => {
+    const { deps, store, sii } = preparar((rut) => rut === RUT_EMPRESA);
+    const fallo = (superficie: string, periodo: string, codigo: string, en: string) => {
+      const id = store.iniciarSincronizacion(RUT_EMPRESA, superficie, periodo, en);
+      store.terminarSincronizacion(id, en, 'error', { codigo, detalle: 'x' });
+    };
+    fallo('rcv.COMPRA', '2026-04', 'PORTAL_CAMBIO', '2026-10-29T10:00:00.000Z');
+    for (let i = 0; i < 5; i++) fallo('f29', '2026-03', 'SII_NO_DISPONIBLE', `2026-10-2${i}T10:00:00.000Z`);
+
+    const r = await vigilar(deps);
+
+    expect(sii.llamadas.some((l) => l.includes('2026-04') || l.includes('2026-03'))).toBe(false);
+    expect(r.revisadas.find((x) => x.rut === RUT_EMPRESA)).not.toHaveProperty('reintentados');
+  });
+
   it('trae el mes anterior y el actual de cada cuenta con sesión y registra los avisos una sola vez', async () => {
     const { deps, sii } = preparar();
 

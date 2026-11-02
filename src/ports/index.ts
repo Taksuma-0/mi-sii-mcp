@@ -353,9 +353,22 @@ export interface Store {
   registrarCambioPortal(superficie: string, tipo: TipoCambioPortal, detalle: unknown, ahora: string): void;
   /** Cambios del portal detectados, desde una fecha ISO si se indica, del más antiguo al más nuevo. */
   cambiosPortal(desde?: string): CambioPortal[];
+  /**
+   * Superficies cuyo último intento (desde `desde`, ISO) falló por una causa del SII que se arregla esperando, sin un
+   * intento exitoso posterior y con menos de 5 fallas seguidas; por período y superficie.
+   */
+  pendientesDeReintento(rut: string, desde: string): PendienteReintento[];
   aliasAprendidos(): AliasAprendido[];
   /** Guarda un alias aprendido; si ya existía (misma superficie, campo y alias), conserva el primero. */
   guardarAlias(alias: AliasAprendido): void;
+}
+
+export interface PendienteReintento {
+  readonly superficie: string;
+  readonly periodo: string;
+  readonly codigo: string;
+  /** Fallas seguidas desde el último intento exitoso. */
+  readonly intentos: number;
 }
 
 export interface TablaAsistenteGuardada extends TablaAsistente {

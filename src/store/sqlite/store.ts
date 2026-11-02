@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import type { ArchivoImportado, ConciliacionGuardada, CriterioConciliacion, MovimientoBancario, MovimientoLeido, ParConciliado, TipoPartida } from '../../domain/banco.js';
 import type { Aviso, AvisoCandidato } from '../../domain/avisos.js';
 import type { CuentaContable } from '../../domain/contabilidad.js';
+import { MAX_INTENTOS_EN_COLA, REINTENTABLES_EN_COLA } from '../../domain/errores.js';
 import type { AliasAprendido, CambioPortal, HuellaPortal, TipoCambioPortal } from '../../domain/portal.js';
 import { SUPERFICIE_DETALLE_BHE_EMITIDAS } from '../../domain/renta.js';
 import {
@@ -37,7 +38,7 @@ import {
   type TipoContribuyente,
   type TotalesBheMes,
 } from '../../domain/tipos.js';
-import type { BheEmitidaMesGuardado, DjTerceroGuardado, DocumentosPaginados, F22DeclaracionGuardada, FiltroDocumentos, FiltroAvisos, FiltroHallazgos, FiltroMovimientos, TablaAsistenteGuardada, Frescura, HallazgoGuardado, LecturaF29Guardada, PdfF29Guardado, Store } from '../../ports/index.js';
+import type { BheEmitidaMesGuardado, DjTerceroGuardado, DocumentosPaginados, F22DeclaracionGuardada, FiltroDocumentos, FiltroAvisos, FiltroHallazgos, FiltroMovimientos, PendienteReintento, TablaAsistenteGuardada, Frescura, HallazgoGuardado, LecturaF29Guardada, PdfF29Guardado, Store } from '../../ports/index.js';
 import type { Db } from './db.js';
 
 export const sha256 = (texto: string): string => createHash('sha256').update(texto).digest('hex');
@@ -1218,6 +1219,28 @@ export class SqliteStore implements Store {
 
   registrarCambioPortal(superficie: string, tipo: TipoCambioPortal, detalle: unknown, ahora: string): void {
     this.db.prepare('INSERT INTO portal_cambio (superficie, tipo, detalle_json, detectado_en) VALUES (?, ?, ?, ?)').run(superficie, tipo, JSON.stringify(detalle ?? null), ahora);
+  }
+
+  pendientesDeReintento(rut: string, desde: string): PendienteReintento[] {
+    const codigos = REINTENTABLES_EN_COLA.map((c) => `'${c}'`).join(', ');
+    const filas = this.db
+      .prepare(
+        `WITH ultimo AS (
+           SELECT superficie, periodo, MAX(id) AS id FROM sincronizacion WHERE rut = @rut AND estado IN ('ok', 'error') GROUP BY superficie, periodo
+         ), ultimo_ok AS (
+           SELECT superficie, periodo, MAX(id) AS id FROM sincronizacion WHERE rut = @rut AND estado = 'ok' GROUP BY superficie, periodo
+         )
+         SELECT s.superficie, s.periodo, s.error_codigo AS codigo,
+           (SELECT COUNT(*) FROM sincronizacion e
+             WHERE e.rut = @rut AND e.superficie = s.superficie AND e.periodo = s.periodo AND e.estado = 'error' AND e.id > COALESCE(o.id, 0)) AS intentos
+         FROM ultimo u
+         JOIN sincronizacion s ON s.id = u.id
+         LEFT JOIN ultimo_ok o ON o.superficie = u.superficie AND o.periodo = u.periodo
+         WHERE s.estado = 'error' AND s.error_codigo IN (${codigos}) AND s.iniciado_en >= @desde
+         ORDER BY s.periodo, s.superficie`,
+      )
+      .all({ rut, desde }) as PendienteReintento[];
+    return filas.filter((f) => f.intentos < MAX_INTENTOS_EN_COLA);
   }
 
   cambiosPortal(desde?: string): CambioPortal[] {
