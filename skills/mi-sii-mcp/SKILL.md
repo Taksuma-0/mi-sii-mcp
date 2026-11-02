@@ -96,9 +96,33 @@ mi-sii-mcp funciona bien con subagentes si respetas una regla: **solo un agente 
 
 Patrones y ejemplos en [references/multiagente.md](references/multiagente.md).
 
-## Cómo responder
+## Cómo presentar las respuestas
+
+Las herramientas ya responden con esta plantilla. Úsala también en tu respuesta, en este orden:
+
+1. **Conclusión con ícono** en la primera línea: ✅ cuadra o al día, ⚠️ revisar, ⛔ urgente, ℹ️ falta un dato.
+2. **Tabla corta** con los montos que importan. No copies el JSON de la herramienta.
+3. **Hallazgos**, cada uno con su ícono, del más grave al más leve. Si no hay, dilo en una línea.
+4. **Siguientes pasos** en una línea, con lo que conviene pedir después.
+5. **La fecha de los datos** (cada respuesta trae la fecha de lectura) y qué no se consultó.
+
+Además:
 
 - Montos en pesos chilenos con separador de miles (`$1.234.567`); períodos como `2026-09`; años tributarios como «AT2027 (renta del año 2026)».
-- Di de cuándo son los datos (cada respuesta trae la fecha de lectura) y qué no se consultó.
-- Primero la conclusión en una frase, luego una tabla corta con las cifras y, al final, los pasos sugeridos.
 - Si un dato falta o el SII respondió vacío, dilo; nunca lo rellenes con supuestos.
+- Si la persona quiere verlo en grande, imprimirlo o guardarlo como PDF, ofrece `informe_visual`: arma un HTML con lo guardado y lo abre en su navegador. No consulta el SII y los datos no salen del equipo.
+
+Ejemplo con datos ficticios:
+
+> ⚠️ IVA 2026-09 de 22.222.222-2: el crédito del RCV no coincide con el del F29.
+>
+> | Concepto | RCV | F29 |
+> | --- | --- | --- |
+> | Débito | $1.234.567 | $1.234.567 |
+> | Crédito | $722.000 | $700.000 |
+>
+> ⚠️ El F29 declara $22.000 menos de crédito que las compras del RCV: puede ser una factura que llegó tarde o un crédito que no se usó.
+>
+> Siguientes pasos: rcv_documentos de compras para ubicar la diferencia · plazos_proximos. Datos del RCV y del F29 al 2026-10-21.
+>
+> Si quieres, lo veo en un informe visual.

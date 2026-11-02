@@ -776,6 +776,19 @@ describe('servidor MCP', () => {
     await cliente.close();
   });
 
+  it('cada receta dice cómo presentar la respuesta y ofrece el informe visual', async () => {
+    const cliente = await conectar(depsDePrueba().deps);
+    const argumentos: Record<string, Record<string, string>> = { revision_mensual: { rut: RUT_EMPRESA }, cierre_contable: { rut: RUT_EMPRESA }, preparar_renta: { rut: RUT_PERSONA }, ahorro_tributario: { rut: RUT_EMPRESA } };
+    for (const { name } of (await cliente.listPrompts()).prompts) {
+      const receta = await cliente.getPrompt({ name, arguments: argumentos[name] ?? {} });
+      const texto = receta.messages.map((m) => (m.content.type === 'text' ? m.content.text : '')).join('\n');
+      expect(texto, name).toContain('Presenta así:');
+      expect(texto, name).toMatch(/⛔/);
+      expect(texto, name).toContain('informe_visual');
+    }
+    await cliente.close();
+  });
+
   it('ofrece recetas listas que nombran las herramientas y nunca piden la clave', async () => {
     const cliente = await conectar(depsDePrueba().deps);
     const { prompts } = await cliente.listPrompts();
