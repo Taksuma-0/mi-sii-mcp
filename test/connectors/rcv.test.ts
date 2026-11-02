@@ -61,7 +61,7 @@ describe('rcvResumen', () => {
   it.each([
     ['código 0 sin filas', { data: [], respEstado: { codRespuesta: 0 } }],
     ['sin código y sin filas', { data: null }],
-    ['código "3" con filas', { data: [{ rsmnTipoDocInteger: 33, rsmnTotDoc: 1 }], respEstado: { codRespuesta: '3' } }],
+    ['código "3" con filas', { data: [{ rsmnTipoDocInteger: 33, rsmnTotDoc: 1, rsmnMntExe: 0, rsmnMntNeto: 100, rsmnMntIVA: 19, rsmnMntTotal: 119 }], respEstado: { codRespuesta: '3' } }],
   ])('no marca "sin movimientos" con %s', async (_caso, respuesta) => {
     const { http, sumidero } = await preparar({ [RUTA_RESUMEN]: { headers: JSON_CT, body: JSON.stringify(respuesta) } });
     expect(await rcvResumen(http, sumidero, EMPRESA, SEPT, 'VENTA', 'REGISTRO')).not.toHaveProperty('sinMovimientos');
@@ -154,6 +154,45 @@ describe('rcvDetalle', () => {
   it('rechaza un detalle con sobre desconocido', async () => {
     const { http, sumidero } = await preparar({ [RUTA_DETALLE_COMPRA]: { headers: JSON_CT, body: '{"respuestaNueva":[]}' } });
     expect(await codigoDe(rcvDetalle(http, sumidero, EMPRESA, SEPT, 'COMPRA', 33, 'NO_INCLUIR'))).toBe('PORTAL_CAMBIO');
+  });
+});
+
+describe('campos obligatorios del RCV: nunca ceros silenciosos', () => {
+  const sobre = (filas: unknown[]) => JSON.stringify({ data: filas, respEstado: { codRespuesta: '0' } });
+  const documento = (o: Record<string, unknown> = {}) => ({ detRutDoc: 33333333, detDvDoc: '3', detNroDoc: 10, detRznSoc: 'PROVEEDOR DEMO LTDA', detFchDoc: '05/09/2026', detMntExe: 0, detMntNeto: 100, detMntIVA: 19, detMntTotal: 119, ...o });
+
+  it('un resumen sin el neto (el SII le cambió el nombre) es PORTAL_CAMBIO con lo que falta y los campos sin usar', async () => {
+    const fila = { rsmnTipoDocInteger: 33, dcvNombreTipoDoc: 'Factura', rsmnTotDoc: 1, rsmnMntExe: 0, rsmnMntNetoNuevo: 100, rsmnMntIVA: 19, rsmnMntTotal: 119 };
+    const { http, sumidero } = await preparar({ [RUTA_RESUMEN]: { headers: JSON_CT, body: sobre([fila]) } });
+
+    const error = await rcvResumen(http, sumidero, EMPRESA, SEPT, 'COMPRA', 'REGISTRO').catch((e: unknown) => e);
+
+    expect(error).toMatchObject({ codigo: 'PORTAL_CAMBIO', detalle: { superficie: 'rcv.resumen', faltan: ['neto'], sinUsar: ['rsmnMntNetoNuevo'] } });
+  });
+
+  it('un detalle sin folio es PORTAL_CAMBIO', async () => {
+    const sinFolio = documento({ detNroDoc: undefined, detNumeroDocumento: 10 });
+    const { http, sumidero } = await preparar({ [RUTA_DETALLE_COMPRA]: { headers: JSON_CT, body: sobre([sinFolio]) } });
+
+    expect(await codigoDe(rcvDetalle(http, sumidero, EMPRESA, SEPT, 'COMPRA', 33, 'REGISTRO'))).toBe('PORTAL_CAMBIO');
+  });
+
+  it('un detalle sin el monto neto, sin el resumen para comprobarlo, es PORTAL_CAMBIO y no devuelve ceros', async () => {
+    const renombrado = documento({ detMntNeto: undefined, detMntNetoNuevo: 100 });
+    const { http, sumidero } = await preparar({ [RUTA_DETALLE_COMPRA]: { headers: JSON_CT, body: sobre([renombrado]) } });
+
+    const error = await rcvDetalle(http, sumidero, EMPRESA, SEPT, 'COMPRA', 33, 'REGISTRO').catch((e: unknown) => e);
+
+    expect(error).toMatchObject({ codigo: 'PORTAL_CAMBIO', detalle: { superficie: 'rcv.detalle', faltan: ['montoNeto'], sinUsar: ['detMntNetoNuevo'] } });
+  });
+
+  it('un campo que falta solo en algunas filas, o que vale 0, no es un cambio del portal', async () => {
+    const { http, sumidero } = await preparar({ [RUTA_DETALLE_COMPRA]: { headers: JSON_CT, body: sobre([documento({ detMntNeto: 0 }), documento({ detNroDoc: 11, detRznSoc: undefined })]) } });
+
+    expect((await rcvDetalle(http, sumidero, EMPRESA, SEPT, 'COMPRA', 33, 'REGISTRO')).map((d) => [d.folio, d.montoNeto, d.razonSocial])).toEqual([
+      [10, 0, 'PROVEEDOR DEMO LTDA'],
+      [11, 100, null],
+    ]);
   });
 });
 

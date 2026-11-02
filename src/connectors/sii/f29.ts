@@ -5,10 +5,11 @@ import type { Periodo } from '../../domain/periodo.js';
 import type { Rut } from '../../domain/rut.js';
 import type { F29Declaracion, F29Valores } from '../../domain/tipos.js';
 import type { LectorPdfF29, SumideroRespuestas } from '../../ports/index.js';
-import { errorDeSobre, numero, primero, texto } from './campos.js';
+import { errorDeSobre, numero, texto } from './campos.js';
 import { lectorPdfF29 } from './f29-pdf.js';
 import { exigirSesion, type Http } from './http.js';
 import { HOST_SDI, postSdi } from './sdi.js';
+import { exigirCampos, MAPA_BASE, valorCampo, type MapaCampos } from './mapa-campos.js';
 
 const BASE = `${HOST_SDI}/propuestaf29ui/services/data/facadeAdapterService`;
 const NAMESPACE = 'cl.sii.sdi.lob.iva.propuestaf29.data.api.interfaces.FacadeAdapterService';
@@ -18,7 +19,7 @@ const FORM_ID = '2';
 
 const Sobre = z.object({ metaData: z.object({ errors: z.unknown().nullish() }).loose().nullish(), data: z.array(z.record(z.string(), z.unknown())).nullable() }).loose();
 
-export async function f29Declaraciones(http: Http, sumidero: SumideroRespuestas, rut: Rut, periodo: Periodo): Promise<F29Declaracion[]> {
+export async function f29Declaraciones(http: Http, sumidero: SumideroRespuestas, rut: Rut, periodo: Periodo, mapa: MapaCampos = MAPA_BASE): Promise<F29Declaracion[]> {
   const crudo = await postSdi(http, sumidero, {
     superficie: 'f29.estados',
     url: `${BASE}/getDeclaracionConEstados`,
@@ -32,15 +33,17 @@ export async function f29Declaraciones(http: Http, sumidero: SumideroRespuestas,
   const sobre = Sobre.safeParse(crudo);
   if (!sobre.success) throw new ErrorMiSiiMcp('PORTAL_CAMBIO', 'Respuesta inesperada del F29 (estados).', { detalle: sobre.error.message });
   const filas = sobre.data.data ?? [];
+  exigirCampos(filas, 'f29.estados', mapa, 'los estados del F29');
+  const campo = (f: Record<string, unknown>, nombre: string): unknown => valorCampo(f, 'f29.estados', nombre, mapa);
   return filas.map((f) => ({
     rut: rut.canonico,
     periodo: periodo.texto,
-    folio: numero(primero(f, ['folio', 'folioDeclaracion'])) ?? 0,
-    estado: texto(primero(f, ['estado', 'glosaEstado', 'descripcionEstado'])) ?? 'desconocido',
-    estadoId: numero(primero(f, ['estadoDeclaracionId'])),
-    fechaPresentacion: ddmmaaaaAIso(texto(primero(f, ['declFechaCreacion', 'fechaCreacion', 'fecha']))),
-    codigoInterno: numero(primero(f, ['codigo', 'cod'])),
-    totalAPagar: numero(primero(f, ['monto', 'total', 'montoTotal'])),
+    folio: numero(campo(f, 'folio')) ?? 0,
+    estado: texto(campo(f, 'estado')) ?? 'desconocido',
+    estadoId: numero(campo(f, 'estadoId')),
+    fechaPresentacion: ddmmaaaaAIso(texto(campo(f, 'fechaPresentacion'))),
+    codigoInterno: numero(campo(f, 'codigoInterno')),
+    totalAPagar: numero(campo(f, 'totalAPagar')),
   }));
 }
 

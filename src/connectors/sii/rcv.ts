@@ -5,8 +5,9 @@ import { periodoSii, type Periodo } from '../../domain/periodo.js';
 import { parseRut, type Rut } from '../../domain/rut.js';
 import type { DocumentoRcv, EstadoRcv, Lado, RcvResumen, RcvResumenFila } from '../../domain/tipos.js';
 import type { SumideroRespuestas } from '../../ports/index.js';
-import { entero, primero, texto } from './campos.js';
+import { entero, texto } from './campos.js';
 import type { Http } from './http.js';
+import { exigirCampos, MAPA_BASE, valorCampo, type MapaCampos } from './mapa-campos.js';
 import { HOST_SDI, postSdi } from './sdi.js';
 
 const BASE = `${HOST_SDI}/consdcvinternetui/services/data/facadeService`;
@@ -72,6 +73,7 @@ export async function rcvResumen(
   periodo: Periodo,
   lado: Lado,
   estado: EstadoRcv,
+  mapa: MapaCampos = MAPA_BASE,
 ): Promise<RcvResumen> {
   const crudo = await postSdi(http, sumidero, {
     superficie: `rcv.resumen.${lado}.${estado}`,
@@ -82,15 +84,17 @@ export async function rcvResumen(
     data: { rutEmisor: String(rut.cuerpo), dvEmisor: rut.dv, ptributario: periodoSii(periodo), estadoContab: ESTADO_WIRE[estado], operacion: lado, busquedaInicial: true },
   });
   const sobre = filasDelSobre(crudo, 'getResumen');
+  exigirCampos(sobre.filas, 'rcv.resumen', mapa, 'el resumen del RCV');
+  const campo = (f: Record<string, unknown>, nombre: string): unknown => valorCampo(f, 'rcv.resumen', nombre, mapa);
   const filas: RcvResumenFila[] = sobre.filas
     .map((f) => ({
-      tipoDoc: entero(primero(f, ['rsmnTipoDocInteger', 'codTipoDoc', 'tipoDoc'])),
-      descripcion: texto(primero(f, ['dcvNombreTipoDoc', 'descTipoDoc'])),
-      cantidad: entero(primero(f, ['rsmnTotDoc', 'totDoctos'])),
-      exento: entero(primero(f, ['rsmnMntExe', 'mntExento'])),
-      neto: entero(primero(f, ['rsmnMntNeto', 'mntNeto'])),
-      iva: entero(primero(f, ['rsmnMntIVA', 'mntIVA'])),
-      total: entero(primero(f, ['rsmnMntTotal', 'mntTotal'])),
+      tipoDoc: entero(campo(f, 'tipoDoc')),
+      descripcion: texto(campo(f, 'descripcion')),
+      cantidad: entero(campo(f, 'cantidad')),
+      exento: entero(campo(f, 'exento')),
+      neto: entero(campo(f, 'neto')),
+      iva: entero(campo(f, 'iva')),
+      total: entero(campo(f, 'total')),
     }))
     .filter((f) => f.tipoDoc > 0);
   return { rut: rut.canonico, periodo: periodo.texto, lado, estado, filas, ...(sobre.sinMovimientos ? { sinMovimientos: true as const } : {}) };
@@ -104,7 +108,9 @@ export async function rcvDetalle(
   lado: Lado,
   tipoDoc: number,
   estado: EstadoRcv,
+  opciones: OpcionesDetalle = {},
 ): Promise<DocumentoRcv[]> {
+  const mapa = opciones.mapa ?? MAPA_BASE;
   const crudo = await postSdi(http, sumidero, {
     superficie: `rcv.detalle.${lado}.${estado}.${tipoDoc}`,
     url: `${BASE}/getDetalle${sufijo(lado)}`,
@@ -122,12 +128,19 @@ export async function rcvDetalle(
       tokenRecaptcha: TOKEN_RECAPTCHA,
     },
   });
-  return filasDelSobre(crudo, 'getDetalle').filas.map((f) => aDocumento(f, rut, periodo, lado, estado, tipoDoc));
+  const filas = filasDelSobre(crudo, 'getDetalle').filas;
+  exigirCampos(filas, 'rcv.detalle', mapa, 'el detalle del RCV');
+  return filas.map((f) => aDocumento(f, rut, periodo, lado, estado, tipoDoc, mapa));
 }
 
-function rutContraparte(f: Record<string, unknown>): string {
-  const cuerpo = primero(f, ['detRutDoc', 'rutDoc']);
-  const dv = primero(f, ['detDvDoc', 'dvDoc']);
+export interface OpcionesDetalle {
+  /** Nombres de los campos (los conocidos más los aprendidos); por defecto, los conocidos. */
+  readonly mapa?: MapaCampos;
+}
+
+function rutContraparte(f: Record<string, unknown>, mapa: MapaCampos): string {
+  const cuerpo = valorCampo(f, 'rcv.detalle', 'rutDoc', mapa);
+  const dv = valorCampo(f, 'rcv.detalle', 'dvDoc', mapa);
   if (cuerpo === undefined || dv === undefined) return 'DESCONOCIDO';
   try {
     return parseRut(`${String(cuerpo)}-${String(dv)}`).canonico;
@@ -136,26 +149,27 @@ function rutContraparte(f: Record<string, unknown>): string {
   }
 }
 
-function aDocumento(f: Record<string, unknown>, rut: Rut, periodo: Periodo, lado: Lado, estado: EstadoRcv, tipoDoc: number): DocumentoRcv {
+function aDocumento(f: Record<string, unknown>, rut: Rut, periodo: Periodo, lado: Lado, estado: EstadoRcv, tipoDoc: number, mapa: MapaCampos): DocumentoRcv {
+  const campo = (nombre: string): unknown => valorCampo(f, 'rcv.detalle', nombre, mapa);
   return {
     rut: rut.canonico,
     periodo: periodo.texto,
     lado,
     estado,
-    tipoDoc: entero(primero(f, ['detTipoDoc'])) || tipoDoc,
-    rutContraparte: rutContraparte(f),
-    folio: entero(primero(f, ['detNroDoc', 'nroDoc', 'folio'])),
-    razonSocial: texto(primero(f, ['detRznSoc', 'rznSoc'])),
-    fechaEmision: ddmmaaaaAIso(texto(primero(f, ['detFchDoc', 'fchDoc']))),
-    fechaRecepcion: ddmmaaaaAIso(texto(primero(f, ['detFecRecepcion', 'fecRecepcion']))),
-    fechaAcuse: ddmmaaaaAIso(texto(primero(f, ['detFecAcuse', 'fecAcuse']))),
-    montoExento: entero(primero(f, ['detMntExe', 'mntExe'])),
-    montoNeto: entero(primero(f, ['detMntNeto', 'mntNeto'])),
-    montoIva: entero(primero(f, ['detMntIVA', 'mntIVA'])),
-    montoIvaNoRecuperable: entero(primero(f, ['detMntIVANoRec', 'detIVANoRec'])),
-    montoIvaUsoComun: entero(primero(f, ['detIVAUsoComun', 'detMntIVAUsoComun'])),
-    montoTotal: entero(primero(f, ['detMntTotal', 'mntTotal'])),
-    tipoCompra: texto(primero(f, ['detTipoTransaccion'])),
-    eventoReceptor: texto(primero(f, ['detEventoReceptor'])),
+    tipoDoc: entero(campo('tipoDoc')) || tipoDoc,
+    rutContraparte: rutContraparte(f, mapa),
+    folio: entero(campo('folio')),
+    razonSocial: texto(campo('razonSocial')),
+    fechaEmision: ddmmaaaaAIso(texto(campo('fechaEmision'))),
+    fechaRecepcion: ddmmaaaaAIso(texto(campo('fechaRecepcion'))),
+    fechaAcuse: ddmmaaaaAIso(texto(campo('fechaAcuse'))),
+    montoExento: entero(campo('montoExento')),
+    montoNeto: entero(campo('montoNeto')),
+    montoIva: entero(campo('montoIva')),
+    montoIvaNoRecuperable: entero(campo('montoIvaNoRecuperable')),
+    montoIvaUsoComun: entero(campo('montoIvaUsoComun')),
+    montoTotal: entero(campo('montoTotal')),
+    tipoCompra: texto(campo('tipoCompra')),
+    eventoReceptor: texto(campo('eventoReceptor')),
   };
 }

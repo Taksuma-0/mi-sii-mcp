@@ -35,6 +35,15 @@ describe('f29Declaraciones', () => {
     expect(cuerpo.data).toEqual({ rut: '22222222', dv: '2', formId: '2', mes: '09', anno: '2026' });
   });
 
+  it('si el SII deja de mandar el folio o el estado, es PORTAL_CAMBIO y no un folio 0 ni un estado «desconocido»', async () => {
+    const cuerpo = JSON.stringify({ metaData: { errors: null }, data: [{ estadoDeclaracionId: 1, estadoNuevo: 'Vigente', folioNuevo: 555001, declFechaCreacion: '15/10/2026', codigo: 9001 }] });
+    const { http, sumidero } = await preparar({ [RUTA_ESTADOS]: { headers: JSON_CT, body: cuerpo } });
+
+    const error = await f29Declaraciones(http, sumidero, EMPRESA, parsePeriodo('2026-09')).catch((e: unknown) => e);
+
+    expect(error).toMatchObject({ codigo: 'PORTAL_CAMBIO', detalle: { superficie: 'f29.estados', faltan: ['folio', 'estado'] } });
+  });
+
   it('lee el id del estado y lo deja null cuando el SII no lo informa', async () => {
     const cuerpo = JSON.stringify({
       metaData: { errors: null },
