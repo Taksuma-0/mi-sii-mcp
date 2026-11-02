@@ -162,6 +162,29 @@ export class GestorSesiones implements ConsultaSesiones {
     return nueva;
   }
 
+  /**
+   * Vuelve a entrar con la clave que la persona guardó en el llavero («Mantener conectada»), aunque la sesión en memoria
+   * parezca vigente: sirve cuando el SII la dio por vencida a mitad de una sincronización. Sin clave guardada o con el
+   * RUT bloqueado por una clave rechazada, devuelve false sin enviar nada. Nunca pide una clave.
+   */
+  async renovar(rutTexto: string): Promise<boolean> {
+    const rut = parseRut(rutTexto);
+    this.pendientes.delete(rut.canonico);
+    return this.coordinar(rut.canonico, async () => {
+      if (existsSync(this.rutaBloqueo(rut.canonico))) return false;
+      const clave = await this.secretos.obtener(rut.canonico);
+      if (!clave) return false;
+      const http = this.nuevoCliente();
+      await iniciarSesion(http, rut, clave).catch(async (e: unknown) => {
+        await this.siRechazoBloquear(rut.canonico, e);
+        throw e;
+      });
+      this.guardarArchivo(rut.canonico, http);
+      this.activas.set(rut.canonico, http);
+      return true;
+    });
+  }
+
   /** Guarda las cookies actualizadas de la sesión en memoria (al terminar una sincronización). */
   persistir(rutTexto: string): void {
     const rut = parseRut(rutTexto).canonico;

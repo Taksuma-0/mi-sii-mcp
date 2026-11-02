@@ -6,7 +6,7 @@ import { lecturaConfiable, motivoNoConfiable, verificarCoherenciaF29 } from '../
 import { ESTADOS_RCV, type DocumentoRcv, type EstadoRcv, type F29Declaracion, type F29Valores, type Lado, type RcvResumen, type RespuestaCruda } from '../domain/tipos.js';
 import type { SiiReader } from '../ports/index.js';
 import type { DepsApp } from './deps.js';
-import { Cancelada, conInterruptor, DATOS_INCOMPLETOS_RCV, registrar, revisarCancelacion, SII_CAIDO, SiiCaido, SINCRONIZACION_CANCELADA, type Avance, type ErrorSuperficie, type ResultadoPeriodo } from './registro.js';
+import { Cancelada, conInterruptor, DATOS_INCOMPLETOS_RCV, registrar, renovarSiVencio, revisarCancelacion, SII_CAIDO, SiiCaido, SINCRONIZACION_CANCELADA, type Avance, type ErrorSuperficie, type ResultadoPeriodo } from './registro.js';
 import { motivoParaConservar } from './releer-f29.js';
 
 export { SINCRONIZACION_CANCELADA, type Avance, type ErrorSuperficie, type ResultadoPeriodo };
@@ -76,18 +76,12 @@ export async function sincronizar(
   let enCurso: ResultadoPeriodo | null = null;
   try {
     revisarCancelacion(signal);
-    const sii = await deps.abrirSii(
-      rut,
-      (r) => {
-        buffer.push(r);
-      },
-      signal,
-    );
-    for (const periodo of periodos) {
-      revisarCancelacion(signal);
-      const res: ResultadoPeriodo = { periodo: periodo.texto, errores: [], avisos: [], documentos: 0, f29Folio: null };
-      resultados.push(res);
-      enCurso = res;
+    const sumidero = (r: RespuestaCruda): void => {
+      buffer.push(r);
+    };
+    let sii = await deps.abrirSii(rut, sumidero, signal);
+    /** Lo que se trae de un mes; se puede repetir una vez si la sesión vence a mitad de camino y se renueva. */
+    const traerPeriodo = async (sii: SiiReader, periodo: Periodo, res: ResultadoPeriodo): Promise<void> => {
       /** Si alguna consulta del RCV de este mes respondió: solo entonces vale el aviso del lector (p. ej., representación). */
       let rcvRespondio = false;
       if (superficies.includes('rcv')) {
@@ -188,6 +182,24 @@ export async function sincronizar(
           deps.store.reemplazarBhe(id, rut, periodo.texto, informe.boletas, ahora);
           res.boletasHonorarios = informe.boletas.length;
         });
+      }
+    };
+    let renovada = false;
+    for (const periodo of periodos) {
+      for (;;) {
+        revisarCancelacion(signal);
+        const res: ResultadoPeriodo = { periodo: periodo.texto, errores: [], avisos: [], documentos: 0, f29Folio: null };
+        resultados.push(res);
+        enCurso = res;
+        try {
+          await traerPeriodo(sii, periodo, res);
+          break;
+        } catch (e) {
+          if (renovada || !(await renovarSiVencio(deps, rut, e))) throw e;
+          renovada = true;
+          resultados.pop();
+          sii = await deps.abrirSii(rut, sumidero, signal);
+        }
       }
       enCurso = null;
       alAvanzar?.({ hecho: resultados.length, total: periodos.length, periodo: periodo.texto });

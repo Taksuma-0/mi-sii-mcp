@@ -80,6 +80,7 @@ export function crearContenedor(o: OpcionesContenedor = {}): Contenedor {
         writeFileSync(join(config.dirDiagnostico, nombre), contenido, { mode: 0o600 });
       },
       alTerminarSync: (rut) => sesiones.persistir(rutDeAcceso(rut) ?? rut),
+      renovarSesion: (rut) => sesiones.renovar(rutDeAcceso(rut) ?? rut),
     };
     return { config, deps, sesiones, notificador: new NotificadorWindows(), tarea: new TareaProgramadaWindows(), cerrar: () => db.close() };
   } catch (error) {

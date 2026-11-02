@@ -209,6 +209,42 @@ describe('sincronizar', () => {
     expect(store.periodosConDatos(RUT_EMPRESA)).toEqual(['2026-08']);
   });
 
+  it('si la sesión vence a mitad de camino y se puede renovar con la clave guardada, la renueva una vez y repite el mes', async () => {
+    const p = mesCompleto();
+    let vencida = true;
+    p.sii.alLlamar = (llamada) => {
+      if (llamada === 'resumen|2026-09|COMPRA|REGISTRO' && vencida) {
+        vencida = false;
+        throw new ErrorMiSiiMcp('SESION_REQUERIDA', 'La sesión del SII expiró.');
+      }
+    };
+    const renovadas: string[] = [];
+    let aperturas = 0;
+    const deps = { ...p.deps, abrirSii: async (...a: Parameters<typeof p.deps.abrirSii>) => (aperturas++, p.deps.abrirSii(...a)), renovarSesion: async (rut: string) => (renovadas.push(rut), true) };
+
+    const r = await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT);
+
+    expect(r.abortado).toBeNull();
+    expect(r.periodos).toEqual([{ periodo: '2026-09', errores: [], avisos: [], documentos: 4, f29Folio: 555_001 }]);
+    expect(renovadas).toEqual([RUT_EMPRESA]);
+    expect(aperturas).toBe(2);
+    expect(p.store.documentosRcv(RUT_EMPRESA, '2026-09')).toHaveLength(4);
+  });
+
+  it('si no se puede renovar, o vuelve a vencer después de renovarla, se detiene como antes', async () => {
+    const sinClave = mesCompleto();
+    sinClave.sii.fallas.set('resumen|2026-09|VENTA|REGISTRO', new ErrorMiSiiMcp('SESION_REQUERIDA', 'La sesión del SII expiró.'));
+    const r1 = await sincronizar({ ...sinClave.deps, renovarSesion: async () => false }, RUT_EMPRESA, SEPT, SEPT);
+    expect(r1.abortado?.codigo).toBe('SESION_REQUERIDA');
+
+    const siempre = mesCompleto();
+    siempre.sii.fallas.set('resumen|2026-09|VENTA|REGISTRO', new ErrorMiSiiMcp('SESION_REQUERIDA', 'La sesión del SII expiró.'));
+    let renovaciones = 0;
+    const r2 = await sincronizar({ ...siempre.deps, renovarSesion: async () => (renovaciones++, true) }, RUT_EMPRESA, SEPT, SEPT);
+    expect(r2.abortado?.codigo).toBe('SESION_REQUERIDA');
+    expect(renovaciones).toBe(1);
+  });
+
   it('si no se puede abrir la sesión reporta abortado sin lanzar', async () => {
     const { deps, store } = depsDePrueba({ fallaAlAbrir: new ErrorMiSiiMcp('SESION_REQUERIDA', 'Sin sesión.') });
     store.guardarContribuyente(perfilEmpresa());

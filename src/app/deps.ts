@@ -21,4 +21,9 @@ export interface DepsApp {
   readonly diagnostico?: (nombre: string, contenido: string) => void;
   /** Se llama al terminar una sincronización (para persistir cookies). */
   readonly alTerminarSync?: (rut: string) => void;
+  /**
+   * Vuelve a entrar con la clave guardada en el llavero cuando el SII da la sesión por vencida a mitad de una
+   * sincronización; false si no hay clave guardada. Nunca pide una clave.
+   */
+  readonly renovarSesion?: (rut: string) => Promise<boolean>;
 }

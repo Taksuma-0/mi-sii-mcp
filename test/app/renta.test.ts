@@ -112,6 +112,24 @@ describe('sincronizarRenta', () => {
     expect(sii.llamadas).toEqual(['f22|2024', 'terceros|2024', 'asistente|2024']);
   });
 
+  it('si la sesión vence a mitad de la renta y se puede renovar, la renueva una vez y repite el año', async () => {
+    const { deps, sii } = preparar();
+    let vencida = true;
+    sii.alLlamar = (llamada) => {
+      if (llamada === 'terceros|2026' && vencida) {
+        vencida = false;
+        throw new ErrorMiSiiMcp('SESION_REQUERIDA', 'La sesión expiró.');
+      }
+    };
+    let renovaciones = 0;
+
+    const r = await sincronizarRenta({ ...deps, renovarSesion: async () => (renovaciones++, true) }, RUT_EMPRESA, '2026');
+
+    expect(r.abortado).toBeNull();
+    expect(renovaciones).toBe(1);
+    expect(r.anios.map((a) => [a.anioTributario, a.errores])).toEqual([[2026, []]]);
+  });
+
   it('un error de sesión detiene la renta; cancelada conserva lo traído', async () => {
     const sesion = preparar();
     sesion.sii.fallas.set('f22|2025', new ErrorMiSiiMcp('SESION_REQUERIDA', 'La sesión expiró.'));

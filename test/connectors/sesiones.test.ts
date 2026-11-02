@@ -71,6 +71,27 @@ describe('GestorSesiones', () => {
     expect(await codigoDe(g.sesionActiva(RUT))).toBe('SESION_REQUERIDA');
   });
 
+  it('renovar entra de nuevo con la clave del llavero y guarda la sesión nueva', async () => {
+    const dir = dirTemporal();
+    const secretos = new SecretosEnMemoria();
+    await gestor(dir, secretos, rutasLoginOk()).g.loginInteractivo(RUT, 'secreta', true);
+    const { g, llamadas } = gestor(dir, secretos, rutasLoginOk());
+
+    expect(await g.renovar(RUT)).toBe(true);
+    expect(llamadas.filter((l) => l.method === 'POST')).toHaveLength(1);
+    expect(g.estado(RUT).tieneSesion).toBe(true);
+  });
+
+  it('renovar sin clave en el llavero devuelve false sin enviar nada', async () => {
+    const dir = dirTemporal();
+    const secretos = new SecretosEnMemoria();
+    await gestor(dir, secretos, rutasLoginOk()).g.loginInteractivo(RUT, 'secreta', false);
+    const { g, llamadas } = gestor(dir, secretos, rutasLoginOk());
+
+    expect(await g.renovar(RUT)).toBe(false);
+    expect(llamadas.filter((l) => l.method === 'POST')).toHaveLength(0);
+  });
+
   it('con la sesión expirada y la clave guardada vuelve a entrar solo', async () => {
     const dir = dirTemporal();
     const secretos = new SecretosEnMemoria();

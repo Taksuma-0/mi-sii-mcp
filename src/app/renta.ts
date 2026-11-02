@@ -30,7 +30,7 @@ import type { BoletaHonorariosEmitida, DjTercero, F22Evento, F22Valor, InformeBh
 import type { BheEmitidaMesGuardado, DjTerceroGuardado, SiiReader, TablaAsistenteGuardada } from '../ports/index.js';
 import { perfilExistente } from './consultas.js';
 import type { DepsApp } from './deps.js';
-import { Cancelada, conInterruptor, registrar, revisarCancelacion, SII_CAIDO, SiiCaido, SINCRONIZACION_CANCELADA, type Avance, type ErrorSuperficie, type ResultadoPeriodo } from './registro.js';
+import { Cancelada, conInterruptor, registrar, renovarSiVencio, revisarCancelacion, SII_CAIDO, SiiCaido, SINCRONIZACION_CANCELADA, type Avance, type ErrorSuperficie, type ResultadoPeriodo } from './registro.js';
 
 export interface ResultadoAnioRenta {
   readonly anioTributario: number;
@@ -207,15 +207,12 @@ export async function sincronizarRenta(
   const resultados: ResultadoAnioRenta[] = [];
   try {
     revisarCancelacion(signal);
-    const sii = await deps.abrirSii(
-      rut,
-      (r) => {
-        buffer.push(r);
-      },
-      signal,
-    );
-    for (const anio of anios) {
-      revisarCancelacion(signal);
+    const sumidero = (r: RespuestaCruda): void => {
+      buffer.push(r);
+    };
+    let sii = await deps.abrirSii(rut, sumidero, signal);
+    /** Lo que se trae de un año tributario; se puede repetir una vez si la sesión vence a mitad de camino y se renueva. */
+    const traerAnio = async (sii: SiiReader, anio: number): Promise<ResultadoAnioRenta> => {
       const periodo = periodoRenta(anio);
       const res: ResultadoPeriodo = { periodo, errores: [], avisos: [], documentos: 0, f29Folio: null };
       const declaraciones = await registrar(deps, rut, 'f22', periodo, buffer, res, signal, async (id, ahora) => {
@@ -271,8 +268,22 @@ export async function sincronizarRenta(
         deps.store.reemplazarAsistenteF22(id, rut, anio, tablas, ahora);
       });
       const boletasEmitidas = anual === null ? null : totalesBheEmitidas(anual.meses).vigentes;
-      resultados.push({ anioTributario: anio, declaraciones: declaraciones?.length ?? null, folioVigente: vigente?.folio ?? null, detalle, boletasEmitidas, detalleBoletas, terceros, errores: res.errores });
-      alAvanzar?.({ hecho: resultados.length, total: anios.length, periodo });
+      return { anioTributario: anio, declaraciones: declaraciones?.length ?? null, folioVigente: vigente?.folio ?? null, detalle, boletasEmitidas, detalleBoletas, terceros, errores: res.errores };
+    };
+    let renovada = false;
+    for (const anio of anios) {
+      for (;;) {
+        revisarCancelacion(signal);
+        try {
+          resultados.push(await traerAnio(sii, anio));
+          break;
+        } catch (e) {
+          if (renovada || !(await renovarSiVencio(deps, rut, e))) throw e;
+          renovada = true;
+          sii = await deps.abrirSii(rut, sumidero, signal);
+        }
+      }
+      alAvanzar?.({ hecho: resultados.length, total: anios.length, periodo: periodoRenta(anio) });
     }
     return { rut, anios: resultados, abortado: null };
   } catch (e) {

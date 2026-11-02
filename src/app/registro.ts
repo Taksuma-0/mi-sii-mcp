@@ -69,6 +69,21 @@ export class SiiCaido extends Error {}
  */
 const INTERRUPTORES = new WeakMap<RespuestaCruda[], { seguidas: number }>();
 
+/**
+ * Si `e` es una sesión vencida y la sesión se puede renovar con la clave guardada, la renueva y devuelve true (la
+ * sincronización repite el período en curso). Si renovar falla con un error de sesión (p. ej., la clave guardada ya no
+ * sirve), ese error manda: se relanza. Cualquier otro fallo al renovar deja todo como antes (false).
+ */
+export async function renovarSiVencio(deps: DepsApp, rut: string, e: unknown): Promise<boolean> {
+  if (!esErrorMiSiiMcp(e) || e.codigo !== 'SESION_REQUERIDA' || !deps.renovarSesion) return false;
+  try {
+    return await deps.renovarSesion(rut);
+  } catch (error) {
+    if (esErrorMiSiiMcp(error) && ERRORES_FATALES.has(error.codigo)) throw error;
+    return false;
+  }
+}
+
 /** Activa el interruptor ante un SII caído para las superficies que usen este buffer. */
 export function conInterruptor(buffer: RespuestaCruda[]): RespuestaCruda[] {
   INTERRUPTORES.set(buffer, { seguidas: 0 });
