@@ -101,7 +101,7 @@ function gastosEfectivos(e: EntradaOportunidades): Oportunidad[] {
       titulo: 'Gastos efectivos en vez de presuntos',
       baseLegal: { norma: 'Ley sobre Impuesto a la Renta, art. 50 (gastos presuntos de 30 % con tope de 15 UTA)', url: 'https://www.sii.cl/valores_y_fechas/renta/2026/personas_naturales.html' },
       montoEstimado: umbral,
-      detalle: `Tus boletas de ${e.honorariosEmitidos.anioComercial} suman ${formatearClp(e.honorariosEmitidos.bruto)}: los gastos presuntos rebajan hasta ${formatearClp(umbral)} (30 %, con tope de 15 UTA). Si tus gastos reales necesarios para tu actividad son mayores, conviene declarar gastos efectivos.`,
+      detalle: `Tus boletas de ${e.honorariosEmitidos.anioComercial} suman ${formatearClp(e.honorariosEmitidos.bruto)}: los gastos presuntos rebajan hasta ${formatearClp(umbral)} (30 %, con tope de 15 UTA). Si tus gastos reales necesarios para tu actividad son mayores, conviene declarar gastos efectivos. Solo baja tu impuesto si tu base supera el tramo exento del Global Complementario: compruébalo con renta_estimar.`,
       datosFaltantes: ['El total de tus gastos reales del año, con sus boletas o facturas.'],
       accion: 'Junta los respaldos de tus gastos del año; si superan ese monto, pide estimar la renta con gastos_efectivos y revísalo con tu contador.',
       antielusion: ANTIELUSION,

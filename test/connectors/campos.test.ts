@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { aNumero, errorDeSobre, numero, numeroChileno } from '../../src/connectors/sii/campos.js';
+import { aNumero, errorDeSobre, numero, numeroChileno, texto } from '../../src/connectors/sii/campos.js';
 
 describe('aNumero', () => {
   it('lee miles con punto y decimales con coma, como en el PDF del F29', () => {
@@ -65,5 +65,15 @@ describe('errorDeSobre', () => {
     for (const v of [null, 'texto', 5, [], {}, { metaData: null }, { metaData: 'x' }, { metaData: { errors: null } }, { metaData: { errors: [] } }]) {
       expect(errorDeSobre(v), JSON.stringify(v)).toBeNull();
     }
+  });
+});
+
+describe('texto', () => {
+  it('recorta, deja null lo vacío y quita los guiones invisibles del portal', () => {
+    expect(texto('  Hola ')).toBe('Hola');
+    expect(texto('   ')).toBeNull();
+    expect(texto(null)).toBeNull();
+    expect(texto(`Ingresos de Primera Categorí${String.fromCharCode(0xad)}a según F29`)).toBe('Ingresos de Primera Categoría según F29');
+    expect(texto(String.fromCharCode(0xad))).toBeNull();
   });
 });

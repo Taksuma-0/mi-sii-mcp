@@ -22,6 +22,7 @@ describe('simularRegimen', () => {
     expect(s.transparente.total).toBe(3_000_000);
     expect(s.diferencia).toBe(0);
     expect(s.supuestos.join(' ')).toContain('excedente');
+    expect(s.supuestos.join(' ')).toContain('suman lo mismo');
   });
 
   it('con retiros parciales, el General difiere el impuesto del dueño y lo informa', () => {

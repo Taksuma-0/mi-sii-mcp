@@ -3,8 +3,8 @@ import { proyeccionCierre, simulacionRegimen } from '../../src/app/simuladores.j
 import type { TramoIgc } from '../../src/reconciliation/estimar-renta.js';
 import { depsDePrueba } from '../helpers/deps.js';
 import { codigoDe } from '../helpers/errores.js';
-import { declaracion, documento, perfilEmpresa, RUT_CLIENTE, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
-import { sembrarMes } from '../helpers/sembrar.js';
+import { declaracion, declaracionF22, detalleF22, documento, perfilEmpresa, perfilTributario, RUT_CLIENTE, RUT_EMPRESA, valores } from '../helpers/fabricas.js';
+import { sembrarMes, T_SEMBRADO } from '../helpers/sembrar.js';
 
 const TABLA: TramoIgc[] = [
   { desde: 0, hasta: 10_000_000, factor: 0, rebaja: 0 },
@@ -39,6 +39,31 @@ describe('proyección del cierre del año', () => {
     expect(r.base.sinDatos).toEqual(['2026-01', '2026-02', '2026-03', '2026-04', '2026-05', '2026-06', '2026-07']);
     expect(r).toMatchObject({ baseAcumulada: 1_800_000, baseProyectada: 10_800_000, ppmPagados: 20_000, ppmProyectados: 120_000, idpcEstimado: 1_350_000, saldoAbril: 1_230_000 });
     expect(r.notas.join(' ')).toContain('ahorro_oportunidades');
+    expect(r.regimen).toBeNull();
+  });
+
+  it('en el Pro Pyme Transparente no estima Primera Categoría y lo explica', () => {
+    const { deps, store } = conDosMeses();
+    store.guardarPerfilTributario(RUT_EMPRESA, perfilTributario(), T_SEMBRADO);
+
+    const r = proyeccionCierre(deps, RUT_EMPRESA, '2026', 12.5);
+
+    expect(r.regimen).toEqual({ tipo: 'pro_pyme_transparente', descripcion: 'Régimen Pro Pyme Transparente 14 D N°8' });
+    expect(r.idpcEstimado).toBeNull();
+    expect(r.faltantes).toEqual([]);
+    expect(r.notas.join(' ')).toContain('no paga Primera Categoría');
+  });
+
+  it('de un año ya declarado muestra la base del F22, que manda sobre la proyección', () => {
+    const { deps, store } = conDosMeses();
+    const id = store.iniciarSincronizacion(RUT_EMPRESA, 'f22', 'AT2027', T_SEMBRADO);
+    store.reemplazarF22Declaraciones(id, RUT_EMPRESA, 2027, [declaracionF22({ anioTributario: 2027, folio: 7 })], T_SEMBRADO);
+    store.reemplazarF22Detalle(RUT_EMPRESA, 2027, 7, detalleF22({ valores: [{ codigo: '1630', valor: -8_000_000, glosa: 'Base imponible a asignar a propietarios' }] }));
+
+    const r = proyeccionCierre(deps, RUT_EMPRESA, '2026');
+
+    expect(r.f22).toEqual({ anioTributario: 2027, folio: 7, base: -8_000_000 });
+    expect(r.notas.join(' ')).toContain('-$8.000.000');
   });
 
   it('rechaza un año futuro y pide sincronizar un año sin datos', async () => {
@@ -69,6 +94,20 @@ describe('simulación de régimen', () => {
     expect(r.origenBase).toBe('proyectada');
     expect(r.base).toBe(10_800_000);
     expect(r.supuestos.join(' ')).toContain('2 meses');
+  });
+
+  it('sin base informada prefiere la declarada en el F22 del año y muestra el régimen inscrito', () => {
+    const { deps, store } = conDosMeses();
+    store.guardarPerfilTributario(RUT_EMPRESA, perfilTributario(), T_SEMBRADO);
+    const id = store.iniciarSincronizacion(RUT_EMPRESA, 'f22', 'AT2026', T_SEMBRADO);
+    store.reemplazarF22Declaraciones(id, RUT_EMPRESA, 2026, [declaracionF22({ folio: 7 })], T_SEMBRADO);
+    store.reemplazarF22Detalle(RUT_EMPRESA, 2026, 7, detalleF22({ valores: [{ codigo: '1630', valor: 30_000_000, glosa: 'Base imponible a asignar a propietarios' }] }));
+
+    const r = simulacionRegimen(deps, RUT_EMPRESA, '2025', { socios: [{ participacion: 100, otrasRentas: 0 }], tasaIdpc: 12.5, tablaIgc: TABLA });
+
+    expect(r.origenBase).toBe('f22');
+    expect(r.base).toBe(30_000_000);
+    expect(r.regimen?.tipo).toBe('pro_pyme_transparente');
   });
 
   it('exige participaciones que sumen 100 y una tasa razonable', async () => {

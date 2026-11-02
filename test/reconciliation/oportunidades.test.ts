@@ -35,5 +35,6 @@ describe('oportunidades de ahorro tributario', () => {
   it('OPO-HON-01 y OPO-APV-01: una persona con honorarios ve el umbral de gastos efectivos y el APV régimen B', () => {
     const r = oportunidades({ ...base, tipo: 'persona', honorariosEmitidos: { anioComercial: 2026, bruto: 3_000_000 }, tieneIngresosPersona: true });
     expect(r.map((o) => [o.id, o.montoEstimado])).toEqual([['OPO-HON-01', 900_000], ['OPO-APV-01', null]]);
+    expect(r[0]!.detalle).toContain('Solo baja tu impuesto si tu base supera el tramo exento');
   });
 });

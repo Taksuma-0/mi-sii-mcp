@@ -655,13 +655,15 @@ export function textoOportunidades(r: ResultadoOportunidades): string {
   ].join('\n');
 }
 
-const textoSaldo = (monto: number): string => `${monto >= 0 ? 'a pagar' : 'a devolver'} ${formatearClp(Math.abs(monto))}`;
+const textoSaldo = (monto: number): string => (monto === 0 ? 'sin saldo' : `${monto > 0 ? 'a pagar' : 'a devolver'} ${formatearClp(Math.abs(monto))}`);
+const lineaRegimen = (r: { regimen: { descripcion: string } | null }): string[] => (r.regimen ? [`Régimen inscrito según el SII: ${r.regimen.descripcion}.`] : []);
 
 /** Proyección del año al cierre: lo acumulado, lo proyectado, los PPM y el saldo estimado de abril. */
 export function textoProyeccionCierre(r: ResultadoCierre): string {
   const b = r.base;
   return [
     `Proyección del cierre ${r.anio} de ${r.rut} (base ${b.criterio}, ${b.mesesConDatos} meses con datos de ${b.desde} a ${b.hasta}). Es una estimación, no asesoría; confírmala con un contador.`,
+    ...lineaRegimen(r),
     `  Ingresos: ${formatearClp(b.ingresos)} acumulados → ${formatearClp(r.ingresosProyectados)} proyectados`,
     `  Costos y gastos: ${formatearClp(b.gastos)} → ${formatearClp(r.gastosProyectados)}`,
     `  Resultado: ${formatearClp(r.baseAcumulada)} → ${formatearClp(r.baseProyectada)}`,
@@ -676,12 +678,13 @@ export function textoProyeccionCierre(r: ResultadoCierre): string {
 
 /** Pro Pyme General frente a Transparente: impuesto de la empresa, de los dueños y total, con requisitos y supuestos. */
 export function textoSimulacionRegimen(r: ResultadoSimulacionRegimen): string {
-  const origen = { informada: 'informada', del_anio: `del año ${r.anio} guardado`, proyectada: `de ${r.anio} proyectada` }[r.origenBase];
+  const origen = { informada: 'informada', f22: `declarada en el F22 de ${r.anio}`, del_anio: `del año ${r.anio} guardado`, proyectada: `de ${r.anio} proyectada` }[r.origenBase];
   const fila = (nombre: string, x: ResultadoSimulacionRegimen['general']): string =>
     `  ${nombre}: empresa ${formatearClp(x.impuestoEmpresa)} · dueños ${x.impuestoDuenos < 0 ? `−${formatearClp(-x.impuestoDuenos)}` : formatearClp(x.impuestoDuenos)} · total ${formatearClp(x.total)}${x.diferido > 0 ? ` · sin retirar ${formatearClp(x.diferido)}` : ''}`;
   const conclusion = r.diferencia === 0 ? 'Este año ambos pagan lo mismo.' : `Este año paga menos el ${r.diferencia > 0 ? 'Transparente' : 'General'}, por ${formatearClp(Math.abs(r.diferencia))}.`;
   return [
     `Simulación de régimen de ${r.rut} con base ${origen} de ${formatearClp(r.base)}. Es una simulación, no una recomendación; confírmala con un contador.`,
+    ...lineaRegimen(r),
     fila('Pro Pyme General (14 D N°3)', r.general),
     fila('Pro Pyme Transparente (14 D N°8)', r.transparente),
     conclusion,

@@ -68,6 +68,9 @@ export function simularRegimen(e: EntradaRegimen): SimulacionRegimen {
   if (sociosGeneral.some((s) => s.impuesto < 0)) supuestos.push('Si el crédito por Primera Categoría supera el impuesto del dueño, se supone que el excedente se le devuelve: confírmalo con tu contador.');
   const diferido = Math.round(base * (1 - tasa) * (1 - retiro));
   if (diferido > 0) supuestos.push('En el General, lo que no se retira paga el impuesto del dueño recién al retirarse: el total de este año no lo incluye.');
+  if (base > 0 && e.retiroPct === 100) {
+    supuestos.push('Con retiro total y crédito total, los dos regímenes suman lo mismo: la diferencia está en lo que no se retira (prueba retiro_pct menor) y en la caja, porque en el General la empresa paga antes.');
+  }
   const duenosGeneral = sumar(sociosGeneral);
   const general: ResultadoRegimen = { impuestoEmpresa, socios: sociosGeneral, impuestoDuenos: duenosGeneral, total: impuestoEmpresa + duenosGeneral, diferido };
 

@@ -1,6 +1,8 @@
 import { ErrorMiSiiMcp } from '../domain/errores.js';
 import { declaracionVigente } from '../domain/f29.js';
 import { fechaEnSantiago } from '../domain/fechas.js';
+import { formatearClp } from '../domain/formato.js';
+import { f22Vigente } from '../domain/renta.js';
 import { crearPeriodo, periodoDeFecha, rangoPeriodos, restarPeriodos } from '../domain/periodo.js';
 import type { TramoIgc } from '../reconciliation/estimar-renta.js';
 import { CODIGO_F29 } from '../reconciliation/mapeo-f29.js';
@@ -25,11 +27,26 @@ export interface BaseDelAnio {
   readonly supuestos: readonly string[];
 }
 
+/** Régimen vigente según los atributos del perfil tributario del SII (perfil_sincronizar). */
+export interface Regimen {
+  readonly tipo: 'pro_pyme_transparente' | 'pro_pyme_general' | 'otro';
+  readonly descripcion: string;
+}
+
+/** Base que declaró el F22 del año siguiente (código 1630: base a asignar a los dueños en el Transparente). */
+export interface BaseF22 {
+  readonly anioTributario: number;
+  readonly folio: number;
+  readonly base: number;
+}
+
 export interface ResultadoCierre extends ProyeccionCierre {
   readonly rut: string;
   readonly anio: number;
   readonly base: BaseDelAnio;
   readonly mesesPpm: number;
+  readonly regimen: Regimen | null;
+  readonly f22: BaseF22 | null;
 }
 
 export interface ParametrosRegimen {
@@ -45,8 +62,29 @@ export interface ParametrosRegimen {
 export interface ResultadoSimulacionRegimen extends SimulacionRegimen {
   readonly rut: string;
   readonly anio: number;
-  readonly origenBase: 'informada' | 'del_anio' | 'proyectada';
+  readonly origenBase: 'informada' | 'f22' | 'del_anio' | 'proyectada';
+  readonly regimen: Regimen | null;
   readonly requisitos: readonly string[];
+}
+
+/** Código del F22 con la base imponible que el Pro Pyme Transparente asigna a sus dueños (verificado en un F22 real). */
+const CODIGO_BASE_TRANSPARENTE = '1630';
+
+export function regimenInscrito(deps: DepsApp, rut: string): Regimen | null {
+  const vigentes = (deps.store.perfilTributario(rut)?.atributos ?? []).filter((a) => a.fechaTermino === null && a.descripcion);
+  const atributo = vigentes.find((a) => a.codigo === '14TT' || /R[ÉE]GIMEN|14\s*[A-D]\b/i.test(a.descripcion!));
+  if (!atributo) return null;
+  const descripcion = atributo.descripcion!;
+  if (atributo.codigo === '14TT' || /TRANSPARENTE|14\s*D\s*N°?\s*8/i.test(descripcion)) return { tipo: 'pro_pyme_transparente', descripcion };
+  if (/PRO\s*PYME|14\s*D\s*N°?\s*3/i.test(descripcion)) return { tipo: 'pro_pyme_general', descripcion };
+  return { tipo: 'otro', descripcion };
+}
+
+function baseDelF22(deps: DepsApp, rut: string, anio: number): BaseF22 | null {
+  const vigente = f22Vigente(deps.store.declaracionesF22(rut, anio + 1));
+  if (!vigente) return null;
+  const valor = deps.store.detalleF22(rut, anio + 1, vigente.folio).valores.find((v) => v.codigo === CODIGO_BASE_TRANSPARENTE)?.valor;
+  return valor === undefined || valor === null ? null : { anioTributario: anio + 1, folio: vigente.folio, base: valor };
 }
 
 export const REQUISITOS_REGIMEN = [
@@ -122,9 +160,17 @@ export function proyeccionCierre(deps: DepsApp, rutTexto: string, anioTexto: str
   const { anio, ultimoMes } = anioComercial(deps, anioTexto);
   const base = baseDelAnio(deps, rut, anio, ultimoMes);
   const { ppm, meses } = ppmDelAnio(deps, rut, base);
-  const proyeccion = proyectarCierre({ mesesConDatos: base.mesesConDatos, ingresos: base.ingresos, gastos: base.gastos, ppm, mesesPpm: meses, tasaIdpc: tasaIdpc ?? null });
-  const notas = [...proyeccion.notas, 'Antes del 31 de diciembre revisa ahorro_oportunidades y compara regímenes con regimen_simular.'];
-  return { ...proyeccion, notas, rut, anio, base, mesesPpm: meses };
+  const regimen = regimenInscrito(deps, rut);
+  const transparente = regimen?.tipo === 'pro_pyme_transparente';
+  const proyeccion = proyectarCierre({ mesesConDatos: base.mesesConDatos, ingresos: base.ingresos, gastos: base.gastos, ppm, mesesPpm: meses, tasaIdpc: transparente ? null : (tasaIdpc ?? null) });
+  const f22 = baseDelF22(deps, rut, anio);
+  const notas = [
+    ...(transparente ? ['En el Pro Pyme Transparente la empresa no paga Primera Categoría: la base se asigna a los dueños en su Global Complementario y los PPM son crédito para ellos.'] : []),
+    ...(f22 ? [`El F22 del AT${f22.anioTributario} declaró una base de ${formatearClp(f22.base)} (código ${CODIGO_BASE_TRANSPARENTE}): manda sobre esta proyección, que no ve sueldos ni otros gastos sin documento tributario.`] : []),
+    ...proyeccion.notas,
+    'Antes del 31 de diciembre revisa ahorro_oportunidades y compara regímenes con regimen_simular.',
+  ];
+  return { ...proyeccion, faltantes: transparente ? [] : proyeccion.faltantes, notas, rut, anio, base, mesesPpm: meses, regimen, f22 };
 }
 
 /**
@@ -145,9 +191,14 @@ export function simulacionRegimen(deps: DepsApp, rutTexto: string, anioTexto: st
   let base: number;
   let origenBase: ResultadoSimulacionRegimen['origenBase'];
   const supuestos: string[] = [];
+  const f22 = p.base === undefined ? baseDelF22(deps, rut, anio) : null;
   if (p.base !== undefined) {
     base = p.base;
     origenBase = 'informada';
+  } else if (f22) {
+    base = f22.base;
+    origenBase = 'f22';
+    supuestos.push(`Base declarada en el F22 del AT${f22.anioTributario} (folio ${f22.folio}, código ${CODIGO_BASE_TRANSPARENTE}).`);
   } else {
     const { ultimoMes } = anioComercial(deps, anioTexto);
     const delAnio = baseDelAnio(deps, rut, anio, ultimoMes);
@@ -159,5 +210,5 @@ export function simulacionRegimen(deps: DepsApp, rutTexto: string, anioTexto: st
   }
   const simulacion = simularRegimen({ base, socios: p.socios, tasaIdpc: p.tasaIdpc, tablaIgc: p.tablaIgc, retiroPct });
   supuestos.push(...simulacion.supuestos, 'Simula un solo año con la tasa y la tabla informadas; no considera créditos especiales, gastos rechazados ni los años siguientes.');
-  return { ...simulacion, supuestos, rut, anio, origenBase, requisitos: REQUISITOS_REGIMEN };
+  return { ...simulacion, supuestos, rut, anio, origenBase, regimen: regimenInscrito(deps, rut), requisitos: REQUISITOS_REGIMEN };
 }

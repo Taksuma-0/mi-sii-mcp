@@ -7,7 +7,12 @@ export function primero(fila: Record<string, unknown>, claves: readonly string[]
   return undefined;
 }
 
-export const texto = (v: unknown): string | null => (v === undefined || v === null || String(v).trim() === '' ? null : String(v).trim());
+/** Texto limpio o null si viene vacío. Quita los guiones invisibles (U+00AD) que el portal deja dentro de algunas palabras. */
+export const texto = (v: unknown): string | null => {
+  if (v === undefined || v === null) return null;
+  const limpio = String(v).replace(/­/g, '').trim();
+  return limpio === '' ? null : limpio;
+};
 
 /** Entero; lo ausente o inválido vale 0 (montos). */
 export function entero(v: unknown): number {
