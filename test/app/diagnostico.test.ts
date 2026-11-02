@@ -54,6 +54,7 @@ describe('diagnóstico de mi-sii-mcp', () => {
       store.terminarSincronizacion(id, en, error ? 'error' : 'ok', error ? { codigo: error, detalle: 'x' } : undefined);
     };
     intento('terceros.29', 'AT2026', '2026-10-30T10:00:00.000Z', 'PORTAL_CAMBIO');
+    intento('terceros.306', 'AT2026', '2026-10-30T10:00:01.000Z', 'RESPUESTA_VACIA');
     intento('bhe.recibidas', '2026-09', '2026-10-27T10:00:00.000Z', 'PORTAL_CAMBIO');
     intento('bhe.recibidas', '2026-09', '2026-10-30T10:00:00.000Z');
 
@@ -61,6 +62,7 @@ describe('diagnóstico de mi-sii-mcp', () => {
 
     expect(d.portal.rotas).toEqual([{ rut: RUT_EMPRESA, superficie: 'f29', periodo: '2026-10', en: '2026-11-01T10:00:01.000Z' }]);
     expect(d.portal.lecturasRotas).toBe(1);
+    expect(d.cuentas.find((c) => c.rut === RUT_EMPRESA)!.pendientesReintento).toBe(1);
   });
 
   it('con un RUT, muestra solo esa cuenta', () => {

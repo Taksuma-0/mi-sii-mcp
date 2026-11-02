@@ -60,7 +60,7 @@ export function diagnostico(deps: DepsApp, rutTexto?: string): Diagnostico {
         alias: p.alias,
         sesion: deps.sesiones.estado(p.rut).tieneSesion ? 'activa' : 'sin_sesion',
         ultimasOk: deps.store.ultimasSincronizacionesOk(p.rut),
-        pendientesReintento: deps.store.pendientesDeReintento(p.rut, desde).length,
+        pendientesReintento: deps.store.pendientesDeReintento(p.rut, desde).filter((f) => esSuperficieVigente(f.superficie, f.periodo)).length,
         avisosSinVer: deps.store.avisos({ rut: p.rut, sinVer: true }).length,
       }),
     );
