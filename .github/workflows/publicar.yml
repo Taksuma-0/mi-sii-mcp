@@ -51,10 +51,14 @@ jobs:
         run: |
           npm run build
           npm run probar:mcp
+      # Si la versión ya se publicó a mano, se sigue con el registro y el release en vez de fallar.
       - name: Publicar en npm
         run: |
+          version="$(node -p "require('./package.json').version")"
           if [ "$ENSAYO" = "true" ]; then
             npm publish --access public --ignore-scripts --dry-run
+          elif npm view "mi-sii-mcp@$version" version > /dev/null 2>&1; then
+            echo "mi-sii-mcp@$version ya está en npm: sigo con el MCP Registry y el release."
           else
             npm publish --access public --ignore-scripts
           fi
