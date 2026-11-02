@@ -53,6 +53,8 @@
     "cursor",
     "gemini-cli",
     "gemini-cli-extension",
+    "grok",
+    "codex-plugin",
     "ai-agents"
   ],
   "scripts": {

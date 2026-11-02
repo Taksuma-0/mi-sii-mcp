@@ -23,6 +23,13 @@ Add this entry to the MCP settings of the client (for Cline: `cline_mcp_settings
 
 No environment variables or API keys are needed. Optional: `MI_SII_MCP_HOME` changes the data folder (default `~/.mi-sii-mcp`).
 
+Client-specific notes:
+
+- **Codex:** prefer the plugin (`codex plugin marketplace add Taksuma-0/mi-sii-mcp`, then `codex plugin add mi-sii-mcp@mi-sii-mcp`). If you register only the server in `~/.codex/config.toml`, add `startup_timeout_sec = 120` and `tool_timeout_sec = 900`: Codex defaults to 10 s and 60 s, and a 12-month sync takes longer.
+- **Grok Build:** `grok mcp add mi-sii-mcp -- npx -y mi-sii-mcp@latest mcp`. It also loads what is already configured in Claude Code.
+- **Claude Code:** `/plugin install mi-sii-mcp --marketplace Taksuma-0/mi-sii-mcp` installs the server and its skill.
+- **Gemini CLI:** `gemini extensions install https://github.com/Taksuma-0/mi-sii-mcp` installs the server and its skill.
+
 ## 3. Connect the SII account (the user does this, not you)
 
 Never ask for the SII password (clave tributaria) or ClaveÚnica, and never type it for the user. Ask the user to run this in their own terminal, replacing the example RUT with theirs:

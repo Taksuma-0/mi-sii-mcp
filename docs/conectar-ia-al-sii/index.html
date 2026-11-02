@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Conectar Claude, Codex, Gemini o Cursor con el SII | mi-sii-mcp</title>
-<meta name="description" content="Guía paso a paso para que tu asistente de IA lea tu IVA, F29, renta F22 y boletas de honorarios del SII de Chile con mi-sii-mcp: un comando, un clic, un plugin o una extensión.">
+<title>Conectar Claude, Codex, Gemini, Grok o Cursor con el SII | mi-sii-mcp</title>
+<meta name="description" content="Guía paso a paso para que Claude, Codex, Gemini, Grok o Cursor lean tu IVA, F29, renta F22 y boletas de honorarios del SII de Chile con mi-sii-mcp: un comando, un clic o un plugin.">
 <link rel="canonical" href="https://taksuma-0.github.io/mi-sii-mcp/conectar-ia-al-sii/">
 <meta name="robots" content="index, follow">
 <meta name="author" content="Welinton Barrera">
@@ -16,7 +16,7 @@
 <meta property="og:site_name" content="mi-sii-mcp">
 <meta property="og:locale" content="es_CL">
 <meta property="og:title" content="Cómo conectar tu asistente de IA con el SII de Chile">
-<meta property="og:description" content="Claude, Codex, Gemini CLI, Cursor o VS Code leyendo tu IVA, F29, F22 y boletas de honorarios con mi-sii-mcp. Solo lectura y local.">
+<meta property="og:description" content="Claude, Codex, Gemini CLI, Grok, Cursor o VS Code leyendo tu IVA, F29, F22 y boletas de honorarios con mi-sii-mcp. Solo lectura y local.">
 <meta property="og:url" content="https://taksuma-0.github.io/mi-sii-mcp/conectar-ia-al-sii/">
 <meta property="og:image" content="https://taksuma-0.github.io/mi-sii-mcp/img/marca/social-preview.png">
 <meta property="og:image:width" content="1280">
@@ -49,7 +49,8 @@
     {
       "@type": "FAQPage",
       "mainEntity": [
-        { "@type": "Question", "name": "¿Funciona con ChatGPT?", "acceptedAnswer": { "@type": "Answer", "text": "mi-sii-mcp corre en tu equipo, así que funciona con los clientes que ejecutan servidores MCP locales: Claude Code, Claude Desktop, Codex CLI, Cursor, VS Code con Copilot, Gemini CLI, Windsurf o Cline. Si un cliente solo acepta servidores MCP remotos, por internet, no puede usarlo. De OpenAI, Codex CLI sí funciona." } },
+        { "@type": "Question", "name": "¿Funciona con ChatGPT?", "acceptedAnswer": { "@type": "Answer", "text": "mi-sii-mcp corre en tu equipo, así que funciona con los clientes que ejecutan servidores MCP locales: Claude Code, Claude Desktop, Codex, Gemini CLI, Grok Build, Cursor, VS Code con Copilot, Windsurf o Cline. Si un cliente solo acepta servidores MCP remotos, por internet, no puede usarlo. De OpenAI, Codex sí funciona, con su plugin." } },
+        { "@type": "Question", "name": "¿Funciona con Grok?", "acceptedAnswer": { "@type": "Answer", "text": "Sí, con Grok Build, el agente de xAI para la terminal: se agrega con grok mcp add, y si ya instalaste mi-sii-mcp en Claude Code, Grok Build lo carga solo porque lee su configuración. El chat web de Grok, como el de ChatGPT, no puede ejecutar programas en tu equipo." } },
         { "@type": "Question", "name": "¿Mi clave tributaria pasa por el chat?", "acceptedAnswer": { "@type": "Answer", "text": "No. Inicias sesión en tu terminal o en la página local, y ninguna herramienta del MCP recibe claves. Lo que el asistente sí ve son los datos que consulta, como cualquier cosa que le muestres." } },
         { "@type": "Question", "name": "¿Cuánto cuesta?", "acceptedAnswer": { "@type": "Answer", "text": "mi-sii-mcp es gratuito y de código abierto (licencia MIT). El costo del asistente de IA depende de su proveedor." } }
       ]
@@ -80,7 +81,7 @@
     <div class="contenedor">
       <nav class="miga" aria-label="Ruta"><ol><li><a href="../">Inicio</a></li><li><a href="../#guias">Guías</a></li><li aria-current="page">Conectar tu IA al SII</li></ol></nav>
       <h1>Cómo conectar tu asistente de IA con el SII de Chile</h1>
-      <p>Con mi-sii-mcp, Claude, Codex, Gemini CLI, Cursor o VS Code leen tu IVA, tus F29, tu renta y tus boletas de honorarios desde el SII, y te responden con tus datos reales. Se instala en minutos y la clave nunca pasa por el chat.</p>
+      <p>Con mi-sii-mcp, Claude, Codex, Gemini CLI, Grok, Cursor o VS Code leen tu IVA, tus F29, tu renta y tus boletas de honorarios desde el SII, y te responden con tus datos reales. Se instala en minutos y la clave nunca pasa por el chat.</p>
     </div>
   </div>
 
@@ -93,7 +94,7 @@
       <h2>Qué necesitas</h2>
       <ul>
         <li><a href="https://nodejs.org">Node.js</a> 22.12 o superior, instalado en tu equipo.</li>
-        <li>Un asistente que ejecute servidores MCP locales: Claude Code, Claude Desktop, Codex CLI, Cursor, VS Code con Copilot, Gemini CLI, Windsurf o Cline.</li>
+        <li>Un asistente que ejecute servidores MCP locales: Claude Code, Claude Desktop, Codex, Gemini CLI, Grok Build, Cursor, VS Code con Copilot, Windsurf o Cline.</li>
         <li>Tu clave tributaria del SII (o tu ClaveÚnica, de forma experimental).</li>
       </ul>
 
@@ -110,8 +111,21 @@
       <p>La extensión trae el servidor y la skill:</p>
 <pre><code>gemini extensions install https://github.com/Taksuma-0/mi-sii-mcp</code></pre>
 
-      <h3>Codex CLI</h3>
-<pre><code>codex mcp add mi-sii-mcp -- npx -y mi-sii-mcp@latest mcp</code></pre>
+      <h3>Codex (OpenAI)</h3>
+      <p>Codex también tiene plugin, con el servidor y la skill. En la terminal:</p>
+<pre><code>codex plugin marketplace add Taksuma-0/mi-sii-mcp
+codex plugin add mi-sii-mcp@mi-sii-mcp</code></pre>
+      <p>Por defecto, Codex espera 10 segundos a que un servidor arranque y 60 a que responda cada herramienta, y una sincronización de 12 meses con el SII tarda más. El plugin ya amplía esos plazos. Si prefieres agregar solo el servidor, hazlo en <code>~/.codex/config.toml</code> con plazos más largos:</p>
+<pre><code>[mcp_servers.mi-sii-mcp]
+command = "npx"
+args = ["-y", "mi-sii-mcp@latest", "mcp"]
+startup_timeout_sec = 120
+tool_timeout_sec = 900</code></pre>
+
+      <h3>Grok Build (xAI)</h3>
+      <p>Grok Build lee la configuración, los plugins y las skills de Claude Code: si ya instalaste mi-sii-mcp ahí, no tienes que hacer nada más. Si no, agrégalo en la terminal:</p>
+<pre><code>grok mcp add mi-sii-mcp -- npx -y mi-sii-mcp@latest mcp</code></pre>
+      <p>La primera vez npx descarga el paquete; si Grok corta la conexión antes, sube <code>startup_timeout_sec = 120</code> en la entrada <code>[mcp_servers.mi-sii-mcp]</code> de <code>~/.grok/config.toml</code>. Con <code>grok mcp doctor mi-sii-mcp</code> revisas que se conecte.</p>
 
       <h3>VS Code y Cursor</h3>
       <p>Basta un clic: <a href="https://insiders.vscode.dev/redirect/mcp/install?name=mi-sii-mcp&amp;config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22mi-sii-mcp%40latest%22%2C%22mcp%22%5D%7D">instalar en VS Code</a> o <a href="https://cursor.com/install-mcp?name=mi-sii-mcp&amp;config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIm1pLXNpaS1tY3BAbGF0ZXN0IiwibWNwIl19">instalar en Cursor</a>. El editor te pide confirmar y queda listo.</p>
@@ -156,7 +170,8 @@
 
       <h2>Preguntas frecuentes</h2>
       <div class="preguntas">
-        <details><summary>¿Funciona con ChatGPT?</summary><p>mi-sii-mcp corre en tu equipo, así que funciona con los clientes que ejecutan servidores MCP locales: Claude Code, Claude Desktop, Codex CLI, Cursor, VS Code con Copilot, Gemini CLI, Windsurf o Cline. Si un cliente solo acepta servidores MCP remotos, por internet, no puede usarlo. De OpenAI, Codex CLI sí funciona.</p></details>
+        <details><summary>¿Funciona con ChatGPT?</summary><p>mi-sii-mcp corre en tu equipo, así que funciona con los clientes que ejecutan servidores MCP locales: Claude Code, Claude Desktop, Codex, Gemini CLI, Grok Build, Cursor, VS Code con Copilot, Windsurf o Cline. Si un cliente solo acepta servidores MCP remotos, por internet, no puede usarlo. De OpenAI, Codex sí funciona, con su plugin.</p></details>
+        <details><summary>¿Funciona con Grok?</summary><p>Sí, con Grok Build, el agente de xAI para la terminal: se agrega con <code>grok mcp add</code>, y si ya instalaste mi-sii-mcp en Claude Code, Grok Build lo carga solo porque lee su configuración. El chat web de Grok, como el de ChatGPT, no puede ejecutar programas en tu equipo.</p></details>
         <details><summary>¿Mi clave tributaria pasa por el chat?</summary><p>No. Inicias sesión en tu terminal o en la página local, y ninguna herramienta del MCP recibe claves. Lo que el asistente sí ve son los datos que consulta, como cualquier cosa que le muestres.</p></details>
         <details><summary>¿Cuánto cuesta?</summary><p>mi-sii-mcp es gratuito y de código abierto (licencia MIT). El costo del asistente de IA depende de su proveedor.</p></details>
       </div>

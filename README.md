@@ -35,7 +35,7 @@
   <a href="#in-english">English</a>
 </p>
 
-**mi-sii-mcp** es un servidor [Model Context Protocol (MCP)](https://modelcontextprotocol.io) de código abierto que conecta asistentes de inteligencia artificial —**Claude, Codex, Cursor, Gemini CLI, VS Code con Copilot** y otros clientes MCP— con tu información tributaria del **Servicio de Impuestos Internos (SII) de Chile**. Lee tu IVA, tus F29, tu renta (F22), tus boletas de honorarios, lo que otros informan sobre ti y tus anotaciones en Mi SII; lo guarda **en tu equipo** y lo **concilia** para mostrarte qué cuadra, qué no y qué vence. Además estima el F29 y la renta antes de declarar, concilia tus cartolas del banco, arma libros y asientos para tu contador, te avisa cada día solo si algo requiere atención y muestra las formas **legales** de pagar menos, con su norma. Funciona en **solo lectura** frente al SII y el asistente nunca recibe tu clave.
+**mi-sii-mcp** es un servidor [Model Context Protocol (MCP)](https://modelcontextprotocol.io) de código abierto que conecta asistentes de inteligencia artificial —**Claude, Codex, Gemini CLI, Grok, Cursor, VS Code con Copilot** y otros clientes MCP— con tu información tributaria del **Servicio de Impuestos Internos (SII) de Chile**. Lee tu IVA, tus F29, tu renta (F22), tus boletas de honorarios, lo que otros informan sobre ti y tus anotaciones en Mi SII; lo guarda **en tu equipo** y lo **concilia** para mostrarte qué cuadra, qué no y qué vence. Además estima el F29 y la renta antes de declarar, concilia tus cartolas del banco, arma libros y asientos para tu contador, te avisa cada día solo si algo requiere atención y muestra las formas **legales** de pagar menos, con su norma. Funciona en **solo lectura** frente al SII y el asistente nunca recibe tu clave.
 
 > [!NOTE]
 > Proyecto independiente de código abierto: no está afiliado al SII ni reemplaza la asesoría de un contador. Úsalo para revisar tu información y tomar mejores decisiones.
@@ -109,9 +109,10 @@ mi-sii-mcp es un servidor MCP local (transporte **stdio**), así que funciona co
 | Cliente | Estado | Cómo se configura |
 | --- | --- | --- |
 | **Claude Code** | ✅ Probado | Plugin (`/plugin install`) o `claude mcp add` ([ver instalación](#1-registrar-el-servidor-en-tu-asistente)) |
+| **Codex** (OpenAI) | ✅ Conexión probada | Plugin (`codex plugin add`) o `~/.codex/config.toml` |
 | **Gemini CLI** | ✅ Conexión probada | Extensión (`gemini extensions install`) o `~/.gemini/settings.json` |
+| **Grok Build** (xAI) | Configuración documentada | `grok mcp add`; también lee lo que ya instalaste en Claude Code |
 | **Claude Desktop** | Configuración documentada | `claude_desktop_config.json` (formato `mcpServers`) |
-| **Codex CLI** | Configuración documentada | `codex mcp add` o `~/.codex/config.toml` |
 | **Cursor** | Configuración documentada | Botón de instalación o `~/.cursor/mcp.json` |
 | **VS Code con GitHub Copilot** | Configuración documentada | Botón de instalación o `.vscode/mcp.json` |
 | **Windsurf, Cline** y otros | Configuración documentada | Formato `mcpServers` |
@@ -128,7 +129,7 @@ flowchart LR
         A1[Claude Code / Desktop]
         A2[Cursor · Windsurf · Cline]
         A3[VS Code + Copilot]
-        A4[Gemini CLI · Codex CLI]
+        A4[Codex · Gemini CLI · Grok]
     end
     A <-- herramientas MCP --> M[mi-sii-mcp]
     M -- solo lectura --> S[(Portal del SII)]
@@ -191,19 +192,38 @@ gemini extensions install https://github.com/Taksuma-0/mi-sii-mcp
 </details>
 
 <details>
-<summary><b>Codex CLI</b></summary>
+<summary><b>Codex</b> (OpenAI)</summary>
+
+Como **plugin**, que trae el servidor y la skill:
 
 ```bash
-codex mcp add mi-sii-mcp -- npx -y mi-sii-mcp@latest mcp
+codex plugin marketplace add Taksuma-0/mi-sii-mcp
+codex plugin add mi-sii-mcp@mi-sii-mcp
 ```
 
-O en `~/.codex/config.toml`:
+El plugin ya amplía los plazos de Codex, que por defecto espera 10 segundos a que el servidor arranque y 60 por herramienta; una sincronización de 12 meses con el SII tarda más que eso.
+
+O solo el servidor, en `~/.codex/config.toml` (con `codex mcp add mi-sii-mcp -- npx -y mi-sii-mcp@latest mcp` quedan los plazos por defecto: agrega después las dos últimas líneas):
 
 ```toml
 [mcp_servers.mi-sii-mcp]
 command = "npx"
 args = ["-y", "mi-sii-mcp@latest", "mcp"]
+startup_timeout_sec = 120
+tool_timeout_sec = 900
 ```
+</details>
+
+<details>
+<summary><b>Grok Build</b> (xAI)</summary>
+
+Si ya lo instalaste en Claude Code (plugin o `claude mcp add`), Grok Build lo carga solo: lee la configuración, los plugins y las skills de Claude Code. Si no:
+
+```bash
+grok mcp add mi-sii-mcp -- npx -y mi-sii-mcp@latest mcp
+```
+
+La primera vez npx descarga el paquete; si Grok corta la conexión antes, sube `startup_timeout_sec = 120` en la entrada `[mcp_servers.mi-sii-mcp]` de `~/.grok/config.toml`. Para la skill, copia la carpeta `skills/mi-sii-mcp` a `~/.grok/skills/`. Revisa la conexión con `grok mcp doctor mi-sii-mcp`.
 </details>
 
 <details>
@@ -314,7 +334,9 @@ El servidor trae además **recetas** listas (prompts MCP) que tu cliente muestra
 El repositorio incluye una skill en el formato estándar **Agent Skills** (`SKILL.md`): [`skills/mi-sii-mcp`](skills/mi-sii-mcp/SKILL.md). Le enseña a tu agente cuándo usar mi-sii-mcp, qué herramienta usar para cada tarea (revisión de IVA, boletas, renta, vencimientos, preguntas libres), las reglas de seguridad y cómo **repartir el trabajo entre varios agentes**: un solo agente consulta el SII y el resto analiza los datos guardados en paralelo.
 
 - **Claude Code:** el [plugin](#1-registrar-el-servidor-en-tu-asistente) la instala junto con el servidor. También puedes copiar la carpeta `skills/mi-sii-mcp` a `~/.claude/skills/` (para todos tus proyectos) o a `.claude/skills/` dentro de un proyecto.
+- **Codex:** el plugin la trae.
 - **Gemini CLI:** la extensión la trae.
+- **Grok Build:** la toma del plugin de Claude Code, o cópiala a `~/.grok/skills/`.
 - **Otros agentes compatibles con `SKILL.md`:** copia la misma carpeta en su directorio de skills.
 
 La skill complementa al servidor, que además entrega sus propias instrucciones a cualquier cliente MCP.
@@ -365,8 +387,8 @@ Es un servidor MCP de código abierto que permite que un asistente de IA consult
 ### ¿Qué es un servidor MCP y por qué usarlo con el SII?
 MCP (Model Context Protocol) es un estándar abierto para que los asistentes de IA usen herramientas externas. Un servidor MCP para el SII le da a tu asistente herramientas para leer tus datos tributarios y aplicar reglas de conciliación, en vez de que copies y pegues información del portal.
 
-### ¿Cómo conecto Claude, Codex, Cursor o Gemini CLI al SII?
-Regístralo en tu cliente con npx: es un comando o un clic, sin descargar el código ([ver instalación](#1-registrar-el-servidor-en-tu-asistente)). En Claude Code también está el plugin y en Gemini CLI la extensión, que traen el servidor y la skill. Después conecta tu cuenta con `login` en la terminal o en la página local. Claude Code está probado y Gemini CLI se conecta; para los demás clientes se usa su formato MCP estándar.
+### ¿Cómo conecto Claude, Codex, Gemini CLI, Grok o Cursor al SII?
+Regístralo en tu cliente con npx: es un comando o un clic, sin descargar el código ([ver instalación](#1-registrar-el-servidor-en-tu-asistente)). En Claude Code y Codex también está el plugin, y en Gemini CLI la extensión, que traen el servidor y la skill; Grok Build usa lo que ya instalaste en Claude Code o se agrega con `grok mcp add`. Después conecta tu cuenta con `login` en la terminal o en la página local. Claude Code está probado, y Codex y Gemini CLI se conectan; para los demás clientes se usa su formato MCP estándar.
 
 ### ¿El asistente puede ver mi clave tributaria?
 No. La clave se escribe solo en la página local (o en la terminal) y ninguna herramienta del MCP la recibe. Si eliges mantener la sesión, la clave queda en el almacén de credenciales de tu sistema.
@@ -448,14 +470,14 @@ Las contribuciones son bienvenidas. Por favor, **nunca incluyas datos tributario
 
 ## In English
 
-**mi-sii-mcp** is an open-source, read-only [Model Context Protocol](https://modelcontextprotocol.io) server for **Chile's Internal Revenue Service (SII)**. It lets AI assistants such as Claude, Codex, Cursor, Gemini CLI and VS Code with Copilot read a taxpayer's VAT purchase and sales records (RCV), F29 returns, income tax returns (F22), fee receipts (boletas de honorarios) and third-party sworn statements. It stores them locally in SQLite and cross-checks them for mismatches and upcoming deadlines. It also estimates the F29 and F22, reconciles bank statements and drafts bookkeeping entries. The assistant never receives the taxpayer's password.
+**mi-sii-mcp** is an open-source, read-only [Model Context Protocol](https://modelcontextprotocol.io) server for **Chile's Internal Revenue Service (SII)**. It lets AI assistants such as Claude, Codex, Gemini CLI, Grok Build, Cursor and VS Code with Copilot read a taxpayer's VAT purchase and sales records (RCV), F29 returns, income tax returns (F22), fee receipts (boletas de honorarios) and third-party sworn statements. It stores them locally in SQLite and cross-checks them for mismatches and upcoming deadlines. It also estimates the F29 and F22, reconciles bank statements and drafts bookkeeping entries. The assistant never receives the taxpayer's password.
 
 ```bash
 claude mcp add --scope user mi-sii-mcp -- npx -y mi-sii-mcp@latest mcp
 npx -y mi-sii-mcp@latest login 11111111-1 --guardar-clave   # connect your SII account once
 ```
 
-It is also a Claude Code plugin (`/plugin install mi-sii-mcp --marketplace Taksuma-0/mi-sii-mcp`) and a Gemini CLI extension (`gemini extensions install https://github.com/Taksuma-0/mi-sii-mcp`). Answers and documentation are in Spanish. Not affiliated with the SII; not tax advice.
+It is also a Claude Code plugin (`/plugin install mi-sii-mcp --marketplace Taksuma-0/mi-sii-mcp`), a Codex plugin (`codex plugin marketplace add Taksuma-0/mi-sii-mcp`, then `codex plugin add mi-sii-mcp@mi-sii-mcp`) and a Gemini CLI extension (`gemini extensions install https://github.com/Taksuma-0/mi-sii-mcp`); Grok Build loads it from Claude Code or with `grok mcp add mi-sii-mcp -- npx -y mi-sii-mcp@latest mcp`. Answers and documentation are in Spanish. Not affiliated with the SII; not tax advice.
 
 ## Licencia
 

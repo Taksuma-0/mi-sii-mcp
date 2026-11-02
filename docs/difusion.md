@@ -25,6 +25,8 @@ Cómo se presenta **mi-sii-mcp** fuera del repositorio: sitio web, Google Search
 | Botones de instalación en un clic para VS Code y Cursor (README y sitio). Probados: la redirección de VS Code entrega `vscode:mcp/install?…` y la página de Cursor responde «Installing MCP Server» | ✅ Hecho |
 | Plugin de Claude Code: `.claude-plugin/plugin.json` y `.claude-plugin/marketplace.json` en la raíz (servidor por npx con versión fija y la skill). Validado con `claude plugin validate --strict` e instalado de prueba el 02-11-2026: carga la skill y el servidor se conecta | ✅ Hecho; queda disponible al subir a main |
 | Extensión de Gemini CLI: `gemini-extension.json` en la raíz (servidor y skill). Validada con `gemini extensions validate` y probada con `gemini extensions link`: el servidor se conecta | ✅ Hecho; para la galería falta el topic y un tag (ver «Próximos pasos») |
+| Codex (OpenAI): instala el mismo plugin desde `.claude-plugin/marketplace.json` (`codex plugin marketplace add Taksuma-0/mi-sii-mcp` y `codex plugin add mi-sii-mcp@mi-sii-mcp`). Probado el 02-11-2026 en una configuración aislada: carga la skill, y su servidor interno levantó el servidor con sus 30 herramientas. El plugin declara `startup_timeout_sec = 120` y `tool_timeout_sec = 900` porque Codex espera 10 s y 60 s por defecto | ✅ Hecho |
+| Grok Build (xAI): `grok mcp add`, y lee la configuración, los plugins y las skills de Claude Code. Documentado con su guía oficial; no se probó porque su instalador cambia el PATH e instala su propio Git | ✅ Documentado |
 | Guías del sitio para búsquedas concretas: conectar la IA al SII, IVA y F29, boletas de honorarios y Operación Renta 2027, contadores; enlazadas desde el inicio y en `sitemap.xml` | ✅ Hecho; falta pedir su indexación |
 | `llms-install.md` (instalación para agentes como Cline) y logo de 400 × 400 (`docs/img/marca/kit/03_PNG_Transparentes/icono_400.png`) | ✅ Hecho |
 | Directorio de Anthropic (claude.ai), Cline MCP Marketplace, cursor.directory, topics de GitHub e indexación de las guías | Pendiente: los hace el usuario (ver «Próximos pasos») |
@@ -54,7 +56,7 @@ Cómo se publicó en npm (sirve para las versiones siguientes):
 | `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` | Plugin de Claude Code (y para el directorio de Anthropic): el servidor por `npx -y mi-sii-mcp@<versión> mcp` y la skill de `skills/`. |
 | `gemini-extension.json` | Extensión de Gemini CLI: el mismo servidor y la skill. |
 | `llms-install.md` | Instrucciones de instalación para agentes (Cline las pide para su marketplace). |
-| `test/distribucion.test.ts` | Comprueba que el plugin y la extensión lancen la misma versión exacta que declaran. |
+| `test/distribucion.test.ts` | Comprueba que el plugin y la extensión lancen la misma versión exacta que declaran, y que el plugin conserve los plazos que necesita Codex. |
 
 ## Textos listos para usar
 
@@ -104,6 +106,7 @@ Cómo se publicó en npm (sirve para las versiones siguientes):
 | **modelcontextprotocol/servers** | No aplica: ya no acepta servidores nuevos y remite al Registry. | — |
 | **Directorio de Anthropic** (claude.ai/directory: claude.ai, Cowork y Claude Code) | Sí: el plugin está en la raíz del repo, con README, licencia e ícono. Su servidor local carga en Cowork y en Claude Code, no en el chat web. | Enviar desde https://claude.ai/directory/manage (requiere plan pagado). Ver «Próximos pasos». |
 | **Galería de extensiones de Gemini CLI** (geminicli.com/extensions) | Sí, al cumplir sus requisitos. | Automática: indexa a diario los repos públicos con el topic `gemini-cli-extension`, `gemini-extension.json` en la raíz y un tag. |
+| **Directorio de plugins de OpenAI** (ChatGPT y Codex) | No por ahora: los plugins con servidor local («Desktop only») son solo para socios aprobados por OpenAI. | Se instala por el marketplace del repo (ver arriba). |
 | **Cline MCP Marketplace** (github.com/cline/mcp-marketplace) | Sí; revisan adopción y credibilidad, con más cuidado en temas financieros. | Issue con el repo, logo de 400 × 400 y el motivo. Ver «Próximos pasos». |
 | **cursor.directory** (comunidad de Cursor) | Sí. | Enviar desde el sitio con tu cuenta (bloquea las visitas automáticas). |
 | **Cursor Marketplace** (cursor.com/marketplace) | No por ahora: es para plugins oficiales que revisa el equipo de Cursor. | — |
@@ -138,13 +141,13 @@ Cómo se publicó en npm (sirve para las versiones siguientes):
 
 **LinkedIn (contadores y pymes):**
 
-> Hice mi-sii-mcp, una herramienta gratuita y de código abierto que conecta tu asistente de IA (Claude, Codex, Gemini, Cursor) con tu información del SII. Le preguntas «¿cuadra mi IVA con el F29?», «¿tengo F29 por vencer?» o «¿qué informaron mis pagadores sobre mis boletas?» y responde con tus datos reales: los trae del SII, los guarda en tu equipo y los concilia. Solo lee el SII y la clave nunca pasa por el chat. Para contadores: una vista de toda la cartera, conciliación de cartolas, y libros y asientos exportables a Excel. https://taksuma-0.github.io/mi-sii-mcp/
+> Hice mi-sii-mcp, una herramienta gratuita y de código abierto que conecta tu asistente de IA (Claude, Codex, Gemini, Grok, Cursor) con tu información del SII. Le preguntas «¿cuadra mi IVA con el F29?», «¿tengo F29 por vencer?» o «¿qué informaron mis pagadores sobre mis boletas?» y responde con tus datos reales: los trae del SII, los guarda en tu equipo y los concilia. Solo lee el SII y la clave nunca pasa por el chat. Para contadores: una vista de toda la cartera, conciliación de cartolas, y libros y asientos exportables a Excel. https://taksuma-0.github.io/mi-sii-mcp/
 
 **Reddit u otros foros (revisa antes las reglas de autopromoción de cada comunidad):**
 
 > Título: Hice un conector gratuito para que la IA revise tu IVA, F29 y boletas de honorarios del SII
 >
-> Es un servidor MCP de código abierto: tu asistente (Claude, Codex, Gemini CLI, Cursor) lee tus datos del SII en solo lectura, los guarda en tu equipo y los cruza (RCV contra F29, boletas contra lo informado por tus pagadores, vencimientos). Se instala con un comando de npx. No es oficial del SII ni asesoría tributaria; busco comentarios de quienes lo prueben. https://github.com/Taksuma-0/mi-sii-mcp
+> Es un servidor MCP de código abierto: tu asistente (Claude, Codex, Gemini CLI, Grok, Cursor) lee tus datos del SII en solo lectura, los guarda en tu equipo y los cruza (RCV contra F29, boletas contra lo informado por tus pagadores, vencimientos). Se instala con un comando de npx. No es oficial del SII ni asesoría tributaria; busco comentarios de quienes lo prueben. https://github.com/Taksuma-0/mi-sii-mcp
 
 ### MCP Registry oficial (hecho: 0.1.0 y 0.2.0)
 

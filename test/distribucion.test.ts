@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const RAIZ = resolve(import.meta.dirname, '..');
 
-interface ServidorMcp { command: string; args: string[] }
+interface ServidorMcp { command: string; args: string[]; startup_timeout_sec?: number; tool_timeout_sec?: number }
 interface Manifiesto { name: string; version: string; icon?: string; mcpServers: Record<string, ServidorMcp> }
 interface Marketplace { name: string; plugins: { name: string; source: string }[] }
 
@@ -32,6 +32,14 @@ describe('manifiestos de distribución (plugin de Claude Code y extensión de Ge
   it('el marketplace publica el plugin de la raíz con el mismo nombre', () => {
     expect(marketplace.plugins).toEqual([expect.objectContaining({ name: plugin.name, source: './' })]);
     expect(gemini.name).toBe(plugin.name);
+  });
+
+  // Codex instala este mismo plugin y por defecto espera 10 s el arranque (npx descarga el paquete la primera vez)
+  // y 60 s cada herramienta (sincronizar 12 meses con el SII tarda más). Claude Code ignora estos campos.
+  it('el plugin amplía los plazos de Codex para arrancar y para cada herramienta', () => {
+    const servidor = plugin.mcpServers['mi-sii-mcp'];
+    expect(servidor?.startup_timeout_sec).toBeGreaterThanOrEqual(60);
+    expect(servidor?.tool_timeout_sec).toBeGreaterThanOrEqual(600);
   });
 
   it('el plugin trae la skill y su ícono', () => {

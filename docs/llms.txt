@@ -1,6 +1,6 @@
 # mi-sii-mcp
 
-> mi-sii-mcp es un servidor MCP (Model Context Protocol) de código abierto, licencia MIT, que conecta asistentes de inteligencia artificial —Claude, Codex, Cursor, Gemini CLI, VS Code con Copilot y otros clientes MCP— con la información tributaria del Servicio de Impuestos Internos (SII) de Chile. Lee el IVA, los F29, la renta F22, las boletas de honorarios, las declaraciones juradas de terceros y las anotaciones de Mi SII; guarda los datos en el equipo del usuario y los concilia. Además estima el F29 y la renta, concilia cartolas del banco, arma libros y asientos, avisa cada día lo nuevo y muestra formas legales de pagar menos impuestos. Funciona en solo lectura y el asistente nunca recibe la clave tributaria.
+> mi-sii-mcp es un servidor MCP (Model Context Protocol) de código abierto, licencia MIT, que conecta asistentes de inteligencia artificial —Claude, Codex, Gemini CLI, Grok Build, Cursor, VS Code con Copilot y otros clientes MCP— con la información tributaria del Servicio de Impuestos Internos (SII) de Chile. Lee el IVA, los F29, la renta F22, las boletas de honorarios, las declaraciones juradas de terceros y las anotaciones de Mi SII; guarda los datos en el equipo del usuario y los concilia. Además estima el F29 y la renta, concilia cartolas del banco, arma libros y asientos, avisa cada día lo nuevo y muestra formas legales de pagar menos impuestos. Funciona en solo lectura y el asistente nunca recibe la clave tributaria.
 
 Proyecto independiente: no está afiliado al SII y no reemplaza la asesoría de un contador.
 
@@ -49,7 +49,7 @@ Para no confundirlo con otros proyectos de nombre parecido:
 
 ## Compatibilidad
 
-Servidor MCP local (transporte stdio). Probado con Claude Code; Gemini CLI instaló la extensión y se conectó en Windows. Configuración documentada para Claude Desktop, Codex CLI, Cursor, VS Code con GitHub Copilot, Windsurf y Cline.
+Servidor MCP local (transporte stdio). Probado con Claude Code; Codex instaló el plugin y Gemini CLI la extensión, y ambos se conectaron en Windows. Configuración documentada para Grok Build (que además lee la configuración de Claude Code), Claude Desktop, Cursor, VS Code con GitHub Copilot, Windsurf y Cline.
 
 ## Instalación
 
@@ -57,7 +57,8 @@ Requiere Node.js 22.12 o superior. Publicado en npm (`mi-sii-mcp`) y en el MCP R
 
 - Claude Code: `claude mcp add --scope user mi-sii-mcp -- npx -y mi-sii-mcp@latest mcp`, o el plugin con servidor y skill: `/plugin install mi-sii-mcp --marketplace Taksuma-0/mi-sii-mcp`.
 - Gemini CLI: `gemini extensions install https://github.com/Taksuma-0/mi-sii-mcp` (servidor y skill).
-- Codex CLI: `codex mcp add mi-sii-mcp -- npx -y mi-sii-mcp@latest mcp`.
+- Codex: plugin con servidor y skill: `codex plugin marketplace add Taksuma-0/mi-sii-mcp` y `codex plugin add mi-sii-mcp@mi-sii-mcp` (amplía los plazos de Codex: 120 s para arrancar y 900 s por herramienta). Solo el servidor: en `~/.codex/config.toml`, con `startup_timeout_sec = 120` y `tool_timeout_sec = 900`.
+- Grok Build (xAI): `grok mcp add mi-sii-mcp -- npx -y mi-sii-mcp@latest mcp`; también carga lo instalado en Claude Code.
 - Claude Desktop, Cursor, VS Code, Windsurf, Cline: comando `npx` con argumentos `["-y", "mi-sii-mcp@latest", "mcp"]`.
 
 Conectar la cuenta del SII una vez, en la terminal: `npx -y mi-sii-mcp@latest login <RUT> --guardar-clave` (ClaveÚnica: `login-navegador --rut <RUT>`). Instalando desde el código (`git clone`, `npm install`, `npm run build`) también está la página local «Abrir mi-sii-mcp.cmd».
