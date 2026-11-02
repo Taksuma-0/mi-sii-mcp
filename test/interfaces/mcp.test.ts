@@ -57,6 +57,22 @@ describe('servidor MCP', () => {
     await cliente.close();
   });
 
+  it('el JSON de cada respuesta va compacto: en una sola línea, sin indentación', async () => {
+    const { deps, store } = depsDePrueba();
+    store.guardarContribuyente(perfilEmpresa());
+    sembrarMes(store, '2026-09', { documentos: [documento()], declaraciones: [declaracion()], valores: [valores({ '538': 0, '537': 19_000 })] });
+    const cliente = await conectar(deps);
+
+    for (const [name, args] of [['sii_panorama', { rut: RUT_EMPRESA }], ['iva_resumen', { rut: RUT_EMPRESA, periodo: '2026-09' }], ['datos_esquema', {}]] as const) {
+      const texto = textoDe(await cliente.callTool({ name, arguments: args }));
+      const json = texto.slice(texto.indexOf('\n\n') + 2);
+      expect(json).not.toContain('\n');
+      expect(json).not.toMatch(/: {2,}|\{ {2}/);
+      expect(() => JSON.parse(json)).not.toThrow();
+    }
+    await cliente.close();
+  });
+
   it('sii_panorama responde sin elegir un período con cobertura breve y JSON del panorama local', async () => {
     const { deps, store, sii } = depsDePrueba({ fallaAlAbrir: new Error('No debe abrir el SII') });
     store.guardarContribuyente(perfilEmpresa());
@@ -242,7 +258,7 @@ describe('servidor MCP', () => {
     const r = await cliente.callTool({ name: 'iva_resumen', arguments: { rut: '22.222.222-2', periodo: '2026-09' } });
     expect(esError(r)).toBe(false);
     expect(textoDe(r)).toContain('IVA 2026-09 — 22222222-2');
-    expect(textoDe(r)).toContain('"debitoRcv": 190000');
+    expect(textoDe(r)).toContain('"debitoRcv":190000');
     await cliente.close();
   });
 

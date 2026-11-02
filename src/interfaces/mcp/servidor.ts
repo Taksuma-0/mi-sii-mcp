@@ -110,8 +110,9 @@ const PERIODO = z.string().regex(/^\d{4}-\d{2}$/, 'Usa el formato AAAA-MM').desc
 const ANIO_TRIBUTARIO = z.string().regex(/^\d{4}$/, 'Usa el año tributario AAAA').describe('Año tributario AAAA (año comercial + 1): 2026 es la renta del año 2025');
 const SOLO_LECTURA = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } as const;
 
+/** Texto para leer y, tras una línea en blanco, los datos en JSON compacto (sin indentar: pesa la mitad para el asistente). */
 const respuesta = (texto: string, datos: unknown): ResultadoHerramienta => ({
-  content: [{ type: 'text', text: `${texto}\n\n${JSON.stringify(datos, null, 2)}` }],
+  content: [{ type: 'text', text: `${texto}\n\n${JSON.stringify(datos)}` }],
 });
 
 /**
