@@ -50,6 +50,38 @@ export const DATOS_INCOMPLETOS_RCV = Symbol('DATOS_INCOMPLETOS');
  */
 export class Cancelada extends Error {}
 
+/** Superficies seguidas sin respuesta del SII tras las que una sincronización se detiene (decisión 0010). */
+export const FALLAS_SEGUIDAS_SII = 3;
+
+/** Motivo de término cuando el SII deja de responder: no tiene sentido intentar cada mes con sus reintentos de 60 s. */
+export const SII_CAIDO: ErrorSuperficie = {
+  superficie: 'sii',
+  codigo: 'SII_NO_DISPONIBLE',
+  mensaje: `El SII no responde: la sincronización se detuvo tras ${FALLAS_SEGUIDAS_SII} fallas seguidas; lo traído quedó guardado. Reintenta más tarde.`,
+};
+
+/** Se lanza desde `registrar` cuando se juntan las fallas seguidas del SII; la sincronización la convierte en `SII_CAIDO`. */
+export class SiiCaido extends Error {}
+
+/**
+ * Fallas seguidas por sincronización. Se asocian al buffer de respuestas, que cada sincronización comparte con todas sus
+ * superficies (incluidas las de funciones auxiliares), así el interruptor las ve todas sin cambiar cada llamada.
+ */
+const INTERRUPTORES = new WeakMap<RespuestaCruda[], { seguidas: number }>();
+
+/** Activa el interruptor ante un SII caído para las superficies que usen este buffer. */
+export function conInterruptor(buffer: RespuestaCruda[]): RespuestaCruda[] {
+  INTERRUPTORES.set(buffer, { seguidas: 0 });
+  return buffer;
+}
+
+function anotarResultado(buffer: RespuestaCruda[], codigo: string | null): void {
+  const interruptor = INTERRUPTORES.get(buffer);
+  if (!interruptor) return;
+  interruptor.seguidas = codigo === 'SII_NO_DISPONIBLE' ? interruptor.seguidas + 1 : 0;
+  if (interruptor.seguidas >= FALLAS_SEGUIDAS_SII) throw new SiiCaido();
+}
+
 export const revisarCancelacion = (signal: AbortSignal | undefined): void => {
   if (signal?.aborted) throw new Cancelada();
 };
@@ -78,9 +110,11 @@ export async function registrar<T>(
       const mensaje = 'El detalle RCV está incompleto; se conserva el último conjunto completo de este lado, si existe.';
       deps.store.terminarSincronizacion(id, deps.reloj.ahora().toISOString(), 'error', { codigo: CODIGO_DATOS_INCOMPLETOS, detalle: mensaje });
       res.errores.push({ superficie, codigo: CODIGO_DATOS_INCOMPLETOS, mensaje });
+      anotarResultado(buffer, CODIGO_DATOS_INCOMPLETOS);
       return null;
     }
     deps.store.terminarSincronizacion(id, deps.reloj.ahora().toISOString(), 'ok');
+    anotarResultado(buffer, null);
     return valor;
   } catch (e) {
     volcar(deps, id, buffer);
@@ -98,6 +132,7 @@ export async function registrar<T>(
     }
     if (ERRORES_FATALES.has(e.codigo)) throw e;
     res.errores.push({ superficie, codigo: e.codigo, mensaje: e.message });
+    anotarResultado(buffer, e.codigo);
     return null;
   }
 }

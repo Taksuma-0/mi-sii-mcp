@@ -100,6 +100,18 @@ describe('sincronizarRenta', () => {
     expect(store.declaracionesF22(RUT_EMPRESA, 2025)).toHaveLength(1);
   });
 
+  it('si el SII no responde en 3 superficies seguidas, la renta se detiene sin seguir con los otros años', async () => {
+    const { deps, sii } = preparar();
+    sii.alLlamar = () => {
+      throw new ErrorMiSiiMcp('SII_NO_DISPONIBLE', 'El SII no respondió.');
+    };
+
+    const r = await sincronizarRenta(deps, RUT_EMPRESA, '2024', '2026');
+
+    expect(r.abortado).toMatchObject({ superficie: 'sii', codigo: 'SII_NO_DISPONIBLE' });
+    expect(sii.llamadas).toEqual(['f22|2024', 'terceros|2024', 'asistente|2024']);
+  });
+
   it('un error de sesión detiene la renta; cancelada conserva lo traído', async () => {
     const sesion = preparar();
     sesion.sii.fallas.set('f22|2025', new ErrorMiSiiMcp('SESION_REQUERIDA', 'La sesión expiró.'));

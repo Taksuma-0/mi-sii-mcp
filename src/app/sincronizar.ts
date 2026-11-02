@@ -6,7 +6,7 @@ import { lecturaConfiable, motivoNoConfiable, verificarCoherenciaF29 } from '../
 import { ESTADOS_RCV, type DocumentoRcv, type EstadoRcv, type F29Declaracion, type F29Valores, type Lado, type RcvResumen, type RespuestaCruda } from '../domain/tipos.js';
 import type { SiiReader } from '../ports/index.js';
 import type { DepsApp } from './deps.js';
-import { Cancelada, DATOS_INCOMPLETOS_RCV, registrar, revisarCancelacion, SINCRONIZACION_CANCELADA, type Avance, type ErrorSuperficie, type ResultadoPeriodo } from './registro.js';
+import { Cancelada, conInterruptor, DATOS_INCOMPLETOS_RCV, registrar, revisarCancelacion, SII_CAIDO, SiiCaido, SINCRONIZACION_CANCELADA, type Avance, type ErrorSuperficie, type ResultadoPeriodo } from './registro.js';
 import { motivoParaConservar } from './releer-f29.js';
 
 export { SINCRONIZACION_CANCELADA, type Avance, type ErrorSuperficie, type ResultadoPeriodo };
@@ -70,7 +70,7 @@ export async function sincronizar(
   const rut = parseRut(rutTexto).canonico;
   if (!deps.store.contribuyente(rut)) throw new ErrorMiSiiMcp('PERFIL_NO_EXISTE', `No existe el perfil ${rut}.`);
   const periodos = rangoPeriodos(desde, hasta);
-  const buffer: RespuestaCruda[] = [];
+  const buffer: RespuestaCruda[] = conInterruptor([]);
   const resultados: ResultadoPeriodo[] = [];
   /** El período en curso; null entre períodos. */
   let enCurso: ResultadoPeriodo | null = null;
@@ -198,6 +198,7 @@ export async function sincronizar(
       enCurso?.avisos.push(AVISO_MES_CANCELADO);
       return { rut, superficies, periodos: resultados, abortado: SINCRONIZACION_CANCELADA };
     }
+    if (e instanceof SiiCaido) return { rut, superficies, periodos: resultados, abortado: SII_CAIDO };
     if (esErrorMiSiiMcp(e) && ERRORES_FATALES.has(e.codigo)) {
       return { rut, superficies, periodos: resultados, abortado: { superficie: 'sesion', codigo: e.codigo, mensaje: e.message } };
     }

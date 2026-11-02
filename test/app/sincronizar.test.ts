@@ -115,6 +115,32 @@ describe('sincronizar', () => {
     expect(sii.esperados.get('2026-09|VENTA|REGISTRO|33')).toEqual({ cantidad: 2, exento: 0, neto: 1_000_000, iva: 190_000, total: 1_190_000 });
   });
 
+  it('si el SII no responde en 3 superficies seguidas, se detiene y devuelve lo traído sin seguir con los otros meses', async () => {
+    const { deps, sii } = mesCompleto();
+    sii.alLlamar = () => {
+      throw new ErrorMiSiiMcp('SII_NO_DISPONIBLE', 'El SII no respondió en 60 s (www4.sii.cl).');
+    };
+
+    const r = await sincronizar(deps, RUT_EMPRESA, SEPT, parsePeriodo('2026-11'));
+
+    expect(r.abortado).toMatchObject({ superficie: 'sii', codigo: 'SII_NO_DISPONIBLE' });
+    expect(r.periodos.map((p) => p.periodo)).toEqual(['2026-09']);
+    expect(r.periodos[0]!.errores.map((e) => e.superficie)).toEqual(['rcv.VENTA', 'rcv.COMPRA', 'f29']);
+    expect(sii.llamadas.some((l) => l.includes('2026-10') || l.includes('2026-11'))).toBe(false);
+  });
+
+  it('una superficie que responde reinicia la cuenta de fallas seguidas del SII', async () => {
+    const { deps, sii } = mesCompleto();
+    sii.alLlamar = (llamada) => {
+      if (llamada.startsWith('resumen|')) throw new ErrorMiSiiMcp('SII_NO_DISPONIBLE', 'El SII no respondió.');
+    };
+
+    const r = await sincronizar(deps, RUT_EMPRESA, SEPT, parsePeriodo('2026-10'));
+
+    expect(r.abortado).toBeNull();
+    expect(r.periodos.map((p) => p.errores.length)).toEqual([2, 2]);
+  });
+
   it('avisa cuando el detalle trae menos documentos que el resumen', async () => {
     const { deps, sii } = mesCompleto();
     sii.detalles.set('2026-09|COMPRA|REGISTRO|33', []);

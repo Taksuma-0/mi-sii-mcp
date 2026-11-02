@@ -30,7 +30,7 @@ import type { BoletaHonorariosEmitida, DjTercero, F22Evento, F22Valor, InformeBh
 import type { BheEmitidaMesGuardado, DjTerceroGuardado, SiiReader, TablaAsistenteGuardada } from '../ports/index.js';
 import { perfilExistente } from './consultas.js';
 import type { DepsApp } from './deps.js';
-import { Cancelada, registrar, revisarCancelacion, SINCRONIZACION_CANCELADA, type Avance, type ErrorSuperficie, type ResultadoPeriodo } from './registro.js';
+import { Cancelada, conInterruptor, registrar, revisarCancelacion, SII_CAIDO, SiiCaido, SINCRONIZACION_CANCELADA, type Avance, type ErrorSuperficie, type ResultadoPeriodo } from './registro.js';
 
 export interface ResultadoAnioRenta {
   readonly anioTributario: number;
@@ -203,7 +203,7 @@ export async function sincronizarRenta(
   // Solo una persona emite boletas de honorarios.
   const conBoletas = perfil.tipo === 'persona';
   const anios = rangoAnios(parseAnioTributario(desde), parseAnioTributario(hasta ?? desde));
-  const buffer: RespuestaCruda[] = [];
+  const buffer: RespuestaCruda[] = conInterruptor([]);
   const resultados: ResultadoAnioRenta[] = [];
   try {
     revisarCancelacion(signal);
@@ -277,6 +277,7 @@ export async function sincronizarRenta(
     return { rut, anios: resultados, abortado: null };
   } catch (e) {
     if (e instanceof Cancelada) return { rut, anios: resultados, abortado: SINCRONIZACION_CANCELADA };
+    if (e instanceof SiiCaido) return { rut, anios: resultados, abortado: SII_CAIDO };
     if (esErrorMiSiiMcp(e) && ERRORES_FATALES.has(e.codigo)) return { rut, anios: resultados, abortado: { superficie: 'sesion', codigo: e.codigo, mensaje: e.message } };
     throw e;
   } finally {
