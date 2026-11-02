@@ -28,6 +28,21 @@ describe('manifiestos de distribución (plugin de Claude Code, extensión de Gem
     expect(versionLanzada({ ...plugin, mcpServers: mcpRaiz.mcpServers })).toBe(plugin.version);
   });
 
+  // Una versión sale de una vez (scripts/fijar-version.mjs y un tag): ninguna pieza puede quedar con la anterior.
+  it('el servidor, el plugin, la extensión, mcp.json y el sitio declaran la versión de package.json', () => {
+    const paquete = leer<{ version: string }>('package.json').version;
+    const registro = leer<{ version: string; packages: { version: string }[] }>('server.json');
+    const sitio = /"softwareVersion": "([^"]+)"/.exec(readFileSync(resolve(RAIZ, 'docs', 'index.html'), 'utf8'))?.[1];
+    expect({
+      registro: registro.version,
+      paqueteDelRegistro: registro.packages[0]?.version,
+      plugin: plugin.version,
+      extension: gemini.version,
+      mcpRaiz: versionLanzada({ ...plugin, mcpServers: mcpRaiz.mcpServers }),
+      sitio,
+    }).toEqual({ registro: paquete, paqueteDelRegistro: paquete, plugin: paquete, extension: paquete, mcpRaiz: paquete, sitio: paquete });
+  });
+
   it('la versión es exacta, no un rango ni latest', () => {
     expect(plugin.version).toMatch(/^\d+\.\d+\.\d+$/);
   });

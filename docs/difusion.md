@@ -132,11 +132,14 @@ Cómo se publicó en npm (sirve para las versiones siguientes):
 
 ### Al publicar una versión nueva
 
-1. Actualiza `version` en `package.json` y en `server.json` (en la raíz y dentro de `packages`).
-2. Publica en npm (pasos de arriba) y en el MCP Registry (`mcp-publisher publish`).
-3. **Después de que npm la tenga**, actualiza a esa versión `version` y el `mi-sii-mcp@<versión>` de los argumentos en `.claude-plugin/plugin.json`, `gemini-extension.json` y `mcp.json` (la prueba `test/distribucion.test.ts` exige que coincidan). Antes no: quien instale el plugin o la extensión desde main lanzaría una versión que npm todavía no tiene.
-4. Actualiza `softwareVersion` en `docs/index.html`.
-5. Crea el tag y el release en GitHub: Glama publica el release solo y la galería de Gemini CLI revisa los repos con tags.
+1. `npm run version:fijar -- X.Y.Z` pone la versión en `package.json`, `package-lock.json`, `server.json`, el plugin, la extensión, `mcp.json` y el sitio. La prueba `test/distribucion.test.ts` exige que coincidan.
+2. Commit y push a `main`. El workflow «Pruebas» corre los tipos, las pruebas y el servidor compilado en Windows, macOS y Linux.
+3. `git tag vX.Y.Z` y `git push origin vX.Y.Z`. El workflow «Publicar» repite las pruebas, publica en npm con *trusted publishing* (sin códigos y con procedencia verificada) y en el MCP Registry (con el OIDC de GitHub), y crea el release. Glama toma el release solo y la galería de Gemini CLI indexa el tag.
+4. Si npm o el registro fallan, el plugin y la extensión quedan apuntando a una versión que npm aún no tiene: corrige y vuelve a correr el workflow, o publica a mano con los pasos de arriba.
+
+Para ensayar sin publicar, corre «Publicar» desde la pestaña Actions con «Ensayo» marcado.
+
+Requisito único: que el paquete en npm confíe en el workflow. Se configura una vez con verificación en dos pasos: `npm trust github mi-sii-mcp --file publicar.yml --repo Taksuma-0/mi-sii-mcp --yes`.
 
 ## Textos para redes
 

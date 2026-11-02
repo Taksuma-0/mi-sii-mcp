@@ -10,6 +10,7 @@
 <p align="center"><b>Tus impuestos del SII, conversados con tu asistente de IA.</b></p>
 
 <p align="center">
+  <a href="https://github.com/Taksuma-0/mi-sii-mcp/actions/workflows/pruebas.yml"><img alt="Pruebas en Windows, macOS y Linux" src="https://github.com/Taksuma-0/mi-sii-mcp/actions/workflows/pruebas.yml/badge.svg"></a>
   <a href="https://www.npmjs.com/package/mi-sii-mcp"><img alt="Versión en npm" src="https://img.shields.io/npm/v/mi-sii-mcp?style=flat-square&color=0f2a44&label=npm"></a>
   <a href="https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.Taksuma-0/mi-sii-mcp"><img alt="Publicado en el MCP Registry oficial" src="https://img.shields.io/badge/MCP%20Registry-publicado-0f2a44?style=flat-square&labelColor=7cb6fb"></a>
   <a href="LICENSE"><img alt="Licencia MIT" src="https://img.shields.io/badge/licencia-MIT-0f2a44?style=flat-square"></a>

@@ -1,0 +1,75 @@
+name: Publicar
+
+# Al subir un tag vX.Y.Z publica esa versión en npm y en el MCP Registry y crea el release en GitHub.
+# Desde la pestaña Actions se puede correr como ensayo: arma y valida todo sin publicar nada.
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      ensayo:
+        description: 'Ensayo: armar y validar sin publicar'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write # crear el release
+  id-token: write # npm (trusted publishing) y MCP Registry (OIDC de GitHub): sin tokens guardados
+
+concurrency:
+  group: publicar
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    env:
+      ENSAYO: ${{ github.event_name == 'workflow_dispatch' && inputs.ensayo }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - name: npm con trusted publishing
+        run: npm install -g npm@^11.5.1
+      - name: El tag coincide con la versión del paquete
+        if: github.event_name == 'push'
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "El tag $GITHUB_REF_NAME no coincide con la versión $version de package.json." >&2
+            exit 1
+          fi
+      - name: Instalar dependencias
+        run: npm ci --ignore-scripts
+      - name: Tipos y pruebas
+        run: |
+          npm run typecheck
+          npm test
+      - name: Compilar y probar el servidor MCP compilado
+        run: |
+          npm run build
+          npm run probar:mcp
+      - name: Publicar en npm
+        run: |
+          if [ "$ENSAYO" = "true" ]; then
+            npm publish --access public --ignore-scripts --dry-run
+          else
+            npm publish --access public --ignore-scripts
+          fi
+      - name: Publicar en el MCP Registry
+        run: |
+          curl -sSfL "https://github.com/modelcontextprotocol/registry/releases/download/v1.8.7/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
+          if [ "$ENSAYO" = "true" ]; then
+            ./mcp-publisher validate || echo "Validación del registro con observaciones (en ensayo la versión aún no está en npm)."
+          else
+            ./mcp-publisher validate
+            ./mcp-publisher login github-oidc
+            ./mcp-publisher publish
+          fi
+      - name: Release en GitHub
+        if: github.event_name == 'push'
+        run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes --verify-tag
+        env:
+          GH_TOKEN: ${{ github.token }}

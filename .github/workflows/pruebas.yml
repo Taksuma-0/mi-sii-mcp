@@ -1,0 +1,44 @@
+name: Pruebas
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pruebas-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pruebas:
+    name: ${{ matrix.os }} · Node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+        node: [24]
+        include:
+          # La versión mínima que declara package.json (engines).
+          - os: ubuntu-latest
+            node: 22
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      # better-sqlite3 trae binarios precompilados para cada sistema: sin scripts no hace falta compilar nada.
+      - name: Instalar dependencias
+        run: npm ci --ignore-scripts
+      - name: Tipos
+        run: npm run typecheck
+      - name: Pruebas
+        run: npm test
+      - name: Compilar y probar el servidor MCP compilado
+        run: |
+          npm run build
+          npm run probar:mcp

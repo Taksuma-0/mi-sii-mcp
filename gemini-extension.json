@@ -1,11 +1,11 @@
 {
   "name": "mi-sii-mcp",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Servidor MCP para el SII de Chile: IVA, F29, renta F22, boletas de honorarios y vencimientos, con su skill. Solo lectura y local; no es oficial del SII.",
   "mcpServers": {
     "mi-sii-mcp": {
       "command": "npx",
-      "args": ["-y", "mi-sii-mcp@0.2.0", "mcp"]
+      "args": ["-y", "mi-sii-mcp@0.3.0", "mcp"]
     }
   }
 }

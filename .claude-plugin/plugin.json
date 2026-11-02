@@ -1,7 +1,7 @@
 {
   "name": "mi-sii-mcp",
   "displayName": "mi-sii-mcp",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Consulta y concilia tu información del SII de Chile con tu asistente: IVA, F29, renta F22, boletas de honorarios y vencimientos. Instala el servidor MCP mi-sii-mcp (desde npm) y su skill. Solo lectura y local; no es oficial del SII.",
   "author": {
     "name": "Welinton Barrera",
@@ -17,7 +17,7 @@
   "mcpServers": {
     "mi-sii-mcp": {
       "command": "npx",
-      "args": ["-y", "mi-sii-mcp@0.2.0", "mcp"],
+      "args": ["-y", "mi-sii-mcp@0.3.0", "mcp"],
       "startup_timeout_sec": 120,
       "tool_timeout_sec": 900
     }
