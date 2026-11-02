@@ -374,6 +374,14 @@ export interface Store {
   guardarAlias(alias: AliasAprendido): void;
 }
 
+/** La última versión publicada de mi-sii-mcp (para avisar que hay una nueva; nunca instala nada). */
+export interface FuenteVersiones {
+  /** Consulta (a lo más una vez al día) la última versión; null si no se sabe. */
+  ultima(): Promise<string | null>;
+  /** La última versión ya conocida, sin ir a la red; null si no se sabe. */
+  conocida(): string | null;
+}
+
 /** Respaldo diario de la base, con rotación; lo arma el contenedor (archivos del equipo). */
 export interface Respaldos {
   crear(ahora: Date): Promise<ResultadoRespaldo>;

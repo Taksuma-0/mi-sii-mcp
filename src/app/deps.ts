@@ -1,4 +1,4 @@
-import type { ArchivosLocales, ConsultaLibre, ConsultaSesiones, LectorCartola, LectorPdfF29, Reloj, Respaldos, SiiReader, Store, SumideroRespuestas } from '../ports/index.js';
+import type { ArchivosLocales, ConsultaLibre, ConsultaSesiones, FuenteVersiones, LectorCartola, LectorPdfF29, Reloj, Respaldos, SiiReader, Store, SumideroRespuestas } from '../ports/index.js';
 
 export interface DepsApp {
   readonly store: Store;
@@ -28,4 +28,8 @@ export interface DepsApp {
   readonly renovarSesion?: (rut: string) => Promise<boolean>;
   /** Respaldo diario rotativo de la base (lo usa el mantenimiento de la revisión diaria). */
   readonly respaldos?: Respaldos;
+  /** Última versión publicada de mi-sii-mcp, para avisar que hay una nueva; ausente si se apagó el aviso. */
+  readonly versiones?: FuenteVersiones;
+  /** Versión que está corriendo. */
+  readonly versionActual?: string;
 }

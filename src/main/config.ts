@@ -16,6 +16,8 @@ export interface Config {
   readonly plazoNavegadorMs: number;
   /** Carpeta de datos con el nombre anterior (`~/.impuestocl`), solo si no se eligió una con MI_SII_MCP_HOME: se muda al abrir. */
   readonly homeAnterior?: string;
+  /** Si avisa cuando hay una versión nueva en npm (consulta a lo más una vez al día); se apaga con MI_SII_MCP_SIN_AVISO_VERSION=1. */
+  readonly avisoVersion?: boolean;
 }
 
 /** Rutas de la base, sesiones y diagnóstico dentro de una carpeta de datos. */
@@ -41,5 +43,6 @@ export function cargarConfig(env: Readonly<Record<string, string | undefined>> =
     intervaloMinMs: Math.max(1000, numeroNoNegativo(env['MI_SII_MCP_INTERVALO_MS'], 1000)),
     plazoHttpMs: Math.min(PLAZO_MAXIMO_MS, Math.max(10_000, numeroNoNegativo(env['MI_SII_MCP_PLAZO_HTTP_MS'], 60_000))),
     plazoNavegadorMs: Math.min(PLAZO_MAXIMO_LOGIN_NAVEGADOR_MS, Math.max(60_000, numeroNoNegativo(env['MI_SII_MCP_PLAZO_NAVEGADOR_MS'], PLAZO_LOGIN_NAVEGADOR_MS))),
+    avisoVersion: env['MI_SII_MCP_SIN_AVISO_VERSION'] !== '1',
   };
 }

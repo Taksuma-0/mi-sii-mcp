@@ -118,6 +118,18 @@ describe('servidor MCP', () => {
     await cliente.close();
   });
 
+  it('perfiles_listar avisa si ya se sabe de una versión nueva de mi-sii-mcp, sin esperar la red', async () => {
+    const { deps } = depsDePrueba();
+    let consultas = 0;
+    const cliente = await conectar({ ...deps, versiones: { ultima: async () => (consultas++, '9.0.0'), conocida: () => '9.0.0' } });
+
+    const r = await cliente.callTool({ name: 'perfiles_listar', arguments: {} });
+
+    expect(textoDe(r)).toContain('Hay una versión nueva de mi-sii-mcp (9.0.0)');
+    expect(consultas).toBe(1);
+    await cliente.close();
+  });
+
   it('el JSON de cada respuesta va compacto: en una sola línea, sin indentación', async () => {
     const { deps, store } = depsDePrueba();
     store.guardarContribuyente(perfilEmpresa());

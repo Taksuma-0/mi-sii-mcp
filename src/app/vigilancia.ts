@@ -5,6 +5,7 @@ import { parseRut } from '../domain/rut.js';
 import { f22Vigente } from '../domain/renta.js';
 import { parsePeriodo, periodoAnterior, periodoDeFecha, restarPeriodos } from '../domain/periodo.js';
 import { avisosDeSituacion } from '../domain/situacion-sii.js';
+import { esMasNueva } from '../domain/version.js';
 import type { Perfil } from '../domain/tipos.js';
 import { hallazgos, plazos } from './consultas.js';
 import type { DepsApp } from './deps.js';
@@ -152,8 +153,29 @@ export async function vigilar(deps: DepsApp, opciones: { readonly signal?: Abort
       revisadas.push({ rut: perfil.rut, estado: 'error', detalle: esErrorMiSiiMcp(e) ? `[${e.codigo}] ${e.message}` : 'Error inesperado' });
     }
   }
+  candidatos.push(...(await avisoDeVersion(deps)));
   const nuevos = deps.store.registrarAvisos(candidatos, deps.reloj.ahora().toISOString());
   return { revisadas, nuevos, mantenimiento: await mantenimientoDiario(deps, deps.reloj.ahora()) };
+}
+
+/** Los avisos de la aplicación (no de una cuenta) van con este identificador en vez de un RUT. */
+export const RUT_APLICACION = 'mi-sii-mcp';
+
+/** Un aviso, una vez por versión, si hay una versión nueva de mi-sii-mcp publicada en npm. Nunca instala nada. */
+async function avisoDeVersion(deps: DepsApp): Promise<AvisoCandidato[]> {
+  if (!deps.versiones || !deps.versionActual) return [];
+  const ultima = await deps.versiones.ultima().catch(() => null);
+  if (!esMasNueva(ultima, deps.versionActual)) return [];
+  return [
+    {
+      rut: RUT_APLICACION,
+      clave: `V:${ultima}`,
+      tipo: 'version',
+      severidad: 'info',
+      titulo: `Hay una versión nueva de mi-sii-mcp (${ultima})`,
+      detalle: `Tienes la ${deps.versionActual}. Actualízala con npx -y mi-sii-mcp@latest, o con git pull y npm run build si la instalaste desde el código.`,
+    },
+  ];
 }
 
 /** Avisos que la persona aún no ve (de una cuenta o de todas); por defecto quedan marcados como vistos. */

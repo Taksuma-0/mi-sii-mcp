@@ -21,6 +21,7 @@ import { sincronizar, type Avance } from '../../app/sincronizar.js';
 import { carteraEstado, novedades } from '../../app/vigilancia.js';
 import { ErrorMiSiiMcp, esErrorMiSiiMcp, type CodigoError } from '../../domain/errores.js';
 import { parsePeriodo } from '../../domain/periodo.js';
+import { esMasNueva } from '../../domain/version.js';
 import { parseRut } from '../../domain/rut.js';
 import { lineaReintento, textoAsientos, textoCartera, textoDocumentos, textoHallazgos, textoHistorialF29, textoConciliacion, textoCuenta, textoCuentas, textoEstimacionF29, textoEstimacionRenta, textoFuentes, textoImportacion, textoLibro, textoNovedades, textoOportunidades, textoPendientes, textoPerfiles, textoPlazos, textoProyeccionCierre, textoReintentables, textoReintentablesCuenta, textoReintentablesRenta, textoReleerF29, textoRenta, textoResultado, textoResumenIva, textoResumenRenta, textoSimulacionRegimen, textoSituacionSii, textoSync } from '../formato.js';
 import { asientosLivianos, libroLiviano, panoramaLiviano, rentaLiviana } from './proyecciones.js';
@@ -173,6 +174,12 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
   };
   const seguro = crearSeguro(comandoLogin);
   const servidor = new McpServer({ name: 'mi-sii-mcp', version }, { instructions: INSTRUCCIONES_MCP });
+  // Al iniciar se pregunta (sin esperar) por la última versión publicada, para avisarla después sin ir a la red.
+  void deps.versiones?.ultima().catch(() => null);
+  const lineaVersion = (): string => {
+    const conocida = deps.versiones?.conocida() ?? null;
+    return esMasNueva(conocida, version) ? `\nHay una versión nueva de mi-sii-mcp (${conocida}); tienes la ${version}. Actualízala con npx -y mi-sii-mcp@latest (o git pull y npm run build).` : '';
+  };
 
   servidor.registerTool(
     'perfiles_listar',
@@ -187,7 +194,7 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
         const perfiles = await listarPerfilesConRenovacion(deps);
         // Sin perfiles, el primer paso es el login (registra el perfil solo); `mi-sii-mcp perfil agregar` no abre sesión ni está en el PATH.
         const texto = perfiles.length === 0 ? `No hay perfiles todavía. ${guiaLogin(comandoLogin, undefined, 'El login con la clave de un RUT crea su perfil.')}` : textoPerfiles(perfiles);
-        return respuesta(texto, perfiles);
+        return respuesta(`${texto}${lineaVersion()}`, perfiles);
       }),
   );
 

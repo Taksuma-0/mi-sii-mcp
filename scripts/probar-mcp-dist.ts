@@ -27,7 +27,7 @@ async function probar(home: string): Promise<void> {
   const transporte = new StdioClientTransport({
     command: process.execPath,
     args: [BIN, 'mcp'],
-    env: { ...getDefaultEnvironment(), MI_SII_MCP_HOME: home },
+    env: { ...getDefaultEnvironment(), MI_SII_MCP_HOME: home, MI_SII_MCP_SIN_AVISO_VERSION: '1' },
   });
   const cliente = new Client({ name: 'probar-mcp-dist', version: '1.0.0' });
   try {

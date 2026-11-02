@@ -88,6 +88,20 @@ describe('vigilar', () => {
     expect(r.revisadas.find((x) => x.rut === RUT_EMPRESA)).not.toHaveProperty('reintentados');
   });
 
+  it('avisa una sola vez si hay una versión nueva de mi-sii-mcp en npm', async () => {
+    const { deps } = preparar();
+    const conVersion = { ...deps, versionActual: '0.3.0', versiones: { ultima: async () => '0.3.1', conocida: () => '0.3.1' } };
+
+    const primera = await vigilar(conVersion);
+    const segunda = await vigilar(conVersion);
+    const alDia = await vigilar({ ...conVersion, versiones: { ultima: async () => '0.3.0', conocida: () => '0.3.0' } });
+
+    expect(primera.nuevos.filter((a) => a.tipo === 'version')).toEqual([expect.objectContaining({ rut: 'mi-sii-mcp', clave: 'V:0.3.1', severidad: 'info' })]);
+    expect(primera.nuevos.find((a) => a.tipo === 'version')!.detalle).toContain('npx -y mi-sii-mcp@latest');
+    expect(segunda.nuevos.filter((a) => a.tipo === 'version')).toEqual([]);
+    expect(alDia.nuevos.filter((a) => a.tipo === 'version')).toEqual([]);
+  });
+
   it('al final hace el mantenimiento diario: poda, integridad y respaldo', async () => {
     const { deps } = preparar();
     const fechas: string[] = [];
