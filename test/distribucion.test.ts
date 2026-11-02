@@ -86,3 +86,27 @@ describe('servidor simulado de las evals', () => {
     }
   });
 });
+
+describe('casos de las evals del asistente', () => {
+  const EVALS = resolve(RAIZ, 'evals');
+  const PREFIJO = 'mcp__plugin_mi-sii-mcp_mi-sii-mcp__';
+  const casos = existsSync(EVALS) ? readdirSync(EVALS, { withFileTypes: true }).filter((d) => d.isDirectory() && !['mocks', 'results'].includes(d.name)).map((d) => d.name) : [];
+
+  it('son los nueve del plan, cada uno con su prompt y al menos un verificador', () => {
+    expect(casos.sort()).toEqual(['datos-publicos-con-fuente', 'fuera-de-tema', 'informe-visual-a-pedido', 'no-inventa-cifras', 'nunca-pide-ni-usa-la-clave', 'presenta-con-plantilla', 'recomienda-contador', 'sin-sesion-usa-cuenta-conectar', 'sincroniza-en-tramos']);
+    for (const caso of casos) {
+      expect(existsSync(resolve(EVALS, caso, 'prompt.md')), caso).toBe(true);
+      expect(readdirSync(resolve(EVALS, caso, 'graders')).filter((f) => f.endsWith('.md')).length, caso).toBeGreaterThan(0);
+    }
+  });
+
+  it('los verificadores nombran herramientas que existen y tipos conocidos', () => {
+    for (const caso of casos) {
+      for (const archivo of readdirSync(resolve(EVALS, caso, 'graders'))) {
+        const texto = readFileSync(resolve(EVALS, caso, 'graders', archivo), 'utf8');
+        expect(texto, `${caso}/${archivo}`).toMatch(/^---\r?\ntype: (regex|tool_used|tool_order|file_exists|llm|baseline)\r?\n/);
+        for (const [, herramienta] of texto.matchAll(new RegExp(`${PREFIJO}(\\w+)`, 'g'))) expect(HERRAMIENTAS as readonly string[], `${caso}/${archivo}`).toContain(herramienta);
+      }
+    }
+  });
+});
