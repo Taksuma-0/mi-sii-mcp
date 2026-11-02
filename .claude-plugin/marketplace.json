@@ -1,0 +1,17 @@
+{
+  "name": "mi-sii-mcp",
+  "description": "Marketplace de mi-sii-mcp: el servidor MCP y la skill para consultar y conciliar tu información del SII de Chile.",
+  "owner": {
+    "name": "Welinton Barrera",
+    "url": "https://github.com/Taksuma-0"
+  },
+  "plugins": [
+    {
+      "name": "mi-sii-mcp",
+      "source": "./",
+      "description": "Tus impuestos del SII de Chile con tu asistente: IVA, F29, F22, boletas de honorarios, vencimientos, banco y contabilidad. Solo lectura y local.",
+      "category": "finanzas",
+      "tags": ["sii", "chile", "impuestos", "iva", "f29", "f22", "boletas-de-honorarios", "contabilidad"]
+    }
+  ]
+}

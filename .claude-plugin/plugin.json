@@ -1,0 +1,23 @@
+{
+  "name": "mi-sii-mcp",
+  "displayName": "mi-sii-mcp",
+  "version": "0.2.0",
+  "description": "Consulta y concilia tu información del SII de Chile con tu asistente: IVA, F29, renta F22, boletas de honorarios y vencimientos. Instala el servidor MCP mi-sii-mcp (desde npm) y su skill. Solo lectura y local; no es oficial del SII.",
+  "author": {
+    "name": "Welinton Barrera",
+    "url": "https://github.com/Taksuma-0"
+  },
+  "homepage": "https://taksuma-0.github.io/mi-sii-mcp/",
+  "repository": "https://github.com/Taksuma-0/mi-sii-mcp",
+  "license": "MIT",
+  "keywords": ["sii", "sii-chile", "chile", "impuestos", "iva", "f29", "f22", "renta", "boletas-de-honorarios", "contabilidad"],
+  "icon": "./docs/img/marca/kit/03_PNG_Transparentes/icono_512.png",
+  "documentationUrl": "https://github.com/Taksuma-0/mi-sii-mcp/blob/main/docs/guias/asistente-mcp.md",
+  "supportUrl": "https://github.com/Taksuma-0/mi-sii-mcp/issues",
+  "mcpServers": {
+    "mi-sii-mcp": {
+      "command": "npx",
+      "args": ["-y", "mi-sii-mcp@0.2.0", "mcp"]
+    }
+  }
+}
