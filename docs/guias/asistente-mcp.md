@@ -122,14 +122,29 @@ Escribe en el chat de Claude como lo harías con una persona. Algunos ejemplos:
 - «Trae la propuesta de F29 de septiembre y compárala con lo que declaré.» (superficie `propuesta`).
 - «Muéstrame mi renta de los años tributarios 2024 a 2026: conclusión, impuesto pagado y remanente.» (`renta_sincronizar`, luego `renta_resumen`; el año tributario es el año comercial + 1).
 - «Sincroniza mi perfil y dime si el SII me autoriza a declarar hasta el día 20.» (`perfil_sincronizar`).
+- «¿Cuánto voy a pagar en el F29 de octubre?» (`f29_estimar`: usa el RCV, el remanente del mes anterior, la tasa de PPM del último F29 y las boletas recibidas; para reajustar el remanente pide la UTM de los dos meses).
+- «Estima mi renta del año tributario 2027.» (`fuentes_oficiales` con `regla=true` para los datos públicos del año y luego `renta_estimar`).
+- «Importa la cartola que descargué del banco y concíliala con mis facturas.» (`banco_importar` con la ruta del CSV, o súbela en la página local; luego `banco_conciliar`).
+- «¿Qué clientes me deben y desde cuándo?» (`cuentas_pendientes`).
+- «Exporta el libro de compras y los asientos de septiembre para mi contador.» (`contabilidad_libro` y `contabilidad_asientos` con `exportar`: los CSV quedan en `~/.mi-sii-mcp/exportaciones`).
+- «¿Cuál fue mi resultado del trimestre?» (`contabilidad_resultado`, devengado o, con cartolas, percibido).
+- «¿Tengo anotaciones en el SII?» (`sii_avisos`).
+- «¿Qué novedades hay desde la última revisión?» (`novedades`) y «¿cómo están todas mis cuentas?» (`cartera_estado`).
+- «¿Cómo puedo pagar menos impuestos de forma legal?» (`ahorro_oportunidades`, y para una empresa `cierre_proyectar` y `regimen_simular`).
 
-Cómo trabaja el asistente: para los cálculos de IVA, retenciones y plazos usa herramientas que aplican las reglas del dominio (`iva_resumen`, `iva_hallazgos`, `f29_historial`, `plazos_proximos`) y, para la renta, `renta_resumen`. Para cruces y preguntas libres lee primero el mapa de las tablas (`datos_esquema`) y luego escribe consultas de solo lectura (`consulta_sql`) sobre una **copia** de tus datos, así que no puede modificar la base real. Cada respuesta tiene un tope de 200 filas y 40 000 caracteres: si una pregunta es muy amplia, el asistente agrupa o filtra.
+**Recetas.** El servidor ofrece consultas listas (prompts MCP) que tu cliente muestra en su menú: `revision_mensual`, `que_tengo_pendiente`, `cierre_contable`, `cartera_semanal`, `preparar_renta` y `ahorro_tributario`. Cada una le dice al asistente qué herramientas usar y en qué orden.
+
+**Revisión diaria.** En la página «Abrir mi-sii-mcp.cmd», la sección «Avisos» activa una revisión cada día a la hora que elijas. Revisa todas las cuentas con sesión (mes anterior y actual, hallazgos, plazos, anotaciones de Mi SII y, entre abril y junio, la renta) y muestra una sola notificación de Windows con lo nuevo. Cada aviso se notifica una vez; los ves con `novedades` o en la misma página.
+
+**Estimaciones y ahorro.** Las estimaciones y simulaciones dicen de dónde sale cada número y qué supuestos usan. Los datos públicos (UTM, tablas, tasas) se informan como parámetros desde la página oficial que indica `fuentes_oficiales`. Las oportunidades de ahorro solo son beneficios que la ley ya permite, cada una con su norma; ninguna sugiere operaciones sin sustancia. Nada de esto es asesoría: confírmalo con un contador.
+
+Cómo trabaja el asistente: para los cálculos de IVA, retenciones y plazos usa herramientas que aplican las reglas del dominio (`iva_resumen`, `iva_hallazgos`, `f29_historial`, `plazos_proximos`, `f29_estimar`) y, para la renta, `renta_resumen` y `renta_estimar`. Para cruces y preguntas libres lee primero el mapa de las tablas (`datos_esquema`) y luego escribe consultas de solo lectura (`consulta_sql`) sobre una **copia** de tus datos, así que no puede modificar la base real. Cada respuesta tiene un tope de 200 filas y 40 000 caracteres: si una pregunta es muy amplia, el asistente agrupa o filtra.
 
 Una ausencia de filas no significa cero: puede ser un mes que nunca se descargó. Pídele que lo distinga con la bitácora de sincronización.
 
 Si un F29 leído no cuadra, o tras actualizar mi-sii-mcp, pídele «relee mis F29 guardados»: `f29_releer` vuelve a leer los PDF ya descargados con el lector actual, sin entrar al SII (en la terminal, `releer-f29 <tu RUT>`).
 
-### Herramientas (15)
+### Herramientas (30)
 
 | Herramienta | Para qué sirve | ¿Va al SII? |
 | --- | --- | --- |
@@ -144,8 +159,21 @@ Si un F29 leído no cuadra, o tras actualizar mi-sii-mcp, pídele «relee mis F2
 | `rcv_documentos` | Documentos del RCV de un mes, paginados. | No |
 | `f29_releer` | Relee los PDF de F29 ya guardados con el lector actual. | No |
 | `datos_esquema`, `consulta_sql` | Mapa de las tablas y consultas `SELECT` de solo lectura. | No |
+| `sii_avisos` | Anotaciones vigentes, estado de cumplimiento y mensajes de Mi SII; registra cada anotación como aviso. | Sí (lee) |
+| `f29_estimar` | F29 de un mes calculado antes de declararlo; si ya se presentó, la diferencia con el código 91. | No |
+| `renta_estimar` | F22 estimado de una persona (honorarios y sueldo) con los datos públicos del año; compara con el código 305 si hay F22. | No |
+| `banco_importar` | Importa una cartola CSV o TXT (hasta 5 MB) de cualquier banco; detecta columnas, codificación y separador. | No |
+| `banco_conciliar` | Empareja los movimientos con ventas, compras, boletas, F29 y F22; permite asignar o descartar a mano. | No |
+| `cuentas_pendientes` | Por cobrar y por pagar, por tramos de antigüedad. | No |
+| `contabilidad_cuentas` | Plan de cuentas base, cuentas propias y la cuenta de cada proveedor. | No |
+| `contabilidad_libro`, `contabilidad_asientos` | Libros (compras, ventas, honorarios, banco) y propuesta de asientos que cuadran, exportables a CSV. | No |
+| `contabilidad_resultado` | Resultado del período, devengado o percibido, con los principales clientes y proveedores. | No |
+| `novedades`, `cartera_estado` | Avisos sin ver de la revisión diaria y una línea por cuenta con lo que necesita atención. | No |
+| `ahorro_oportunidades` | Oportunidades legales de pagar menos o después, con su norma y la página oficial. | No |
+| `regimen_simular` | Pro Pyme General frente a Transparente para un año, con el régimen inscrito y la base del F22 si existe. | No |
+| `cierre_proyectar` | Proyección del año al cierre contra los PPM pagados. | No |
 
-Qué puede cambiar el estado local: `perfil_sincronizar` reemplaza a quién representa el perfil (`representa`) por las empresas activas que informa el SII, de modo que lo que anotaste a mano se sobrescribe. De las empresas autorizadas se guarda también la razón social, que puede ser el nombre de una persona. Los hallazgos guardados se recalculan al pedir `iva_resumen` o `iva_hallazgos`, por lo que pueden quedar desfasados después de `perfil_sincronizar` (por ejemplo, el plazo del F29 depende del día 20) hasta que se vuelvan a pedir.
+Qué puede cambiar el estado local: `banco_importar` guarda los movimientos de la cartola; `banco_conciliar` y `contabilidad_cuentas` guardan lo que asignes a mano; `contabilidad_libro` y `contabilidad_asientos` escriben archivos en `~/.mi-sii-mcp/exportaciones` si pides exportar; `novedades` marca los avisos como vistos y `sii_avisos` registra avisos nuevos. `perfil_sincronizar` reemplaza a quién representa el perfil (`representa`) por las empresas activas que informa el SII, de modo que lo que anotaste a mano se sobrescribe. De las empresas autorizadas se guarda también la razón social, que puede ser el nombre de una persona. Los hallazgos guardados se recalculan al pedir `iva_resumen` o `iva_hallazgos`, por lo que pueden quedar desfasados después de `perfil_sincronizar` (por ejemplo, el plazo del F29 depende del día 20) hasta que se vuelvan a pedir.
 
 **Qué se sincroniza por defecto.** `sincronizar` trae solo `rcv` y `f29` si no indicas superficies: la propuesta y las boletas de honorarios son opcionales porque cada una agrega consultas al SII por mes. Pídelas expresamente («incluye las boletas de honorarios»). La renta y el perfil tienen su propia herramienta.
 

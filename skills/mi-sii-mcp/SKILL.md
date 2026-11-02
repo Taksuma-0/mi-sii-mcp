@@ -1,6 +1,6 @@
 ---
 name: mi-sii-mcp
-description: Consulta y concilia la información tributaria del SII de Chile con el servidor MCP mi-sii-mcp (IVA, Registro de Compras y Ventas, F29, renta F22, boletas de honorarios, declaraciones juradas de terceros y vencimientos). Úsala cuando la persona pregunte por sus impuestos chilenos, el SII, IVA, F29, F22, renta, devolución, boletas de honorarios, retenciones, PPM, plazos o vencimientos, o quiera cruzar sus registros tributarios. Use it for Chilean SII tax questions (VAT, F29, F22 income tax, fee receipts).
+description: Consulta y concilia la información tributaria del SII de Chile con el servidor MCP mi-sii-mcp (IVA, Registro de Compras y Ventas, F29, renta F22, boletas de honorarios, declaraciones juradas de terceros, anotaciones de Mi SII y vencimientos), estima el F29 y la renta, concilia cartolas del banco, arma libros y asientos, y muestra formas legales de pagar menos impuestos. Úsala cuando la persona pregunte por sus impuestos chilenos, el SII, IVA, F29, F22, renta, devolución, boletas de honorarios, retenciones, PPM, plazos, anotaciones, banco, contabilidad, régimen Pro Pyme o ahorro tributario, o quiera cruzar sus registros tributarios. Use it for Chilean SII tax questions (VAT, F29, F22 income tax, fee receipts, bookkeeping, legal tax savings).
 ---
 
 # mi-sii-mcp: impuestos del SII con datos reales
@@ -17,6 +17,7 @@ Si las herramientas no están disponibles, dile a la persona que instale y regis
 4. **Reintentos:** reintenta solo si el error dice «Reintentar: ahora mismo» o «más tarde» (o lista «Reintentables más tarde»). Con «Reintentar: no», sigue la acción indicada.
 5. **Datos públicos con fuente.** UTM, tablas de impuestos, tasas de cotización o comisiones de AFP no están guardados: usa `fuentes_oficiales` y cita la página oficial del año que corresponda.
 6. **Privacidad.** Lo que consultes pasa a la conversación. Muestra solo lo necesario para responder y no repitas RUT ni nombres de terceros si no hacen falta.
+7. **Ahorro solo legal.** Explica las oportunidades con su norma y su enlace oficial. Nunca sugieras simular gastos, compras ni contratos: es elusión o fraude. Las estimaciones y simulaciones son eso: dilo.
 
 ## Primeros pasos en cada conversación
 
@@ -32,7 +33,8 @@ Para una **persona sin IVA** (solo boletas de honorarios o sueldo), parte por la
 | --- | --- | --- |
 | Compras, ventas y F29 de meses | `sincronizar` | `rut`, `desde` y `hasta` (AAAA-MM). Por defecto trae `rcv` y `f29`; agrega `superficies: ["propuesta"]` o `["bhe"]` solo si se necesitan. Tramos de **hasta 12 meses** e informa el avance tras cada tramo. |
 | Renta F22, boletas emitidas y lo que informan terceros | `renta_sincronizar` | `desde`/`hasta` son **años tributarios** (año comercial + 1): las boletas de 2026 están en el AT2027. |
-| Régimen, autorización del día 20 y empresas | `perfil_sincronizar` | Hazlo antes de hablar de vencimientos del F29. |
+| Régimen, autorización del día 20 y empresas | `perfil_sincronizar` | Hazlo antes de hablar de vencimientos del F29 o de simular régimen. |
+| Anotaciones vigentes y cumplimiento en Mi SII | `sii_avisos` | Solo con la sesión propia del RUT; registra cada anotación como aviso. |
 
 ## Recetas por tarea
 
@@ -51,10 +53,22 @@ Sincroniza por tramos → `f29_historial` (desde, hasta) para la evolución mes 
 **Lo que otros informaron al SII**
 `renta_resumen` muestra las declaraciones juradas de terceros (por ejemplo, retenciones de honorarios) y avisa si el SII observó la declaración de un informante. Explica que una observación del SII al informante no es un error de la persona.
 
+**Estimar el F29 antes de declararlo**
+`f29_estimar` (rut, periodo). Sin la UTM de los dos meses el remanente no se reajusta: dilo o pídelas (página de la UTM en `fuentes_oficiales`). Si el F29 está atrasado, el portal del SII calcula los recargos al declarar.
+
 **Estimar la renta o una devolución**
 1. `renta_resumen` para los datos de la persona.
 2. `fuentes_oficiales` con `regla: true` para la regla de cálculo y las páginas oficiales.
-3. Consulta esas páginas, calcula y **marca el resultado como estimación**, indicando qué valores son provisionales si el año aún no tiene tablas publicadas.
+3. Con los datos públicos del año, `renta_estimar`; **marca el resultado como estimación** e indica qué valores son provisionales si el año aún no tiene tablas publicadas.
+
+**Banco y contabilidad**
+`banco_importar` (o la página local) → `banco_conciliar` del rango: pregunta qué son los movimientos sin conciliar antes de asignarlos o descartarlos → `cuentas_pendientes` → `contabilidad_libro`, `contabilidad_asientos` y `contabilidad_resultado` (con `exportar` si los quiere en Excel). La receta `cierre_contable` lo encadena.
+
+**Seguimiento y varias cuentas**
+`novedades` para los avisos de la revisión diaria (se activa en la página local), `cartera_estado` para ver todas las cuentas y `sii_avisos` para las anotaciones de Mi SII.
+
+**Pagar menos, legalmente**
+`ahorro_oportunidades` → para una empresa, `cierre_proyectar` del año y `regimen_simular` con los socios (usa la base del F22 si existe); para una persona, `renta_estimar` con y sin `apv_regimen_b` o `gastos_efectivos`. Ordena por monto y di qué falta para confirmar cada una.
 
 **Vencimientos**
 `perfil_sincronizar` (si no se ha hecho) → `plazos_proximos` (opcional `dias`). El F29 vence el día 12, 20 o 28 según autorización y si hay pago.
@@ -74,8 +88,8 @@ mi-sii-mcp funciona bien con subagentes si respetas una regla: **solo un agente 
 | Rol | Hace | Herramientas |
 | --- | --- | --- |
 | Coordinador | Entiende la pregunta, revisa perfiles y lo guardado, reparte el trabajo y redacta la respuesta final | `perfiles_listar`, `sii_panorama` |
-| Sincronizador (uno solo) | Trae del SII lo que falte, en tramos, uno tras otro | `sincronizar`, `renta_sincronizar`, `perfil_sincronizar` |
-| Analistas (en paralelo) | Analizan datos ya guardados, por mes, año, RUT o tema | `iva_resumen`, `iva_hallazgos`, `f29_historial`, `rcv_documentos`, `renta_resumen`, `plazos_proximos`, `consulta_sql` |
+| Sincronizador (uno solo) | Trae del SII lo que falte, en tramos, uno tras otro | `sincronizar`, `renta_sincronizar`, `perfil_sincronizar`, `sii_avisos` |
+| Analistas (en paralelo) | Analizan datos ya guardados, por mes, año, RUT o tema | `iva_resumen`, `iva_hallazgos`, `f29_historial`, `rcv_documentos`, `renta_resumen`, `plazos_proximos`, `f29_estimar`, `renta_estimar`, `contabilidad_*`, `cuentas_pendientes`, `ahorro_oportunidades`, `consulta_sql` |
 | Revisor | Comprueba cifras y conclusiones contra los hallazgos y las fuentes oficiales | `iva_hallazgos`, `consulta_sql`, `fuentes_oficiales` |
 
 Patrones y ejemplos en [references/multiagente.md](references/multiagente.md).

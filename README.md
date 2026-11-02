@@ -32,7 +32,7 @@
   <a href="docs/guias/asistente-mcp.md">Guía completa</a>
 </p>
 
-**mi-sii-mcp** es un servidor [Model Context Protocol (MCP)](https://modelcontextprotocol.io) de código abierto que conecta asistentes de inteligencia artificial —**Claude, Codex, Cursor, Gemini CLI, VS Code con Copilot** y otros clientes MCP— con tu información tributaria del **Servicio de Impuestos Internos (SII) de Chile**. Lee tu IVA, tus F29, tu renta (F22), tus boletas de honorarios y lo que otros informan sobre ti; lo guarda **en tu equipo** y lo **concilia** para mostrarte qué cuadra, qué no y qué vence. Funciona en **solo lectura** y el asistente nunca recibe tu clave.
+**mi-sii-mcp** es un servidor [Model Context Protocol (MCP)](https://modelcontextprotocol.io) de código abierto que conecta asistentes de inteligencia artificial —**Claude, Codex, Cursor, Gemini CLI, VS Code con Copilot** y otros clientes MCP— con tu información tributaria del **Servicio de Impuestos Internos (SII) de Chile**. Lee tu IVA, tus F29, tu renta (F22), tus boletas de honorarios, lo que otros informan sobre ti y tus anotaciones en Mi SII; lo guarda **en tu equipo** y lo **concilia** para mostrarte qué cuadra, qué no y qué vence. Además estima el F29 y la renta antes de declarar, concilia tus cartolas del banco, arma libros y asientos para tu contador, te avisa cada día solo si algo requiere atención y muestra las formas **legales** de pagar menos, con su norma. Funciona en **solo lectura** frente al SII y el asistente nunca recibe tu clave.
 
 > [!NOTE]
 > Proyecto independiente de código abierto: no está afiliado al SII ni reemplaza la asesoría de un contador. Úsalo para revisar tu información y tomar mejores decisiones.
@@ -47,12 +47,17 @@
 
 - **Consultas tributarias en lenguaje natural**: pregúntale a tu asistente por tu IVA, tus F29, tu renta o tus boletas de honorarios, con tus datos reales del SII.
 - **Conciliación automática**: cruza el registro de compras y ventas con el F29, las boletas con la renta y lo que informan tus pagadores con tus propios registros.
-- **Alertas útiles**: F29 sin presentar o por vencer (día 12, 20 o 28 según tu caso), facturas por reclamar y descuadres.
+- **Alertas útiles**: F29 sin presentar o por vencer (día 12, 20 o 28 según tu caso), facturas por reclamar, descuadres y anotaciones vigentes del SII.
+- **F29 y renta estimados**: calcula el F29 del mes (débito, crédito, remanente, PPM y retenciones) y el F22 de una persona antes de declararlos, y los compara con lo presentado.
+- **Banco y contabilidad**: importa cartolas en CSV de cualquier banco, las concilia con facturas, boletas e impuestos, y arma libros, asientos y el resultado del período, exportables a Excel.
+- **Revisión diaria**: con un clic en la página local, revisa todas tus cuentas cada día y te avisa con una notificación de Windows solo cuando hay algo nuevo.
+- **Ahorro tributario legal**: oportunidades que tus datos sostienen (crédito de IVA por usar, postergación del IVA, gastos efectivos, APV), cada una con su norma y la página oficial; simula el régimen Pro Pyme y proyecta el cierre del año.
+- **Cartera**: para quien lleva varias empresas, una vista de qué cuenta necesita atención.
 - **Solo lectura**: nunca presenta, modifica ni emite nada en el SII.
 - **Datos locales**: todo se guarda en una base SQLite en tu equipo; no hay servidores intermedios.
 - **La clave no pasa por el chat**: inicias sesión en una página local y ninguna herramienta del MCP recibe claves.
 - **Varias cuentas**: tu RUT personal y los de tus empresas, cada uno con su propia sesión.
-- **Open source (MIT)**, escrito en TypeScript, con más de 1.300 pruebas automáticas que usan solo datos ficticios.
+- **Open source (MIT)**, escrito en TypeScript, con más de 1.500 pruebas automáticas que usan solo datos ficticios.
 
 ## Qué lee del SII y qué concilia
 
@@ -60,9 +65,20 @@
 | --- | --- | --- |
 | **IVA** | Registro de Compras y Ventas (RCV), F29 presentados (con su PDF) y propuesta de F29 | IVA del RCV contra el F29, F29 faltantes, facturas por reclamar y coherencia interna del F29 |
 | **Boletas de honorarios** | Recibidas (por mes) y emitidas (resumen anual y detalle boleta por boleta) | Retención de las boletas contra el F29 (código 151) y contra la renta (códigos 547 y 492) |
-| **Renta (F22)** | Declaraciones por año tributario, folio vigente, códigos, observaciones y eventos (devoluciones, giros) | Boletas emitidas y lo informado por terceros contra el F22 |
+| **Renta (F22)** | Declaraciones por año tributario, folio vigente, códigos, observaciones y eventos (devoluciones, giros), y lo que el SII prepara para el F22 (PPM y comparativo F29-RCV) | Boletas emitidas y lo informado por terceros contra el F22; los PPM del SII contra tus F29 |
 | **Informado por terceros** | Declaraciones juradas que otros presentan sobre ti (p. ej. retenciones de honorarios) | Lo que informa cada pagador contra tus boletas y tu F22; avisa si el SII observó la declaración de un informante |
 | **Cuenta** | Perfil tributario (régimen, segmento, autorización para declarar el F29 hasta el día 20) y empresas autorizadas | Vencimientos del F29 según tu caso |
+| **Mi SII** | Anotaciones vigentes (p. ej. F29 no presentado, que puede impedir emitir documentos), estado de cumplimiento y mensajes | Las convierte en avisos de la revisión diaria |
+
+Y con lo guardado, sin ir al SII:
+
+| Área | Qué hace |
+| --- | --- |
+| **Estimaciones** | F29 del mes antes de declararlo y F22 de una persona (con los datos públicos del año); proyección del cierre del año contra los PPM pagados |
+| **Banco** | Importa cartolas CSV, concilia cada movimiento con facturas, boletas, F29 y F22, y muestra las cuentas por cobrar y por pagar por antigüedad |
+| **Contabilidad** | Plan de cuentas base, libros de compras, ventas, honorarios y banco, propuesta de asientos que cuadran y resultado devengado o percibido, exportables a CSV |
+| **Seguimiento** | Revisión diaria con avisos sin repetir, novedades y el estado de toda la cartera |
+| **Ahorro legal** | Oportunidades con su norma y página oficial, y simulación Pro Pyme General frente a Transparente |
 
 Los **datos públicos** (UTM, tablas de impuestos, tasas de cotización, comisiones de AFP) no se guardan: la herramienta `fuentes_oficiales` indica en qué página oficial consultarlos para el año que corresponda.
 
@@ -74,7 +90,10 @@ mi-sii-mcp (repositorio oficial: [github.com/Taksuma-0/mi-sii-mcp](https://githu
 - **No presenta ni rectifica** declaraciones (F29, F22) ni modifica nada en el portal.
 - **No descarga los archivos XML o PDF de las facturas electrónicas (DTE)**: lee el detalle del Registro de Compras y Ventas.
 - **No opera el portal con un navegador automatizado**: consulta el SII directamente y solo abre el navegador, si tú lo eliges, para iniciar sesión con ClaveÚnica.
-- **No envía tus datos a servidores de terceros**: todo queda en tu equipo.
+- **No envía tus datos a servidores de terceros**: todo queda en tu equipo. Solo escribe en tu equipo: la base, los archivos que exportas y la tarea de la revisión diaria si la activas.
+- **No es una contabilidad completa**: propone libros y asientos para revisar con tu contador.
+- **No sugiere operaciones para pagar menos**: solo muestra beneficios que la ley ya permite, con su norma; simular gastos o contratos es elusión o fraude.
+- **No consulta la Tesorería** (deudas y giros) por ahora.
 
 ## Compatibilidad con agentes de IA
 
@@ -218,7 +237,16 @@ Reinicia tu asistente (en Claude Code basta con `/mcp`) para que cargue el servi
 | «¿Tengo algún F29 sin presentar o por vencer?» | Revisa tus F29 y calcula el vencimiento según tu caso (`plazos_proximos`, `iva_hallazgos`) |
 | «¿Cuadra el IVA de compras y ventas con el F29 de septiembre?» | Concilia el RCV con el F29 del mes (`iva_resumen`) |
 | «¿A quién le emití más boletas en 2026?» | Consulta el detalle boleta por boleta guardado (`consulta_sql`) |
-| «Estímame la devolución de la próxima renta» | Junta tus datos y te indica las fuentes oficiales de los valores públicos (`fuentes_oficiales`) |
+| «Estímame la devolución de la próxima renta» | Junta tus datos, te indica las fuentes oficiales de los valores públicos y estima el F22 (`fuentes_oficiales`, `renta_estimar`) |
+| «¿Cuánto voy a pagar en el F29 de este mes?» | Calcula el F29 con el RCV, el remanente, el PPM y las retenciones (`f29_estimar`) |
+| «Concilia mi cartola de octubre» | Importa el CSV del banco y empareja cada movimiento con facturas, boletas e impuestos (`banco_importar`, `banco_conciliar`) |
+| «¿Qué me falta cobrar?» | Lista las facturas sin cobro en el banco, por antigüedad (`cuentas_pendientes`) |
+| «Dame el libro de compras y los asientos de septiembre en Excel» | Exporta los CSV a `~/.mi-sii-mcp/exportaciones` (`contabilidad_libro`, `contabilidad_asientos`) |
+| «¿Tengo anotaciones en el SII?» | Lee tus anotaciones vigentes y el estado de cumplimiento en Mi SII (`sii_avisos`) |
+| «¿Cómo puedo pagar menos impuestos, legalmente?» | Busca oportunidades con su norma y simula régimen y cierre (`ahorro_oportunidades`, `regimen_simular`, `cierre_proyectar`) |
+| «¿Qué cuenta necesita atención esta semana?» | Una línea por cuenta con lo vencido, lo pendiente y los avisos (`cartera_estado`) |
+
+El servidor trae además **recetas** listas (prompts MCP) que tu cliente muestra en su menú: revisión del mes, qué tengo pendiente, cierre contable, cartera semanal, preparar la renta y ahorro tributario.
 
 ## Skill para agentes
 
@@ -245,6 +273,15 @@ La skill complementa al servidor, que además entrega sus propias instrucciones 
 | `f29_releer` | Vuelve a leer los PDF de F29 guardados, sin ir al SII | No |
 | `fuentes_oficiales` | Dónde consultar los datos públicos (UTM, tablas, tasas) y cómo estimar una renta | No |
 | `datos_esquema`, `consulta_sql` | Mapa de las tablas y consultas `SELECT` de solo lectura para preguntas libres | No |
+| `sii_avisos` | Anotaciones vigentes, estado de cumplimiento y mensajes de Mi SII; los suma a novedades | Sí (lectura) |
+| `f29_estimar` | F29 calculado antes de declararlo, comparado con el presentado si existe | No |
+| `renta_estimar` | F22 estimado de una persona con los datos públicos del año, comparado con el presentado | No |
+| `banco_importar`, `banco_conciliar` | Importa cartolas CSV y las concilia con facturas, boletas, F29 y F22 (con ajustes a mano) | No |
+| `cuentas_pendientes` | Por cobrar y por pagar, por antigüedad | No |
+| `contabilidad_cuentas`, `contabilidad_libro`, `contabilidad_asientos`, `contabilidad_resultado` | Plan de cuentas, libros, asientos y resultado, exportables a CSV | No |
+| `novedades`, `cartera_estado` | Avisos de la revisión diaria y estado de todas las cuentas | No |
+| `ahorro_oportunidades` | Oportunidades legales de pagar menos o después, con su norma | No |
+| `regimen_simular`, `cierre_proyectar` | Pro Pyme General frente a Transparente y proyección del año al cierre | No |
 
 ## Seguridad y privacidad
 
@@ -336,6 +373,9 @@ Las contribuciones son bienvenidas. Por favor, **nunca incluyas datos tributario
 ## Limitaciones
 
 - La propuesta del F22 aún no se lee (el SII la publica en abril).
+- Las estimaciones y simulaciones no ven sueldos, depreciación ni otros gastos sin documento tributario: si conoces la base real, infórmala.
+- Las cartolas se importan en CSV o TXT; el XLSX se guarda primero como CSV desde Excel.
+- La revisión diaria y sus notificaciones están hechas para Windows.
 - La declaración de sueldos del empleador (DJ 1887) se lee de forma genérica: su formato no se ha verificado con datos reales.
 - El inicio de sesión con ClaveÚnica desde el navegador es experimental.
 - Si el SII cambia su portal, algunas lecturas pueden fallar hasta actualizar el lector; los errores lo indican y nunca se borran datos guardados por una respuesta vacía.
