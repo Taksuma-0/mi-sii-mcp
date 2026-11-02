@@ -32,10 +32,10 @@ describe('servidor MCP', () => {
     expect(p.sii.llamadas).toEqual([]);
   });
 
-  it('expone exactamente las 26 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
+  it('expone exactamente las 27 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
     const cliente = await conectar(depsDePrueba().deps);
     const { tools } = await cliente.listTools();
-    expect(tools).toHaveLength(26);
+    expect(tools).toHaveLength(27);
     expect(tools.map((t) => t.name).sort()).toEqual([...HERRAMIENTAS].sort());
     expect(JSON.stringify(tools.map((t) => t.inputSchema)).toLowerCase()).not.toMatch(/clave|password|contrase/);
     expect(tools.find((t) => t.name === 'iva_resumen')?.annotations?.readOnlyHint).toBe(true);
@@ -449,6 +449,22 @@ describe('servidor MCP', () => {
     await cliente.close();
   });
 
+  it('ahorro_oportunidades lista oportunidades legales con su norma y la advertencia antielusión', async () => {
+    const { deps, store } = depsDePrueba({ ahora: '2026-10-21T15:00:00.000Z' });
+    store.guardarContribuyente(perfilEmpresa());
+    sembrarMes(store, '2026-09', { documentos: [documento({ estado: 'PENDIENTE', montoIva: 19_000 })] });
+    const cliente = await conectar(deps);
+
+    const r = await cliente.callTool({ name: 'ahorro_oportunidades', arguments: { rut: RUT_EMPRESA } });
+
+    expect(esError(r)).toBe(false);
+    expect(textoDe(r)).toContain('[OPO-IVA-01] Crédito de IVA de compras pendientes que aún puedes usar · $19.000');
+    expect(textoDe(r)).toContain('art. 24');
+    expect(textoDe(r)).toContain('Solo con operaciones reales');
+    expect(textoDe(r)).toContain('No es asesoría');
+    await cliente.close();
+  });
+
   it('ofrece recetas listas que nombran las herramientas y nunca piden la clave', async () => {
     const cliente = await conectar(depsDePrueba().deps);
     const { prompts } = await cliente.listPrompts();
@@ -633,7 +649,7 @@ describe('servidor MCP', () => {
     expect(instrucciones).toBe(INSTRUCCIONES_MCP);
     expect(instrucciones.length).toBeGreaterThan(0);
     expect(instrucciones.length).toBeLessThanOrEqual(1_500);
-    for (const clave of ['perfiles_listar', 'sii_panorama', 'sincronizar', '12 meses', 'iva_resumen', 'iva_hallazgos', 'f29_historial', 'plazos_proximos', 'datos_esquema', 'consulta_sql', 'f29_releer', 'perfil_sincronizar', 'renta_sincronizar', 'renta_resumen', 'f29_estimar', 'banco_importar', 'banco_conciliar', 'contabilidad_asientos', 'novedades', 'cartera_estado', 'renta_estimar', 'propuesta', 'bhe', 'Reintentar: ahora mismo', 'Reintentables más tarde', 'SESION_REQUERIDA', 'login-navegador', 'Abrir mi-sii-mcp.cmd', 'RCV', 'F29', 'F22']) {
+    for (const clave of ['perfiles_listar', 'sii_panorama', 'sincronizar', '12 meses', 'iva_resumen', 'iva_hallazgos', 'f29_historial', 'plazos_proximos', 'datos_esquema', 'consulta_sql', 'f29_releer', 'perfil_sincronizar', 'renta_sincronizar', 'renta_resumen', 'f29_estimar', 'banco_importar', 'banco_conciliar', 'contabilidad_asientos', 'novedades', 'cartera_estado', 'renta_estimar', 'ahorro_oportunidades', 'propuesta', 'bhe', 'Reintentar: ahora mismo', 'Reintentables más tarde', 'SESION_REQUERIDA', 'login-navegador', 'Abrir mi-sii-mcp.cmd', 'RCV', 'F29', 'F22']) {
       expect(instrucciones).toContain(clave);
     }
     expect(instrucciones).toMatch(/boletas de honorarios recibidas y emitidas/);

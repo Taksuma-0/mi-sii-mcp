@@ -1,5 +1,6 @@
 import { McpServer, type ServerContext } from '@modelcontextprotocol/server';
 import * as z from 'zod';
+import { ahorroOportunidades } from '../../app/ahorro.js';
 import { conciliacionBancaria, cuentasPendientes, fijarConciliacion, importarCartola, MAX_BYTES_CARTOLA } from '../../app/banco.js';
 import { consultaSql, esquemaDatos, LIMITES_CONSULTA } from '../../app/consulta-libre.js';
 import { asientos, asignarCuenta, crearCuenta, exportarAsientos, resultadoPeriodo, vistaCuentas } from '../../app/contabilidad.js';
@@ -19,7 +20,7 @@ import { carteraEstado, novedades } from '../../app/vigilancia.js';
 import { ErrorMiSiiMcp, esErrorMiSiiMcp, type CodigoError } from '../../domain/errores.js';
 import { parsePeriodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
-import { lineaReintento, textoAsientos, textoCartera, textoDocumentos, textoHallazgos, textoHistorialF29, textoConciliacion, textoCuenta, textoCuentas, textoEstimacionF29, textoEstimacionRenta, textoFuentes, textoImportacion, textoLibro, textoNovedades, textoPendientes, textoPerfiles, textoPlazos, textoReintentables, textoReintentablesCuenta, textoReintentablesRenta, textoReleerF29, textoRenta, textoResultado, textoResumenIva, textoResumenRenta, textoSync } from '../formato.js';
+import { lineaReintento, textoAsientos, textoCartera, textoDocumentos, textoHallazgos, textoHistorialF29, textoConciliacion, textoCuenta, textoCuentas, textoEstimacionF29, textoEstimacionRenta, textoFuentes, textoImportacion, textoLibro, textoNovedades, textoOportunidades, textoPendientes, textoPerfiles, textoPlazos, textoReintentables, textoReintentablesCuenta, textoReintentablesRenta, textoReleerF29, textoRenta, textoResultado, textoResumenIva, textoResumenRenta, textoSync } from '../formato.js';
 import { registrarRecetas } from './recetas.js';
 
 export const HERRAMIENTAS = [
@@ -49,6 +50,7 @@ export const HERRAMIENTAS = [
   'novedades',
   'cartera_estado',
   'renta_estimar',
+  'ahorro_oportunidades',
 ] as const;
 
 /** Lo que lee el asistente al conectarse: flujo de uso, regla de la clave y cobertura (máximo 1 500 caracteres). */
@@ -57,10 +59,10 @@ export const INSTRUCCIONES_MCP = [
   '2. Si falta o está viejo: sincronizar en tramos de hasta 12 meses (rcv y f29; propuesta y bhe opcionales), renta_sincronizar (F22) y perfil_sincronizar (perfil y empresas autorizadas).',
   '3. IVA: iva_resumen, iva_hallazgos, f29_historial y plazos_proximos; f29_estimar calcula un F29 antes de declararlo; f29_releer relee los PDF. Renta: renta_resumen; renta_estimar con los datos públicos de fuentes_oficiales.',
   '4. Banco y contabilidad: banco_importar (cartola CSV), banco_conciliar, cuentas_pendientes; contabilidad_cuentas, contabilidad_libro, contabilidad_asientos y contabilidad_resultado (exportables a CSV).',
-  '5. Seguimiento: novedades (avisos de la revisión diaria) y cartera_estado (todas las cuentas). Cruces libres: datos_esquema una vez y luego consulta_sql (solo lectura).',
+  '5. Seguimiento: novedades y cartera_estado. Ahorro legal: ahorro_oportunidades. Cruces libres: datos_esquema y luego consulta_sql (solo lectura).',
   '6. Nunca pidas la clave ni intentes un login. Ante SESION_REQUERIDA (o CLAVE_RECHAZADA, RUT_BLOQUEADO_LOCAL) pide abrir «Abrir mi-sii-mcp.cmd» y conectar la cuenta, o da el comando del mensaje (login-navegador para ClaveÚnica). Luego reintenta.',
   '7. Reintenta solo con «Reintentar: ahora mismo» o «más tarde» (o «Reintentables más tarde»).',
-  '8. Cobertura: RCV, F29, propuesta de F29, boletas de honorarios recibidas y emitidas, renta F22, perfil tributario y empresas autorizadas; banco y contabilidad locales. Solo lee el SII. No es oficial del SII ni asesoría tributaria.',
+  '8. Cobertura: RCV, F29 y su propuesta, boletas de honorarios recibidas y emitidas, F22, perfil y empresas autorizadas; banco y contabilidad locales. Solo lee el SII. No es oficial del SII ni asesoría tributaria.',
 ].join('\n');
 
 export interface OpcionesMcp {
@@ -578,6 +580,22 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
         });
         return respuesta(textoEstimacionRenta(r), r);
       }, a.rut),
+  );
+
+  servidor.registerTool(
+    'ahorro_oportunidades',
+    {
+      title: 'Oportunidades de ahorro tributario',
+      description:
+        'Oportunidades legales de pagar menos (o de pagar después) que sostienen los datos guardados: crédito de IVA de compras pendientes que aún se puede usar, remanente de crédito sin usar, postergación del pago del IVA para pymes, gastos efectivos en vez de presuntos en honorarios y APV régimen B. Cada una trae su norma con la página oficial del SII, el monto involucrado, qué hacer y los datos que faltan. Nunca sugiere operaciones sin sustancia. No es asesoría: confírmalas con un contador. Solo usa la base local.',
+      inputSchema: z.object({ rut: RUT }),
+      annotations: SOLO_LECTURA,
+    },
+    async ({ rut }) =>
+      seguro(() => {
+        const r = ahorroOportunidades(deps, rut);
+        return respuesta(textoOportunidades(r), r);
+      }, rut),
   );
 
   servidor.registerTool(

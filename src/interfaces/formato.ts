@@ -1,3 +1,4 @@
+import type { ResultadoOportunidades } from '../app/ahorro.js';
 import type { CuentasPendientes, LadoPendiente, ResultadoImportacion, ResumenConciliacion } from '../app/banco.js';
 import type { FilaHistorialF29, PaginaDocumentos, ResumenIva } from '../app/consultas.js';
 import type { Asiento, Contraparte, LineaResultado, ResultadoAsientos, ResultadoDelPeriodo, VistaCuentas } from '../app/contabilidad.js';
@@ -633,5 +634,22 @@ export function textoEstimacionRenta(r: ResultadoEstimacionRenta): string {
     ...f22,
     ...(r.supuestos.length > 0 ? [`Supuestos: ${r.supuestos.join(' ')}`] : []),
     ...(r.faltantes.length > 0 ? [`Falta: ${r.faltantes.join(' ')}`] : []),
+  ].join('\n');
+}
+
+/** Oportunidades de ahorro con su norma, monto, qué hacer y la advertencia antielusión (una sola vez al final). */
+export function textoOportunidades(r: ResultadoOportunidades): string {
+  const cabecera = `Oportunidades de ahorro tributario de ${r.rut} (revisado: ${r.revisado.join('; ')}). No es asesoría: confírmalas con un contador.`;
+  if (r.oportunidades.length === 0) return `${cabecera}\nCon los datos guardados no aparece ninguna. Sincroniza el RCV, los F29 y la renta para revisar más.`;
+  return [
+    cabecera,
+    ...r.oportunidades.flatMap((o) => [
+      `[${o.id}] ${o.titulo}${o.montoEstimado === null ? '' : ` · ${formatearClp(o.montoEstimado)}`}`,
+      `  ${o.detalle}`,
+      `  Base legal: ${o.baseLegal.norma} (${o.baseLegal.url})`,
+      `  Qué hacer: ${o.accion}`,
+      ...o.datosFaltantes.map((d) => `  Falta: ${d}`),
+    ]),
+    r.oportunidades[0]!.antielusion,
   ].join('\n');
 }
