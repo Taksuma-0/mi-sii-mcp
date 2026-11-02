@@ -14,15 +14,18 @@ const leer = <T>(ruta: string): T => JSON.parse(readFileSync(resolve(RAIZ, ruta)
 const versionLanzada = (m: Manifiesto): string | undefined =>
   m.mcpServers['mi-sii-mcp']?.args.find((a) => a.startsWith('mi-sii-mcp@'))?.slice('mi-sii-mcp@'.length);
 
-describe('manifiestos de distribución (plugin de Claude Code y extensión de Gemini CLI)', () => {
+describe('manifiestos de distribución (plugin de Claude Code, extensión de Gemini CLI y mcp.json)', () => {
   const plugin = leer<Manifiesto>('.claude-plugin/plugin.json');
   const marketplace = leer<Marketplace>('.claude-plugin/marketplace.json');
   const gemini = leer<Manifiesto>('gemini-extension.json');
+  // cursor.directory detecta el servidor en el mcp.json de la raíz y copia esa configuración a quien lo instala.
+  const mcpRaiz = leer<Pick<Manifiesto, 'mcpServers'>>('mcp.json');
 
-  it('cada uno lanza con npx la misma versión que declara, y ambos la misma', () => {
+  it('cada uno lanza con npx la misma versión que declara, y todos la misma', () => {
     expect(versionLanzada(plugin)).toBe(plugin.version);
     expect(versionLanzada(gemini)).toBe(gemini.version);
     expect(gemini.version).toBe(plugin.version);
+    expect(versionLanzada({ ...plugin, mcpServers: mcpRaiz.mcpServers })).toBe(plugin.version);
   });
 
   it('la versión es exacta, no un rango ni latest', () => {

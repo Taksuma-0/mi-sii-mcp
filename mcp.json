@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "mi-sii-mcp": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "mi-sii-mcp@0.2.0", "mcp"]
+    }
+  }
+}
