@@ -7,6 +7,7 @@ import { boleta, declaracion, declaracionF22, detalleF22, documento, empresaAuto
 import { depsDePrueba } from '../helpers/deps.js';
 import { guardarPdfF29, pdfFalso } from '../helpers/lector-falso.js';
 import { sembrarMes, T_SEMBRADO } from '../helpers/sembrar.js';
+import { VERSION } from '../../src/main/version.js';
 
 function entorno(o: { claveStdin?: string; fallaAlAbrir?: Error; falloNavegador?: Error } = {}) {
   const p = depsDePrueba({ fallaAlAbrir: o.fallaAlAbrir });
@@ -278,7 +279,7 @@ describe('CLI', () => {
   it('--version informa la versión', async () => {
     const e = entorno();
     await expect(e.correr('--version')).rejects.toMatchObject({ exitCode: 0 });
-    expect(e.salidaTexto.join('\n')).toContain('0.1.0');
+    expect(e.salidaTexto.join('\n')).toContain(VERSION);
   });
 });
 

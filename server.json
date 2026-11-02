@@ -3,7 +3,7 @@
   "name": "io.github.Taksuma-0/mi-sii-mcp",
   "title": "mi-sii-mcp",
   "description": "Servidor MCP para el SII de Chile: IVA, F29, F22 y boletas de honorarios. Solo lectura y local.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "websiteUrl": "https://taksuma-0.github.io/mi-sii-mcp/",
   "repository": {
     "url": "https://github.com/Taksuma-0/mi-sii-mcp",
@@ -15,7 +15,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "mi-sii-mcp",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"
