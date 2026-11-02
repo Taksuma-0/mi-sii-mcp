@@ -1,5 +1,7 @@
+import { tmpdir } from 'node:os';
+import { join, sep } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { abrirPagina, comandoNavegador } from '../../src/interfaces/web/lanzador.js';
+import { abrirPagina, comandoArchivo, comandoNavegador } from '../../src/interfaces/web/lanzador.js';
 import { crearServidorLocal } from '../../src/interfaces/web/servidor.js';
 
 const cierres: (() => Promise<void>)[] = [];
@@ -18,6 +20,30 @@ describe('comando para abrir el navegador', () => {
 
   it.each(['http://ejemplo.cl', 'https://127.0.0.1:47529', "http://127.0.0.1:47529';calc'", 'http://127.0.0.1:47529/estado'])('rechaza %s: solo abre la página local', (url) => {
     expect(() => comandoNavegador('win32', url)).toThrow('URL local inválida');
+  });
+});
+
+describe('comando para abrir un informe', () => {
+  const carpeta = join(tmpdir(), 'mi-sii-mcp', 'informes');
+  const ruta = join(carpeta, 'iva-11111111-1-2026-09.html');
+
+  it.each([
+    ['win32', 'powershell.exe', ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-Command', `Start-Process -FilePath '${ruta}'`]],
+    ['darwin', 'open', [ruta]],
+    ['linux', 'xdg-open', [ruta]],
+  ] as const)('en %s usa %s', (plataforma, comando, args) => {
+    expect(comandoArchivo(plataforma, ruta, carpeta)).toEqual({ comando, args });
+  });
+
+  it.each([
+    ['fuera de la carpeta', join(tmpdir(), 'otra', 'x.html')],
+    ['con ..', `${carpeta}${sep}..${sep}informes${sep}x.html`],
+    ['que no es .html', join(carpeta, 'x.exe')],
+    ['con .html en medio', join(carpeta, 'x.html.exe')],
+    ['con comillas y punto y coma', join(carpeta, "x';calc;'.html")],
+    ['la carpeta misma', carpeta],
+  ])('rechaza una ruta %s', (_, otra) => {
+    expect(() => comandoArchivo('win32', otra, carpeta)).toThrow('Ruta de informe inválida');
   });
 });
 

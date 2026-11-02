@@ -25,7 +25,9 @@ import { parsePeriodo } from '../../domain/periodo.js';
 import { esMasNueva } from '../../domain/version.js';
 import { parseRut } from '../../domain/rut.js';
 import { lineaReintento, textoAsientos, textoCartera, textoDocumentos, textoHallazgos, textoHistorialF29, textoConciliacion, textoCuenta, textoCuentas, textoEstimacionF29, textoEstimacionRenta, textoFuentes, textoImportacion, textoLibro, textoNovedades, textoOportunidades, textoPendientes, textoPerfiles, textoPlazos, textoProyeccionCierre, textoReintentables, textoReintentablesCuenta, textoReintentablesRenta, textoReleerF29, textoRenta, textoResultado, textoResumenIva, textoResumenRenta, textoSimulacionRegimen, textoSituacionSii, textoSync, textoDiagnostico } from '../formato.js';
-import { abrirPagina, type OpcionesPagina } from '../web/lanzador.js';
+import { armarInforme } from '../informes/armar.js';
+import { paginaInforme } from '../informes/plantilla.js';
+import { abrirArchivo, abrirPagina, type OpcionesPagina } from '../web/lanzador.js';
 import type { ServidorLocal } from '../web/servidor.js';
 import { asientosLivianos, libroLiviano, panoramaLiviano, rentaLiviana } from './proyecciones.js';
 import { registrarRecetas } from './recetas.js';
@@ -63,6 +65,7 @@ export const HERRAMIENTAS = [
   'sii_avisos',
   'diagnostico',
   'cuenta_conectar',
+  'informe_visual',
 ] as const;
 
 /** Lo que lee el asistente al conectarse: flujo de uso, regla de la clave y cobertura (máximo 1 500 caracteres). */
@@ -71,7 +74,7 @@ export const INSTRUCCIONES_MCP = [
   '2. Si falta o está viejo: sincronizar en tramos de hasta 12 meses (rcv y f29; propuesta y bhe opcionales), renta_sincronizar (F22) y perfil_sincronizar (perfil y empresas autorizadas).',
   '3. IVA: iva_resumen, iva_hallazgos, f29_historial y plazos_proximos; f29_estimar calcula un F29 antes de declararlo; f29_releer relee los PDF. Renta: renta_resumen; renta_estimar con datos públicos de fuentes_oficiales.',
   '4. Banco y contabilidad: banco_importar (cartola CSV), banco_conciliar, cuentas_pendientes; contabilidad_cuentas, contabilidad_libro, contabilidad_asientos y contabilidad_resultado (exportan CSV).',
-  '5. Seguimiento: novedades, cartera_estado, sii_avisos (anotaciones) y diagnostico (salud). Ahorro legal: ahorro_oportunidades, regimen_simular y cierre_proyectar. Cruces libres: datos_esquema y luego consulta_sql (solo lectura).',
+  '5. Seguimiento: novedades, cartera_estado, sii_avisos y diagnostico. Ahorro legal: ahorro_oportunidades, regimen_simular y cierre_proyectar. Cruces: datos_esquema y luego consulta_sql (solo lectura). Para verlo en visual o imprimir: informe_visual.',
   '6. Nunca pidas la clave ni intentes un login. Ante SESION_REQUERIDA (o CLAVE_RECHAZADA, RUT_BLOQUEADO_LOCAL) usa cuenta_conectar o da el comando del mensaje (login-navegador para ClaveÚnica). Luego reintenta.',
   '7. Reintenta solo con «Reintentar: ahora mismo» o «más tarde» (o «Reintentables más tarde»).',
   '8. Cobertura: RCV, F29 y su propuesta, boletas de honorarios recibidas y emitidas, F22, perfil y empresas autorizadas; banco y contabilidad locales. Solo lee el SII. No es oficial del SII ni asesoría tributaria.',
@@ -87,6 +90,8 @@ export interface OpcionesMcp {
   readonly comandoLoginNavegador?: (rut: string) => string;
   /** Dónde y cómo abre cuenta_conectar la página local; por defecto, el puerto fijo y el navegador del sistema. */
   readonly pagina?: OpcionesPagina;
+  /** Cómo abre informe_visual el archivo; por defecto, el navegador del sistema y solo dentro de la carpeta de informes. */
+  readonly informes?: { readonly abrir?: (ruta: string) => Promise<void> };
 }
 
 /** Los dos comandos con que la persona entra por su cuenta. */
@@ -624,6 +629,39 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
         const filas = carteraEstado(deps);
         return respuesta(textoCartera(filas), filas);
       }),
+  );
+
+  const abrirInforme = opciones.informes?.abrir ?? ((ruta: string) => abrirArchivo(ruta, deps.archivos.carpetaInformes()));
+  servidor.registerTool(
+    'informe_visual',
+    {
+      title: 'Informe visual',
+      description:
+        'Arma un informe visual en HTML (conclusión, tarjetas, gráficos y tablas; listo para imprimir o guardar como PDF) con lo guardado localmente y lo abre en el navegador de la persona: «iva» del mes (rut y periodo), «renta» (rut; anio opcional), «cartera» (todas las cuentas) o «vencimientos» (rut). Úsala cuando la persona pida verlo en un informe, en visual o para imprimir. No consulta el SII ni envía datos fuera del equipo: el archivo queda en la carpeta informes de mi-sii-mcp.',
+      inputSchema: z.object({
+        tipo: z.enum(['iva', 'renta', 'cartera', 'vencimientos']).describe('Qué informe armar'),
+        rut: RUT.optional(),
+        periodo: PERIODO.optional(),
+        anio: ANIO_TRIBUTARIO.optional(),
+        abrir: z.boolean().optional().describe('false solo guarda el archivo; por defecto lo abre en el navegador'),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ tipo, rut, periodo, anio, abrir }) =>
+      seguro(async () => {
+        const informe = armarInforme(deps, { tipo, rut, periodo, anio });
+        if ('sinDatos' in informe) return respuesta(informe.sinDatos, { ruta: null });
+        const ruta = await deps.archivos.guardarInforme(informe.nombre, paginaInforme(informe.contenido));
+        let abierto = false;
+        if (abrir !== false) abierto = await abrirInforme(ruta).then(() => true, () => false);
+        const dondeQuedo =
+          abrir === false
+            ? `Guardé el informe en ${ruta}.`
+            : abierto
+              ? `Abrí el informe en el navegador de la persona: ${ruta}.`
+              : `No se pudo abrir el navegador: pide a la persona que abra ${ruta} (doble clic o arrastrándolo al navegador).`;
+        return respuesta(`${dondeQuedo} Se armó solo con lo guardado, sin consultar al SII: tus datos quedan en tu equipo. Desde el navegador se puede imprimir o guardar como PDF.`, { ruta, tipo, abierto });
+      }, rut),
   );
 
   servidor.registerTool(

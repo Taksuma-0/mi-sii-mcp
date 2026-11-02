@@ -7,15 +7,15 @@ import { escribirAtomico } from './escritura.js';
 /** Solo se leen cartolas en texto: así un pedido equivocado no puede leer otros archivos del equipo. */
 const EXTENSIONES = new Set(['.csv', '.txt']);
 
-/** Nombre de archivo seguro para exportar: sin carpetas ni caracteres raros, con guiones en vez de espacios. */
-const nombreSeguro = (nombre: string): string =>
+/** Nombre de archivo seguro: sin carpetas ni caracteres raros, con guiones en vez de espacios. */
+const nombreSeguro = (nombre: string, porDefecto = 'exportacion.csv'): string =>
   basename(nombre)
     .normalize('NFD')
     .replace(/\p{Diacritic}/gu, '')
     .replace(/[^A-Za-z0-9._-]+/g, '-')
-    .replace(/^[.-]+/, '') || 'exportacion.csv';
+    .replace(/^[.-]+/, '') || porDefecto;
 
-/** Archivos del equipo: lee las cartolas que indica la persona y exporta a `<carpeta de datos>/exportaciones`. */
+/** Archivos del equipo: lee las cartolas que indica la persona, exporta a `<carpeta de datos>/exportaciones` y guarda los informes en `<carpeta de datos>/informes`. */
 export class ArchivosSistema implements ArchivosLocales {
   constructor(private readonly home: string) {}
 
@@ -40,6 +40,18 @@ export class ArchivosSistema implements ArchivosLocales {
     await mkdir(carpeta, { recursive: true });
     const ruta = join(carpeta, nombreSeguro(nombre));
     escribirAtomico(ruta, contenido);
+    return ruta;
+  }
+
+  carpetaInformes(): string {
+    return join(this.home, 'informes');
+  }
+
+  async guardarInforme(nombre: string, html: string): Promise<string> {
+    const carpeta = this.carpetaInformes();
+    await mkdir(carpeta, { recursive: true });
+    const ruta = join(carpeta, `${nombreSeguro(nombre, 'informe').replace(/.html?$/i, '')}.html`);
+    escribirAtomico(ruta, html);
     return ruta;
   }
 }

@@ -88,6 +88,10 @@ export interface ArchivosLocales {
   leer(ruta: string, maxBytes: number): Promise<{ readonly nombre: string; readonly bytes: Uint8Array }>;
   /** Escribe `contenido` en la carpeta de exportaciones con un nombre seguro y devuelve la ruta completa. */
   exportar(nombre: string, contenido: string): Promise<string>;
+  /** Escribe un informe HTML en la carpeta de informes con un nombre seguro terminado en `.html` y devuelve la ruta completa. */
+  guardarInforme(nombre: string, html: string): Promise<string>;
+  /** La carpeta de los informes: solo se abren en el navegador archivos de ahí. */
+  carpetaInformes(): string;
 }
 
 /** Muestra una notificación del sistema; devuelve false si no se pudo (nunca lanza: un aviso no debe romper la revisión). */

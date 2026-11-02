@@ -1,6 +1,6 @@
 # Herramientas de mi-sii-mcp
 
-Las 32 herramientas del servidor, con sus parámetros:
+Las 33 herramientas del servidor, con sus parámetros:
 - `rut` acepta `12.345.678-9` o `12345678-9`.
 - Los períodos van como `AAAA-MM`.
 - Los años tributarios van como `AAAA` (año comercial + 1). En `regimen_simular` y `cierre_proyectar`, `anio` es el **año comercial**.
@@ -67,8 +67,14 @@ Las 32 herramientas del servidor, con sus parámetros:
 | Herramienta | Parámetros | Qué hace |
 | --- | --- | --- |
 | `novedades` | `rut?`, `marcar_vistas?` | Avisos de la revisión diaria que aún no se ven; por defecto los marca como vistos. |
-| `cartera_estado` | — | Una línea por cuenta: sesión, F29 vencidos o por vencer, hallazgos críticos, próximo plazo, avisos sin ver y movimientos sin conciliar. |
+| `cartera_estado` | — | Una fila por cuenta, con el ícono de su peor estado: sesión, F29 vencidos o por vencer, hallazgos críticos, próximo plazo, avisos sin ver y movimientos sin conciliar. |
 | `diagnostico` | `rut?` | Salud de mi-sii-mcp: versión, base y respaldo, sesión y última lectura buena por cuenta, fallas por reintentar y cambios del portal (campos nuevos, nombres adaptados, lecturas rotas). |
+
+### Informe visual
+
+| Herramienta | Parámetros | Qué hace |
+| --- | --- | --- |
+| `informe_visual` | `tipo` (`iva`, `renta`, `cartera` o `vencimientos`), `rut?`, `periodo?`, `anio?`, `abrir?` | Arma con lo guardado un informe HTML (conclusión, tarjetas, gráficos y tablas, listo para imprimir o guardar como PDF) y lo abre en el navegador. `iva` pide `rut` y `periodo`; `renta` y `vencimientos`, `rut`. No consulta el SII y el archivo queda en la carpeta `informes` de mi-sii-mcp. |
 
 ## Recetas (prompts MCP)
 

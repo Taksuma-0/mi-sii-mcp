@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { extname, isAbsolute, relative, resolve } from 'node:path';
 import { crearServidorLocal, type ServidorLocal } from './servidor.js';
 
 /** Puerto fijo de la página local: así una segunda apertura encuentra la que ya está corriendo. */
@@ -20,13 +21,44 @@ export function comandoNavegador(plataforma: NodeJS.Platform, url: string): Coma
   return { comando: 'xdg-open', args: [url] };
 }
 
-export async function abrirEnNavegador(url: string, plataforma: NodeJS.Platform = process.platform): Promise<void> {
-  const { comando, args } = comandoNavegador(plataforma, url);
+/**
+ * Caracteres de una ruta de informe que se pueden pasar al comando del sistema: letras (también con tilde), números,
+ * espacio y `_ . : \ / - ~` (este último, por los nombres cortos de Windows). Sin comillas, `$`, `;` ni `&`.
+ */
+const RUTA_SEGURA = /^[\p{L}\p{N}_ .:\\/~-]+$/u;
+
+/** El comando del sistema que abre en el navegador un informe: solo un `.html` dentro de `carpeta`. */
+export function comandoArchivo(plataforma: NodeJS.Platform, ruta: string, carpeta: string): ComandoNavegador {
+  const resuelta = resolve(ruta);
+  const dentro = relative(resolve(carpeta), resuelta);
+  const valida =
+    RUTA_SEGURA.test(resuelta) &&
+    !ruta.split(/[\\/]/).includes('..') &&
+    extname(resuelta).toLowerCase() === '.html' &&
+    dentro !== '' &&
+    !dentro.startsWith('..') &&
+    !isAbsolute(dentro);
+  if (!valida) throw new Error('Ruta de informe inválida.');
+  if (plataforma === 'win32') return { comando: 'powershell.exe', args: ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-Command', `Start-Process -FilePath '${resuelta}'`] };
+  if (plataforma === 'darwin') return { comando: 'open', args: [resuelta] };
+  return { comando: 'xdg-open', args: [resuelta] };
+}
+
+async function ejecutar({ comando, args }: ComandoNavegador): Promise<void> {
   await new Promise<void>((resolver, rechazar) => {
     const proceso = spawn(comando, [...args], { windowsHide: true, stdio: 'ignore' });
     proceso.once('error', rechazar);
     proceso.once('exit', (codigo) => (codigo === 0 ? resolver() : rechazar(new Error('No se pudo abrir el navegador.'))));
   });
+}
+
+export async function abrirEnNavegador(url: string, plataforma: NodeJS.Platform = process.platform): Promise<void> {
+  await ejecutar(comandoNavegador(plataforma, url));
+}
+
+/** Abre en el navegador predeterminado un informe guardado en `carpeta`. */
+export async function abrirArchivo(ruta: string, carpeta: string, plataforma: NodeJS.Platform = process.platform): Promise<void> {
+  await ejecutar(comandoArchivo(plataforma, ruta, carpeta));
 }
 
 export interface OpcionesPagina {

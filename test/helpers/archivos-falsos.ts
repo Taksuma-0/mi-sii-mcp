@@ -5,6 +5,7 @@ import type { ArchivosLocales } from '../../src/ports/index.js';
 export class ArchivosFalsos implements ArchivosLocales {
   readonly archivos = new Map<string, Uint8Array>();
   readonly exportados = new Map<string, string>();
+  readonly informes = new Map<string, string>();
 
   poner(ruta: string, contenido: string | Uint8Array): void {
     this.archivos.set(ruta, typeof contenido === 'string' ? new TextEncoder().encode(contenido) : contenido);
@@ -20,6 +21,16 @@ export class ArchivosFalsos implements ArchivosLocales {
   async exportar(nombre: string, contenido: string): Promise<string> {
     const ruta = `C:/exportaciones/${nombre}`;
     this.exportados.set(ruta, contenido);
+    return ruta;
+  }
+
+  carpetaInformes(): string {
+    return 'C:/informes';
+  }
+
+  async guardarInforme(nombre: string, html: string): Promise<string> {
+    const ruta = `${this.carpetaInformes()}/${nombre}.html`;
+    this.informes.set(ruta, html);
     return ruta;
   }
 }

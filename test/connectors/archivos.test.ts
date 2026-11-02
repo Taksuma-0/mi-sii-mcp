@@ -1,6 +1,6 @@
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ArchivosSistema } from '../../src/connectors/sistema/archivos.js';
 import { codigoDe } from '../helpers/errores.js';
@@ -38,5 +38,24 @@ describe('ArchivosSistema', () => {
 
     expect(ruta).toBe(join(dir, 'datos', 'exportaciones', 'libro-compras-2026-10.csv'));
     expect(readFileSync(ruta, 'utf8')).toBe('a;b');
+  });
+
+  it('guarda el informe en la carpeta de informes y devuelve su ruta', async () => {
+    const { dir, archivos } = preparar();
+
+    const ruta = await archivos.guardarInforme('iva-11111111-1-2026-09', '<!DOCTYPE html>');
+
+    expect(ruta).toBe(join(dir, 'datos', 'informes', 'iva-11111111-1-2026-09.html'));
+    expect(readFileSync(ruta, 'utf8')).toBe('<!DOCTYPE html>');
+    expect(archivos.carpetaInformes()).toBe(join(dir, 'datos', 'informes'));
+  });
+
+  it.each(['../../fuera', '..\\..\\fuera', '../', 'a/../../b c', '..'])('un nombre manipulado (%s) queda dentro de informes y termina en .html', async (nombre) => {
+    const { dir, archivos } = preparar();
+
+    const ruta = await archivos.guardarInforme(nombre, 'x');
+
+    expect(dirname(ruta)).toBe(join(dir, 'datos', 'informes'));
+    expect(ruta).toMatch(/[\\/][A-Za-z0-9][A-Za-z0-9._-]*\.html$/);
   });
 });

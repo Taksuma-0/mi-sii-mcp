@@ -35,10 +35,10 @@ describe('servidor MCP', () => {
     expect(p.sii.llamadas).toEqual([]);
   });
 
-  it('expone exactamente las 32 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
+  it('expone exactamente las 33 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
     const cliente = await conectar(depsDePrueba().deps);
     const { tools } = await cliente.listTools();
-    expect(tools).toHaveLength(32);
+    expect(tools).toHaveLength(33);
     expect(tools.map((t) => t.name).sort()).toEqual([...HERRAMIENTAS].sort());
     expect(JSON.stringify(tools.map((t) => t.inputSchema)).toLowerCase()).not.toMatch(/clave|password|contrase/);
     expect(tools.find((t) => t.name === 'iva_resumen')?.annotations?.readOnlyHint).toBe(true);
@@ -399,6 +399,97 @@ describe('servidor MCP', () => {
     it('no se alarga más de un 15 % frente a la respuesta de la 0.3 (638 caracteres con este mes)', async () => {
       const texto = await ivaDe({ resumenes: [resumen({ lado: 'VENTA', filas: [fila(33, 1_000_000, 190_000, 2)] })], declaraciones: [declaracion()], valores: [valores({ '538': 190_000, '537': 0 })] });
       expect(texto.length).toBeLessThanOrEqual(Math.floor(638 * 1.15));
+    });
+  });
+
+  describe('informe_visual', () => {
+    function conIva() {
+      const p = depsDePrueba();
+      p.store.guardarContribuyente(perfilEmpresa());
+      sembrarMes(p.store, '2026-09', { resumenes: [resumen({ lado: 'VENTA', filas: [fila(33, 1_000_000, 190_000, 2)] })], declaraciones: [declaracion()], valores: [valores({ '538': 190_000, '537': 0, '89': 190_000 })] });
+      return p;
+    }
+
+    it('arma el informe del IVA del mes con lo guardado, lo abre y dice dónde quedó', async () => {
+      const { deps, archivos, sii } = conIva();
+      const abiertos: string[] = [];
+      const cliente = await conectar(deps, { informes: { abrir: async (ruta) => void abiertos.push(ruta) } });
+
+      const r = await cliente.callTool({ name: 'informe_visual', arguments: { tipo: 'iva', rut: '22.222.222-2', periodo: '2026-09' } });
+
+      expect(esError(r)).toBe(false);
+      const [ruta, html] = [...archivos.informes][0]!;
+      expect(ruta).toMatch(/iva-22222222-2-2026-09\.html$/);
+      expect(html).toContain('$190.000');
+      expect(abiertos).toEqual([ruta]);
+      expect(textoDe(r)).toContain(ruta);
+      expect(textoDe(r)).toContain('tus datos quedan en tu equipo');
+      expect(sii.llamadas).toEqual([]);
+      await cliente.close();
+    });
+
+    it('con abrir: false solo lo guarda', async () => {
+      const { deps, archivos } = conIva();
+      const abiertos: string[] = [];
+      const cliente = await conectar(deps, { informes: { abrir: async (ruta) => void abiertos.push(ruta) } });
+
+      await cliente.callTool({ name: 'informe_visual', arguments: { tipo: 'iva', rut: RUT_EMPRESA, periodo: '2026-09', abrir: false } });
+
+      expect(archivos.informes.size).toBe(1);
+      expect(abiertos).toEqual([]);
+      await cliente.close();
+    });
+
+    it('si el navegador no se abre, igual entrega la ruta para abrirla a mano', async () => {
+      const { deps, archivos } = conIva();
+      const cliente = await conectar(deps, { informes: { abrir: async () => { throw new Error('sin navegador'); } } });
+
+      const r = await cliente.callTool({ name: 'informe_visual', arguments: { tipo: 'iva', rut: RUT_EMPRESA, periodo: '2026-09' } });
+
+      expect(esError(r)).toBe(false);
+      expect(textoDe(r)).toContain(`No se pudo abrir el navegador: pide a la persona que abra ${[...archivos.informes.keys()][0]}`);
+      await cliente.close();
+    });
+
+    it('sin datos guardados del período no crea el archivo y pide sincronizar', async () => {
+      const { deps, store, archivos } = depsDePrueba();
+      store.guardarContribuyente(perfilEmpresa());
+      const cliente = await conectar(deps, { informes: { abrir: async () => {} } });
+
+      const r = await cliente.callTool({ name: 'informe_visual', arguments: { tipo: 'iva', rut: RUT_EMPRESA, periodo: '2026-09' } });
+
+      expect(textoDe(r)).toMatch(/no hay datos guardados de .*sincroniza primero/i);
+      expect(archivos.informes.size).toBe(0);
+      await cliente.close();
+    });
+
+    it('el IVA pide el período y la renta el RUT', async () => {
+      const { deps, archivos } = conIva();
+      const cliente = await conectar(deps, { informes: { abrir: async () => {} } });
+
+      const sinPeriodo = await cliente.callTool({ name: 'informe_visual', arguments: { tipo: 'iva', rut: RUT_EMPRESA } });
+      const sinRut = await cliente.callTool({ name: 'informe_visual', arguments: { tipo: 'renta' } });
+
+      expect(esError(sinPeriodo)).toBe(true);
+      expect(textoDe(sinPeriodo)).toContain('periodo');
+      expect(esError(sinRut)).toBe(true);
+      expect(textoDe(sinRut)).toContain('rut');
+      expect(archivos.informes.size).toBe(0);
+      await cliente.close();
+    });
+
+    it('arma también la cartera y los vencimientos', async () => {
+      const { deps, archivos } = conIva();
+      const cliente = await conectar(deps, { informes: { abrir: async () => {} } });
+
+      await cliente.callTool({ name: 'informe_visual', arguments: { tipo: 'cartera' } });
+      await cliente.callTool({ name: 'informe_visual', arguments: { tipo: 'vencimientos', rut: RUT_EMPRESA } });
+
+      const nombres = [...archivos.informes.keys()];
+      expect(nombres[0]).toMatch(/cartera-\d{4}-\d{2}-\d{2}\.html$/);
+      expect(nombres[1]).toMatch(/vencimientos-22222222-2-\d{4}-\d{2}-\d{2}\.html$/);
+      expect(archivos.informes.get(nombres[0]!)).toContain('Cartera de 1 cuenta');
+      await cliente.close();
     });
   });
 
@@ -876,7 +967,7 @@ describe('servidor MCP', () => {
     expect(instrucciones).toBe(INSTRUCCIONES_MCP);
     expect(instrucciones.length).toBeGreaterThan(0);
     expect(instrucciones.length).toBeLessThanOrEqual(1_500);
-    for (const clave of ['perfiles_listar', 'sii_panorama', 'sincronizar', '12 meses', 'iva_resumen', 'iva_hallazgos', 'f29_historial', 'plazos_proximos', 'datos_esquema', 'consulta_sql', 'f29_releer', 'perfil_sincronizar', 'renta_sincronizar', 'renta_resumen', 'f29_estimar', 'banco_importar', 'banco_conciliar', 'contabilidad_asientos', 'novedades', 'cartera_estado', 'renta_estimar', 'ahorro_oportunidades', 'propuesta', 'bhe', 'Reintentar: ahora mismo', 'Reintentables más tarde', 'SESION_REQUERIDA', 'login-navegador', 'cuenta_conectar', 'RCV', 'F29', 'F22']) {
+    for (const clave of ['perfiles_listar', 'sii_panorama', 'sincronizar', '12 meses', 'iva_resumen', 'iva_hallazgos', 'f29_historial', 'plazos_proximos', 'datos_esquema', 'consulta_sql', 'f29_releer', 'perfil_sincronizar', 'renta_sincronizar', 'renta_resumen', 'f29_estimar', 'banco_importar', 'banco_conciliar', 'contabilidad_asientos', 'novedades', 'cartera_estado', 'renta_estimar', 'ahorro_oportunidades', 'propuesta', 'bhe', 'Reintentar: ahora mismo', 'Reintentables más tarde', 'SESION_REQUERIDA', 'login-navegador', 'cuenta_conectar', 'informe_visual', 'RCV', 'F29', 'F22']) {
       expect(instrucciones).toContain(clave);
     }
     expect(instrucciones).toMatch(/boletas de honorarios recibidas y emitidas/);
