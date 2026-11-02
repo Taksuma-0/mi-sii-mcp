@@ -1,6 +1,10 @@
 import { ERRORES_FATALES, esErrorMiSiiMcp, type CodigoError } from '../domain/errores.js';
+import { huellaRespuesta, superficieHuella } from '../domain/huella.js';
 import type { RespuestaCruda } from '../domain/tipos.js';
 import type { DepsApp } from './deps.js';
+
+/** Rutas nuevas que se guardan en un cambio aditivo: basta para entenderlo sin llenar la base. */
+const MAX_RUTAS_CAMBIO = 50;
 
 export interface ErrorSuperficie {
   readonly superficie: string;
@@ -108,4 +112,39 @@ export function redactarSesion(texto: string): string {
 
 export function volcar(deps: DepsApp, sincronizacionId: number, buffer: readonly RespuestaCruda[]): void {
   for (const r of buffer) deps.store.guardarRespuestaCruda(sincronizacionId, r);
+  registrarHuellas(deps, buffer);
+}
+
+/**
+ * Guarda la forma (solo nombres de campos) de cada respuesta y anota como cambio «aditivo» los campos que el SII agregó.
+ * Es informativo: no avisa ni detiene nada, y un error aquí nunca rompe la sincronización.
+ */
+function registrarHuellas(deps: DepsApp, buffer: readonly RespuestaCruda[]): void {
+  try {
+    const ahora = deps.reloj.ahora().toISOString();
+    if (buffer.length > 0 && deps.store.huellasPortal().length === 0) sembrarHuellas(deps, ahora);
+    for (const r of buffer) {
+      const rutas = huellaRespuesta(r.cuerpo);
+      if (rutas === null) continue;
+      const superficie = superficieHuella(r.superficie);
+      const nuevas = deps.store.registrarHuella(superficie, rutas, ahora);
+      if (nuevas.length > 0) deps.store.registrarCambioPortal(superficie, 'aditivo', { rutas: nuevas.slice(0, MAX_RUTAS_CAMBIO) }, ahora);
+    }
+  } catch {
+    // La huella es una ayuda para notar cambios del portal; nunca debe costar los datos traídos.
+  }
+}
+
+/** La primera vez, la forma conocida de cada superficie se arma con todas las respuestas ya guardadas, sin anotar cambios. */
+function sembrarHuellas(deps: DepsApp, ahora: string): void {
+  const porSuperficie = new Map<string, Set<string>>();
+  deps.store.cadaRespuestaCruda((superficie, cuerpo) => {
+    const rutas = huellaRespuesta(cuerpo);
+    if (rutas === null) return;
+    const clave = superficieHuella(superficie);
+    const conocidas = porSuperficie.get(clave) ?? new Set<string>();
+    for (const ruta of rutas) conocidas.add(ruta);
+    porSuperficie.set(clave, conocidas);
+  });
+  for (const [superficie, rutas] of porSuperficie) deps.store.registrarHuella(superficie, [...rutas], ahora);
 }

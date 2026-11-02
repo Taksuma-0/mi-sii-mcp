@@ -1205,6 +1205,12 @@ export class SqliteStore implements Store {
     })();
   }
 
+  cadaRespuestaCruda(fn: (superficie: string, cuerpo: string) => void): void {
+    for (const f of this.db.prepare('SELECT superficie, cuerpo FROM respuesta_cruda ORDER BY id').iterate() as IterableIterator<{ superficie: string; cuerpo: string }>) {
+      fn(f.superficie, f.cuerpo);
+    }
+  }
+
   huellasPortal(): HuellaPortal[] {
     const filas = this.db.prepare('SELECT superficie, rutas_json, primera_vez, ultima_vez FROM portal_huella ORDER BY superficie').all() as { superficie: string; rutas_json: string; primera_vez: string; ultima_vez: string }[];
     return filas.map((f) => ({ superficie: f.superficie, rutas: JSON.parse(f.rutas_json) as string[], primeraVez: f.primera_vez, ultimaVez: f.ultima_vez }));

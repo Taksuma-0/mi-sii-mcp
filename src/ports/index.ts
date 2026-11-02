@@ -345,6 +345,8 @@ export interface Store {
    * primera vez solo guarda la base y devuelve una lista vacía.
    */
   registrarHuella(superficie: string, rutas: readonly string[], ahora: string): string[];
+  /** Recorre las respuestas crudas guardadas (superficie y cuerpo) una por una, sin cargarlas todas en memoria. */
+  cadaRespuestaCruda(fn: (superficie: string, cuerpo: string) => void): void;
   huellasPortal(): HuellaPortal[];
   registrarCambioPortal(superficie: string, tipo: TipoCambioPortal, detalle: unknown, ahora: string): void;
   /** Cambios del portal detectados, desde una fecha ISO si se indica, del más antiguo al más nuevo. */
