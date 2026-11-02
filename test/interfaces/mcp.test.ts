@@ -32,10 +32,10 @@ describe('servidor MCP', () => {
     expect(p.sii.llamadas).toEqual([]);
   });
 
-  it('expone exactamente las 27 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
+  it('expone exactamente las 29 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
     const cliente = await conectar(depsDePrueba().deps);
     const { tools } = await cliente.listTools();
-    expect(tools).toHaveLength(27);
+    expect(tools).toHaveLength(29);
     expect(tools.map((t) => t.name).sort()).toEqual([...HERRAMIENTAS].sort());
     expect(JSON.stringify(tools.map((t) => t.inputSchema)).toLowerCase()).not.toMatch(/clave|password|contrase/);
     expect(tools.find((t) => t.name === 'iva_resumen')?.annotations?.readOnlyHint).toBe(true);
@@ -465,10 +465,55 @@ describe('servidor MCP', () => {
     await cliente.close();
   });
 
+  it('regimen_simular compara Pro Pyme General y Transparente con la base informada', async () => {
+    const { deps, store } = depsDePrueba();
+    store.guardarContribuyente(perfilEmpresa());
+    const cliente = await conectar(deps);
+    const tabla_igc = [
+      { desde: 0, hasta: 10_000_000, factor: 0, rebaja: 0 },
+      { desde: 10_000_000, hasta: null, factor: 0.1, rebaja: 1_000_000 },
+    ];
+
+    const r = await cliente.callTool({ name: 'regimen_simular', arguments: { rut: RUT_EMPRESA, anio: '2026', socios: [{ participacion: 100, otras_rentas: 0 }], tasa_idpc: 12.5, tabla_igc, base: 40_000_000 } });
+
+    expect(esError(r)).toBe(false);
+    expect(textoDe(r)).toContain('Pro Pyme General (14 D N°3): empresa $5.000.000 · dueños −$2.000.000 · total $3.000.000');
+    expect(textoDe(r)).toContain('Este año ambos pagan lo mismo.');
+    expect(textoDe(r)).toContain('30 de abril');
+    expect(textoDe(r)).toContain('no una recomendación');
+    await cliente.close();
+  });
+
+  it('cierre_proyectar sin RCV del año pide sincronizarlo', async () => {
+    const { deps, store } = depsDePrueba();
+    store.guardarContribuyente(perfilEmpresa());
+    const cliente = await conectar(deps);
+
+    const r = await cliente.callTool({ name: 'cierre_proyectar', arguments: { rut: RUT_EMPRESA, anio: '2026' } });
+
+    expect(esError(r)).toBe(true);
+    expect(textoDe(r)).toContain('SIN_DATOS_LOCALES');
+    await cliente.close();
+  });
+
+  it('cierre_proyectar proyecta el año con lo guardado', async () => {
+    const { deps, store } = depsDePrueba();
+    store.guardarContribuyente(perfilEmpresa());
+    sembrarMes(store, '2026-09', { documentos: [documento({ lado: 'VENTA', folio: 1, montoNeto: 1_000_000, montoIva: 190_000, montoTotal: 1_190_000 })] });
+    const cliente = await conectar(deps);
+
+    const r = await cliente.callTool({ name: 'cierre_proyectar', arguments: { rut: RUT_EMPRESA, anio: '2026', tasa_idpc: 12.5 } });
+
+    expect(esError(r)).toBe(false);
+    expect(textoDe(r)).toContain('Resultado: $1.000.000 → $12.000.000');
+    expect(textoDe(r)).toContain('Primera Categoría estimada: $1.500.000; saldo en abril: a pagar $1.500.000');
+    await cliente.close();
+  });
+
   it('ofrece recetas listas que nombran las herramientas y nunca piden la clave', async () => {
     const cliente = await conectar(depsDePrueba().deps);
     const { prompts } = await cliente.listPrompts();
-    expect(prompts.map((p) => p.name).sort()).toEqual(['cartera_semanal', 'cierre_contable', 'que_tengo_pendiente', 'revision_mensual']);
+    expect(prompts.map((p) => p.name).sort()).toEqual(['ahorro_tributario', 'cartera_semanal', 'cierre_contable', 'preparar_renta', 'que_tengo_pendiente', 'revision_mensual']);
     const cierre = await cliente.getPrompt({ name: 'cierre_contable', arguments: { rut: '22.222.222-2', periodo: '2026-09' } });
     const textoCierre = cierre.messages.map((m) => (m.content.type === 'text' ? m.content.text : '')).join('\n');
     for (const herramienta of ['banco_conciliar', 'contabilidad_libro', 'contabilidad_asientos', 'contabilidad_resultado', 'cuentas_pendientes']) expect(textoCierre).toContain(herramienta);
@@ -481,7 +526,14 @@ describe('servidor MCP', () => {
     expect(textoPendiente).toContain('novedades');
     expect(textoPendiente).toContain('cartera_estado');
     expect(textoPendiente).toContain('f29_estimar');
-    for (const t of [texto, textoPendiente]) {
+    const ahorro = await cliente.getPrompt({ name: 'ahorro_tributario', arguments: { rut: '22.222.222-2' } });
+    const textoAhorro = ahorro.messages.map((m) => (m.content.type === 'text' ? m.content.text : '')).join('\n');
+    for (const herramienta of ['ahorro_oportunidades', 'cierre_proyectar', 'regimen_simular', 'renta_estimar']) expect(textoAhorro).toContain(herramienta);
+    expect(textoAhorro).toMatch(/nunca sugieras simular gastos/i);
+    const renta = await cliente.getPrompt({ name: 'preparar_renta', arguments: { rut: '11.111.111-1', anio: '2027' } });
+    const textoRenta = renta.messages.map((m) => (m.content.type === 'text' ? m.content.text : '')).join('\n');
+    for (const herramienta of ['renta_sincronizar', 'renta_resumen', 'fuentes_oficiales', 'renta_estimar', 'cierre_proyectar']) expect(textoRenta).toContain(herramienta);
+    for (const t of [texto, textoPendiente, textoAhorro, textoRenta]) {
       expect(t).toMatch(/nunca pidas la clave/i);
       expect(t).not.toMatch(/(escribe|ingresa|dame|indica) (tu|la) clave/i);
     }

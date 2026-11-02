@@ -39,7 +39,8 @@ function valoresVigentes(deps: DepsApp, rut: string, periodo: string): F29Valore
   return vigente ? deps.store.valoresF29(rut, periodo, vigente.folio) : null;
 }
 
-const conRcv = (deps: DepsApp, rut: string, periodo: string): boolean => {
+/** El mes tiene RCV guardado (ventas o compras). */
+export const conRcv = (deps: DepsApp, rut: string, periodo: string): boolean => {
   const d = deps.store.disponibilidadFuentes(rut, periodo);
   return d.ventasRcv || d.comprasRcv;
 };

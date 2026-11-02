@@ -76,6 +76,45 @@ export function registrarRecetas(servidor: McpServer): void {
   );
 
   servidor.registerPrompt(
+    'preparar_renta',
+    {
+      title: 'Preparar la renta',
+      description: 'Junta lo que el SII ya sabe para el F22, lo cruza con lo guardado y estima el resultado antes de abril.',
+      argsSchema: z.object({ rut: RUT, anio: z.string().regex(/^\d{4}$/, 'Usa el año tributario AAAA').describe('Año tributario AAAA (año comercial + 1)').optional() }),
+    },
+    ({ rut, anio }) =>
+      mensaje(
+        [
+          `Prepara con mi-sii-mcp la renta de ${rut}${anio ? ` del año tributario ${anio}` : ' del año tributario en curso'}:`,
+          '1. renta_sincronizar de ese año (F22, boletas emitidas, declaraciones juradas de terceros y lo que el SII prepara para el F22) y renta_resumen.',
+          '2. Persona: fuentes_oficiales (con regla=true) para los datos públicos del año y luego renta_estimar; si hay F22, compáralo.',
+          '3. Empresa: cierre_proyectar del año comercial y regimen_simular si quiere comparar regímenes; revisa en renta_resumen los PPM y el comparativo de F29 y RCV que prepara el SII.',
+          '4. ahorro_oportunidades para lo que aún se puede hacer antes del 31 de diciembre o de declarar.',
+          'Responde primero cuánto saldría a pagar o a devolver, luego las diferencias encontradas y qué falta para confirmarlo.',
+        ].join('\n'),
+      ),
+  );
+
+  servidor.registerPrompt(
+    'ahorro_tributario',
+    {
+      title: 'Pagar menos impuestos, legalmente',
+      description: 'Busca las oportunidades legales que sostienen los datos guardados y simula su efecto, con su norma oficial.',
+      argsSchema: z.object({ rut: RUT }),
+    },
+    ({ rut }) =>
+      mensaje(
+        [
+          `Revisa con mi-sii-mcp cómo ${rut} puede pagar menos impuestos de forma legal:`,
+          '1. sii_panorama: si faltan el RCV o los F29 recientes, sincronizar antes.',
+          '2. ahorro_oportunidades: explica cada una con su norma y el enlace oficial, el monto y qué hacer.',
+          '3. Empresa: cierre_proyectar del año en curso y regimen_simular con los socios. Persona: renta_estimar con y sin APV régimen B o gastos efectivos.',
+          'Ordena por monto y di qué datos faltan para confirmar cada una. Solo operaciones reales y con respaldo: nunca sugieras simular gastos, compras ni contratos.',
+        ].join('\n'),
+      ),
+  );
+
+  servidor.registerPrompt(
     'cartera_semanal',
     {
       title: 'Revisión semanal de la cartera',

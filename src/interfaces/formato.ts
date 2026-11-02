@@ -9,6 +9,7 @@ import type { ResultadoEstimacionRenta } from '../app/estimar-renta.js';
 import { REGLA_ESTIMACION_RENTA, type FuenteOficial } from '../app/fuentes.js';
 import type { PerfilConSesion } from '../app/perfiles.js';
 import type { ResultadoReleerF29, ResultadoRelectura } from '../app/releer-f29.js';
+import type { ResultadoCierre, ResultadoSimulacionRegimen } from '../app/simuladores.js';
 import type { FilaCartera } from '../app/vigilancia.js';
 import type { AnioRenta, AsistenteAnio, HonorariosEmitidos, InformadoTerceros, InformanteTercero, ResultadoAnioRenta, ResultadoRenta, ResumenRenta } from '../app/renta.js';
 import { SINCRONIZACION_CANCELADA, type ResultadoPeriodo, type ResultadoSync } from '../app/sincronizar.js';
@@ -651,5 +652,40 @@ export function textoOportunidades(r: ResultadoOportunidades): string {
       ...o.datosFaltantes.map((d) => `  Falta: ${d}`),
     ]),
     r.oportunidades[0]!.antielusion,
+  ].join('\n');
+}
+
+const textoSaldo = (monto: number): string => `${monto >= 0 ? 'a pagar' : 'a devolver'} ${formatearClp(Math.abs(monto))}`;
+
+/** Proyección del año al cierre: lo acumulado, lo proyectado, los PPM y el saldo estimado de abril. */
+export function textoProyeccionCierre(r: ResultadoCierre): string {
+  const b = r.base;
+  return [
+    `Proyección del cierre ${r.anio} de ${r.rut} (base ${b.criterio}, ${b.mesesConDatos} meses con datos de ${b.desde} a ${b.hasta}). Es una estimación, no asesoría; confírmala con un contador.`,
+    `  Ingresos: ${formatearClp(b.ingresos)} acumulados → ${formatearClp(r.ingresosProyectados)} proyectados`,
+    `  Costos y gastos: ${formatearClp(b.gastos)} → ${formatearClp(r.gastosProyectados)}`,
+    `  Resultado: ${formatearClp(r.baseAcumulada)} → ${formatearClp(r.baseProyectada)}`,
+    `  PPM pagados: ${formatearClp(r.ppmPagados)} en ${r.mesesPpm} F29 → ${formatearClp(r.ppmProyectados)} proyectados`,
+    ...(r.idpcEstimado === null ? [] : [`  Primera Categoría estimada: ${formatearClp(r.idpcEstimado)}; saldo en abril: ${textoSaldo(r.saldoAbril ?? 0)}`]),
+    ...(b.sinDatos.length > 0 ? [`Meses sin RCV guardado: ${b.sinDatos.join(', ')} (sincronízalos para afinar).`] : []),
+    `Supuestos: ${b.supuestos.join(' ')}`,
+    ...r.notas,
+    ...(r.faltantes.length > 0 ? [`Falta: ${r.faltantes.join(' ')}`] : []),
+  ].join('\n');
+}
+
+/** Pro Pyme General frente a Transparente: impuesto de la empresa, de los dueños y total, con requisitos y supuestos. */
+export function textoSimulacionRegimen(r: ResultadoSimulacionRegimen): string {
+  const origen = { informada: 'informada', del_anio: `del año ${r.anio} guardado`, proyectada: `de ${r.anio} proyectada` }[r.origenBase];
+  const fila = (nombre: string, x: ResultadoSimulacionRegimen['general']): string =>
+    `  ${nombre}: empresa ${formatearClp(x.impuestoEmpresa)} · dueños ${x.impuestoDuenos < 0 ? `−${formatearClp(-x.impuestoDuenos)}` : formatearClp(x.impuestoDuenos)} · total ${formatearClp(x.total)}${x.diferido > 0 ? ` · sin retirar ${formatearClp(x.diferido)}` : ''}`;
+  const conclusion = r.diferencia === 0 ? 'Este año ambos pagan lo mismo.' : `Este año paga menos el ${r.diferencia > 0 ? 'Transparente' : 'General'}, por ${formatearClp(Math.abs(r.diferencia))}.`;
+  return [
+    `Simulación de régimen de ${r.rut} con base ${origen} de ${formatearClp(r.base)}. Es una simulación, no una recomendación; confírmala con un contador.`,
+    fila('Pro Pyme General (14 D N°3)', r.general),
+    fila('Pro Pyme Transparente (14 D N°8)', r.transparente),
+    conclusion,
+    `Requisitos: ${r.requisitos.join(' ')}`,
+    `Supuestos: ${r.supuestos.join(' ')}`,
   ].join('\n');
 }

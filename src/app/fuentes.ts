@@ -69,6 +69,11 @@ export const FUENTES_OFICIALES: readonly FuenteOficial[] = [
     urls: ['https://www.spensiones.cl/portal/institucional/594/w3-propertyvalue-9917.html'],
     buscar: '«La tasa SIS a considerar para el año tributario N» (no la tasa general del mes). Si la guía del SII da otra cifra redondeada, gana la de la Superintendencia.',
   },
+  {
+    parametro: 'Tasa del Impuesto de Primera Categoría por régimen y año comercial (para regimen_simular y cierre_proyectar)',
+    urls: ['https://www.sii.cl/preguntas_frecuentes/declaracion_renta/001_140_4708.htm', 'https://www.sii.cl/normativa_legislacion/circulares/2025/circu53.pdf'],
+    buscar: 'La tasa del régimen Pro Pyme General (art. 14 letra D N°3) del año comercial. La rebaja transitoria exige el porcentaje de cotización de cada año (Circular 53 de 2025). El Pro Pyme Transparente (N°8) no paga Primera Categoría.',
+  },
 ];
 
 /** Cómo estimar el F22 de una persona con sueldo y honorarios, en palabras y sin cifras (detalle en la decisión 0007). */

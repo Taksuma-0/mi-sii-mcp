@@ -15,12 +15,13 @@ import { panorama } from '../../app/panorama.js';
 import { listarPerfilesConRenovacion } from '../../app/perfiles.js';
 import { releerF29 } from '../../app/releer-f29.js';
 import { resumenRenta, sincronizarRenta } from '../../app/renta.js';
+import { proyeccionCierre, simulacionRegimen } from '../../app/simuladores.js';
 import { sincronizar, type Avance } from '../../app/sincronizar.js';
 import { carteraEstado, novedades } from '../../app/vigilancia.js';
 import { ErrorMiSiiMcp, esErrorMiSiiMcp, type CodigoError } from '../../domain/errores.js';
 import { parsePeriodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
-import { lineaReintento, textoAsientos, textoCartera, textoDocumentos, textoHallazgos, textoHistorialF29, textoConciliacion, textoCuenta, textoCuentas, textoEstimacionF29, textoEstimacionRenta, textoFuentes, textoImportacion, textoLibro, textoNovedades, textoOportunidades, textoPendientes, textoPerfiles, textoPlazos, textoReintentables, textoReintentablesCuenta, textoReintentablesRenta, textoReleerF29, textoRenta, textoResultado, textoResumenIva, textoResumenRenta, textoSync } from '../formato.js';
+import { lineaReintento, textoAsientos, textoCartera, textoDocumentos, textoHallazgos, textoHistorialF29, textoConciliacion, textoCuenta, textoCuentas, textoEstimacionF29, textoEstimacionRenta, textoFuentes, textoImportacion, textoLibro, textoNovedades, textoOportunidades, textoPendientes, textoPerfiles, textoPlazos, textoProyeccionCierre, textoReintentables, textoReintentablesCuenta, textoReintentablesRenta, textoReleerF29, textoRenta, textoResultado, textoResumenIva, textoResumenRenta, textoSimulacionRegimen, textoSync } from '../formato.js';
 import { registrarRecetas } from './recetas.js';
 
 export const HERRAMIENTAS = [
@@ -51,6 +52,8 @@ export const HERRAMIENTAS = [
   'cartera_estado',
   'renta_estimar',
   'ahorro_oportunidades',
+  'regimen_simular',
+  'cierre_proyectar',
 ] as const;
 
 /** Lo que lee el asistente al conectarse: flujo de uso, regla de la clave y cobertura (máximo 1 500 caracteres). */
@@ -59,7 +62,7 @@ export const INSTRUCCIONES_MCP = [
   '2. Si falta o está viejo: sincronizar en tramos de hasta 12 meses (rcv y f29; propuesta y bhe opcionales), renta_sincronizar (F22) y perfil_sincronizar (perfil y empresas autorizadas).',
   '3. IVA: iva_resumen, iva_hallazgos, f29_historial y plazos_proximos; f29_estimar calcula un F29 antes de declararlo; f29_releer relee los PDF. Renta: renta_resumen; renta_estimar con los datos públicos de fuentes_oficiales.',
   '4. Banco y contabilidad: banco_importar (cartola CSV), banco_conciliar, cuentas_pendientes; contabilidad_cuentas, contabilidad_libro, contabilidad_asientos y contabilidad_resultado (exportables a CSV).',
-  '5. Seguimiento: novedades y cartera_estado. Ahorro legal: ahorro_oportunidades. Cruces libres: datos_esquema y luego consulta_sql (solo lectura).',
+  '5. Seguimiento: novedades y cartera_estado. Ahorro legal: ahorro_oportunidades, regimen_simular y cierre_proyectar. Cruces libres: datos_esquema y luego consulta_sql (solo lectura).',
   '6. Nunca pidas la clave ni intentes un login. Ante SESION_REQUERIDA (o CLAVE_RECHAZADA, RUT_BLOQUEADO_LOCAL) pide abrir «Abrir mi-sii-mcp.cmd» y conectar la cuenta, o da el comando del mensaje (login-navegador para ClaveÚnica). Luego reintenta.',
   '7. Reintenta solo con «Reintentar: ahora mismo» o «más tarde» (o «Reintentables más tarde»).',
   '8. Cobertura: RCV, F29 y su propuesta, boletas de honorarios recibidas y emitidas, F22, perfil y empresas autorizadas; banco y contabilidad locales. Solo lee el SII. No es oficial del SII ni asesoría tributaria.',
@@ -595,6 +598,57 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
       seguro(() => {
         const r = ahorroOportunidades(deps, rut);
         return respuesta(textoOportunidades(r), r);
+      }, rut),
+  );
+
+  const ANIO_COMERCIAL = z.string().regex(/^\d{4}$/, 'Usa el año comercial AAAA').describe('Año comercial AAAA (el de las operaciones; su renta se declara en abril del año siguiente)');
+  const TASA_IDPC = z
+    .number()
+    .describe('Tasa de Primera Categoría del Pro Pyme General para ese año, en porcentaje; depende del año y de la condición de cotización (fuentes_oficiales: https://www.sii.cl/preguntas_frecuentes/declaracion_renta/001_140_4708.htm)');
+
+  servidor.registerTool(
+    'regimen_simular',
+    {
+      title: 'Simular régimen Pro Pyme',
+      description:
+        'Compara un año en Pro Pyme General (14 D N°3: la empresa paga Primera Categoría y los dueños tributan al retirar, con crédito total) y en Pro Pyme Transparente (14 D N°8: sin Primera Categoría; los dueños tributan por toda la base según su participación). Muestra el impuesto de la empresa, el de los dueños y el total. Base: la informada (mejor, si incluye sueldos y depreciación) o la del año guardado (percibida si hay cartolas de todo el año, si no devengada), proyectada si el año no terminó. Datos públicos que se informan: tasa_idpc y la tabla del Global Complementario (https://www.sii.cl/valores_y_fechas/renta/2026/personas_naturales.html, cambiando el año tributario). Trae los requisitos y el plazo para cambiarse. Simulación, no recomendación. Solo usa la base local.',
+      inputSchema: z.object({
+        rut: RUT,
+        anio: ANIO_COMERCIAL,
+        socios: z.array(z.object({ participacion: z.number().describe('Porcentaje de participación'), otras_rentas: z.number().min(0).describe('Otras rentas del año del socio para el Global Complementario') })).min(1),
+        tasa_idpc: TASA_IDPC,
+        tabla_igc: z.array(z.object({ desde: z.number(), hasta: z.number().nullable(), factor: z.number(), rebaja: z.number() })).min(1).describe('Tramos anuales de la tabla del Global Complementario, en pesos'),
+        retiro_pct: z.number().min(0).max(100).optional().describe('Porcentaje de las utilidades que los dueños retiran en el General; 100 si no se indica'),
+        base: z.number().optional().describe('Base imponible anual de la empresa, si se conoce'),
+      }),
+      annotations: SOLO_LECTURA,
+    },
+    async (a) =>
+      seguro(() => {
+        const r = simulacionRegimen(deps, a.rut, a.anio, {
+          socios: a.socios.map((s) => ({ participacion: s.participacion, otrasRentas: s.otras_rentas })),
+          tasaIdpc: a.tasa_idpc,
+          tablaIgc: a.tabla_igc,
+          ...(a.retiro_pct === undefined ? {} : { retiroPct: a.retiro_pct }),
+          ...(a.base === undefined ? {} : { base: a.base }),
+        });
+        return respuesta(textoSimulacionRegimen(r), r);
+      }, a.rut),
+  );
+
+  servidor.registerTool(
+    'cierre_proyectar',
+    {
+      title: 'Proyectar el cierre del año',
+      description:
+        'Proyecta el año comercial al cierre con lo guardado (RCV y, si cubren el año, cartolas) al ritmo de los meses con datos, y lo compara con los PPM pagados en los F29. Con tasa_idpc estima la Primera Categoría y el saldo de abril. Si se proyecta pérdida, recuerda la suspensión de PPM (art. 90 de la Ley de la Renta) como posible. Remite a ahorro_oportunidades y regimen_simular. No incluye sueldos ni depreciación. Estimación, no asesoría. Solo usa la base local.',
+      inputSchema: z.object({ rut: RUT, anio: ANIO_COMERCIAL, tasa_idpc: TASA_IDPC.optional() }),
+      annotations: SOLO_LECTURA,
+    },
+    async ({ rut, anio, tasa_idpc }) =>
+      seguro(() => {
+        const r = proyeccionCierre(deps, rut, anio, tasa_idpc);
+        return respuesta(textoProyeccionCierre(r), r);
       }, rut),
   );
 
