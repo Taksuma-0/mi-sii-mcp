@@ -58,12 +58,33 @@ process.on('exit', () => {
   for (const hijo of HIJOS_VIVOS) hijo.kill();
 });
 
+
+/** Segundos que un proceso de consulta espera la siguiente antes de cerrarse. */
+const ESPERA_HIJO_MS = 60_000;
+
+/** Un proceso de consulta: lo que tiene cargado, si atiende una consulta y cómo avisar su respuesta o su caída. */
+interface Hijo {
+  readonly proceso: ChildProcess;
+  /** Firma de la copia que ya tiene cargada; null si aún ninguna. */
+  firma: string | null;
+  diagnostico: string;
+  cierre: NodeJS.Timeout | null;
+  esperando: { readonly respuesta: (r: RespuestaHijo) => void; readonly caida: (motivo: string, accion?: string) => void } | null;
+  /** Plazo (ms) que venció en la consulta en curso; null si no venció. */
+  vencido: number | null;
+}
+
 /**
  * Ejecuta SQL libre de solo lectura sobre una copia curada en memoria, en un proceso hijo con plazo.
  * better-sqlite3 no puede interrumpir una consulta: solo matar el proceso detiene una que no termina.
+ * Para responder rápido, la copia se arma una vez por versión de los datos y un proceso queda esperando la siguiente
+ * consulta (se cierra solo tras un minuto sin uso); una consulta en paralelo usa un proceso extra que se cierra al terminar.
  */
 export class ConsultaLibreSqlite implements ConsultaLibre {
-  private readonly hijos = new Set<ChildProcess>();
+  private enCurso = 0;
+  private creados = 0;
+  private enEspera: Hijo | null = null;
+  private copia: { readonly firma: string; readonly imagen: Buffer } | null = null;
 
   /** `scriptHijo` solo se cambia en las pruebas, para simular un proceso hijo que muere. */
   constructor(
@@ -71,16 +92,56 @@ export class ConsultaLibreSqlite implements ConsultaLibre {
     private readonly scriptHijo: string = SCRIPT_HIJO,
   ) {}
 
+  /** Consultas en curso (sus procesos están trabajando). */
   get procesosActivos(): number {
-    return this.hijos.size;
+    return this.enCurso;
+  }
+
+  /** Procesos creados desde el inicio (para comprobar que se reutilizan). */
+  get procesosCreados(): number {
+    return this.creados;
+  }
+
+  /** Procesos vivos esperando la siguiente consulta (0 o 1). */
+  get procesosEnEspera(): number {
+    return this.enEspera === null ? 0 : 1;
+  }
+
+  /** Cierra el proceso que espera; las consultas siguientes abren uno nuevo. */
+  cerrar(): void {
+    const hijo = this.enEspera;
+    this.enEspera = null;
+    if (hijo) this.terminarHijo(hijo);
   }
 
   async consultar(sql: string, opciones: OpcionesConsulta): Promise<ResultadoConsulta> {
     const { filas, caracteres, caracteresCelda, milisegundos } = opciones.limites;
-    const pedido: PedidoHijo = { imagen: this.imagenCopia(opciones.tiposNegativos), sql, limites: { filas, caracteres, caracteresCelda } };
-    const respuesta = await this.enHijo(pedido, milisegundos);
-    if (!respuesta.ok) throw new ErrorMiSiiMcp('CONSULTA_RECHAZADA', `Consulta rechazada: ${respuesta.mensaje}`);
-    return { columnas: respuesta.columnas, filas: respuesta.filas, truncado: respuesta.truncado };
+    const { firma, imagen } = this.copiaVigente(opciones.tiposNegativos);
+    const hijo = this.tomarHijo();
+    this.enCurso += 1;
+    try {
+      const pedido: PedidoHijo = { firma, ...(hijo.firma === firma ? {} : { imagen }), sql, limites: { filas, caracteres, caracteresCelda } };
+      const respuesta = await this.enviar(hijo, pedido, milisegundos);
+      hijo.firma = firma;
+      this.devolver(hijo);
+      if (!respuesta.ok) throw new ErrorMiSiiMcp('CONSULTA_RECHAZADA', `Consulta rechazada: ${respuesta.mensaje}`);
+      return { columnas: respuesta.columnas, filas: respuesta.filas, truncado: respuesta.truncado };
+    } finally {
+      this.enCurso -= 1;
+    }
+  }
+
+  /**
+   * La copia de los datos, armada solo si cambiaron desde la última: `data_version` cambia cuando otro proceso escribe
+   * la base y `total_changes()` cuando escribe esta conexión. La firma se toma después de armar la copia, porque armarla
+   * también cuenta como cambios de esta conexión.
+   */
+  private copiaVigente(tiposNegativos: readonly number[]): { readonly firma: string; readonly imagen: Buffer } {
+    const firmaActual = (): string => `${String(this.db.pragma('data_version', { simple: true }))}:${String(this.db.prepare('SELECT total_changes()').pluck().get())}:${tiposNegativos.join(',')}`;
+    if (this.copia?.firma === firmaActual()) return this.copia;
+    const imagen = this.imagenCopia(tiposNegativos);
+    this.copia = { firma: firmaActual(), imagen };
+    return this.copia;
   }
 
   /** Arma la copia desde cero en una base `:memory:` adjunta y la serializa; nunca serializa la base real (puede estar en WAL). */
@@ -99,51 +160,103 @@ export class ConsultaLibreSqlite implements ConsultaLibre {
     }
   }
 
-  /** Resuelve cuando el hijo ya terminó, para que `procesosActivos` nunca cuente procesos que siguen vivos. */
-  private enHijo(pedido: PedidoHijo, milisegundos: number): Promise<RespuestaHijo> {
+  /** El proceso que espera, si sigue vivo; si no, uno nuevo. */
+  private tomarHijo(): Hijo {
+    const hijo = this.enEspera;
+    this.enEspera = null;
+    if (hijo && hijo.proceso.connected && hijo.proceso.exitCode === null) {
+      if (hijo.cierre) clearTimeout(hijo.cierre);
+      hijo.cierre = null;
+      hijo.proceso.ref();
+      hijo.proceso.channel?.ref();
+      return hijo;
+    }
+    return this.crearHijo();
+  }
+
+  /** Tras una consulta respondida: queda esperando la siguiente si no hay otro esperando; si lo hay, se cierra. */
+  private devolver(hijo: Hijo): void {
+    if (this.enEspera !== null || !hijo.proceso.connected) {
+      this.terminarHijo(hijo);
+      return;
+    }
+    this.enEspera = hijo;
+    // Esperando no debe mantener vivo a este proceso (ni el proceso ni su canal).
+    hijo.proceso.unref();
+    hijo.proceso.channel?.unref();
+    hijo.cierre = setTimeout(() => {
+      if (this.enEspera === hijo) this.cerrar();
+    }, ESPERA_HIJO_MS);
+    hijo.cierre.unref();
+  }
+
+  private terminarHijo(hijo: Hijo): void {
+    if (hijo.cierre) clearTimeout(hijo.cierre);
+    hijo.cierre = null;
+    hijo.proceso.kill();
+  }
+
+  private crearHijo(): Hijo {
+    // stderr va por una tubería y nunca hacia la salida de este proceso: en el servidor MCP, stdout es el canal JSON-RPC.
+    const proceso = fork(this.scriptHijo, [], { serialization: 'advanced', execArgv: [], windowsHide: true, stdio: ['ignore', 'ignore', 'pipe', 'ipc'] });
+    this.creados += 1;
+    HIJOS_VIVOS.add(proceso);
+    const hijo: Hijo = { proceso, firma: null, diagnostico: '', cierre: null, esperando: null, vencido: null };
+    // Hay que consumir la tubería aunque solo se guarde el comienzo, o un hijo muy ruidoso se bloquearía al llenarla.
+    proceso.stderr?.setEncoding('utf8');
+    proceso.stderr?.on('data', (trozo: string) => {
+      if (hijo.diagnostico.length <= MAX_DIAGNOSTICO) hijo.diagnostico += trozo;
+    });
+    proceso.on('message', (mensaje) => {
+      const esperando = hijo.esperando;
+      hijo.esperando = null;
+      esperando?.respuesta(mensaje as RespuestaHijo);
+    });
+    proceso.on('error', (error) => {
+      // Sin pid no hubo proceso. Un envío fallido termina en 'close' y un kill fallido no se reintenta.
+      if (proceso.pid !== undefined) return;
+      HIJOS_VIVOS.delete(proceso);
+      const esperando = hijo.esperando;
+      hijo.esperando = null;
+      esperando?.caida(`No se pudo iniciar el proceso de consulta: ${error.message}`, ACCION_FALLA_INTERNA);
+    });
+    proceso.on('close', (codigo, senal) => {
+      HIJOS_VIVOS.delete(proceso);
+      if (hijo.cierre) clearTimeout(hijo.cierre);
+      if (this.enEspera === hijo) this.enEspera = null;
+      const esperando = hijo.esperando;
+      hijo.esperando = null;
+      if (!esperando) return;
+      if (hijo.vencido !== null) {
+        esperando.caida(`La consulta superó el plazo de ${hijo.vencido} ms y se detuvo.`);
+        return;
+      }
+      // Un hijo que muere sin responder (dist roto, módulo nativo que no carga) no es un problema de la consulta.
+      const salida = hijo.diagnostico.trim();
+      const detalle = salida === '' ? '' : ` Salida de error: ${salida.slice(0, MAX_DIAGNOSTICO)}${salida.length > MAX_DIAGNOSTICO ? '…' : ''}`;
+      esperando.caida(`El proceso de consulta terminó sin responder (${senal ?? `código ${codigo}`}).${detalle}`, ACCION_FALLA_INTERNA);
+    });
+    return hijo;
+  }
+
+  /** Envía el pedido y espera la respuesta; si vence el plazo, mata el proceso y la consulta falla al cerrarse este. */
+  private enviar(hijo: Hijo, pedido: PedidoHijo, milisegundos: number): Promise<RespuestaHijo> {
     return new Promise((resolver, rechazar) => {
-      // stderr va por una tubería y nunca hacia la salida de este proceso: en el servidor MCP, stdout es el canal JSON-RPC.
-      const hijo = fork(this.scriptHijo, [], { serialization: 'advanced', execArgv: [], windowsHide: true, stdio: ['ignore', 'ignore', 'pipe', 'ipc'] });
-      this.hijos.add(hijo);
-      HIJOS_VIVOS.add(hijo);
-      let respuesta: RespuestaHijo | null = null;
-      let vencido = false;
-      let diagnostico = '';
-      // Hay que consumir la tubería aunque solo se guarde el comienzo, o un hijo muy ruidoso se bloquearía al llenarla.
-      hijo.stderr?.setEncoding('utf8');
-      hijo.stderr?.on('data', (trozo: string) => {
-        if (diagnostico.length <= MAX_DIAGNOSTICO) diagnostico += trozo;
-      });
       const plazo = setTimeout(() => {
-        vencido = true;
-        hijo.kill();
+        hijo.vencido = milisegundos;
+        hijo.proceso.kill();
       }, milisegundos);
-      const terminar = (motivo: string, accion?: string): void => {
-        clearTimeout(plazo);
-        this.hijos.delete(hijo);
-        HIJOS_VIVOS.delete(hijo);
-        if (respuesta) resolver(respuesta);
-        else rechazar(new ErrorMiSiiMcp('CONSULTA_INTERRUMPIDA', motivo, { accion }));
+      hijo.esperando = {
+        respuesta: (r) => {
+          clearTimeout(plazo);
+          resolver(r);
+        },
+        caida: (motivo, accion) => {
+          clearTimeout(plazo);
+          rechazar(new ErrorMiSiiMcp('CONSULTA_INTERRUMPIDA', motivo, accion ? { accion } : {}));
+        },
       };
-      hijo.on('message', (mensaje) => {
-        respuesta ??= mensaje as RespuestaHijo;
-        hijo.kill();
-      });
-      hijo.on('error', (error) => {
-        // Sin pid no hubo proceso. Un envío fallido termina en 'close' y un kill fallido no se reintenta.
-        if (hijo.pid === undefined) terminar(`No se pudo iniciar el proceso de consulta: ${error.message}`, ACCION_FALLA_INTERNA);
-      });
-      hijo.on('close', (codigo, senal) => {
-        if (vencido) {
-          terminar(`La consulta superó el plazo de ${milisegundos} ms y se detuvo.`);
-          return;
-        }
-        // Un hijo que muere sin responder (dist roto, módulo nativo que no carga) no es un problema de la consulta.
-        const salida = diagnostico.trim();
-        const detalle = salida === '' ? '' : ` Salida de error: ${salida.slice(0, MAX_DIAGNOSTICO)}${salida.length > MAX_DIAGNOSTICO ? '…' : ''}`;
-        terminar(`El proceso de consulta terminó sin responder (${senal ?? `código ${codigo}`}).${detalle}`, ACCION_FALLA_INTERNA);
-      });
-      if (hijo.connected) hijo.send(pedido);
+      if (hijo.proceso.connected) hijo.proceso.send(pedido);
     });
   }
 }

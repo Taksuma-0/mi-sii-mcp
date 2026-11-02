@@ -231,6 +231,8 @@ export interface ResultadoConsulta {
 /** SQL de solo lectura sobre una copia curada de la base, sin tokens ni respuestas crudas. */
 export interface ConsultaLibre {
   consultar(sql: string, opciones: OpcionesConsulta): Promise<ResultadoConsulta>;
+  /** Libera los procesos que esperan la siguiente consulta (al cerrar la aplicación). */
+  cerrar?(): void;
 }
 
 export interface Store {

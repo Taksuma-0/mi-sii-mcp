@@ -271,6 +271,33 @@ describe('ConsultaLibreSqlite', () => {
     expect(consulta.procesosActivos).toBe(0);
   });
 
+  it('reutiliza el mismo proceso en consultas seguidas, y lo cierra con cerrar()', async () => {
+    const { store, consulta } = base();
+    sembrar(store);
+
+    await consulta.consultar('SELECT COUNT(*) FROM contribuyente', OPCIONES);
+    await consulta.consultar('SELECT COUNT(*) FROM rcv_documento', OPCIONES);
+    await consulta.consultar('SELECT COUNT(*) FROM f29_valor', OPCIONES);
+
+    expect(consulta.procesosCreados).toBe(1);
+    expect(consulta.procesosEnEspera).toBe(1);
+    consulta.cerrar();
+    expect(consulta.procesosEnEspera).toBe(0);
+  });
+
+  it('si la base cambia entre dos consultas, la segunda ve el dato nuevo', async () => {
+    const { store, consulta } = base();
+    sembrar(store);
+
+    const antes = await consulta.consultar('SELECT COUNT(*) FROM contribuyente', OPCIONES);
+    store.guardarContribuyente(perfilEmpresa({ rut: '33333333-3', alias: 'Otra' }));
+    const despues = await consulta.consultar('SELECT COUNT(*) FROM contribuyente', OPCIONES);
+
+    expect([antes.filas, despues.filas]).toEqual([[[2]], [[3]]]);
+    expect(consulta.procesosCreados).toBe(1);
+    consulta.cerrar();
+  });
+
   it('resultado vacío conserva columnas', async () => {
     const { store, consulta } = base();
     sembrar(store);

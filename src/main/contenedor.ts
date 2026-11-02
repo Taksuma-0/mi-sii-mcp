@@ -55,6 +55,7 @@ export function crearContenedor(o: OpcionesContenedor = {}): Contenedor {
       (opciones) => capturar({ plazoMs: config.plazoNavegadorMs, ...opciones }),
     );
     const store = new SqliteStore(db);
+    const consultaLibre = new ConsultaLibreSqlite(db);
     /** Con qué identidad se entra por `rut`: la de `accedeCon` si el contribuyente no tiene sesión propia guardada. */
     const rutDeAcceso = (rut: string): string | null => {
       const canonico = parseRut(rut).canonico;
@@ -63,7 +64,7 @@ export function crearContenedor(o: OpcionesContenedor = {}): Contenedor {
     };
     const deps: DepsApp = {
       store,
-      consultaLibre: new ConsultaLibreSqlite(db),
+      consultaLibre,
       lectorPdfF29,
       sesiones,
       archivos: new ArchivosSistema(config.home),
@@ -84,7 +85,11 @@ export function crearContenedor(o: OpcionesContenedor = {}): Contenedor {
       renovarSesion: (rut) => sesiones.renovar(rutDeAcceso(rut) ?? rut),
       respaldos: new RespaldosLocales(join(config.home, 'respaldos'), store),
     };
-    return { config, deps, sesiones, notificador: new NotificadorWindows(), tarea: new TareaProgramadaWindows(), cerrar: () => db.close() };
+    return { config, deps, sesiones, notificador: new NotificadorWindows(), tarea: new TareaProgramadaWindows(), cerrar: () => {
+        consultaLibre.cerrar();
+        db.close();
+      },
+    };
   } catch (error) {
     db.close();
     throw error;
