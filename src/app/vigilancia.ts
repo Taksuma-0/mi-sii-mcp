@@ -10,6 +10,7 @@ import type { Perfil } from '../domain/tipos.js';
 import { hallazgos, plazos } from './consultas.js';
 import type { DepsApp } from './deps.js';
 import { mantenimientoDiario, type ResumenMantenimiento } from './mantenimiento.js';
+import { SII_CAIDO } from './registro.js';
 import { anioDeRenta, esSuperficieVigente, SUPERFICIE_DE_REGISTRO } from './superficies.js';
 import { sincronizarRenta } from './renta.js';
 import { sincronizar, type Superficie } from './sincronizar.js';
@@ -67,7 +68,7 @@ async function reintentarPendientes(deps: DepsApp, rut: string, yaTraidos: Reado
       ? (await sincronizarRenta(deps, rut, anio, undefined, signal)).abortado
       : (await sincronizar(deps, rut, parsePeriodo(periodo), parsePeriodo(periodo), [...meses.get(periodo)!], signal)).abortado;
     hechos += 1;
-    if (abortado && ERRORES_FATALES.has(abortado.codigo as CodigoError)) break;
+    if (abortado && (ERRORES_FATALES.has(abortado.codigo as CodigoError) || abortado.codigo === SII_CAIDO.codigo)) break;
   }
   return hechos;
 }
@@ -96,14 +97,17 @@ async function revisarCuenta(deps: DepsApp, perfil: Perfil, signal: AbortSignal 
   const actual = periodoDeFecha(hoy);
   const anterior = periodoAnterior(actual);
   const superficies = superficiesDe(deps, perfil, anterior.texto);
+  /** Con el SII caído no tiene sentido reintentar lo pendiente: cada intento esperaría sus plazos completos. */
+  let siiCaido = false;
   if (superficies.length > 0) {
     const sync = await sincronizar(deps, perfil.rut, anterior, actual, superficies, signal);
     if (sync.abortado && ERRORES_FATALES.has(sync.abortado.codigo as CodigoError)) {
       return { revision: { rut: perfil.rut, estado: 'sin_sesion', detalle: sync.abortado.mensaje }, candidatos: [avisoSinSesion(perfil, sesion.guardadaEn)] };
     }
+    siiCaido = sync.abortado?.codigo === SII_CAIDO.codigo;
   }
   const yaTraidos = new Set([...(superficies.length > 0 ? [anterior.texto, actual.texto] : []), ...(MESES_RENTA.has(actual.mes) ? [`AT${actual.anio}`] : [])]);
-  const reintentados = await reintentarPendientes(deps, perfil.rut, yaTraidos, signal);
+  const reintentados = siiCaido ? 0 : await reintentarPendientes(deps, perfil.rut, yaTraidos, signal);
   const candidatos: AvisoCandidato[] = [
     ...hallazgos(deps, perfil.rut, { desde: restarPeriodos(actual, MESES_HALLAZGOS).texto })
       .filter((h) => h.severidad !== 'info')
