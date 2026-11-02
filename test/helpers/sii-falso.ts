@@ -36,6 +36,8 @@ export class SiiFalso implements SiiReader {
   readonly bheEmitidas = new Map<number, InformeBheEmitidas>();
   readonly bheEmitidasDetalle = new Map<string, InformeBheEmitidasMes | null>();
   readonly fallas = new Map<string, Error>();
+  /** Totales del resumen que recibió cada consulta de detalle (`periodo|lado|estado|tipo`). */
+  readonly esperados = new Map<string, unknown>();
   /** Lo que devuelve situacionSii; por defecto, sin anotaciones ni mensajes. */
   situacion: SituacionSii = { anotaciones: [], cumplimiento: null, mensajes: [] };
   readonly f22 = new Map<number, F22Declaracion[]>();
@@ -65,7 +67,8 @@ export class SiiFalso implements SiiReader {
     return { rut, periodo: periodo.texto, lado, estado, filas, ...(sinMovimientos ? { sinMovimientos: true as const } : {}) };
   }
 
-  async rcvDetalle(_rut: string, periodo: Periodo, lado: Lado, tipoDoc: number, estado: EstadoRcv): Promise<DocumentoRcv[]> {
+  async rcvDetalle(_rut: string, periodo: Periodo, lado: Lado, tipoDoc: number, estado: EstadoRcv, esperado?: unknown): Promise<DocumentoRcv[]> {
+    this.esperados.set(`${periodo.texto}|${lado}|${estado}|${tipoDoc}`, esperado);
     await this.registrar(`detalle|${periodo.texto}|${lado}|${estado}|${tipoDoc}`);
     return this.detalles.get(`${periodo.texto}|${lado}|${estado}|${tipoDoc}`) ?? [];
   }

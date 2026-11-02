@@ -5,9 +5,10 @@ import { periodoSii, type Periodo } from '../../domain/periodo.js';
 import { parseRut, type Rut } from '../../domain/rut.js';
 import type { DocumentoRcv, EstadoRcv, Lado, RcvResumen, RcvResumenFila } from '../../domain/tipos.js';
 import type { SumideroRespuestas } from '../../ports/index.js';
-import { entero, texto } from './campos.js';
+import type { AliasAprendido } from '../../domain/portal.js';
+import { entero, numeroChileno, texto } from './campos.js';
 import type { Http } from './http.js';
-import { exigirCampos, MAPA_BASE, valorCampo, type MapaCampos } from './mapa-campos.js';
+import { camposAusentes, camposSinUsar, conAprendidos, exigirCampos, MAPA_BASE, valorCampo, type MapaCampos } from './mapa-campos.js';
 import { HOST_SDI, postSdi } from './sdi.js';
 
 const BASE = `${HOST_SDI}/consdcvinternetui/services/data/facadeService`;
@@ -129,13 +130,64 @@ export async function rcvDetalle(
     },
   });
   const filas = filasDelSobre(crudo, 'getDetalle').filas;
-  exigirCampos(filas, 'rcv.detalle', mapa, 'el detalle del RCV');
-  return filas.map((f) => aDocumento(f, rut, periodo, lado, estado, tipoDoc, mapa));
+  exigirCampos(filas, 'rcv.detalle', mapa, 'el detalle del RCV', MONTOS.map(([campo]) => campo));
+  const reparado = repararMontos(filas, opciones, mapa, tipoDoc, periodo);
+  return filas.map((f) => aDocumento(f, rut, periodo, lado, estado, tipoDoc, reparado));
 }
+
+/** Totales del resumen del mismo tipo de documento, con los que se comprueba el detalle. */
+export type TotalesResumen = Pick<RcvResumenFila, 'cantidad' | 'exento' | 'neto' | 'iva' | 'total'>;
 
 export interface OpcionesDetalle {
   /** Nombres de los campos (los conocidos más los aprendidos); por defecto, los conocidos. */
   readonly mapa?: MapaCampos;
+  /** Fila del resumen del mismo tipo: si un monto cambió de nombre, se busca el nombre nuevo que cuadre con ella. */
+  readonly esperado?: TotalesResumen;
+  /** Recibe cada nombre nuevo adoptado, para guardarlo y avisar. */
+  readonly alAprender?: (alias: AliasAprendido) => void;
+}
+
+/** Montos del detalle y su total en el resumen: el detalle cuadra al peso con el resumen (28 de 28 grupos reales). */
+const MONTOS: readonly (readonly [string, 'exento' | 'neto' | 'iva' | 'total'])[] = [
+  ['montoExento', 'exento'],
+  ['montoNeto', 'neto'],
+  ['montoIva', 'iva'],
+  ['montoTotal', 'total'],
+];
+
+const sumaDe = (filas: readonly Record<string, unknown>[], llave: string): number => filas.reduce((s, f) => s + Math.trunc(numeroChileno(f[llave]) ?? 0), 0);
+
+/**
+ * Si un monto falta en todos los documentos, adopta el único campo sin usar, numérico en todos, cuya suma iguala al peso el
+ * total del resumen (con la misma cantidad de documentos y un total distinto de 0). Si no hay exactamente uno, o no hay
+ * resumen con qué comprobar, es PORTAL_CAMBIO: nunca se adivina ni se guardan ceros.
+ */
+function repararMontos(filas: readonly Record<string, unknown>[], opciones: OpcionesDetalle, mapa: MapaCampos, tipoDoc: number, periodo: Periodo): MapaCampos {
+  const faltan = camposAusentes(filas, 'rcv.detalle', mapa).filter((campo) => MONTOS.some(([monto]) => monto === campo));
+  let actual = mapa;
+  for (const campo of faltan) {
+    const clave = MONTOS.find(([monto]) => monto === campo)![1];
+    const sinUsar = camposSinUsar(filas, 'rcv.detalle', actual);
+    const esperado = opciones.esperado;
+    const comprobable = esperado !== undefined && esperado[clave] !== 0 && esperado.cantidad === filas.length;
+    const candidatos = comprobable ? sinUsar.filter((llave) => filas.every((f) => numeroChileno(f[llave]) !== null) && sumaDe(filas, llave) === esperado[clave]) : [];
+    if (candidatos.length !== 1) {
+      throw new ErrorMiSiiMcp('PORTAL_CAMBIO', `El SII ya no trae ${campo} en el detalle del RCV y no se pudo comprobar con el resumen cuál es su nombre nuevo: no se guardó nada nuevo.`, {
+        detalle: { superficie: 'rcv.detalle', faltan: [campo], sinUsar, candidatos },
+      });
+    }
+    const alias = candidatos[0]!;
+    const aprendido: AliasAprendido = {
+      superficie: 'rcv.detalle',
+      campo,
+      alias,
+      aprendidoEn: new Date().toISOString(),
+      evidencia: `suma de ${alias} = ${clave} del resumen (tipo ${tipoDoc}, ${periodo.texto}, ${filas.length} documentos)`,
+    };
+    actual = conAprendidos(actual, [aprendido]);
+    opciones.alAprender?.(aprendido);
+  }
+  return actual;
 }
 
 function rutContraparte(f: Record<string, unknown>, mapa: MapaCampos): string {

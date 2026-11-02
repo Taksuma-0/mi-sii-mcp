@@ -30,6 +30,7 @@ import type {
   PerfilTributarioGuardado,
   PropuestaF29,
   RcvResumen,
+  RcvResumenFila,
   RespuestaCruda,
   Severidad,
   SnapshotRcv,
@@ -45,7 +46,8 @@ export interface SiiReader {
   /** Aviso que acompaña toda lectura de este lector (p. ej., una lectura por representación sin confirmar en vivo). */
   readonly aviso?: string;
   rcvResumen(rut: string, periodo: Periodo, lado: Lado, estado: EstadoRcv): Promise<RcvResumen>;
-  rcvDetalle(rut: string, periodo: Periodo, lado: Lado, tipoDoc: number, estado: EstadoRcv): Promise<DocumentoRcv[]>;
+  /** `esperado`: la fila del resumen del mismo tipo, para comprobar el detalle y adaptarse si un monto cambió de nombre. */
+  rcvDetalle(rut: string, periodo: Periodo, lado: Lado, tipoDoc: number, estado: EstadoRcv, esperado?: Pick<RcvResumenFila, 'cantidad' | 'exento' | 'neto' | 'iva' | 'total'>): Promise<DocumentoRcv[]>;
   f29Declaraciones(rut: string, periodo: Periodo): Promise<F29Declaracion[]>;
   f29Valores(rut: string, declaracion: F29Declaracion): Promise<F29Valores>;
   /** Propuesta de F29 del SII para el mes, o null si el SII no devolvió datos. */

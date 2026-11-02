@@ -106,6 +106,15 @@ describe('sincronizar', () => {
     expect(persistidos).toEqual([RUT_EMPRESA]);
   });
 
+  it('pasa al detalle los totales del resumen del mismo tipo, para comprobarlo y adaptarse si un monto cambia de nombre', async () => {
+    const { deps, sii } = mesCompleto();
+
+    await sincronizar(deps, RUT_EMPRESA, SEPT, SEPT);
+
+    expect(sii.esperados.get('2026-09|COMPRA|REGISTRO|33')).toEqual({ cantidad: 1, exento: 0, neto: 100_000, iva: 19_000, total: 119_000 });
+    expect(sii.esperados.get('2026-09|VENTA|REGISTRO|33')).toEqual({ cantidad: 2, exento: 0, neto: 1_000_000, iva: 190_000, total: 1_190_000 });
+  });
+
   it('avisa cuando el detalle trae menos documentos que el resumen', async () => {
     const { deps, sii } = mesCompleto();
     sii.detalles.set('2026-09|COMPRA|REGISTRO|33', []);

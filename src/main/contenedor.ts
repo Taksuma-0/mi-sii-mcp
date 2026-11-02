@@ -17,6 +17,7 @@ import { ConsultaLibreSqlite } from '../store/sqlite/consulta-libre.js';
 import { abrirDb } from '../store/sqlite/db.js';
 import { SqliteStore } from '../store/sqlite/store.js';
 import { parseRut } from '../domain/rut.js';
+import { adaptacionPortal } from './adaptacion.js';
 import { cargarConfig, type Config } from './config.js';
 import { conNombreAnterior } from './nombre-anterior.js';
 
@@ -70,9 +71,9 @@ export function crearContenedor(o: OpcionesContenedor = {}): Contenedor {
       toleranciaPesos: config.toleranciaPesos,
       abrirSii: async (rut, sumidero, signal) => {
         const acceso = rutDeAcceso(rut);
-        if (acceso === null) return new LectorPortalSii(conSenal(await sesiones.sesionActiva(rut), signal), sumidero, lectorPdfF29);
+        if (acceso === null) return new LectorPortalSii(conSenal(await sesiones.sesionActiva(rut), signal), sumidero, lectorPdfF29, adaptacionPortal(store, rut));
         // Las áreas que exigen sesión propia fallan sin abrir la de quien accede: solo el RCV la abre.
-        return new LectorPorRepresentacion(async () => new LectorPortalSii(conSenal(await sesiones.sesionActiva(acceso), signal), sumidero, lectorPdfF29), acceso);
+        return new LectorPorRepresentacion(async () => new LectorPortalSii(conSenal(await sesiones.sesionActiva(acceso), signal), sumidero, lectorPdfF29, adaptacionPortal(store, rut)), acceso);
       },
       diagnostico: (nombre, contenido) => {
         mkdirSync(config.dirDiagnostico, { recursive: true });

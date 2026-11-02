@@ -228,7 +228,7 @@ async function traerRcv(sii: SiiReader, rut: string, periodo: Periodo, lado: Lad
     for (const fila of resumen.filas) {
       if (fila.cantidad === 0) continue;
       if (lado === 'VENTA' && SOLO_RESUMEN_VENTA.has(fila.tipoDoc)) continue;
-      const docs = await sii.rcvDetalle(rut, periodo, lado, fila.tipoDoc, estado);
+      const docs = await sii.rcvDetalle(rut, periodo, lado, fila.tipoDoc, estado, { cantidad: fila.cantidad, exento: fila.exento, neto: fila.neto, iva: fila.iva, total: fila.total });
       if (docs.length < fila.cantidad) {
         const aviso = `RCV ${lado} ${estado} tipo ${fila.tipoDoc}: el detalle trajo ${docs.length} de ${fila.cantidad} documentos.`;
         avisos.push(aviso);

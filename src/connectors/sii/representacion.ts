@@ -1,7 +1,7 @@
 import { ErrorMiSiiMcp } from '../../domain/errores.js';
 import type { Periodo } from '../../domain/periodo.js';
 import type { SituacionSii } from '../../domain/situacion-sii.js';
-import type { DjInformada, DjTercero, DocumentoRcv, EmpresaAutorizada, EstadoRcv, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBhe, InformeBheEmitidas, InformeBheEmitidasMes, Lado, PerfilTributario, PropuestaF29, RcvResumen, TablaAsistente } from '../../domain/tipos.js';
+import type { DjInformada, DjTercero, DocumentoRcv, EmpresaAutorizada, EstadoRcv, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBhe, InformeBheEmitidas, InformeBheEmitidasMes, Lado, PerfilTributario, PropuestaF29, RcvResumen, RcvResumenFila, TablaAsistente } from '../../domain/tipos.js';
 import type { SiiReader } from '../../ports/index.js';
 
 /** Sin la prueba con una sesión real (T21) no se sabe si el SII entrega el RCV de la empresa a su representante. */
@@ -29,8 +29,8 @@ export class LectorPorRepresentacion implements SiiReader {
     return (await this.lector()).rcvResumen(rut, periodo, lado, estado);
   }
 
-  async rcvDetalle(rut: string, periodo: Periodo, lado: Lado, tipoDoc: number, estado: EstadoRcv): Promise<DocumentoRcv[]> {
-    return (await this.lector()).rcvDetalle(rut, periodo, lado, tipoDoc, estado);
+  async rcvDetalle(rut: string, periodo: Periodo, lado: Lado, tipoDoc: number, estado: EstadoRcv, esperado?: Pick<RcvResumenFila, 'cantidad' | 'exento' | 'neto' | 'iva' | 'total'>): Promise<DocumentoRcv[]> {
+    return (await this.lector()).rcvDetalle(rut, periodo, lado, tipoDoc, estado, esperado);
   }
 
   /** Abre una sola vez la sesión de quien accede; si falla, el mismo error vale para el resto de la llamada (un único login con la clave guardada). */

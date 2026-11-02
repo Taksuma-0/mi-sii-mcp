@@ -1,7 +1,8 @@
 import type { Periodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
 import type { SituacionSii } from '../../domain/situacion-sii.js';
-import type { DjInformada, DjTercero, DocumentoRcv, EmpresaAutorizada, EstadoRcv, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBhe, InformeBheEmitidas, InformeBheEmitidasMes, Lado, PerfilTributario, PropuestaF29, RcvResumen, TablaAsistente } from '../../domain/tipos.js';
+import type { AliasAprendido } from '../../domain/portal.js';
+import type { DjInformada, DjTercero, DocumentoRcv, EmpresaAutorizada, EstadoRcv, F22Declaracion, F22Detalle, F29Declaracion, F29Valores, InformeBhe, InformeBheEmitidas, InformeBheEmitidasMes, Lado, PerfilTributario, PropuestaF29, RcvResumen, RcvResumenFila, TablaAsistente } from '../../domain/tipos.js';
 import type { LectorPdfF29, SiiReader, SumideroRespuestas } from '../../ports/index.js';
 import { bheRecibidas } from './bhe.js';
 import { bheEmitidasAnual, bheEmitidasMes } from './bhe-emitidas.js';
@@ -12,29 +13,45 @@ import { lectorPdfF29 } from './f29-pdf.js';
 import type { Http } from './http.js';
 import { leerPerfilTributario } from './login.js';
 import { f29Propuesta } from './propuesta.js';
+import { MAPA_BASE, type MapaCampos } from './mapa-campos.js';
 import { rcvDetalle, rcvResumen } from './rcv.js';
 import { situacionSii } from './situacion.js';
 import { asistenteF22, djDetalle, djInformadas } from './terceros.js';
 
+/** Cómo se adapta el lector a los cambios del portal: los nombres de campos aprendidos y a quién avisar de uno nuevo. */
+export interface AdaptacionPortal {
+  readonly mapa?: MapaCampos;
+  readonly alAprender?: (alias: AliasAprendido) => void;
+}
+
 /** Lee el portal del SII con una sesión ya iniciada (clave tributaria). */
 export class LectorPortalSii implements SiiReader {
+  private readonly mapa: MapaCampos;
+
   constructor(
     private readonly http: Http,
     private readonly sumidero: SumideroRespuestas,
     /** Lee el PDF compacto del F29; el contenedor inyecta el mismo que usa la relectura. */
     private readonly lectorPdf: LectorPdfF29 = lectorPdfF29,
-  ) {}
-
-  rcvResumen(rut: string, periodo: Periodo, lado: Lado, estado: EstadoRcv): Promise<RcvResumen> {
-    return rcvResumen(this.http, this.sumidero, parseRut(rut), periodo, lado, estado);
+    private readonly adaptacion: AdaptacionPortal = {},
+  ) {
+    this.mapa = adaptacion.mapa ?? MAPA_BASE;
   }
 
-  rcvDetalle(rut: string, periodo: Periodo, lado: Lado, tipoDoc: number, estado: EstadoRcv): Promise<DocumentoRcv[]> {
-    return rcvDetalle(this.http, this.sumidero, parseRut(rut), periodo, lado, tipoDoc, estado);
+  rcvResumen(rut: string, periodo: Periodo, lado: Lado, estado: EstadoRcv): Promise<RcvResumen> {
+    return rcvResumen(this.http, this.sumidero, parseRut(rut), periodo, lado, estado, this.mapa);
+  }
+
+  rcvDetalle(rut: string, periodo: Periodo, lado: Lado, tipoDoc: number, estado: EstadoRcv, esperado?: Pick<RcvResumenFila, 'cantidad' | 'exento' | 'neto' | 'iva' | 'total'>): Promise<DocumentoRcv[]> {
+    return rcvDetalle(this.http, this.sumidero, parseRut(rut), periodo, lado, tipoDoc, estado, {
+      mapa: this.mapa,
+      ...(esperado ? { esperado } : {}),
+      ...(this.adaptacion.alAprender ? { alAprender: this.adaptacion.alAprender } : {}),
+    });
   }
 
   f29Declaraciones(rut: string, periodo: Periodo): Promise<F29Declaracion[]> {
-    return f29Declaraciones(this.http, this.sumidero, parseRut(rut), periodo);
+    return f29Declaraciones(this.http, this.sumidero, parseRut(rut), periodo, this.mapa);
   }
 
   f29Valores(rut: string, declaracion: F29Declaracion): Promise<F29Valores> {
