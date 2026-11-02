@@ -23,10 +23,10 @@ import type { ComparacionMonto, ParCruceHonorarios } from '../domain/renta.js';
 import type { Hallazgo, Plazo, Severidad } from '../domain/tipos.js';
 import { bloques, conclusion, estado, siguientesPasos, tabla, type Icono } from './presentacion.js';
 
-const monto = (n: number | null): string => (n === null ? 'sin dato' : formatearClp(n));
-const plural = (n: number, singular: string, pluralTexto: string): string => `${n} ${n === 1 ? singular : pluralTexto}`;
+export const monto = (n: number | null): string => (n === null ? 'sin dato' : formatearClp(n));
+export const plural = (n: number, singular: string, pluralTexto: string): string => `${n} ${n === 1 ? singular : pluralTexto}`;
 /** Fecha de un instante guardado (`2026-10-21T10:00:00.000Z` → `2026-10-21`). */
-const fecha = (instante: string | null): string => instante?.slice(0, 10) ?? 'nunca';
+export const fecha = (instante: string | null): string => instante?.slice(0, 10) ?? 'nunca';
 const ORDEN_SEVERIDAD: Readonly<Record<Severidad, number>> = { critico: 0, advertencia: 1, info: 2 };
 
 export function textoHallazgos(hallazgos: readonly Hallazgo[]): string {
@@ -52,7 +52,8 @@ function lineaHonorarios(h: NonNullable<ResumenIva['honorarios']>): string {
  * La conclusión del mes, de lo más urgente a lo que está bien: hallazgos críticos, F29 no presentado, hallazgos para
  * revisar, fuentes sin sincronizar y, solo si nada de eso pasa, «cuadra».
  */
-function conclusionIva(r: ResumenIva, faltantes: readonly string[]): string {
+export function conclusionIva(r: ResumenIva): string {
+  const faltantes = faltantesIva(r);
   const titulo = `IVA ${r.periodo} de ${r.rut}`;
   const total = r.hallazgos.length;
   const criticos = r.hallazgos.filter((h) => h.severidad === 'critico').length;
@@ -67,9 +68,13 @@ function conclusionIva(r: ResumenIva, faltantes: readonly string[]): string {
   return conclusion(estado('ok'), `${titulo}: el RCV cuadra con el F29${total > 0 ? `; ${plural(total, 'nota informativa', 'notas informativas')}` : ' y no hay hallazgos'}.`);
 }
 
+/** Las fuentes del mes que aún no se sincronizan. */
+const faltantesIva = (r: ResumenIva): string[] =>
+  [!r.disponibilidad.ventasRcv && 'ventas RCV', !r.disponibilidad.comprasRcv && 'compras RCV', !r.disponibilidad.f29 && 'F29'].filter((f) => f !== false);
+
 export function textoResumenIva(r: ResumenIva): string {
   const c = r.comparaciones;
-  const faltantes = [!r.disponibilidad.ventasRcv && 'ventas RCV', !r.disponibilidad.comprasRcv && 'compras RCV', !r.disponibilidad.f29 && 'F29'].filter((f) => f !== false);
+  const faltantes = faltantesIva(r);
   const noPresentado = r.disponibilidad.f29 && !r.f29;
   // Sin hallazgos críticos, la conclusión ya dice que el F29 no se presentó y cuándo vence: esa línea sobra.
   const conclusionDiceF29 = noPresentado && !r.hallazgos.some((h) => h.severidad === 'critico');
@@ -80,7 +85,7 @@ export function textoResumenIva(r: ResumenIva): string {
       : `F29: ${noPresentado ? 'no presentado' : 'sin sincronizar'} — vence ${r.venceF29} con pago (${r.venceF29SinPago} sin pago)`;
   const pasos = [...(faltantes.length > 0 ? [`sincronizar (${faltantes.join(', ')})`] : []), ...(noPresentado ? ['f29_estimar para calcular el F29'] : [])];
   return bloques(
-    [conclusionIva(r, faltantes)],
+    [conclusionIva(r)],
     [tabla(['Concepto', 'RCV', 'F29'], [['Débito', monto(c.debitoRcv), monto(c.debitoF29)], ['Crédito', monto(c.creditoRcv), monto(c.creditoF29)]])],
     [
       `Remanente: mes anterior (77) ${monto(c.remanenteAnterior77)} → este mes (504) ${monto(c.remanenteActual504)}`,
@@ -96,12 +101,17 @@ export function textoResumenIva(r: ResumenIva): string {
 }
 
 /** Días hacia adelante en que un plazo se marca como cercano (⚠️). */
-const DIAS_PLAZO_CERCANO = 7;
+export const DIAS_PLAZO_CERCANO = 7;
 const dias = (n: number): string => plural(n, 'día', 'días');
-const iconoPlazo = (d: number): Icono => (d < 0 ? estado('critico') : d <= DIAS_PLAZO_CERCANO ? estado('advertencia') : estado('info'));
-const cuandoVence = (d: number): string => (d < 0 ? `vencido hace ${dias(-d)}` : d === 0 ? 'vence hoy' : `en ${dias(d)}`);
+export const iconoPlazo = (d: number): Icono => (d < 0 ? estado('critico') : d <= DIAS_PLAZO_CERCANO ? estado('advertencia') : estado('info'));
+export const cuandoVence = (d: number): string => (d < 0 ? `vencido hace ${dias(-d)}` : d === 0 ? 'vence hoy' : `en ${dias(d)}`);
 
 export function textoPlazos(plazos: readonly Plazo[]): string {
+  return [conclusionPlazos(plazos), ...plazos.map((p) => `${iconoPlazo(p.diasRestantes)} ${p.vence} (${cuandoVence(p.diasRestantes)}) — ${p.descripcion}`)].join('\n');
+}
+
+/** Cuántos plazos hay vencidos, cercanos y más adelante, con el ícono del más urgente. */
+export function conclusionPlazos(plazos: readonly Plazo[]): string {
   if (plazos.length === 0) return conclusion(estado('ok'), 'Sin plazos próximos.');
   const vencidos = plazos.filter((p) => p.diasRestantes < 0).length;
   const cercanos = plazos.filter((p) => p.diasRestantes >= 0 && p.diasRestantes <= DIAS_PLAZO_CERCANO).length;
@@ -111,8 +121,7 @@ export function textoPlazos(plazos: readonly Plazo[]): string {
     ...(cercanos > 0 ? [`${cercanos} en ${DIAS_PLAZO_CERCANO} días o menos`] : []),
     ...(despues > 0 ? [`${despues} más adelante`] : []),
   ];
-  const icono = iconoPlazo(Math.min(...plazos.map((p) => p.diasRestantes)));
-  return [conclusion(icono, `${plural(plazos.length, 'plazo', 'plazos')}: ${partes.join(', ')}.`), ...plazos.map((p) => `${iconoPlazo(p.diasRestantes)} ${p.vence} (${cuandoVence(p.diasRestantes)}) — ${p.descripcion}`)].join('\n');
+  return conclusion(iconoPlazo(Math.min(...plazos.map((p) => p.diasRestantes))), `${plural(plazos.length, 'plazo', 'plazos')}: ${partes.join(', ')}.`);
 }
 
 const TEXTO_DIA20 = (autorizado: boolean | null): string => (autorizado === null ? 'sin dato' : autorizado ? 'autorizado' : 'no autorizado');
@@ -313,13 +322,17 @@ function lineasAsistente(a: AsistenteAnio): string[] {
 
 /** Renta (F22) guardada por año tributario: folio vigente, conclusión, códigos clave, observaciones y eventos. */
 export function textoResumenRenta(r: ResumenRenta): string {
+  return [conclusionRenta(r), ...r.anios.flatMap(lineasAnioRenta)].join('\n');
+}
+
+/** Cuántos años de renta hay guardados y cuáles tienen observaciones del SII; sin años, cómo traerlos. */
+export function conclusionRenta(r: ResumenRenta): string {
   if (r.anios.length === 0) {
     return conclusion(estado('info'), `No hay renta (F22) guardada de ${r.rut}. Tráela con renta_sincronizar (o \`mi-sii-mcp renta sync <rut> --desde AAAA\`); el año tributario es el año comercial + 1.`);
   }
   const cabecera = `Renta (F22) ${r.rut} — ${plural(r.anios.length, 'año tributario guardado', 'años tributarios guardados')}`;
   const observados = r.anios.filter((a) => a.observaciones.length > 0).map((a) => `AT${a.anioTributario}`);
-  const primera = observados.length > 0 ? conclusion(estado('advertencia'), `${cabecera}; con observaciones del SII en ${observados.join(', ')}.`) : conclusion(estado('info'), `${cabecera}.`);
-  return [primera, ...r.anios.flatMap(lineasAnioRenta)].join('\n');
+  return observados.length > 0 ? conclusion(estado('advertencia'), `${cabecera}; con observaciones del SII en ${observados.join(', ')}.`) : conclusion(estado('info'), `${cabecera}.`);
 }
 
 /** Día 20, segmento y las otras empresas activas que puede consultar: el propio RUT, que el SII también lista, no cuenta. */
@@ -667,19 +680,18 @@ export function textoNovedades(avisos: readonly Aviso[]): string {
 }
 
 /** El peor estado de una cuenta: ⛔ si tiene F29 vencidos o hallazgos críticos, ⚠️ si está sin sesión o con avisos sin ver. */
-const iconoCuenta = (f: FilaCartera): Icono =>
+export const iconoCuenta = (f: FilaCartera): Icono =>
   f.f29Vencidos > 0 || f.hallazgosCriticos > 0 ? estado('critico') : f.sesion === 'sin_sesion' || f.avisosSinVer > 0 ? estado('advertencia') : estado('ok');
 
-/** La cartera en una tabla, una fila por cuenta con el ícono de su peor estado; la columna del banco, solo si hay cartolas. */
-export function textoCartera(filas: readonly FilaCartera[]): string {
-  if (filas.length === 0) return conclusion(estado('info'), 'Cartera sin cuentas: conecta una con cuenta_conectar.');
-  const iconos = filas.map(iconoCuenta);
-  const atencion = iconos.filter((i) => i !== estado('ok')).length;
-  const peor = iconos.includes(estado('critico')) ? estado('critico') : iconos.includes(estado('advertencia')) ? estado('advertencia') : estado('ok');
-  const titulo = `Cartera de ${plural(filas.length, 'cuenta', 'cuentas')}`;
+/** El peor de varios íconos de estado. */
+export const peorIcono = (iconos: readonly Icono[]): Icono =>
+  iconos.includes(estado('critico')) ? estado('critico') : iconos.includes(estado('advertencia')) ? estado('advertencia') : iconos.includes(estado('info')) ? estado('info') : estado('ok');
+
+/** Las columnas de la cartera, una fila por cuenta con el ícono de su peor estado; la del banco, solo si hay cartolas. */
+export function columnasCartera(filas: readonly FilaCartera[]): { encabezados: string[]; filas: string[][] } {
   const conBanco = filas.some((f) => f.movimientosSinConciliar !== null);
-  const fila = (f: FilaCartera, i: number): string[] => [
-    iconos[i] ?? '',
+  const fila = (f: FilaCartera): string[] => [
+    iconoCuenta(f),
     `${f.alias} (${f.rut})`,
     f.sesion === 'activa' ? 'activa' : 'sin sesión',
     `${plural(f.f29Vencidos, 'vencido', 'vencidos')}${f.masAntiguoVencido ? ` (desde ${f.masAntiguoVencido})` : ''}, ${f.f29PorVencer} por vencer`,
@@ -689,10 +701,23 @@ export function textoCartera(filas: readonly FilaCartera[]): string {
     ...(conBanco ? [f.movimientosSinConciliar === null ? '—' : `${f.movimientosSinConciliar} sin conciliar`] : []),
     f.ultimaSincronizacion?.slice(0, 10) ?? 'sin sincronizar',
   ];
-  return bloques(
-    [conclusion(peor, atencion === 0 ? `${titulo}: todo al día.` : `${titulo}: ${atencion} ${atencion === 1 ? 'necesita' : 'necesitan'} atención.`)],
-    [tabla(['Estado', 'Cuenta', 'Sesión', 'F29', 'Hallazgos críticos', 'Próximo plazo', 'Avisos sin ver', ...(conBanco ? ['Banco'] : []), 'Datos al'], filas.map(fila))],
-  );
+  return { encabezados: ['Estado', 'Cuenta', 'Sesión', 'F29', 'Hallazgos críticos', 'Próximo plazo', 'Avisos sin ver', ...(conBanco ? ['Banco'] : []), 'Datos al'], filas: filas.map(fila) };
+}
+
+/** Cuántas cuentas necesitan atención, con el ícono de la peor. */
+export function conclusionCartera(filas: readonly FilaCartera[]): string {
+  if (filas.length === 0) return conclusion(estado('info'), 'Cartera sin cuentas: conecta una con cuenta_conectar.');
+  const iconos = filas.map(iconoCuenta);
+  const atencion = iconos.filter((i) => i !== estado('ok')).length;
+  const titulo = `Cartera de ${plural(filas.length, 'cuenta', 'cuentas')}`;
+  return conclusion(peorIcono(iconos), atencion === 0 ? `${titulo}: todo al día.` : `${titulo}: ${atencion} ${atencion === 1 ? 'necesita' : 'necesitan'} atención.`);
+}
+
+/** La cartera en una tabla, con una conclusión que cuenta las cuentas que necesitan atención. */
+export function textoCartera(filas: readonly FilaCartera[]): string {
+  if (filas.length === 0) return conclusionCartera(filas);
+  const columnas = columnasCartera(filas);
+  return bloques([conclusionCartera(filas)], [tabla(columnas.encabezados, columnas.filas)]);
 }
 
 /** La conclusión de la estimación de renta: el saldo y, si hay F22, si cuadra con su código 305. */
@@ -731,7 +756,7 @@ export function textoOportunidades(r: ResultadoOportunidades): string {
   ].join('\n');
 }
 
-const textoSaldo = (monto: number): string => (monto === 0 ? 'sin saldo' : `${monto > 0 ? 'a pagar' : 'a devolver'} ${formatearClp(Math.abs(monto))}`);
+export const textoSaldo = (monto: number): string => (monto === 0 ? 'sin saldo' : `${monto > 0 ? 'a pagar' : 'a devolver'} ${formatearClp(Math.abs(monto))}`);
 const lineaRegimen = (r: { regimen: { descripcion: string } | null }): string[] => (r.regimen ? [`Régimen inscrito según el SII: ${r.regimen.descripcion}.`] : []);
 
 /** Proyección del año al cierre: lo acumulado, lo proyectado, los PPM y el saldo estimado de abril. */
