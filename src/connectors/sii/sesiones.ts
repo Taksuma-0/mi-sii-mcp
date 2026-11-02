@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { Cookie, CookieJar } from 'tough-cookie';
 import { ErrorMiSiiMcp } from '../../domain/errores.js';
@@ -7,6 +7,7 @@ import type { ConsultaSesiones, EstadoSesion, IdentidadSii, ResultadoLogin, Secr
 import { capturarCookiesSii, esCookieTokenSii, esDominioSii, type CookieNavegador } from '../navegador/sesion-navegador.js';
 import { ClienteHttp, type OpcionesHttp } from './http.js';
 import { cerrarSesion, iniciarSesion, leerIdentidad } from './login.js';
+import { escribirAtomico } from '../sistema/escritura.js';
 
 type JarSerializado = Parameters<typeof CookieJar.deserializeSync>[0];
 
@@ -313,14 +314,14 @@ export class GestorSesiones implements ConsultaSesiones {
   private guardarArchivo(rut: string, http: ClienteHttp, origen?: 'navegador'): void {
     const marca = origen ?? (this.activas.get(rut) === http ? this.leerArchivo(rut)?.origen : undefined);
     const archivo: ArchivoSesion = { rut, guardadaEn: new Date().toISOString(), jar: http.jar.serializeSync() ?? null, ...(marca ? { origen: marca } : {}) };
-    writeFileSync(this.rutaSesion(rut), JSON.stringify(archivo), { mode: 0o600 });
+    escribirAtomico(this.rutaSesion(rut), JSON.stringify(archivo), { mode: 0o600 });
     this.ultimaGuardadaEn.set(rut, archivo.guardadaEn);
   }
 
   private async siRechazoBloquear(rut: string, e: unknown): Promise<void> {
     if (!(e instanceof ErrorMiSiiMcp) || e.codigo !== 'CLAVE_RECHAZADA') return;
     const codigo = (e.detalle as { codigo?: string | null } | undefined)?.codigo ?? null;
-    writeFileSync(this.rutaBloqueo(rut), JSON.stringify({ motivo: e.message, codigo, en: new Date().toISOString() }), { mode: 0o600 });
+    escribirAtomico(this.rutaBloqueo(rut), JSON.stringify({ motivo: e.message, codigo, en: new Date().toISOString() }), { mode: 0o600 });
     try {
       await this.secretos.borrar(rut);
     } catch {

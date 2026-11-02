@@ -1,7 +1,8 @@
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, stat } from 'node:fs/promises';
 import { basename, extname, join } from 'node:path';
 import { ErrorMiSiiMcp } from '../../domain/errores.js';
 import type { ArchivosLocales } from '../../ports/index.js';
+import { escribirAtomico } from './escritura.js';
 
 /** Solo se leen cartolas en texto: así un pedido equivocado no puede leer otros archivos del equipo. */
 const EXTENSIONES = new Set(['.csv', '.txt']);
@@ -31,7 +32,7 @@ export class ArchivosSistema implements ArchivosLocales {
     const carpeta = join(this.home, 'exportaciones');
     await mkdir(carpeta, { recursive: true });
     const ruta = join(carpeta, nombreSeguro(nombre));
-    await writeFile(ruta, contenido, 'utf8');
+    escribirAtomico(ruta, contenido);
     return ruta;
   }
 }
