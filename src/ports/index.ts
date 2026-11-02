@@ -365,6 +365,12 @@ export interface Store {
    * superficie y período, y siempre el último PDF de cada folio del F29. Devuelve cuántas borró.
    */
   podarRespuestasCrudas(conservar?: number): number;
+  /** Respuestas crudas guardadas (evidencia de las consultas al SII). */
+  contarRespuestasCrudas(): number;
+  /** Última sincronización exitosa de cada superficie de un RUT, por superficie. */
+  ultimasSincronizacionesOk(rut: string): { readonly superficie: string; readonly en: string }[];
+  /** Sincronizaciones que fallaron con `codigo` desde una fecha ISO (de todas las cuentas). */
+  contarFallas(codigo: string, desde: string): number;
   /** «ok» si la base está sana (PRAGMA quick_check), o el primer problema encontrado. */
   integridad(): string;
   /** Copia íntegra de la base en `ruta` (VACUUM INTO). */

@@ -9,6 +9,7 @@ import type { ResultadoEstimacionRenta } from '../app/estimar-renta.js';
 import { REGLA_ESTIMACION_RENTA, type FuenteOficial } from '../app/fuentes.js';
 import type { PerfilConSesion } from '../app/perfiles.js';
 import type { ResultadoReleerF29, ResultadoRelectura } from '../app/releer-f29.js';
+import type { Diagnostico } from '../app/diagnostico.js';
 import type { ResultadoCierre, ResultadoSimulacionRegimen } from '../app/simuladores.js';
 import type { ResultadoSituacion } from '../app/situacion.js';
 import type { FilaCartera } from '../app/vigilancia.js';
@@ -715,5 +716,29 @@ export function textoSituacionSii(r: ResultadoSituacion): string {
     ...mensajes,
     r.nuevos.length > 0 ? `${r.nuevos.length === 1 ? 'Se sumó' : 'Se sumaron'} ${plural(r.nuevos.length, 'aviso nuevo', 'avisos nuevos')} a novedades.` : 'Sin avisos nuevos.',
     ...(r.anotaciones.length > 0 ? ['Las anotaciones se regularizan ante el SII (sii.cl o la oficina de tu jurisdicción): mi-sii-mcp solo las muestra.'] : []),
+  ].join('\n');
+}
+
+/** Salud de mi-sii-mcp: versión, base, cuentas y cambios del portal (solo lo guardado). */
+export function textoDiagnostico(d: Diagnostico): string {
+  const v = d.version;
+  const version = v.actual === null ? 'versión desconocida' : `versión ${v.actual}${v.hayNueva ? `; hay una nueva (${v.ultima}): actualízala con npx -y mi-sii-mcp@latest` : v.ultima === null ? '' : ', al día'}`;
+  const base = `Base: ${d.base.integridad === 'ok' ? 'íntegra' : `con problemas (${d.base.integridad}); usa el respaldo más nuevo`} · ${d.base.respuestasCrudas} respuestas crudas guardadas · ${d.base.ultimoRespaldo ? `último respaldo: ${d.base.ultimoRespaldo}` : 'sin respaldos aún (los crea la revisión diaria)'}.`;
+  const cuentas = d.cuentas.map((c) => {
+    const ultima = c.ultimasOk.map((u) => u.en).sort().at(-1);
+    return `  ${c.alias} (${c.rut}): sesión ${c.sesion === 'activa' ? 'activa' : 'sin sesión'} · ${ultima ? `última lectura buena ${ultima.slice(0, 10)}` : 'sin lecturas del SII'} · ${plural(c.pendientesReintento, 'falla del SII por reintentar', 'fallas del SII por reintentar')} · ${plural(c.avisosSinVer, 'aviso sin ver', 'avisos sin ver')}`;
+  });
+  const cambios = d.portal.cambios.map((c) => {
+    const detalle = c.detalle as { campo?: string; alias?: string; rutas?: string[] } | null;
+    if (c.tipo === 'reparado' && detalle?.campo) return `  [reparado] ${c.superficie}: ${detalle.campo} ← ${detalle.alias} (${c.detectadoEn.slice(0, 10)})`;
+    if (c.tipo === 'aditivo') return `  [campos nuevos] ${c.superficie}: ${(detalle?.rutas ?? []).slice(0, 5).join(', ')} (${c.detectadoEn.slice(0, 10)})`;
+    return `  [${c.tipo}] ${c.superficie} (${c.detectadoEn.slice(0, 10)})`;
+  });
+  return [
+    `Diagnóstico de mi-sii-mcp: ${version}.`,
+    base,
+    ...(cuentas.length > 0 ? ['Cuentas:', ...cuentas] : ['Sin cuentas configuradas.']),
+    `Portal del SII (últimos 30 días): ${plural(d.portal.cambios.length, 'cambio detectado', 'cambios detectados')}, ${plural(d.portal.alias.length, 'nombre de campo aprendido', 'nombres de campo aprendidos')} y ${plural(d.portal.lecturasRotas, 'lectura que falló por un cambio del portal', 'lecturas que fallaron por un cambio del portal')}.`,
+    ...cambios,
   ].join('\n');
 }

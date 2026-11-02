@@ -35,10 +35,10 @@ describe('servidor MCP', () => {
     expect(p.sii.llamadas).toEqual([]);
   });
 
-  it('expone exactamente las 30 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
+  it('expone exactamente las 31 herramientas, ninguna pide una clave y las consultas son de solo lectura', async () => {
     const cliente = await conectar(depsDePrueba().deps);
     const { tools } = await cliente.listTools();
-    expect(tools).toHaveLength(30);
+    expect(tools).toHaveLength(31);
     expect(tools.map((t) => t.name).sort()).toEqual([...HERRAMIENTAS].sort());
     expect(JSON.stringify(tools.map((t) => t.inputSchema)).toLowerCase()).not.toMatch(/clave|password|contrase/);
     expect(tools.find((t) => t.name === 'iva_resumen')?.annotations?.readOnlyHint).toBe(true);
@@ -127,6 +127,25 @@ describe('servidor MCP', () => {
 
     expect(textoDe(r)).toContain('Hay una versión nueva de mi-sii-mcp (9.0.0)');
     expect(consultas).toBe(1);
+    await cliente.close();
+  });
+
+  it('diagnostico resume la salud de mi-sii-mcp y los cambios del portal sin ir al SII', async () => {
+    const { deps, store } = depsDePrueba({ fallaAlAbrir: new Error('No debe abrir el SII') });
+    store.guardarContribuyente(perfilEmpresa());
+    store.registrarCambioPortal('rcv.detalle', 'reparado', { campo: 'montoNeto', alias: 'detMntNetoNuevo', evidencia: 'suma = neto del resumen' }, '2026-10-21T10:00:00.000Z');
+    store.guardarAlias({ superficie: 'rcv.detalle', campo: 'montoNeto', alias: 'detMntNetoNuevo', aprendidoEn: '2026-10-21T10:00:00.000Z', evidencia: 'suma = neto del resumen' });
+    const cliente = await conectar({ ...deps, versionActual: '0.3.0', versiones: { ultima: async () => '0.3.1', conocida: () => '0.3.1' } });
+    const { tools } = await cliente.listTools();
+
+    const r = await cliente.callTool({ name: 'diagnostico', arguments: {} });
+
+    expect(tools.find((t) => t.name === 'diagnostico')?.annotations?.readOnlyHint).toBe(true);
+    expect(esError(r)).toBe(false);
+    expect(textoDe(r)).toContain('hay una nueva (0.3.1)');
+    expect(textoDe(r)).toContain('Base: íntegra');
+    expect(textoDe(r)).toContain('montoNeto ← detMntNetoNuevo');
+    expect(INSTRUCCIONES_MCP).toContain('diagnostico');
     await cliente.close();
   });
 

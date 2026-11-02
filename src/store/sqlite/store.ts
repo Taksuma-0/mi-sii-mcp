@@ -1261,6 +1261,20 @@ export class SqliteStore implements Store {
     return r.changes;
   }
 
+  contarRespuestasCrudas(): number {
+    return this.db.prepare('SELECT COUNT(*) FROM respuesta_cruda').pluck().get() as number;
+  }
+
+  ultimasSincronizacionesOk(rut: string): { superficie: string; en: string }[] {
+    return this.db
+      .prepare("SELECT superficie, MAX(terminado_en) AS en FROM sincronizacion WHERE rut = ? AND estado = 'ok' GROUP BY superficie ORDER BY superficie")
+      .all(rut) as { superficie: string; en: string }[];
+  }
+
+  contarFallas(codigo: string, desde: string): number {
+    return this.db.prepare("SELECT COUNT(*) FROM sincronizacion WHERE estado = 'error' AND error_codigo = ? AND iniciado_en >= ?").pluck().get(codigo, desde) as number;
+  }
+
   integridad(): string {
     return String(this.db.pragma('quick_check', { simple: true }));
   }
