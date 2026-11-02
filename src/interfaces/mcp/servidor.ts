@@ -23,6 +23,7 @@ import { ErrorMiSiiMcp, esErrorMiSiiMcp, type CodigoError } from '../../domain/e
 import { parsePeriodo } from '../../domain/periodo.js';
 import { parseRut } from '../../domain/rut.js';
 import { lineaReintento, textoAsientos, textoCartera, textoDocumentos, textoHallazgos, textoHistorialF29, textoConciliacion, textoCuenta, textoCuentas, textoEstimacionF29, textoEstimacionRenta, textoFuentes, textoImportacion, textoLibro, textoNovedades, textoOportunidades, textoPendientes, textoPerfiles, textoPlazos, textoProyeccionCierre, textoReintentables, textoReintentablesCuenta, textoReintentablesRenta, textoReleerF29, textoRenta, textoResultado, textoResumenIva, textoResumenRenta, textoSimulacionRegimen, textoSituacionSii, textoSync } from '../formato.js';
+import { asientosLivianos, libroLiviano, panoramaLiviano, rentaLiviana } from './proyecciones.js';
 import { registrarRecetas } from './recetas.js';
 
 export const HERRAMIENTAS = [
@@ -109,6 +110,7 @@ const RUT = z.string().describe('RUT del contribuyente, por ejemplo 22.222.222-2
 const PERIODO = z.string().regex(/^\d{4}-\d{2}$/, 'Usa el formato AAAA-MM').describe('Período tributario AAAA-MM');
 const ANIO_TRIBUTARIO = z.string().regex(/^\d{4}$/, 'Usa el año tributario AAAA').describe('Año tributario AAAA (año comercial + 1): 2026 es la renta del año 2025');
 const SOLO_LECTURA = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } as const;
+const DETALLE = z.boolean().optional().describe('true trae todo el detalle (más largo); por defecto, una versión liviana suficiente para responder');
 
 /** Texto para leer y, tras una línea en blanco, los datos en JSON compacto (sin indentar: pesa la mitad para el asistente). */
 const respuesta = (texto: string, datos: unknown): ResultadoHerramienta => ({
@@ -194,12 +196,13 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
     {
       title: 'Panorama local del SII',
       description: 'Muestra el panorama de todos los meses almacenados localmente para un RUT, con montos y cobertura de RCV (compras y ventas) y F29 y, si se sincronizaron, la propuesta de F29, las boletas de honorarios recibidas y la renta (F22) por año tributario, además de los datos de la cuenta. No requiere un período y no descarga datos del SII: consulta solo lo almacenado localmente.',
-      inputSchema: z.object({ rut: RUT }),
+      inputSchema: z.object({ rut: RUT, detalle: DETALLE }),
       annotations: SOLO_LECTURA,
     },
-    async ({ rut }) =>
+    async ({ rut, detalle }) =>
       seguro(() => {
         const r = panorama(deps, rut);
+        const datos = detalle === true ? r : panoramaLiviano(r);
         const meses = r.periodos.length;
         const ventas = r.periodos.filter((p) => p.disponibilidad.ventasRcv).length;
         const compras = r.periodos.filter((p) => p.disponibilidad.comprasRcv).length;
@@ -216,9 +219,9 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
         // Una persona que no declara IVA no tiene RCV ni F29: su panorama son las boletas y la renta, no un «0/12».
         if (r.perfil.tipo === 'persona' && ventas + compras + f29 === 0) {
           const siguiente = sufijo === '' ? ' Para ver su F22, sus boletas emitidas y lo informado por terceros, usa renta_sincronizar.' : sufijo;
-          return respuesta(`Panorama local de una persona sin RCV ni F29 (no declara IVA).${siguiente}`, r);
+          return respuesta(`Panorama local de una persona sin RCV ni F29 (no declara IVA).${siguiente}`, datos);
         }
-        return respuesta(`Panorama local: ${meses} meses. Fuentes: RCV (compras y ventas) y F29. Cobertura: ventas ${ventas}/${meses}, compras ${compras}/${meses} y F29 ${f29}/${meses} meses consultados.${sufijo}`, r);
+        return respuesta(`Panorama local: ${meses} meses. Fuentes: RCV (compras y ventas) y F29. Cobertura: ventas ${ventas}/${meses}, compras ${compras}/${meses} y F29 ${f29}/${meses} meses consultados.${sufijo}`, datos);
       }, rut),
   );
 
@@ -304,13 +307,13 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
       title: 'Resumen de la renta (F22)',
       description:
         'Muestra la renta (F22) guardada localmente por año tributario: folio vigente, conclusión del SII, impuesto pagado, giro y remanente, los códigos del resultado con su glosa del SII, observaciones y eventos. De una persona muestra además sus boletas de honorarios emitidas del año comercial (vigentes, anuladas, bruto y retención) y su cruce con los códigos 547 (ingresos brutos) y 492 (retención) del F22, que vienen reajustados por IPC: cuadra si el F22 trae entre 0 % y 10 % más; con el detalle boleta por boleta, también sus 5 principales pagadores. También muestra lo informado por terceros (DJ): cada informante con sus meses, monto y estado, con un aviso si su declaración está observada por el SII; en la DJ 1879 cruza la retención informada con las boletas emitidas a ese RUT y la total con las boletas del año y con el 492 del F22 (cuadra o difiere por cuánto). Para preguntas como «¿a quién le emití boletas?» o por mes y receptor, usa consulta_sql sobre bhe_emitida. Lo informado por terceros está en dj_tercero. No va al SII: si no hay datos, usa renta_sincronizar. Los demás códigos están en f22_valor y las boletas por mes en bhe_emitida_mes (consulta_sql).',
-      inputSchema: z.object({ rut: RUT, anio: ANIO_TRIBUTARIO.optional() }),
+      inputSchema: z.object({ rut: RUT, anio: ANIO_TRIBUTARIO.optional(), detalle: DETALLE }),
       annotations: SOLO_LECTURA,
     },
-    async ({ rut, anio }) =>
+    async ({ rut, anio, detalle }) =>
       seguro(() => {
         const r = resumenRenta(deps, rut, anio);
-        return respuesta(textoResumenRenta(r), r);
+        return respuesta(textoResumenRenta(r), detalle === true ? r : rentaLiviana(r));
       }, rut),
   );
 
@@ -483,14 +486,17 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
         desde: PERIODO,
         hasta: PERIODO.optional(),
         exportar: z.boolean().optional(),
+        detalle: DETALLE,
       }),
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
-    async ({ rut, tipo, desde, hasta, exportar }) =>
+    async ({ rut, tipo, desde, hasta, exportar, detalle }) =>
       seguro(async () => {
         const l = libro(deps, rut, tipo, desde, hasta ?? desde);
         const ruta = exportar === true ? await exportarLibro(deps, l) : null;
-        return respuesta(textoLibro(l, ruta), { ...l, exportadoEn: ruta });
+        const { datos, omitidas } = detalle === true ? { datos: l, omitidas: 0 } : libroLiviano(l);
+        const aviso = omitidas > 0 ? `\nSe muestran ${l.filas.length - omitidas} de ${l.filas.length} filas: pide detalle: true para verlas todas, o exportar: true para el CSV.` : '';
+        return respuesta(`${textoLibro(l, ruta)}${aviso}`, { ...(datos as object), exportadoEn: ruta });
       }, rut),
   );
 
@@ -500,14 +506,16 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
       title: 'Asientos contables propuestos',
       description:
         'Propone los asientos contables de un rango de meses con lo guardado: ventas y compras registradas del RCV (cada compra a la cuenta de su tipo o de la regla del proveedor), boletas de venta, boletas de honorarios, la centralización de cada F29 presentado y los movimientos de las cartolas según su conciliación. Todo asiento cuadra; lo que no se sabe dónde va queda en «por clasificar». Con exportar=true los guarda como CSV para Excel o el software contable. Es una propuesta para revisar: no incluye sueldos, inventario ni depreciación. Solo usa la base local.',
-      inputSchema: z.object({ rut: RUT, desde: PERIODO, hasta: PERIODO.optional(), exportar: z.boolean().optional() }),
+      inputSchema: z.object({ rut: RUT, desde: PERIODO, hasta: PERIODO.optional(), exportar: z.boolean().optional(), detalle: DETALLE }),
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
-    async ({ rut, desde, hasta, exportar }) =>
+    async ({ rut, desde, hasta, exportar, detalle }) =>
       seguro(async () => {
         const r = asientos(deps, rut, desde, hasta ?? desde);
         const ruta = exportar === true ? await exportarAsientos(deps, r) : null;
-        return respuesta(textoAsientos(r, ruta), { ...r, exportadoEn: ruta });
+        const { datos, omitidos } = detalle === true ? { datos: r, omitidos: 0 } : asientosLivianos(r);
+        const aviso = omitidos > 0 ? `\nSe muestran ${r.asientos.length - omitidos} de ${r.asientos.length} asientos: pide detalle: true para verlos todos, o exportar: true para el CSV.` : '';
+        return respuesta(`${textoAsientos(r, ruta)}${aviso}`, { ...(datos as object), exportadoEn: ruta });
       }, rut),
   );
 

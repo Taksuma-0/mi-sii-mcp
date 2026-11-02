@@ -20,6 +20,9 @@ async function conectar(deps: DepsApp, opciones?: OpcionesMcp) {
 
 const textoDe = (r: unknown): string => (r as { content: { type: string; text: string }[] }).content[0]?.text ?? '';
 const esError = (r: unknown): boolean => (r as { isError?: boolean }).isError === true;
+/** El JSON de una respuesta (después de la primera línea en blanco), para recorrerlo libremente en las pruebas. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const jsonDe = (r: unknown): any => JSON.parse(textoDe(r).slice(textoDe(r).indexOf('\n\n') + 2));
 
 describe('servidor MCP', () => {
   it('fuentes_oficiales indica dónde consultar los datos públicos sin ir al SII', async () => {
@@ -45,7 +48,7 @@ describe('servidor MCP', () => {
     const panorama = tools.find((t) => t.name === 'sii_panorama');
     expect(panorama?.annotations).toEqual({ readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false });
     expect(panorama?.inputSchema).toMatchObject({ properties: { rut: expect.any(Object) }, required: ['rut'] });
-    expect(Object.keys(panorama?.inputSchema.properties ?? {})).toEqual(['rut']);
+    expect(Object.keys(panorama?.inputSchema.properties ?? {})).toEqual(['rut', 'detalle']);
     expect(panorama?.description).toMatch(/no requiere.*período/i);
     expect(panorama?.description).toMatch(/no descarga/i);
     expect(panorama?.description).toMatch(/almacenad[oa]s? local/i);
@@ -54,6 +57,64 @@ describe('servidor MCP', () => {
     expect(panorama?.description).toMatch(/renta \(F22\)/i);
     expect(panorama?.description).not.toMatch(/solo RCV/i);
     expect(tools.find((t) => t.name === 'sincronizar')?.annotations?.readOnlyHint).toBe(false);
+    await cliente.close();
+  });
+
+  it('sii_panorama por defecto omite los códigos del F29 y la frescura de cada mes; con detalle los trae', async () => {
+    const { deps, store } = depsDePrueba();
+    store.guardarContribuyente(perfilEmpresa());
+    sembrarMes(store, '2026-09', { documentos: [documento()], declaraciones: [declaracion()], valores: [valores({ '538': 0, '537': 19_000 })] });
+    const cliente = await conectar(deps);
+
+    const liviano = jsonDe(await cliente.callTool({ name: 'sii_panorama', arguments: { rut: RUT_EMPRESA } }));
+    const completo = jsonDe(await cliente.callTool({ name: 'sii_panorama', arguments: { rut: RUT_EMPRESA, detalle: true } }));
+
+    expect(liviano.periodos[0].f29).not.toHaveProperty('valores');
+    expect(liviano.periodos[0]).not.toHaveProperty('frescura');
+    expect(liviano.frescuraMasVieja).toBe(T_SEMBRADO);
+    expect(completo.periodos[0].f29.valores).toMatchObject({ '537': 19_000 });
+    expect(completo.periodos[0].frescura).toBeDefined();
+    await cliente.close();
+  });
+
+  it('el libro y los asientos traen un tope y dicen cuántos faltan; con detalle traen todo', async () => {
+    const { deps, store } = depsDePrueba();
+    store.guardarContribuyente(perfilEmpresa());
+    sembrarMes(store, '2026-09', { documentos: Array.from({ length: 60 }, (_, i) => documento({ folio: i + 1 })) });
+    const cliente = await conectar(deps);
+    const libro = { rut: RUT_EMPRESA, tipo: 'compras', desde: '2026-09' };
+    const asientos = { rut: RUT_EMPRESA, desde: '2026-09' };
+
+    const libroLiviano = await cliente.callTool({ name: 'contabilidad_libro', arguments: libro });
+    const libroCompleto = jsonDe(await cliente.callTool({ name: 'contabilidad_libro', arguments: { ...libro, detalle: true } }));
+    const asientosLivianos = await cliente.callTool({ name: 'contabilidad_asientos', arguments: asientos });
+    const asientosCompletos = jsonDe(await cliente.callTool({ name: 'contabilidad_asientos', arguments: { ...asientos, detalle: true } }));
+
+    expect(jsonDe(libroLiviano).filas).toHaveLength(50);
+    expect(jsonDe(libroLiviano).filasOmitidas).toBe(10);
+    expect(textoDe(libroLiviano)).toContain('Se muestran 50 de 60 filas');
+    expect(libroCompleto.filas).toHaveLength(60);
+    expect(jsonDe(asientosLivianos).asientos).toHaveLength(30);
+    expect(jsonDe(asientosLivianos).asientosOmitidos).toBe(30);
+    expect(textoDe(asientosLivianos)).toContain('Se muestran 30 de 60 asientos');
+    expect(asientosCompletos.asientos).toHaveLength(60);
+    await cliente.close();
+  });
+
+  it('renta_resumen por defecto resume los datos que prepara el SII sin sus filas; con detalle las trae', async () => {
+    const { deps, store } = depsDePrueba();
+    store.guardarContribuyente(perfilEmpresa());
+    const id = store.iniciarSincronizacion(RUT_EMPRESA, 'asistente', 'AT2026', T_SEMBRADO);
+    store.reemplazarAsistenteF22(id, RUT_EMPRESA, 2026, [{ codigo: 29, titulo: 'Pagos Provisionales', cabeceras: ['Formulario', 'Periodo', 'Folio', 'Codigo 62'], filas: [['0029', '202509', '111', '12.943']] }], T_SEMBRADO);
+    store.terminarSincronizacion(id, T_SEMBRADO, 'ok');
+    const cliente = await conectar(deps);
+
+    const liviano = jsonDe(await cliente.callTool({ name: 'renta_resumen', arguments: { rut: RUT_EMPRESA } }));
+    const completo = jsonDe(await cliente.callTool({ name: 'renta_resumen', arguments: { rut: RUT_EMPRESA, detalle: true } }));
+
+    expect(liviano.anios[0].asistente.tablas).toEqual([{ codigo: 29, titulo: 'Pagos Provisionales', filas: 1 }]);
+    expect(liviano.anios[0].asistente.ppm).toEqual({ sii: 12_943, f29: null });
+    expect(completo.anios[0].asistente.tablas[0].filas).toEqual([['0029', '202509', '111', '12.943']]);
     await cliente.close();
   });
 
@@ -1166,7 +1227,7 @@ describe('servidor MCP: renta F22', () => {
     const { tools } = await cliente.listTools();
     const herramienta = tools.find((t) => t.name === 'renta_resumen')!;
     expect(herramienta.annotations).toEqual({ readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false });
-    expect(Object.keys(herramienta.inputSchema.properties ?? {})).toEqual(['rut', 'anio']);
+    expect(Object.keys(herramienta.inputSchema.properties ?? {})).toEqual(['rut', 'anio', 'detalle']);
 
     const r = await cliente.callTool({ name: 'renta_resumen', arguments: { rut: RUT_EMPRESA, anio: '2026' } });
 
