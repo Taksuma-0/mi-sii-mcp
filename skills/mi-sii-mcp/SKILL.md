@@ -36,6 +36,8 @@ Para una **persona sin IVA** (solo boletas de honorarios o sueldo), parte por la
 | Régimen, autorización del día 20 y empresas | `perfil_sincronizar` | Hazlo antes de hablar de vencimientos del F29 o de simular régimen. |
 | Anotaciones vigentes y cumplimiento en Mi SII | `sii_avisos` | Solo con la sesión propia del RUT; registra cada anotación como aviso. |
 
+Si una sincronización falla o algo no cuadra, `diagnostico` muestra la salud de mi-sii-mcp: sesiones, fallas que la revisión diaria reintentará y cambios detectados del portal del SII (incluidos los nombres de campos que se adaptaron solos). Las respuestas grandes vienen resumidas: pide `detalle: true` solo si necesitas todo.
+
 ## Recetas por tarea
 
 **Revisión mensual del IVA (empresa)**

@@ -136,6 +136,8 @@ Escribe en el chat de Claude como lo harías con una persona. Algunos ejemplos:
 
 **Revisión diaria.** En la página «Abrir mi-sii-mcp.cmd», la sección «Avisos» activa una revisión cada día a la hora que elijas. Revisa todas las cuentas con sesión (mes anterior y actual, hallazgos, plazos, anotaciones de Mi SII y, entre abril y junio, la renta) y muestra una sola notificación de Windows con lo nuevo. Cada aviso se notifica una vez; los ves con `novedades` o en la misma página.
 
+**Si el SII cambia algo.** mi-sii-mcp guarda la forma de cada respuesta (solo nombres de campos) y nota cuando cambia. Si el SII renombra un monto del detalle del RCV, busca el nombre nuevo y lo adopta solo si su suma cuadra al peso con el resumen del SII; queda un aviso. Si falta un campo que no se puede comprobar, la lectura se detiene sin tocar lo guardado. Pide «diagnostico» para ver qué pasó. Si el SII no responde, la sincronización se detiene tras 3 fallas seguidas; lo que falló, la revisión diaria lo reintenta sola. La base se respalda cada día en `~/.mi-sii-mcp/respaldos`.
+
 **Estimaciones y ahorro.** Las estimaciones y simulaciones dicen de dónde sale cada número y qué supuestos usan. Los datos públicos (UTM, tablas, tasas) se informan como parámetros desde la página oficial que indica `fuentes_oficiales`. Las oportunidades de ahorro solo son beneficios que la ley ya permite, cada una con su norma; ninguna sugiere operaciones sin sustancia. Nada de esto es asesoría: confírmalo con un contador.
 
 Cómo trabaja el asistente: para los cálculos de IVA, retenciones y plazos usa herramientas que aplican las reglas del dominio (`iva_resumen`, `iva_hallazgos`, `f29_historial`, `plazos_proximos`, `f29_estimar`) y, para la renta, `renta_resumen` y `renta_estimar`. Para cruces y preguntas libres lee primero el mapa de las tablas (`datos_esquema`) y luego escribe consultas de solo lectura (`consulta_sql`) sobre una **copia** de tus datos, así que no puede modificar la base real. Cada respuesta tiene un tope de 200 filas y 40 000 caracteres: si una pregunta es muy amplia, el asistente agrupa o filtra.
@@ -144,7 +146,7 @@ Una ausencia de filas no significa cero: puede ser un mes que nunca se descargó
 
 Si un F29 leído no cuadra, o tras actualizar mi-sii-mcp, pídele «relee mis F29 guardados»: `f29_releer` vuelve a leer los PDF ya descargados con el lector actual, sin entrar al SII (en la terminal, `releer-f29 <tu RUT>`).
 
-### Herramientas (30)
+### Herramientas (31)
 
 | Herramienta | Para qué sirve | ¿Va al SII? |
 | --- | --- | --- |
@@ -172,6 +174,9 @@ Si un F29 leído no cuadra, o tras actualizar mi-sii-mcp, pídele «relee mis F2
 | `ahorro_oportunidades` | Oportunidades legales de pagar menos o después, con su norma y la página oficial. | No |
 | `regimen_simular` | Pro Pyme General frente a Transparente para un año, con el régimen inscrito y la base del F22 si existe. | No |
 | `cierre_proyectar` | Proyección del año al cierre contra los PPM pagados. | No |
+| `diagnostico` | Salud de mi-sii-mcp: versión y si hay una nueva, integridad y respaldo de la base, sesión y última lectura buena de cada cuenta, fallas por reintentar y cambios detectados del portal del SII. | No |
+
+**Respuestas livianas.** `sii_panorama`, `renta_resumen`, `contabilidad_libro` y `contabilidad_asientos` responden por defecto una versión resumida (el libro y los asientos con tope de filas). Con `detalle: true` traen todo; el libro y los asientos también se pueden exportar a CSV.
 
 Qué puede cambiar el estado local: `banco_importar` guarda los movimientos de la cartola; `banco_conciliar` y `contabilidad_cuentas` guardan lo que asignes a mano; `contabilidad_libro` y `contabilidad_asientos` escriben archivos en `~/.mi-sii-mcp/exportaciones` si pides exportar; `novedades` marca los avisos como vistos y `sii_avisos` registra avisos nuevos. `perfil_sincronizar` reemplaza a quién representa el perfil (`representa`) por las empresas activas que informa el SII, de modo que lo que anotaste a mano se sobrescribe. De las empresas autorizadas se guarda también la razón social, que puede ser el nombre de una persona. Los hallazgos guardados se recalculan al pedir `iva_resumen` o `iva_hallazgos`, por lo que pueden quedar desfasados después de `perfil_sincronizar` (por ejemplo, el plazo del F29 depende del día 20) hasta que se vuelvan a pedir.
 

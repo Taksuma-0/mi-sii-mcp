@@ -53,11 +53,14 @@
 - **Revisión diaria**: con un clic en la página local, revisa todas tus cuentas cada día y te avisa con una notificación de Windows solo cuando hay algo nuevo.
 - **Ahorro tributario legal**: oportunidades que tus datos sostienen (crédito de IVA por usar, postergación del IVA, gastos efectivos, APV), cada una con su norma y la página oficial; simula el régimen Pro Pyme y proyecta el cierre del año.
 - **Cartera**: para quien lleva varias empresas, una vista de qué cuenta necesita atención.
+- **Se adapta a los cambios del SII**: nota cuando el SII cambia sus respuestas; si renombra un monto, lo encuentra solo comprobándolo al peso con los totales del propio SII; si no puede comprobarlo, se detiene antes de guardar datos malos y avisa. Con `diagnostico` ves su salud.
+- **Resiliente**: si el SII no responde, se detiene en vez de insistir; si la sesión vence a mitad de camino y guardaste la clave, entra de nuevo sola; lo que falló se reintenta en la revisión diaria; la base se respalda cada día.
+- **Respuestas livianas**: JSON compacto y versiones resumidas por defecto (`detalle: true` trae todo), para que el asistente responda más rápido.
 - **Solo lectura**: nunca presenta, modifica ni emite nada en el SII.
 - **Datos locales**: todo se guarda en una base SQLite en tu equipo; no hay servidores intermedios.
 - **La clave no pasa por el chat**: inicias sesión en una página local y ninguna herramienta del MCP recibe claves.
 - **Varias cuentas**: tu RUT personal y los de tus empresas, cada uno con su propia sesión.
-- **Open source (MIT)**, escrito en TypeScript, con más de 1.500 pruebas automáticas que usan solo datos ficticios.
+- **Open source (MIT)**, escrito en TypeScript, con más de 1.600 pruebas automáticas que usan solo datos ficticios.
 
 ## Qué lee del SII y qué concilia
 
@@ -94,6 +97,7 @@ mi-sii-mcp (repositorio oficial: [github.com/Taksuma-0/mi-sii-mcp](https://githu
 - **No es una contabilidad completa**: propone libros y asientos para revisar con tu contador.
 - **No sugiere operaciones para pagar menos**: solo muestra beneficios que la ley ya permite, con su norma; simular gastos o contratos es elusión o fraude.
 - **No consulta la Tesorería** (deudas y giros) por ahora.
+- **No se actualiza sola**: avisa cuando hay una versión nueva en npm (una consulta al día a registry.npmjs.org, sin datos tuyos; se apaga con `MI_SII_MCP_SIN_AVISO_VERSION=1`), pero no instala nada.
 
 ## Compatibilidad con agentes de IA
 
@@ -282,6 +286,9 @@ La skill complementa al servidor, que además entrega sus propias instrucciones 
 | `novedades`, `cartera_estado` | Avisos de la revisión diaria y estado de todas las cuentas | No |
 | `ahorro_oportunidades` | Oportunidades legales de pagar menos o después, con su norma | No |
 | `regimen_simular`, `cierre_proyectar` | Pro Pyme General frente a Transparente y proyección del año al cierre | No |
+| `diagnostico` | Salud de mi-sii-mcp: versión, base y respaldo, sesiones, fallas por reintentar y cambios del portal del SII | No |
+
+`sii_panorama`, `renta_resumen`, `contabilidad_libro` y `contabilidad_asientos` responden por defecto una versión liviana; con `detalle: true` traen todo.
 
 ## Seguridad y privacidad
 
@@ -348,6 +355,7 @@ Variables de entorno opcionales:
 | `MI_SII_MCP_TOLERANCIA` | Tolerancia en pesos para los cruces de IVA |
 | `MI_SII_MCP_NAVEGADOR` | Ruta de Edge o Chrome para entrar con ClaveÚnica |
 | `MI_SII_MCP_PLAZO_NAVEGADOR_MS` | Tiempo para completar el inicio de sesión en el navegador |
+| `MI_SII_MCP_SIN_AVISO_VERSION` | Con `1`, no consulta en npm si hay una versión nueva |
 
 ## Documentación
 
@@ -378,7 +386,7 @@ Las contribuciones son bienvenidas. Por favor, **nunca incluyas datos tributario
 - La revisión diaria y sus notificaciones están hechas para Windows.
 - La declaración de sueldos del empleador (DJ 1887) se lee de forma genérica: su formato no se ha verificado con datos reales.
 - El inicio de sesión con ClaveÚnica desde el navegador es experimental.
-- Si el SII cambia su portal, algunas lecturas pueden fallar hasta actualizar el lector; los errores lo indican y nunca se borran datos guardados por una respuesta vacía.
+- Si el SII cambia su portal, mi-sii-mcp se adapta solo cuando puede comprobarlo con los totales del SII (hoy, los montos del detalle del RCV); los demás cambios detienen la lectura sin tocar lo guardado hasta actualizar el lector, y `diagnostico` los muestra.
 
 ## Licencia
 
