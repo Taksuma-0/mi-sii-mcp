@@ -30,6 +30,7 @@ import type { BoletaHonorariosEmitida, DjTercero, F22Evento, F22Valor, InformeBh
 import type { BheEmitidaMesGuardado, DjTerceroGuardado, SiiReader, TablaAsistenteGuardada } from '../ports/index.js';
 import { perfilExistente } from './consultas.js';
 import type { DepsApp } from './deps.js';
+import { podarSinRomper } from './mantenimiento.js';
 import { Cancelada, conInterruptor, registrar, renovarSiVencio, revisarCancelacion, SII_CAIDO, SiiCaido, SINCRONIZACION_CANCELADA, type Avance, type ErrorSuperficie, type ResultadoPeriodo } from './registro.js';
 
 export interface ResultadoAnioRenta {
@@ -292,6 +293,7 @@ export async function sincronizarRenta(
     if (esErrorMiSiiMcp(e) && ERRORES_FATALES.has(e.codigo)) return { rut, anios: resultados, abortado: { superficie: 'sesion', codigo: e.codigo, mensaje: e.message } };
     throw e;
   } finally {
+    podarSinRomper(deps);
     deps.alTerminarSync?.(rut);
   }
 }

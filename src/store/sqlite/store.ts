@@ -39,7 +39,7 @@ import {
   type TotalesBheMes,
 } from '../../domain/tipos.js';
 import type { BheEmitidaMesGuardado, DjTerceroGuardado, DocumentosPaginados, F22DeclaracionGuardada, FiltroDocumentos, FiltroAvisos, FiltroHallazgos, FiltroMovimientos, PendienteReintento, TablaAsistenteGuardada, Frescura, HallazgoGuardado, LecturaF29Guardada, PdfF29Guardado, Store } from '../../ports/index.js';
-import type { Db } from './db.js';
+import { copiarConVacuum, type Db } from './db.js';
 
 export const sha256 = (texto: string): string => createHash('sha256').update(texto).digest('hex');
 
@@ -1241,6 +1241,32 @@ export class SqliteStore implements Store {
       )
       .all({ rut, desde }) as PendienteReintento[];
     return filas.filter((f) => f.intentos < MAX_INTENTOS_EN_COLA);
+  }
+
+  podarRespuestasCrudas(conservar = 2): number {
+    const r = this.db
+      .prepare(
+        `WITH ordenadas AS (
+           SELECT r.id AS rid, DENSE_RANK() OVER (PARTITION BY s.rut, s.superficie, s.periodo ORDER BY s.id DESC) AS orden
+           FROM respuesta_cruda r JOIN sincronizacion s ON s.id = r.sincronizacion_id
+         ), ultimos_pdf AS (
+           SELECT MAX(r.id) AS rid FROM respuesta_cruda r JOIN sincronizacion s ON s.id = r.sincronizacion_id
+           WHERE r.superficie = 'f29.formCompacto'
+           GROUP BY s.rut, json_extract(r.parametros_json, '$.periodo'), json_extract(r.parametros_json, '$.folio')
+         )
+         DELETE FROM respuesta_cruda
+         WHERE id IN (SELECT rid FROM ordenadas WHERE orden > @conservar) AND id NOT IN (SELECT rid FROM ultimos_pdf)`,
+      )
+      .run({ conservar });
+    return r.changes;
+  }
+
+  integridad(): string {
+    return String(this.db.pragma('quick_check', { simple: true }));
+  }
+
+  respaldarEn(ruta: string): void {
+    copiarConVacuum(this.db, ruta);
   }
 
   cambiosPortal(desde?: string): CambioPortal[] {

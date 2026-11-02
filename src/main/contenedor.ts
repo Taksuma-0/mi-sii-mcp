@@ -18,6 +18,7 @@ import { abrirDb } from '../store/sqlite/db.js';
 import { SqliteStore } from '../store/sqlite/store.js';
 import { parseRut } from '../domain/rut.js';
 import { adaptacionPortal } from './adaptacion.js';
+import { RespaldosLocales } from './respaldos.js';
 import { cargarConfig, type Config } from './config.js';
 import { conNombreAnterior } from './nombre-anterior.js';
 
@@ -81,6 +82,7 @@ export function crearContenedor(o: OpcionesContenedor = {}): Contenedor {
       },
       alTerminarSync: (rut) => sesiones.persistir(rutDeAcceso(rut) ?? rut),
       renovarSesion: (rut) => sesiones.renovar(rutDeAcceso(rut) ?? rut),
+      respaldos: new RespaldosLocales(join(config.home, 'respaldos'), store),
     };
     return { config, deps, sesiones, notificador: new NotificadorWindows(), tarea: new TareaProgramadaWindows(), cerrar: () => db.close() };
   } catch (error) {

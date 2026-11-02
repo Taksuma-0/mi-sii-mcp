@@ -1,4 +1,4 @@
-import type { ArchivosLocales, ConsultaLibre, ConsultaSesiones, LectorCartola, LectorPdfF29, Reloj, SiiReader, Store, SumideroRespuestas } from '../ports/index.js';
+import type { ArchivosLocales, ConsultaLibre, ConsultaSesiones, LectorCartola, LectorPdfF29, Reloj, Respaldos, SiiReader, Store, SumideroRespuestas } from '../ports/index.js';
 
 export interface DepsApp {
   readonly store: Store;
@@ -26,4 +26,6 @@ export interface DepsApp {
    * sincronización; false si no hay clave guardada. Nunca pide una clave.
    */
   readonly renovarSesion?: (rut: string) => Promise<boolean>;
+  /** Respaldo diario rotativo de la base (lo usa el mantenimiento de la revisión diaria). */
+  readonly respaldos?: Respaldos;
 }

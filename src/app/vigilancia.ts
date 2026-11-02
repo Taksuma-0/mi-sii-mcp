@@ -8,6 +8,7 @@ import { avisosDeSituacion } from '../domain/situacion-sii.js';
 import type { Perfil } from '../domain/tipos.js';
 import { hallazgos, plazos } from './consultas.js';
 import type { DepsApp } from './deps.js';
+import { mantenimientoDiario, type ResumenMantenimiento } from './mantenimiento.js';
 import { sincronizarRenta } from './renta.js';
 import { sincronizar, type Superficie } from './sincronizar.js';
 
@@ -23,6 +24,8 @@ export interface ResultadoVigilancia {
   readonly revisadas: readonly RevisionCuenta[];
   /** Avisos que aparecieron en esta revisión; los ya conocidos no se repiten. */
   readonly nuevos: readonly Aviso[];
+  /** Poda, integridad y respaldo de la base al final de la revisión. */
+  readonly mantenimiento: ResumenMantenimiento;
 }
 
 /** Días hacia adelante en que un vencimiento ya merece aviso. */
@@ -149,7 +152,8 @@ export async function vigilar(deps: DepsApp, opciones: { readonly signal?: Abort
       revisadas.push({ rut: perfil.rut, estado: 'error', detalle: esErrorMiSiiMcp(e) ? `[${e.codigo}] ${e.message}` : 'Error inesperado' });
     }
   }
-  return { revisadas, nuevos: deps.store.registrarAvisos(candidatos, deps.reloj.ahora().toISOString()) };
+  const nuevos = deps.store.registrarAvisos(candidatos, deps.reloj.ahora().toISOString());
+  return { revisadas, nuevos, mantenimiento: await mantenimientoDiario(deps, deps.reloj.ahora()) };
 }
 
 /** Avisos que la persona aún no ve (de una cuenta o de todas); por defecto quedan marcados como vistos. */

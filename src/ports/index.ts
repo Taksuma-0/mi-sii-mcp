@@ -358,9 +358,33 @@ export interface Store {
    * intento exitoso posterior y con menos de 5 fallas seguidas; por período y superficie.
    */
   pendientesDeReintento(rut: string, desde: string): PendienteReintento[];
+  /**
+   * Borra las respuestas crudas de las sincronizaciones más viejas: deja las de las `conservar` más nuevas por RUT,
+   * superficie y período, y siempre el último PDF de cada folio del F29. Devuelve cuántas borró.
+   */
+  podarRespuestasCrudas(conservar?: number): number;
+  /** «ok» si la base está sana (PRAGMA quick_check), o el primer problema encontrado. */
+  integridad(): string;
+  /** Copia íntegra de la base en `ruta` (VACUUM INTO). */
+  respaldarEn(ruta: string): void;
   aliasAprendidos(): AliasAprendido[];
   /** Guarda un alias aprendido; si ya existía (misma superficie, campo y alias), conserva el primero. */
   guardarAlias(alias: AliasAprendido): void;
+}
+
+/** Respaldo diario de la base, con rotación; lo arma el contenedor (archivos del equipo). */
+export interface Respaldos {
+  crear(ahora: Date): Promise<ResultadoRespaldo>;
+  /** Ruta del respaldo más nuevo, o null si no hay. */
+  ultimo(): string | null;
+}
+
+export interface ResultadoRespaldo {
+  readonly ruta: string;
+  /** false si ya existía el respaldo de ese día. */
+  readonly creado: boolean;
+  /** Respaldos viejos borrados por la rotación. */
+  readonly borrados: number;
 }
 
 export interface PendienteReintento {

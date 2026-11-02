@@ -7,6 +7,7 @@ import { ESTADOS_RCV, type DocumentoRcv, type EstadoRcv, type F29Declaracion, ty
 import type { SiiReader } from '../ports/index.js';
 import type { DepsApp } from './deps.js';
 import { Cancelada, conInterruptor, DATOS_INCOMPLETOS_RCV, registrar, renovarSiVencio, revisarCancelacion, SII_CAIDO, SiiCaido, SINCRONIZACION_CANCELADA, type Avance, type ErrorSuperficie, type ResultadoPeriodo } from './registro.js';
+import { podarSinRomper } from './mantenimiento.js';
 import { motivoParaConservar } from './releer-f29.js';
 
 export { SINCRONIZACION_CANCELADA, type Avance, type ErrorSuperficie, type ResultadoPeriodo };
@@ -216,6 +217,7 @@ export async function sincronizar(
     }
     throw e;
   } finally {
+    podarSinRomper(deps);
     deps.alTerminarSync?.(rut);
   }
 }

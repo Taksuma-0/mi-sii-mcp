@@ -88,6 +88,17 @@ describe('vigilar', () => {
     expect(r.revisadas.find((x) => x.rut === RUT_EMPRESA)).not.toHaveProperty('reintentados');
   });
 
+  it('al final hace el mantenimiento diario: poda, integridad y respaldo', async () => {
+    const { deps } = preparar();
+    const fechas: string[] = [];
+    const conRespaldo = { ...deps, respaldos: { crear: async (ahora: Date) => (fechas.push(ahora.toISOString()), { ruta: 'C:/respaldos/mi-sii-mcp-2026-10-30.db', creado: true, borrados: 0 }), ultimo: () => null } };
+
+    const r = await vigilar(conRespaldo);
+
+    expect(r.mantenimiento).toEqual({ podadas: expect.any(Number), integridad: 'ok', respaldo: { ruta: 'C:/respaldos/mi-sii-mcp-2026-10-30.db', creado: true, borrados: 0 } });
+    expect(fechas).toEqual(['2026-10-30T15:00:00.000Z']);
+  });
+
   it('trae el mes anterior y el actual de cada cuenta con sesión y registra los avisos una sola vez', async () => {
     const { deps, sii } = preparar();
 

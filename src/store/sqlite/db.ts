@@ -8,7 +8,7 @@ export type Db = Database.Database;
 /** Escribe una copia íntegra de la base en `destino`. Inyectable para probar el fallo del respaldo. */
 export type CopiarBase = (db: Db, destino: string) => void;
 
-const copiarConVacuum: CopiarBase = (db, destino) => {
+export const copiarConVacuum: CopiarBase = (db, destino) => {
   db.prepare('VACUUM INTO ?').run(destino);
 };
 
