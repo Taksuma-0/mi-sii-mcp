@@ -282,6 +282,8 @@ claude mcp add --scope user mi-sii-mcp -- node "C:\ruta\a\mi-sii-mcp\dist\interf
 
 Inicias sesión una vez y la clave nunca pasa por el chat.
 
+**Desde tu asistente (lo más simple):** pídele «conecta mi cuenta». Con la herramienta `cuenta_conectar` se abre en tu navegador la página local de mi-sii-mcp: escribes tu RUT y tu clave tributaria, dejas marcado **Mantener conectada** y pulsas **Conectar** (o entras con ClaveÚnica). Sin asistente, la misma página se abre con `npx -y mi-sii-mcp@latest conectar`.
+
 **Desde la terminal, con npx** (cualquier sistema). Reemplaza `11111111-1` por tu RUT:
 
 ```bash
@@ -346,6 +348,7 @@ La skill complementa al servidor, que además entrega sus propias instrucciones 
 | Herramienta | Para qué sirve | ¿Consulta al SII? |
 | --- | --- | --- |
 | `perfiles_listar` | Cuentas configuradas, estado de su sesión y si se renueva sola | No |
+| `cuenta_conectar` | Abre en tu navegador la página local para conectar una cuenta (RUT y clave, o ClaveÚnica); la clave no pasa por el chat | No |
 | `sii_panorama` | Qué hay guardado por mes y por año | No |
 | `sincronizar` | Trae RCV y F29 de un rango de meses (opcional: propuesta de F29 y boletas recibidas) | Sí (lectura) |
 | `renta_sincronizar` | Trae el F22, las boletas emitidas y lo informado por terceros, por año tributario | Sí (lectura) |
@@ -388,7 +391,7 @@ Es un servidor MCP de código abierto que permite que un asistente de IA consult
 MCP (Model Context Protocol) es un estándar abierto para que los asistentes de IA usen herramientas externas. Un servidor MCP para el SII le da a tu asistente herramientas para leer tus datos tributarios y aplicar reglas de conciliación, en vez de que copies y pegues información del portal.
 
 ### ¿Cómo conecto Claude, Codex, Gemini CLI, Grok o Cursor al SII?
-Regístralo en tu cliente con npx: es un comando o un clic, sin descargar el código ([ver instalación](#1-registrar-el-servidor-en-tu-asistente)). En Claude Code y Codex también está el plugin, y en Gemini CLI la extensión, que traen el servidor y la skill; Grok Build usa lo que ya instalaste en Claude Code o se agrega con `grok mcp add`. Después conecta tu cuenta con `login` en la terminal o en la página local. Claude Code está probado, y Codex y Gemini CLI se conectan; para los demás clientes se usa su formato MCP estándar.
+Regístralo en tu cliente con npx: es un comando o un clic, sin descargar el código ([ver instalación](#1-registrar-el-servidor-en-tu-asistente)). En Claude Code y Codex también está el plugin, y en Gemini CLI la extensión, que traen el servidor y la skill; Grok Build usa lo que ya instalaste en Claude Code o se agrega con `grok mcp add`. Después pídele «conecta mi cuenta»: se abre una página local donde escribes tu clave, que nunca pasa por el chat. Claude Code está probado, y Codex y Gemini CLI se conectan; para los demás clientes se usa su formato MCP estándar.
 
 ### ¿El asistente puede ver mi clave tributaria?
 No. La clave se escribe solo en la página local (o en la terminal) y ninguna herramienta del MCP la recibe. Si eliges mantener la sesión, la clave queda en el almacén de credenciales de tu sistema.
@@ -409,7 +412,7 @@ No. Es un proyecto independiente de código abierto y no reemplaza la asesoría 
 Es gratuito y de código abierto (licencia MIT). Solo necesitas un cliente MCP; el costo del asistente de IA depende de su proveedor.
 
 ### ¿Funciona en macOS o Linux?
-El código es multiplataforma, pero la plataforma probada es Windows. En macOS o Linux, conecta la cuenta con `npx -y mi-sii-mcp@latest login` o, si instalaste desde el código, abre la página local con `npm run local`.
+El código es multiplataforma, pero la plataforma probada es Windows. En macOS o Linux, pídele a tu asistente «conecta mi cuenta» o ejecuta `npx -y mi-sii-mcp@latest conectar`: los dos abren la página local en tu navegador.
 
 ## Uso desde la terminal (opcional)
 
@@ -476,6 +479,8 @@ Las contribuciones son bienvenidas. Por favor, **nunca incluyas datos tributario
 claude mcp add --scope user mi-sii-mcp -- npx -y mi-sii-mcp@latest mcp
 npx -y mi-sii-mcp@latest login 11111111-1 --guardar-clave   # connect your SII account once
 ```
+
+Or ask the assistant to «conecta mi cuenta»: the `cuenta_conectar` tool opens a local page in the browser where the user types the password, which never goes through the chat.
 
 It is also a Claude Code plugin (`/plugin install mi-sii-mcp --marketplace Taksuma-0/mi-sii-mcp`), a Codex plugin (`codex plugin marketplace add Taksuma-0/mi-sii-mcp`, then `codex plugin add mi-sii-mcp@mi-sii-mcp`) and a Gemini CLI extension (`gemini extensions install https://github.com/Taksuma-0/mi-sii-mcp`); Grok Build loads it from Claude Code or with `grok mcp add mi-sii-mcp -- npx -y mi-sii-mcp@latest mcp`. Answers and documentation are in Spanish. Not affiliated with the SII; not tax advice.
 

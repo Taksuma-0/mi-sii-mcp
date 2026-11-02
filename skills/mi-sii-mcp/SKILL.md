@@ -11,7 +11,7 @@ Si las herramientas no están disponibles, dile a la persona que instale y regis
 
 ## Reglas que no se rompen
 
-1. **Nunca pidas la clave tributaria ni la ClaveÚnica** y nunca intentes iniciar sesión. Ante `SESION_REQUERIDA`, `CLAVE_RECHAZADA` o `RUT_BLOQUEADO_LOCAL`, indica a la persona que abra «Abrir mi-sii-mcp.cmd» (o `npm run local`) y conecte su cuenta ahí; después reintenta.
+1. **Nunca pidas la clave tributaria ni la ClaveÚnica** y nunca intentes iniciar sesión. Ante `SESION_REQUERIDA`, `CLAVE_RECHAZADA` o `RUT_BLOQUEADO_LOCAL`, usa `cuenta_conectar`: abre en el navegador de la persona la página local donde conecta su cuenta (RUT y clave tributaria, o ClaveÚnica). Después reintenta.
 2. **Solo lectura.** mi-sii-mcp no presenta declaraciones, no emite documentos ni paga nada. Si la persona quiere presentar un F29 o emitir una boleta, explícale que debe hacerlo en el portal del SII.
 3. **No es asesoría tributaria.** Entrega cifras y hallazgos verificables; recomienda confirmar decisiones con un contador cuando haya dinero en juego.
 4. **Reintentos:** reintenta solo si el error dice «Reintentar: ahora mismo» o «más tarde» (o lista «Reintentables más tarde»). Con «Reintentar: no», sigue la acción indicada.

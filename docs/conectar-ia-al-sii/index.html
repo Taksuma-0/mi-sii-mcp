@@ -142,7 +142,8 @@ tool_timeout_sec = 900</code></pre>
 }</code></pre>
 
       <h2>Paso 2: conecta tu cuenta del SII</h2>
-      <p>Esto se hace una sola vez, en tu terminal y no en el chat. Reemplaza el RUT de ejemplo por el tuyo:</p>
+      <p>Esto se hace una sola vez. Lo más simple es pedírselo a tu asistente: <q>conecta mi cuenta</q>. Con la herramienta <code>cuenta_conectar</code> se abre en tu navegador la página local de mi-sii-mcp, donde escribes tu RUT y tu clave tributaria, dejas marcado «Mantener conectada» y pulsas Conectar. La clave se escribe en esa página, nunca en el chat. Sin asistente, la misma página se abre con <code>npx -y mi-sii-mcp@latest conectar</code>.</p>
+      <p>También puedes iniciar sesión directo en tu terminal. Reemplaza el RUT de ejemplo por el tuyo:</p>
 <pre><code>npx -y mi-sii-mcp@latest login 11111111-1 --guardar-clave</code></pre>
       <p>El programa te pide la clave tributaria sin mostrarla y hace un solo intento. Con <code>--guardar-clave</code> la deja en el almacén de credenciales de tu sistema (en Windows, el Administrador de credenciales), para que la sesión se renueve sola cuando venza. Si prefieres no guardarla, omite esa opción y repite el login cuando la sesión expire.</p>
       <p>Para entrar con <strong>ClaveÚnica</strong> usa <code>npx -y mi-sii-mcp@latest login-navegador --rut 11111111-1</code>: se abre Edge o Chrome en la página real del SII y mi-sii-mcp no ve lo que escribes. Esta opción es experimental y su sesión no se renueva sola.</p>

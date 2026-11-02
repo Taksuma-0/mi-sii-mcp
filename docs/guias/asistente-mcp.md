@@ -6,7 +6,7 @@ Qué hace cada parte:
 
 - **mi-sii-mcp** descarga tus datos desde el SII (RCV, F29 y más; ver la cobertura abajo), los guarda en tu equipo y responde consultas de solo lectura sobre ellos.
 - **El asistente** decide qué consultar, escribe las consultas y te explica el resultado.
-- **Tú** inicias sesión en el SII una sola vez, en la página local «Abrir mi-sii-mcp.cmd» o en tu propia terminal. La clave tributaria no se escribe nunca en el chat y ninguna herramienta del asistente la recibe.
+- **Tú** inicias sesión en el SII una sola vez, en una página local que el asistente te abre (o en tu propia terminal). La clave tributaria no se escribe nunca en el chat y ninguna herramienta del asistente la recibe.
 
 Cobertura actual:
 
@@ -79,7 +79,9 @@ Una sesión de Claude Code que ya estaba abierta no ve las herramientas nuevas h
 
 ## 3. Iniciar sesión en el SII (una sola vez)
 
-En tu propia terminal, no en el chat:
+**Lo más simple: pídele a tu asistente «conecta mi cuenta».** Usa la herramienta `cuenta_conectar`, que abre en tu navegador la página local de mi-sii-mcp. Ahí escribes tu RUT y tu clave tributaria y dejas marcado «Mantener conectada», o entras con ClaveÚnica. La clave no pasa por el chat. Sin asistente, la misma página se abre con `npx -y mi-sii-mcp@latest conectar` (o con «Abrir mi-sii-mcp.cmd» si instalaste desde el código).
+
+También puedes iniciar sesión en tu propia terminal, no en el chat:
 
 ```powershell
 node "C:\ruta\a\mi-sii-mcp\dist\interfaces\cli\bin.js" login <tu RUT> --guardar-clave
@@ -167,11 +169,12 @@ Una ausencia de filas no significa cero: puede ser un mes que nunca se descargó
 
 Si un F29 leído no cuadra, o tras actualizar mi-sii-mcp, pídele «relee mis F29 guardados»: `f29_releer` vuelve a leer los PDF ya descargados con el lector actual, sin entrar al SII (en la terminal, `releer-f29 <tu RUT>`).
 
-### Herramientas (31)
+### Herramientas (32)
 
 | Herramienta | Para qué sirve | ¿Va al SII? |
 | --- | --- | --- |
 | `perfiles_listar` | Contribuyentes configurados y estado de su sesión. | No |
+| `cuenta_conectar` | Abre en tu navegador la página local para conectar una cuenta (RUT y clave, o ClaveÚnica); la clave no pasa por el chat. | No |
 | `sii_panorama` | Qué hay guardado por mes (y renta por año) para un RUT. | No |
 | `sincronizar` | Trae RCV y F29 de un rango de meses; con `superficies` agrega `propuesta` y `bhe`. Por defecto solo `rcv` y `f29`. | Sí (lee) |
 | `perfil_sincronizar` | Perfil tributario y empresas autorizadas. | Sí (lee) |

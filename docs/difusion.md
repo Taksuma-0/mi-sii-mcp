@@ -29,7 +29,11 @@ Cómo se presenta **mi-sii-mcp** fuera del repositorio: sitio web, Google Search
 | Grok Build (xAI): `grok mcp add`, y lee la configuración, los plugins y las skills de Claude Code. Documentado con su guía oficial; no se probó porque su instalador cambia el PATH e instala su propio Git | ✅ Documentado |
 | Guías del sitio para búsquedas concretas: conectar la IA al SII, IVA y F29, boletas de honorarios y Operación Renta 2027, contadores; enlazadas desde el inicio y en `sitemap.xml` | ✅ Hecho; falta pedir su indexación |
 | `llms-install.md` (instalación para agentes como Cline) y logo de 400 × 400 (`docs/img/marca/kit/03_PNG_Transparentes/icono_400.png`) | ✅ Hecho |
-| Directorio de Anthropic (claude.ai), Cline MCP Marketplace, cursor.directory, topics de GitHub e indexación de las guías | Pendiente: los hace el usuario (ver «Próximos pasos») |
+| Topic `gemini-cli-extension` en lugar de `typescript` (02-11-2026) | ✅ Hecho |
+| Cline MCP Marketplace: issue https://github.com/cline/mcp-marketplace/issues/3460 (02-11-2026). La casilla «probado con Cline» quedó sin marcar: no se pudo correr Cline para probarlo | ✅ Enviado, en revisión |
+| Bing y demás buscadores de IndexNow: inicio y 4 guías enviados el 02-11-2026 (clave en `docs/<clave>.txt`; Bing respondió 200) | ✅ Hecho |
+| `mcp.json` en la raíz, con la misma versión fija, para que cursor.directory detecte el servidor (su detector lee `.mcp.json` o `mcp.json`; Claude Code no lee `mcp.json`) | ✅ Hecho |
+| Search Console (sitemap e indexación de las guías), directorio de Anthropic (claude.ai) y cursor.directory | Pendiente: los hace el usuario (ver «Próximos pasos») |
 
 Nota sobre la instalación con npm: `npm ci` (con el `package-lock.json` del repo) intenta compilar `better-sqlite3` con `node-gyp` y falla sin compilador, en Glama y también en Windows; con `--ignore-scripts` usa los binarios precompilados que trae el paquete (`prebuilds/`). Instalar el paquete publicado (`npm install mi-sii-mcp` o `npx mi-sii-mcp`) no compila nada: se probó el 01-11-2026 en una carpeta limpia.
 
@@ -107,33 +111,30 @@ Cómo se publicó en npm (sirve para las versiones siguientes):
 | **Directorio de Anthropic** (claude.ai/directory: claude.ai, Cowork y Claude Code) | Sí: el plugin está en la raíz del repo, con README, licencia e ícono. Su servidor local carga en Cowork y en Claude Code, no en el chat web. | Enviar desde https://claude.ai/directory/manage (requiere plan pagado). Ver «Próximos pasos». |
 | **Galería de extensiones de Gemini CLI** (geminicli.com/extensions) | Sí, al cumplir sus requisitos. | Automática: indexa a diario los repos públicos con el topic `gemini-cli-extension`, `gemini-extension.json` en la raíz y un tag. |
 | **Directorio de plugins de OpenAI** (ChatGPT y Codex) | No por ahora: los plugins con servidor local («Desktop only») son solo para socios aprobados por OpenAI. | Se instala por el marketplace del repo (ver arriba). |
-| **Cline MCP Marketplace** (github.com/cline/mcp-marketplace) | Sí; revisan adopción y credibilidad, con más cuidado en temas financieros. | Issue con el repo, logo de 400 × 400 y el motivo. Ver «Próximos pasos». |
-| **cursor.directory** (comunidad de Cursor) | Sí. | Enviar desde el sitio con tu cuenta (bloquea las visitas automáticas). |
+| **Cline MCP Marketplace** (github.com/cline/mcp-marketplace) | Sí; revisan adopción y credibilidad, con más cuidado en temas financieros. | Enviado: issue #3460, en revisión. |
+| **cursor.directory** (comunidad de Cursor) | Sí: detecta el plugin, la skill y el servidor (`mcp.json`). | Entrar con GitHub o Google en https://cursor.directory/plugins/new, pegar la URL del repo y enviar. |
 | **Cursor Marketplace** (cursor.com/marketplace) | No por ahora: es para plugins oficiales que revisa el equipo de Cursor. | — |
 | **LobeHub** (lobehub.com/mcp) | Sí: indexa más de 100 000 servidores por su cuenta. | Buscar la ficha y reclamarla si aparece. |
 
 ## Próximos pasos (los haces tú)
 
-1. **Topics de GitHub.** En el repositorio, ⚙️ junto a «About»: quita `typescript` y agrega `gemini-cli-extension`. Sin ese topic la galería de Gemini CLI no encuentra la extensión.
+1. ~~Topics de GitHub~~: hecho el 02-11-2026.
 2. **Indexación de las guías.** En Search Console, en **Sitemaps**, vuelve a enviar `https://taksuma-0.github.io/mi-sii-mcp/sitemap.xml`. En **Inspección de URLs**, pide la indexación de las cuatro guías:
    - https://taksuma-0.github.io/mi-sii-mcp/conectar-ia-al-sii/
    - https://taksuma-0.github.io/mi-sii-mcp/revisar-iva-f29-con-ia/
    - https://taksuma-0.github.io/mi-sii-mcp/boletas-de-honorarios-y-renta-con-ia/
    - https://taksuma-0.github.io/mi-sii-mcp/contadores/
-   En Bing Webmaster Tools, envía las mismas URL en **Envío de URL**.
+   Bing ya las recibió por IndexNow (02-11-2026).
 3. **Directorio de Anthropic.** Con un plan pagado de claude.ai, entra a https://claude.ai/directory/manage y envía el plugin desde el repositorio `Taksuma-0/mi-sii-mcp` (ruta: la raíz). La revisión retiene los servidores que se lanzan con npx aunque tengan versión fija («Runs a pinned npx or uvx package») y puede revisar el nombre por contener «SII»: el README ya aclara que no es oficial.
-4. **Cline.** Abre un issue en https://github.com/cline/mcp-marketplace/issues/new?template=mcp-server-submission.yml, adjunta `docs/img/marca/kit/03_PNG_Transparentes/icono_400.png` y usa:
-   - GitHub Repo URL: `https://github.com/Taksuma-0/mi-sii-mcp`
-   - Reason for addition: *mi-sii-mcp lets Cline read and reconcile a Chilean taxpayer's data from the SII (VAT records, F29, F22 income tax, fee receipts and third-party statements), read-only and stored locally. It installs with npx, needs no API keys, the password never goes through the chat, and `llms-install.md` explains the setup step by step.*
-   Cline pide confirmar que su agente lo instaló solo con el README o `llms-install.md`: pruébalo en Cline antes de enviarlo.
-5. **cursor.directory.** Entra a https://cursor.directory con tu cuenta y agrega el servidor con la configuración de npx del README.
+4. ~~Cline~~: enviado el 02-11-2026 (issue #3460). Si lo pruebas en Cline y funciona, marca en el issue la casilla de la prueba.
+5. **cursor.directory.** Entra a https://cursor.directory/plugins/new con GitHub o Google, pega `https://github.com/Taksuma-0/mi-sii-mcp` y envía: detecta solo el plugin, la skill y el servidor.
 6. **Siguiente versión.** Al publicar la 0.3.0, sigue la lista de abajo; su tag hace que la galería de Gemini CLI indexe la extensión.
 
 ### Al publicar una versión nueva
 
 1. Actualiza `version` en `package.json` y en `server.json` (en la raíz y dentro de `packages`).
 2. Publica en npm (pasos de arriba) y en el MCP Registry (`mcp-publisher publish`).
-3. **Después de que npm la tenga**, actualiza a esa versión `version` y el `mi-sii-mcp@<versión>` de los argumentos en `.claude-plugin/plugin.json` y en `gemini-extension.json` (la prueba `test/distribucion.test.ts` exige que coincidan). Antes no: quien instale el plugin o la extensión desde main lanzaría una versión que npm todavía no tiene.
+3. **Después de que npm la tenga**, actualiza a esa versión `version` y el `mi-sii-mcp@<versión>` de los argumentos en `.claude-plugin/plugin.json`, `gemini-extension.json` y `mcp.json` (la prueba `test/distribucion.test.ts` exige que coincidan). Antes no: quien instale el plugin o la extensión desde main lanzaría una versión que npm todavía no tiene.
 4. Actualiza `softwareVersion` en `docs/index.html`.
 5. Crea el tag y el release en GitHub: Glama publica el release solo y la galería de Gemini CLI revisa los repos con tags.
 

@@ -1,10 +1,16 @@
 # Herramientas de mi-sii-mcp
 
-Las 31 herramientas del servidor, con sus parámetros:
+Las 32 herramientas del servidor, con sus parámetros:
 - `rut` acepta `12.345.678-9` o `12345678-9`.
 - Los períodos van como `AAAA-MM`.
 - Los años tributarios van como `AAAA` (año comercial + 1). En `regimen_simular` y `cierre_proyectar`, `anio` es el **año comercial**.
 - Un `?` indica que el parámetro es opcional.
+
+## Conectar la cuenta
+
+| Herramienta | Parámetros | Qué hace |
+| --- | --- | --- |
+| `cuenta_conectar` | — | Abre en el navegador de la persona la página local donde conecta una cuenta del SII (RUT y clave tributaria, o ClaveÚnica); ahí también importa cartolas y activa la revisión diaria. La clave nunca pasa por el chat. |
 
 ## Consultan el SII (solo lectura)
 

@@ -26,7 +26,7 @@ Revisar la situación tributaria en el portal del SII exige navegar muchas panta
 - Revisión diaria con notificación de Windows, novedades y estado de toda la cartera.
 - Ahorro tributario legal: oportunidades con su norma oficial, simulación Pro Pyme General frente a Transparente y proyección del cierre del año.
 - Resiliencia ante cambios del SII: nota cuando cambia una respuesta, se adapta sola si puede comprobarlo con los totales del SII y, si no, se detiene sin guardar datos malos; diagnóstico de salud, reintentos automáticos y respaldo diario de la base.
-- 31 herramientas MCP y 6 recetas (prompts) listas.
+- 32 herramientas MCP y 6 recetas (prompts) listas.
 
 ## Qué lo diferencia
 

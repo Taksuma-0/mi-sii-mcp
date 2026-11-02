@@ -32,7 +32,11 @@ Client-specific notes:
 
 ## 3. Connect the SII account (the user does this, not you)
 
-Never ask for the SII password (clave tributaria) or ClaveÚnica, and never type it for the user. Ask the user to run this in their own terminal, replacing the example RUT with theirs:
+Never ask for the SII password (clave tributaria) or ClaveÚnica, and never type it for the user.
+
+Once the server is connected, call the `cuenta_conectar` tool: it opens a local page in the user's browser where they type their RUT and password and tick «Mantener conectada», or log in with ClaveÚnica. If the MCP connection is not ready yet, ask the user to run `npx -y mi-sii-mcp@latest conectar` in their own terminal, which opens the same page.
+
+Terminal-only alternative, replacing the example RUT with theirs:
 
 ```bash
 npx -y mi-sii-mcp@latest login 11111111-1 --guardar-clave
@@ -42,7 +46,7 @@ The program asks for the password with hidden input and stores it in the operati
 
 ## 4. Verify
 
-Restart or reload the MCP servers, then call the `perfiles_listar` tool: the user's RUT should appear with an active session. Then call `sii_panorama` for that RUT. If a tool returns `SESION_REQUERIDA`, repeat step 3.
+Restart or reload the MCP servers, then call the `perfiles_listar` tool: the user's RUT should appear with an active session. Then call `sii_panorama` for that RUT. If a tool returns `SESION_REQUERIDA`, call `cuenta_conectar` again.
 
 ## Notes
 
