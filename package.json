@@ -76,7 +76,7 @@
     "better-sqlite3": "^13.0.3",
     "commander": "^15.0.0",
     "tough-cookie": "^6.0.2",
-    "unpdf": "^1.9.1",
+    "unpdf": "^2.1.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
