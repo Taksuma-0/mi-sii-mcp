@@ -192,6 +192,8 @@ export interface FilaCartera {
   readonly ultimaSincronizacion: string | null;
   readonly f29PorVencer: number;
   readonly f29Vencidos: number;
+  /** F29 de meses sin sincronizar cuyo plazo pasó: pueden estar presentados; falta traerlos para saberlo. */
+  readonly f29PorConfirmar: number;
   /** Período del F29 vencido más antiguo; null si no hay. */
   readonly masAntiguoVencido: string | null;
   readonly hallazgosCriticos: number;
@@ -211,7 +213,8 @@ export function carteraEstado(deps: DepsApp): FilaCartera[] {
     const rut = perfil.rut;
     const listaPlazos = plazos(deps, rut, DIAS_PROXIMO_PLAZO);
     const f29 = listaPlazos.filter((p) => p.tipo === 'F29');
-    const vencidos = f29.filter((p) => p.diasRestantes < 0);
+    const pasados = f29.filter((p) => p.diasRestantes < 0);
+    const vencidos = pasados.filter((p) => p.porConfirmar !== true);
     const ultimoMes = deps.store.periodosConDatos(rut).at(-1);
     const frescura = ultimoMes ? Object.values(deps.store.frescura(rut, ultimoMes)).filter((f): f is string => f !== null) : [];
     const conCartola = deps.store.cuentasBanco(rut).length > 0;
@@ -222,8 +225,9 @@ export function carteraEstado(deps: DepsApp): FilaCartera[] {
       tipo: perfil.tipo,
       sesion: deps.sesiones.estado(rut).tieneSesion ? 'activa' : 'sin_sesion',
       ultimaSincronizacion: frescura.length > 0 ? frescura.sort().at(-1)! : null,
-      f29PorVencer: f29.length - vencidos.length,
+      f29PorVencer: f29.length - pasados.length,
       f29Vencidos: vencidos.length,
+      f29PorConfirmar: pasados.length - vencidos.length,
       masAntiguoVencido: vencidos.map((p) => p.referencia ?? p.vence).sort()[0] ?? null,
       hallazgosCriticos: hallazgos(deps, rut, { desde: restarPeriodos(actual, MESES_HALLAZGOS).texto, severidad: 'critico' }).length,
       proximoPlazo: proximo ? { vence: proximo.vence, descripcion: proximo.descripcion } : null,

@@ -198,8 +198,15 @@ describe('carteraEstado', () => {
 
     const [fila] = carteraEstado(p.deps);
 
-    expect(fila).toMatchObject({ rut: RUT_EMPRESA, alias: 'Mi Pyme', sesion: 'activa', f29Vencidos: 1, masAntiguoVencido: '2026-09', movimientosSinConciliar: 1 });
+    expect(fila).toMatchObject({ rut: RUT_EMPRESA, alias: 'Mi Pyme', sesion: 'activa', f29Vencidos: 1, f29PorConfirmar: 0, masAntiguoVencido: '2026-09', movimientosSinConciliar: 1 });
     expect(fila!.hallazgosCriticos).toBeGreaterThan(0);
     expect(fila!.avisosSinVer).toBeGreaterThan(0);
+  });
+
+  it('un F29 de un mes sin sincronizar cuyo plazo pasó cuenta como por confirmar y no como vencido', () => {
+    const p = depsDePrueba({ ahora: '2026-10-30T15:00:00.000Z' });
+    p.store.guardarContribuyente(perfilEmpresa());
+    const [fila] = carteraEstado(p.deps);
+    expect(fila).toMatchObject({ f29Vencidos: 0, f29PorConfirmar: 1, masAntiguoVencido: null });
   });
 });

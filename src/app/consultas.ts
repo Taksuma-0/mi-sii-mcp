@@ -211,7 +211,7 @@ export function plazos(deps: DepsApp, rutTexto: string, dias = 30): Plazo[] {
         : posiblementeVencido
           ? `F29 de ${texto} posiblemente vencido: si el F29 lleva pago, venció el ${conPago}; sin pago vence el ${sinPago}`
           : `Presentar el F29 de ${texto} (con pago hasta el ${conPago}; sin pago hasta el ${sinPago})`;
-    out.push({ rut: perfil.rut, tipo: 'F29', vence, diasRestantes: restantes, descripcion, referencia: texto });
+    out.push({ rut: perfil.rut, tipo: 'F29', vence, diasRestantes: restantes, descripcion, referencia: texto, ...(sincronizado ? {} : { porConfirmar: true }) });
   }
 
   for (const texto of [periodoAnterior(actual).texto, actual.texto]) {

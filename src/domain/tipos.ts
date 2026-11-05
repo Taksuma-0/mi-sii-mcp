@@ -142,6 +142,8 @@ export interface Plazo {
   readonly diasRestantes: number;
   readonly descripcion: string;
   readonly referencia: string | null;
+  /** F29 de un mes que no se ha sincronizado: no se sabe si ya está presentado. */
+  readonly porConfirmar?: boolean;
 }
 
 export interface RespuestaCruda {

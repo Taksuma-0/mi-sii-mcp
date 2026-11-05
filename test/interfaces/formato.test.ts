@@ -115,6 +115,16 @@ describe('formato', () => {
     expect(texto).toBe('⚠️ 1 plazo: 1 en 7 días o menos.\n⚠️ 2026-10-20 (vence hoy) — F29 de 2026-09');
   });
 
+  it('un F29 sin sincronizar cuyo plazo pasó sale ⚠️ por confirmar y no ⛔ vencido: puede estar presentado', () => {
+    const porConfirmar = { rut: '22222222-2', tipo: 'F29', vence: '2026-10-20', diasRestantes: -10, descripcion: 'F29 de 2026-09: sin sincronizar', referencia: '2026-09', porConfirmar: true } as const;
+    const despues = { rut: '22222222-2', tipo: 'F29', vence: '2026-11-20', diasRestantes: 30, descripcion: 'F29 de 2026-10', referencia: '2026-10' } as const;
+    expect(textoPlazos([porConfirmar, despues])).toBe(
+      ['⚠️ 2 plazos: 1 por confirmar, 1 más adelante.', '⚠️ 2026-10-20 (por confirmar: pasó hace 10 días) — F29 de 2026-09: sin sincronizar', 'ℹ️ 2026-11-20 (en 30 días) — F29 de 2026-10'].join('\n'),
+    );
+    const vencido = { ...despues, vence: '2026-09-20', diasRestantes: -40, descripcion: 'F29 de 2026-08 no presentado', referencia: '2026-08' };
+    expect(textoPlazos([vencido, porConfirmar]).split('\n')[0]).toBe('⛔ 2 plazos: 1 vencido, 1 por confirmar.');
+  });
+
   describe('cartera', () => {
     const base: FilaCartera = {
       rut: '22222222-2',
@@ -124,6 +134,7 @@ describe('formato', () => {
       ultimaSincronizacion: '2026-10-30T10:00:00.000Z',
       f29PorVencer: 1,
       f29Vencidos: 0,
+      f29PorConfirmar: 0,
       masAntiguoVencido: null,
       hallazgosCriticos: 0,
       proximoPlazo: { vence: '2026-11-20', descripcion: 'F29 de 2026-10' },
@@ -142,6 +153,12 @@ describe('formato', () => {
       expect(texto).toMatch(/^\| ⛔ \| Juana \(33333333-3\) \| activa \| 1 vencido \(desde 2026-09\), 1 por vencer \|/m);
       expect(texto).toMatch(/^\| ⚠️ \| Yo \(11111111-1\) \| sin sesión \|/m);
       expect(texto).not.toContain('Banco');
+    });
+
+    it('un F29 por confirmar deja la cuenta en ⚠️ y no en ⛔', () => {
+      const texto = textoCartera([{ ...base, f29PorConfirmar: 1 }]);
+      expect(texto.split('\n')[0]).toBe('⚠️ Cartera de 1 cuenta: 1 necesita atención.');
+      expect(texto).toMatch(/^\| ⚠️ \| Pyme \(22222222-2\) \| activa \| 0 vencidos, 1 por confirmar, 1 por vencer \|/m);
     });
 
     it('con todo al día lo dice con ✅, y muestra el banco solo si hay cartolas', () => {

@@ -3,7 +3,7 @@ import type { ResumenRenta } from '../../app/renta.js';
 import type { FilaCartera } from '../../app/vigilancia.js';
 import { formatearClp } from '../../domain/formato.js';
 import type { Plazo, RcvResumenFila } from '../../domain/tipos.js';
-import { columnasCartera, conclusionCartera, conclusionIva, conclusionPlazos, conclusionRenta, cuandoVence, DIAS_PLAZO_CERCANO, fecha, iconoCuenta, iconoPlazo, monto, plural, textoSaldo } from '../formato.js';
+import { columnasCartera, conclusionCartera, conclusionIva, conclusionPlazos, conclusionRenta, contarPlazos, cuandoVence, DIAS_PLAZO_CERCANO, fecha, iconoCuenta, iconoPlazo, monto, plural, textoSaldo } from '../formato.js';
 import { estado } from '../presentacion.js';
 import { barras, type PuntoSerie } from './graficos.js';
 import type { ContenidoInforme, EstadoTarjeta, GraficoInforme, TablaInforme } from './plantilla.js';
@@ -115,6 +115,7 @@ export function informeCartera(filas: readonly FilaCartera[], generado: string):
   const criticas = iconos.filter((i) => i === estado('critico')).length;
   const atencion = iconos.filter((i) => i !== estado('ok')).length;
   const vencidos = filas.reduce((s, f) => s + f.f29Vencidos, 0);
+  const porConfirmar = filas.reduce((s, f) => s + f.f29PorConfirmar, 0);
   const hallazgos = filas.reduce((s, f) => s + f.hallazgosCriticos, 0);
   const sinSesion = filas.filter((f) => f.sesion === 'sin_sesion').length;
   const columnas = columnasCartera(filas);
@@ -127,6 +128,7 @@ export function informeCartera(filas: readonly FilaCartera[], generado: string):
       { etiqueta: 'Cuentas', valor: String(filas.length) },
       { etiqueta: 'Necesitan atención', valor: String(atencion), estado: criticas > 0 ? 'critico' : atencion > 0 ? 'advertencia' : 'ok' },
       { etiqueta: 'F29 vencidos', valor: String(vencidos), estado: vencidos > 0 ? 'critico' : 'ok' },
+      ...(porConfirmar > 0 ? [{ etiqueta: 'F29 por confirmar', valor: String(porConfirmar), estado: 'advertencia' as const }] : []),
       { etiqueta: 'Hallazgos críticos', valor: String(hallazgos), estado: hallazgos > 0 ? 'critico' : 'ok' },
       { etiqueta: 'Sin sesión', valor: String(sinSesion), estado: sinSesion > 0 ? 'advertencia' : 'ok' },
     ],
@@ -141,8 +143,7 @@ export function informeCartera(filas: readonly FilaCartera[], generado: string):
 }
 
 export function informeVencimientos(plazos: readonly Plazo[], generado: string): ContenidoInforme {
-  const vencidos = plazos.filter((p) => p.diasRestantes < 0).length;
-  const cercanos = plazos.filter((p) => p.diasRestantes >= 0 && p.diasRestantes <= DIAS_PLAZO_CERCANO).length;
+  const { vencido: vencidos, por_confirmar: porConfirmar, cercano: cercanos, despues } = contarPlazos(plazos);
   return {
     titulo: 'Vencimientos',
     subtitulo: plural(plazos.length, 'plazo', 'plazos'),
@@ -150,13 +151,14 @@ export function informeVencimientos(plazos: readonly Plazo[], generado: string):
     conclusion: conclusionPlazos(plazos),
     tarjetas: [
       { etiqueta: 'Vencidos', valor: String(vencidos), estado: vencidos > 0 ? 'critico' : 'ok' },
+      ...(porConfirmar > 0 ? [{ etiqueta: 'Por confirmar', valor: String(porConfirmar), estado: 'advertencia' as const }] : []),
       { etiqueta: `En ${DIAS_PLAZO_CERCANO} días o menos`, valor: String(cercanos), estado: cercanos > 0 ? 'advertencia' : 'ok' },
-      { etiqueta: 'Más adelante', valor: String(plazos.length - vencidos - cercanos) },
+      { etiqueta: 'Más adelante', valor: String(despues) },
     ],
     graficos: [],
     tablas:
       plazos.length > 0
-        ? [{ titulo: 'Plazos', encabezados: ['Estado', 'Vence', 'Cuándo', 'Qué', 'RUT'], filas: plazos.map((p) => [iconoPlazo(p.diasRestantes), p.vence, cuandoVence(p.diasRestantes), p.descripcion, p.rut]) }]
+        ? [{ titulo: 'Plazos', encabezados: ['Estado', 'Vence', 'Cuándo', 'Qué', 'RUT'], filas: plazos.map((p) => [iconoPlazo(p), p.vence, cuandoVence(p), p.descripcion, p.rut]) }]
         : [],
     avisos: [],
   };

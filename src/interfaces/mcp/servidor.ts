@@ -620,7 +620,7 @@ export function crearServidorMcp(deps: DepsApp, version: string, opciones: Opcio
     {
       title: 'Estado de todas las cuentas',
       description:
-        'Una línea por cada cuenta configurada (empresas y personas, útil para un contador): sesión, F29 vencidos y por vencer, hallazgos críticos, próximo plazo, avisos sin ver, movimientos del banco sin conciliar y fecha de los datos. No va al SII: sincroniza las cuentas que lo necesiten.',
+        'Una línea por cada cuenta configurada (empresas y personas, útil para un contador): sesión, F29 vencidos, por confirmar (meses sin sincronizar) y por vencer, hallazgos críticos, próximo plazo, avisos sin ver, movimientos del banco sin conciliar y fecha de los datos. No va al SII: sincroniza las cuentas que lo necesiten.',
       inputSchema: z.object({}),
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },

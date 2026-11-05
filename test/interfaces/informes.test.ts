@@ -33,6 +33,7 @@ const filaCartera = (cambios: Partial<FilaCartera> = {}): FilaCartera => ({
   ultimaSincronizacion: '2026-10-30T10:00:00.000Z',
   f29PorVencer: 1,
   f29Vencidos: 0,
+  f29PorConfirmar: 0,
   masAntiguoVencido: null,
   hallazgosCriticos: 0,
   proximoPlazo: null,
@@ -202,5 +203,22 @@ describe('contenido de cada informe', () => {
     );
     expect(c.tarjetas.find((t) => t.etiqueta === 'Vencidos')).toMatchObject({ valor: '1', estado: 'critico' });
     expect(c.tablas[0]!.filas[0]).toEqual(['⛔', '2026-10-20', 'vencido hace 1 día', 'F29 vencido', '22222222-2']);
+  });
+
+  it('informeVencimientos muestra aparte, con ⚠️, los F29 sin sincronizar cuyo plazo pasó', () => {
+    const c = informeVencimientos(
+      [{ rut: '22222222-2', tipo: 'F29', vence: '2026-10-20', diasRestantes: -10, descripcion: 'F29 de 2026-09: sin sincronizar', referencia: '2026-09', porConfirmar: true }],
+      GENERADO,
+    );
+    expect(c.tarjetas.find((t) => t.etiqueta === 'Vencidos')).toMatchObject({ valor: '0', estado: 'ok' });
+    expect(c.tarjetas.find((t) => t.etiqueta === 'Por confirmar')).toMatchObject({ valor: '1', estado: 'advertencia' });
+    expect(c.tablas[0]!.filas[0]).toEqual(['⚠️', '2026-10-20', 'por confirmar: pasó hace 10 días', 'F29 de 2026-09: sin sincronizar', '22222222-2']);
+  });
+
+  it('informeCartera cuenta aparte los F29 por confirmar, como advertencia', () => {
+    const c = informeCartera([filaCartera({ f29PorConfirmar: 2 })], GENERADO);
+    expect(c.tarjetas.find((t) => t.etiqueta === 'Necesitan atención')).toMatchObject({ valor: '1', estado: 'advertencia' });
+    expect(c.tarjetas.find((t) => t.etiqueta === 'F29 por confirmar')).toMatchObject({ valor: '2', estado: 'advertencia' });
+    expect(informeCartera([filaCartera()], GENERADO).tarjetas.some((t) => t.etiqueta === 'F29 por confirmar')).toBe(false);
   });
 });

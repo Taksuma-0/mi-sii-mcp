@@ -67,7 +67,7 @@ Las 33 herramientas del servidor, con sus parámetros:
 | Herramienta | Parámetros | Qué hace |
 | --- | --- | --- |
 | `novedades` | `rut?`, `marcar_vistas?` | Avisos de la revisión diaria que aún no se ven; por defecto los marca como vistos. |
-| `cartera_estado` | — | Una fila por cuenta, con el ícono de su peor estado: sesión, F29 vencidos o por vencer, hallazgos críticos, próximo plazo, avisos sin ver y movimientos sin conciliar. |
+| `cartera_estado` | — | Una fila por cuenta, con el ícono de su peor estado: sesión, F29 vencidos, por confirmar (meses sin sincronizar) o por vencer, hallazgos críticos, próximo plazo, avisos sin ver y movimientos sin conciliar. |
 | `diagnostico` | `rut?` | Salud de mi-sii-mcp: versión, base y respaldo, sesión y última lectura buena por cuenta, fallas por reintentar y cambios del portal (campos nuevos, nombres adaptados, lecturas rotas). |
 
 ### Informe visual

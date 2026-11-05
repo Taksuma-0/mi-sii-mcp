@@ -143,7 +143,7 @@ export function registrarRecetas(servidor: McpServer): void {
         [
           'Revisa con mi-sii-mcp todas las cuentas configuradas:',
           '1. cartera_estado para ver cada cuenta en una línea.',
-          '2. A las que tengan F29 vencidos o por vencer, f29_estimar del mes; a las que tengan hallazgos críticos, iva_hallazgos.',
+          '2. A las que tengan F29 vencidos o por vencer, f29_estimar del mes; a las con F29 por confirmar, sincronizar ese mes; a las que tengan hallazgos críticos, iva_hallazgos.',
           '3. A las sin sesión, ofrece conectarlas con cuenta_conectar; a las con datos viejos, sincronizar el mes.',
           presentaAsi('una fila por cuenta, ordenada por urgencia: qué vence, cuánto pagar y el siguiente paso', 'con tipo cartera'),
         ].join('\n'),

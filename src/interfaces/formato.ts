@@ -103,25 +103,43 @@ export function textoResumenIva(r: ResumenIva): string {
 /** Días hacia adelante en que un plazo se marca como cercano (⚠️). */
 export const DIAS_PLAZO_CERCANO = 7;
 const dias = (n: number): string => plural(n, 'día', 'días');
-export const iconoPlazo = (d: number): Icono => (d < 0 ? estado('critico') : d <= DIAS_PLAZO_CERCANO ? estado('advertencia') : estado('info'));
-export const cuandoVence = (d: number): string => (d < 0 ? `vencido hace ${dias(-d)}` : d === 0 ? 'vence hoy' : `en ${dias(d)}`);
+export type ClasePlazo = 'vencido' | 'por_confirmar' | 'cercano' | 'despues';
 
-export function textoPlazos(plazos: readonly Plazo[]): string {
-  return [conclusionPlazos(plazos), ...plazos.map((p) => `${iconoPlazo(p.diasRestantes)} ${p.vence} (${cuandoVence(p.diasRestantes)}) — ${p.descripcion}`)].join('\n');
+/** Un F29 sin sincronizar cuyo plazo pasó queda «por confirmar»: puede estar presentado y solo falta traerlo. */
+export const clasePlazo = (p: Plazo): ClasePlazo =>
+  p.diasRestantes < 0 ? (p.porConfirmar === true ? 'por_confirmar' : 'vencido') : p.diasRestantes <= DIAS_PLAZO_CERCANO ? 'cercano' : 'despues';
+
+const ICONO_PLAZO: Readonly<Record<ClasePlazo, Icono>> = { vencido: estado('critico'), por_confirmar: estado('advertencia'), cercano: estado('advertencia'), despues: estado('info') };
+
+export const iconoPlazo = (p: Plazo): Icono => ICONO_PLAZO[clasePlazo(p)];
+export function cuandoVence(p: Plazo): string {
+  const d = p.diasRestantes;
+  if (d < 0) return p.porConfirmar === true ? `por confirmar: pasó hace ${dias(-d)}` : `vencido hace ${dias(-d)}`;
+  return d === 0 ? 'vence hoy' : `en ${dias(d)}`;
 }
 
-/** Cuántos plazos hay vencidos, cercanos y más adelante, con el ícono del más urgente. */
+/** Cuántos plazos de cada clase hay. */
+export const contarPlazos = (plazos: readonly Plazo[]): Readonly<Record<ClasePlazo, number>> => {
+  const cuenta: Record<ClasePlazo, number> = { vencido: 0, por_confirmar: 0, cercano: 0, despues: 0 };
+  for (const p of plazos) cuenta[clasePlazo(p)]++;
+  return cuenta;
+};
+
+export function textoPlazos(plazos: readonly Plazo[]): string {
+  return [conclusionPlazos(plazos), ...plazos.map((p) => `${iconoPlazo(p)} ${p.vence} (${cuandoVence(p)}) — ${p.descripcion}`)].join('\n');
+}
+
+/** Cuántos plazos hay vencidos, por confirmar, cercanos y más adelante, con el ícono del más urgente. */
 export function conclusionPlazos(plazos: readonly Plazo[]): string {
   if (plazos.length === 0) return conclusion(estado('ok'), 'Sin plazos próximos.');
-  const vencidos = plazos.filter((p) => p.diasRestantes < 0).length;
-  const cercanos = plazos.filter((p) => p.diasRestantes >= 0 && p.diasRestantes <= DIAS_PLAZO_CERCANO).length;
-  const despues = plazos.length - vencidos - cercanos;
+  const { vencido, por_confirmar, cercano, despues } = contarPlazos(plazos);
   const partes = [
-    ...(vencidos > 0 ? [plural(vencidos, 'vencido', 'vencidos')] : []),
-    ...(cercanos > 0 ? [`${cercanos} en ${DIAS_PLAZO_CERCANO} días o menos`] : []),
+    ...(vencido > 0 ? [plural(vencido, 'vencido', 'vencidos')] : []),
+    ...(por_confirmar > 0 ? [`${por_confirmar} por confirmar`] : []),
+    ...(cercano > 0 ? [`${cercano} en ${DIAS_PLAZO_CERCANO} días o menos`] : []),
     ...(despues > 0 ? [`${despues} más adelante`] : []),
   ];
-  return conclusion(iconoPlazo(Math.min(...plazos.map((p) => p.diasRestantes))), `${plural(plazos.length, 'plazo', 'plazos')}: ${partes.join(', ')}.`);
+  return conclusion(peorIcono(plazos.map(iconoPlazo)), `${plural(plazos.length, 'plazo', 'plazos')}: ${partes.join(', ')}.`);
 }
 
 const TEXTO_DIA20 = (autorizado: boolean | null): string => (autorizado === null ? 'sin dato' : autorizado ? 'autorizado' : 'no autorizado');
@@ -679,9 +697,16 @@ export function textoNovedades(avisos: readonly Aviso[]): string {
   return [conclusion(estado(peor), `Novedades: ${plural(avisos.length, 'aviso sin ver', 'avisos sin ver')}.`), ...textoAvisos(avisos)].join('\n');
 }
 
-/** El peor estado de una cuenta: ⛔ si tiene F29 vencidos o hallazgos críticos, ⚠️ si está sin sesión o con avisos sin ver. */
+/**
+ * El peor estado de una cuenta: ⛔ si tiene F29 vencidos o hallazgos críticos; ⚠️ si está sin sesión, con avisos sin
+ * ver o con F29 por confirmar.
+ */
 export const iconoCuenta = (f: FilaCartera): Icono =>
-  f.f29Vencidos > 0 || f.hallazgosCriticos > 0 ? estado('critico') : f.sesion === 'sin_sesion' || f.avisosSinVer > 0 ? estado('advertencia') : estado('ok');
+  f.f29Vencidos > 0 || f.hallazgosCriticos > 0
+    ? estado('critico')
+    : f.sesion === 'sin_sesion' || f.avisosSinVer > 0 || f.f29PorConfirmar > 0
+      ? estado('advertencia')
+      : estado('ok');
 
 /** El peor de varios íconos de estado. */
 export const peorIcono = (iconos: readonly Icono[]): Icono =>
@@ -694,7 +719,7 @@ export function columnasCartera(filas: readonly FilaCartera[]): { encabezados: s
     iconoCuenta(f),
     `${f.alias} (${f.rut})`,
     f.sesion === 'activa' ? 'activa' : 'sin sesión',
-    `${plural(f.f29Vencidos, 'vencido', 'vencidos')}${f.masAntiguoVencido ? ` (desde ${f.masAntiguoVencido})` : ''}, ${f.f29PorVencer} por vencer`,
+    `${plural(f.f29Vencidos, 'vencido', 'vencidos')}${f.masAntiguoVencido ? ` (desde ${f.masAntiguoVencido})` : ''}${f.f29PorConfirmar > 0 ? `, ${f.f29PorConfirmar} por confirmar` : ''}, ${f.f29PorVencer} por vencer`,
     String(f.hallazgosCriticos),
     f.proximoPlazo ? `${f.proximoPlazo.vence} ${f.proximoPlazo.descripcion}` : '—',
     String(f.avisosSinVer),

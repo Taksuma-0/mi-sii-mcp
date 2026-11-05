@@ -260,6 +260,18 @@ describe('plazos', () => {
     const { deps } = conEmpresa();
     expect(plazos(deps, RUT_EMPRESA)[0]?.descripcion).toBe('F29 de 2026-09: sin sincronizar; sincroniza ese mes para confirmar si está presentado');
   });
+
+  it('un F29 de un mes sin sincronizar queda por confirmar: puede estar presentado y solo falta traerlo', () => {
+    const { deps } = conEmpresa();
+    expect(plazos(deps, RUT_EMPRESA)[0]).toMatchObject({ tipo: 'F29', referencia: '2026-09', porConfirmar: true });
+  });
+
+  it('un F29 de un mes sincronizado no queda por confirmar', () => {
+    const { deps, store } = depsDePrueba({ ahora: '2026-10-10T15:00:00.000Z' });
+    store.guardarContribuyente(perfilEmpresa());
+    sembrarMes(store, '2026-09', { resumenes: [resumen()], declaraciones: [] });
+    expect(plazos(deps, RUT_EMPRESA)[0]).not.toHaveProperty('porConfirmar');
+  });
 });
 
 describe('historial y documentos', () => {
