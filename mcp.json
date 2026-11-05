@@ -3,7 +3,7 @@
     "mi-sii-mcp": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "mi-sii-mcp@0.3.0", "mcp"]
+      "args": ["-y", "mi-sii-mcp@0.3.1", "mcp"]
     }
   }
 }
