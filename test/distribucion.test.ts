@@ -110,3 +110,22 @@ describe('casos de las evals del asistente', () => {
     }
   });
 });
+
+describe('paquete de npm y publicación', () => {
+  interface Tsconfig { compilerOptions?: Record<string, unknown> }
+
+  it('el paquete no lleva mapas de fuente: el código fuente no viaja con él y solo sumarían peso', () => {
+    for (const archivo of ['tsconfig.json', 'tsconfig.build.json']) {
+      const opciones = leer<Tsconfig>(archivo).compilerOptions ?? {};
+      for (const opcion of ['sourceMap', 'inlineSourceMap', 'declarationMap']) expect(opciones[opcion], `${archivo}: ${opcion}`).not.toBe(true);
+    }
+  });
+
+  it('Publicar comprueba la huella de mcp-publisher antes de usarlo', () => {
+    const flujo = readFileSync(resolve(RAIZ, '.github', 'workflows', 'publicar.yml'), 'utf8');
+    expect(flujo).toMatch(/\b[0-9a-f]{64}\s+mcp-publisher_linux_amd64\.tar\.gz\b/);
+    expect(flujo).toMatch(/sha256sum (-c|--check)/);
+    // Descargar y descomprimir de un tirón ejecutaría un binario sin revisar.
+    expect(flujo).not.toMatch(/curl[^\n]*\|\s*tar/);
+  });
+});
