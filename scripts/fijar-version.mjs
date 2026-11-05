@@ -28,6 +28,8 @@ const piezas = [
   ['gemini-extension.json', [[new RegExp(`"version": "${SEMVER}"`), `"version": "${version}"`], [new RegExp(`mi-sii-mcp@${SEMVER}`, 'g'), `mi-sii-mcp@${version}`]]],
   ['mcp.json', [[new RegExp(`mi-sii-mcp@${SEMVER}`, 'g'), `mi-sii-mcp@${version}`]]],
   ['docs/index.html', [[new RegExp(`"softwareVersion": "${SEMVER}"`), `"softwareVersion": "${version}"`]]],
+  // La que muestran `--version` y diagnostico, y con la que se compara la última de npm.
+  ['src/main/version.ts', [[new RegExp(`export const VERSION = '${SEMVER}';`), `export const VERSION = '${version}';`]]],
 ];
 for (const [archivo, cambios] of piezas) {
   const ruta = resolve(RAIZ, archivo);
@@ -39,4 +41,4 @@ for (const [archivo, cambios] of piezas) {
   }
   writeFileSync(ruta, texto);
 }
-console.log(`Versión ${version} en package.json, package-lock.json, server.json, el plugin, la extensión, mcp.json y el sitio.`);
+console.log(`Versión ${version} en package.json, package-lock.json, server.json, el programa, el plugin, la extensión, mcp.json y el sitio.`);

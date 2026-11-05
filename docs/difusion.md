@@ -128,11 +128,11 @@ Cómo se publicó en npm (sirve para las versiones siguientes):
 3. **Directorio de Anthropic.** Con un plan pagado de claude.ai, entra a https://claude.ai/directory/manage y envía el plugin desde el repositorio `Taksuma-0/mi-sii-mcp` (ruta: la raíz). La revisión retiene los servidores que se lanzan con npx aunque tengan versión fija («Runs a pinned npx or uvx package») y puede revisar el nombre por contener «SII»: el README ya aclara que no es oficial.
 4. ~~Cline~~: enviado el 02-11-2026 (issue #3460). Si lo pruebas en Cline y funciona, marca en el issue la casilla de la prueba.
 5. **cursor.directory.** Entra a https://cursor.directory/plugins/new con GitHub o Google, pega `https://github.com/Taksuma-0/mi-sii-mcp` y envía: detecta solo el plugin, la skill y el servidor.
-6. **Siguiente versión.** Al publicar la 0.3.0, sigue la lista de abajo; su tag hace que la galería de Gemini CLI indexe la extensión.
+6. **Siguiente versión.** Sigue la lista de abajo; cada tag hace que la galería de Gemini CLI indexe la extensión.
 
 ### Al publicar una versión nueva
 
-1. `npm run version:fijar -- X.Y.Z` pone la versión en `package.json`, `package-lock.json`, `server.json`, el plugin, la extensión, `mcp.json` y el sitio. La prueba `test/distribucion.test.ts` exige que coincidan.
+1. `npm run version:fijar -- X.Y.Z` pone la versión en `package.json`, `package-lock.json`, `server.json`, el programa (`src/main/version.ts`), el plugin, la extensión, `mcp.json` y el sitio. La prueba `test/distribucion.test.ts` exige que coincidan.
 2. Commit y push a `main`. El workflow «Pruebas» corre los tipos, las pruebas y el servidor compilado en Windows, macOS y Linux.
 3. `git tag vX.Y.Z` y `git push origin vX.Y.Z`. El workflow «Publicar» repite las pruebas, publica en npm con *trusted publishing* (sin códigos y con procedencia verificada) y en el MCP Registry (con el OIDC de GitHub), y crea el release. Glama toma el release solo y la galería de Gemini CLI indexa el tag.
 4. Si npm o el registro fallan, el plugin y la extensión quedan apuntando a una versión que npm aún no tiene: corrige y vuelve a correr el workflow, o publica a mano con los pasos de arriba.
