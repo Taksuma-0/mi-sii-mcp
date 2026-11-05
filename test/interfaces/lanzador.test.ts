@@ -27,12 +27,28 @@ describe('comando para abrir un informe', () => {
   const carpeta = join(tmpdir(), 'mi-sii-mcp', 'informes');
   const ruta = join(carpeta, 'iva-11111111-1-2026-09.html');
 
+  it('en win32 lo abre con PowerShell y le pasa la ruta por el entorno, nunca dentro del comando', () => {
+    expect(comandoArchivo('win32', ruta, carpeta)).toEqual({
+      comando: 'powershell.exe',
+      args: ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-Command', 'Invoke-Item -LiteralPath $env:MI_SII_MCP_INFORME'],
+      entorno: { MI_SII_MCP_INFORME: ruta },
+    });
+  });
+
   it.each([
-    ['win32', 'powershell.exe', ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-Command', `Start-Process -FilePath '${ruta}'`]],
-    ['darwin', 'open', [ruta]],
-    ['linux', 'xdg-open', [ruta]],
-  ] as const)('en %s usa %s', (plataforma, comando, args) => {
-    expect(comandoArchivo(plataforma, ruta, carpeta)).toEqual({ comando, args });
+    ['darwin', 'open'],
+    ['linux', 'xdg-open'],
+  ] as const)('en %s usa %s con la ruta como argumento aparte', (plataforma, comando) => {
+    expect(comandoArchivo(plataforma, ruta, carpeta)).toEqual({ comando, args: [ruta] });
+  });
+
+  // Windows admite estos caracteres en el nombre de usuario, y la carpeta de datos vive dentro del perfil.
+  it.each(["D'Arcy", 'Ana (casa)', 'Pérez & Cía', 'Rojas, Juan', 'caja $x; calc'])('lo abre aunque la carpeta de la persona se llame «%s»', (usuario) => {
+    const propia = join(tmpdir(), usuario, '.mi-sii-mcp', 'informes');
+    const informe = join(propia, 'iva-11111111-1-2026-09.html');
+    const { args, entorno } = comandoArchivo('win32', informe, propia);
+    expect(entorno).toEqual({ MI_SII_MCP_INFORME: informe });
+    expect(args.some((a) => a.includes(usuario))).toBe(false);
   });
 
   it.each([
@@ -40,7 +56,7 @@ describe('comando para abrir un informe', () => {
     ['con ..', `${carpeta}${sep}..${sep}informes${sep}x.html`],
     ['que no es .html', join(carpeta, 'x.exe')],
     ['con .html en medio', join(carpeta, 'x.html.exe')],
-    ['con comillas y punto y coma', join(carpeta, "x';calc;'.html")],
+    ['con un salto de línea', join(carpeta, 'x\n.html')],
     ['la carpeta misma', carpeta],
   ])('rechaza una ruta %s', (_, otra) => {
     expect(() => comandoArchivo('win32', otra, carpeta)).toThrow('Ruta de informe inválida');

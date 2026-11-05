@@ -10,6 +10,8 @@ const URL_LOCAL = /^http:\/\/127\.0\.0\.1:\d+$/;
 export interface ComandoNavegador {
   readonly comando: string;
   readonly args: readonly string[];
+  /** Variables que se suman al entorno del proceso: así un dato nunca va escrito dentro de un comando. */
+  readonly entorno?: Readonly<Record<string, string>>;
 }
 
 /** El comando del sistema que abre `url` en el navegador predeterminado. */
@@ -21,32 +23,39 @@ export function comandoNavegador(plataforma: NodeJS.Platform, url: string): Coma
   return { comando: 'xdg-open', args: [url] };
 }
 
-/**
- * Caracteres de una ruta de informe que se pueden pasar al comando del sistema: letras (también con tilde), números,
- * espacio y `_ . : \ / - ~` (este último, por los nombres cortos de Windows). Sin comillas, `$`, `;` ni `&`.
- */
-const RUTA_SEGURA = /^[\p{L}\p{N}_ .:\\/~-]+$/u;
+/** Saltos de línea y otros caracteres de control: ninguna ruta de informe los lleva. */
+const CONTROL = /\p{Cc}/u;
 
-/** El comando del sistema que abre en el navegador un informe: solo un `.html` dentro de `carpeta`. */
+/**
+ * El comando del sistema que abre en el navegador un informe: solo un `.html` dentro de `carpeta`.
+ * En Windows, PowerShell recibe la ruta por el entorno y no dentro del comando: así sirve con cualquier nombre de
+ * carpeta (`D'Arcy`, `Ana (casa)`) y ningún carácter de la ruta se interpreta como código.
+ */
 export function comandoArchivo(plataforma: NodeJS.Platform, ruta: string, carpeta: string): ComandoNavegador {
   const resuelta = resolve(ruta);
   const dentro = relative(resolve(carpeta), resuelta);
   const valida =
-    RUTA_SEGURA.test(resuelta) &&
+    !CONTROL.test(resuelta) &&
     !ruta.split(/[\\/]/).includes('..') &&
     extname(resuelta).toLowerCase() === '.html' &&
     dentro !== '' &&
     !dentro.startsWith('..') &&
     !isAbsolute(dentro);
   if (!valida) throw new Error('Ruta de informe inválida.');
-  if (plataforma === 'win32') return { comando: 'powershell.exe', args: ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-Command', `Start-Process -FilePath '${resuelta}'`] };
+  if (plataforma === 'win32') {
+    return {
+      comando: 'powershell.exe',
+      args: ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-Command', 'Invoke-Item -LiteralPath $env:MI_SII_MCP_INFORME'],
+      entorno: { MI_SII_MCP_INFORME: resuelta },
+    };
+  }
   if (plataforma === 'darwin') return { comando: 'open', args: [resuelta] };
   return { comando: 'xdg-open', args: [resuelta] };
 }
 
-async function ejecutar({ comando, args }: ComandoNavegador): Promise<void> {
+async function ejecutar({ comando, args, entorno }: ComandoNavegador): Promise<void> {
   await new Promise<void>((resolver, rechazar) => {
-    const proceso = spawn(comando, [...args], { windowsHide: true, stdio: 'ignore' });
+    const proceso = spawn(comando, [...args], { windowsHide: true, stdio: 'ignore', ...(entorno === undefined ? {} : { env: { ...process.env, ...entorno } }) });
     proceso.once('error', rechazar);
     proceso.once('exit', (codigo) => (codigo === 0 ? resolver() : rechazar(new Error('No se pudo abrir el navegador.'))));
   });
